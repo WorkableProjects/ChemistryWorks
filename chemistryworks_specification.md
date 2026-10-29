@@ -232,9 +232,10 @@ function evaluateAndSubmitTest(testSchema, studentAnswers, studentProfile) {
 
 ## 8. Deployment & Setup Guide
 
+(MAKE A FILE FOR THIS IN CASE THIS SECTION ITS NOT RIGHT)
+
 To deploy **ChemistryWorks** end-to-end, follow these configuration steps across Google Cloud Platform, Google Apps Script, Netlify, and your source repository.
 
-(MAKE A FILE FOR THIS IN CASE ITS NOT RIGHT)
 
 ### 8.1 Step 1: Google Cloud Console Setup (Google Sign-In)
 
