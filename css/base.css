@@ -283,3 +283,6 @@ img { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
+
+/* Keep toasts clear of the runner's sticky footer bar. */
+body[data-view="runner"] .toast-root { bottom: 88px; }
