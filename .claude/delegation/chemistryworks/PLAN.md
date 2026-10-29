@@ -23,3 +23,8 @@ Priorities from the user: functionality first; polished UI/animation; "world-cla
 ## Risks
 - T02/T03 import T01/T04 modules that are written concurrently: they must code strictly against the interfaces in ARCHITECTURE.md.
 - KaTeX/GIS come from CDNs; the app must still work (raw text) if they fail.
+
+## Outcome
+- All 5 tasks DONE on first dispatch (Sonnet). No escalations.
+- Opus integration fixes: camelCase/snake_case flags mismatch (submit.js); formula charge heuristic (NH4+, SO4 2-, arrows); npm test glob; DEPLOYMENT anchors in admin settings; reloads no longer counted as tab switches; toast offset; formula-injection guards (Apps Script rows, CSV export); landing/builder autofocus races (found by T05).
+- Final verification (planner-run): validate:tests 4/4, unit 258/258, E2E 43/43.
