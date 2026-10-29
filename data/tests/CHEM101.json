@@ -1,0 +1,99 @@
+{
+  "code": "CHEM101",
+  "title": "Foundations of Chemistry",
+  "description": "Atoms, formulas, the mole, and reactions — a quick diagnostic covering every question type.",
+  "timeLimitMinutes": 20,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "text": "Which subatomic particle determines the identity of an element?",
+      "points": 1,
+      "options": [
+        { "id": "a", "text": "Neutron" },
+        { "id": "b", "text": "Proton" },
+        { "id": "c", "text": "Electron" },
+        { "id": "d", "text": "Positron" }
+      ],
+      "correctAnswer": "b",
+      "explanation": "The atomic number (number of protons) defines the element."
+    },
+    {
+      "id": "q2",
+      "type": "multi",
+      "text": "Select ALL of the following that are noble gases.",
+      "points": 2,
+      "partialCredit": true,
+      "options": [
+        { "id": "a", "text": "Helium (He)" },
+        { "id": "b", "text": "Nitrogen (N)" },
+        { "id": "c", "text": "Argon (Ar)" },
+        { "id": "d", "text": "Chlorine (Cl)" },
+        { "id": "e", "text": "Xenon (Xe)" }
+      ],
+      "correctAnswer": ["a", "c", "e"],
+      "explanation": "He, Ar and Xe are in Group 18."
+    },
+    {
+      "id": "q3",
+      "type": "numeric",
+      "text": "What is the molar mass of water, $\\ce{H2O}$, in g/mol? (H = 1.008, O = 16.00)",
+      "points": 2,
+      "correctAnswer": 18.016,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "unit": "g/mol",
+      "explanation": "2(1.008) + 16.00 = 18.016 g/mol."
+    },
+    {
+      "id": "q4",
+      "type": "formula",
+      "text": "Write the chemical formula for sulfuric acid.",
+      "points": 1,
+      "correctAnswer": "H2SO4",
+      "explanation": "Sulfuric acid is $\\ce{H2SO4}$."
+    },
+    {
+      "id": "q5",
+      "type": "truefalse",
+      "text": "In the reaction $\\ce{2H2 + O2 -> 2H2O}$, mass is conserved.",
+      "points": 1,
+      "correctAnswer": true,
+      "explanation": "The law of conservation of mass holds for all chemical reactions."
+    },
+    {
+      "id": "q6",
+      "type": "matching",
+      "text": "Match each element to its most common oxidation state in ionic compounds.",
+      "points": 3,
+      "partialCredit": true,
+      "left": [
+        { "id": "na", "text": "Sodium (Na)" },
+        { "id": "mg", "text": "Magnesium (Mg)" },
+        { "id": "al", "text": "Aluminum (Al)" }
+      ],
+      "right": [
+        { "id": "p1", "text": "+1" },
+        { "id": "p2", "text": "+2" },
+        { "id": "p3", "text": "+3" },
+        { "id": "m1", "text": "−1" }
+      ],
+      "correctAnswer": { "na": "p1", "mg": "p2", "al": "p3" },
+      "explanation": "Group 1 → +1, Group 2 → +2, Al (Group 13) → +3."
+    },
+    {
+      "id": "q7",
+      "type": "numeric",
+      "text": "How many molecules are in 2.00 mol of $\\ce{CO2}$? ($N_A = 6.022 \\times 10^{23}$)",
+      "points": 2,
+      "correctAnswer": 1.2044e24,
+      "tolerance": 1,
+      "toleranceType": "percent",
+      "explanation": "$2.00 \\times 6.022\\times10^{23} = 1.204\\times10^{24}$ molecules."
+    }
+  ]
+}

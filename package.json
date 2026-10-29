@@ -1,0 +1,15 @@
+{
+  "name": "chemistryworks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ChemistryWorks — serverless chemistry testing platform (static HTML + Netlify Forms + Google Apps Script).",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test test/unit/",
+    "test:e2e": "node --test --test-concurrency=1 test/e2e/",
+    "test:all": "npm test && npm run test:e2e",
+    "validate:tests": "node scripts/validate-tests.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
