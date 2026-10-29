@@ -179,6 +179,13 @@ function normalizeSubmission_(body) {
   };
 }
 
+// Sheets evaluates strings starting with = + - @ as formulas; prefix an apostrophe so student-supplied
+// text is always stored as literal text (prevents formula injection into the teacher's sheet).
+function text_(v) {
+  var str = String(v == null ? '' : v);
+  return /^[=+\-@]/.test(str) ? "'" + str : str;
+}
+
 function handleSubmission_(body) {
   var s = normalizeSubmission_(body);
   if (!s.submission_id) return { result: 'error', error: 'missing_submission_id' };
@@ -193,10 +200,10 @@ function handleSubmission_(body) {
     sheet.appendRow([
       new Date(),
       s.submission_id,
-      s.student_name,
-      s.student_email,
-      s.test_code,
-      s.test_title,
+      text_(s.student_name),
+      text_(s.student_email),
+      text_(s.test_code),
+      text_(s.test_title),
       s.score_achieved,
       s.score_total,
       s.percentage,

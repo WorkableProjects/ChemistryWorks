@@ -163,7 +163,9 @@ export function questionStats(rows) {
 
 /** Quote one CSV field (RFC 4180): wrap when it has comma, quote, CR or LF; double inner quotes. */
 export function csvField(value) {
-  const s = value == null ? '' : String(value);
+  let s = value == null ? '' : String(value);
+  // Neutralize spreadsheet formula injection (=, +, -, @) in text values; leave real numbers alone.
+  if (typeof value === 'string' && /^[=+\-@]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

