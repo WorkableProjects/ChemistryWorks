@@ -1,0 +1,227 @@
+{
+  "code": "CHEM110",
+  "title": "Periodic Table & Bonding",
+  "description": "Periodic trends, ions, ionic and covalent bonding, and molecular shapes.",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": true,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "points": 1,
+      "text": "Which of these elements has the highest electronegativity?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Fluorine (F)"
+        },
+        {
+          "id": "b",
+          "text": "Oxygen (O)"
+        },
+        {
+          "id": "c",
+          "text": "Chlorine (Cl)"
+        },
+        {
+          "id": "d",
+          "text": "Nitrogen (N)"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": "Electronegativity increases across a period and up a group. Fluorine (about 3.98 on the Pauling scale) is the most electronegative element."
+    },
+    {
+      "id": "q2",
+      "type": "multi",
+      "points": 3,
+      "partialCredit": true,
+      "text": "Select ALL compounds that contain ionic bonds.",
+      "options": [
+        {
+          "id": "a",
+          "text": "$\\ce{NaCl}$"
+        },
+        {
+          "id": "b",
+          "text": "$\\ce{MgO}$"
+        },
+        {
+          "id": "c",
+          "text": "$\\ce{CH4}$"
+        },
+        {
+          "id": "d",
+          "text": "$\\ce{CaF2}$"
+        },
+        {
+          "id": "e",
+          "text": "$\\ce{CO2}$"
+        }
+      ],
+      "correctAnswer": [
+        "a",
+        "b",
+        "d"
+      ],
+      "explanation": "Ionic compounds join a metal to a nonmetal: $\\ce{NaCl}$, $\\ce{MgO}$ and $\\ce{CaF2}$. $\\ce{CH4}$ and $\\ce{CO2}$ contain only nonmetals and are covalent."
+    },
+    {
+      "id": "q3",
+      "type": "formula",
+      "points": 2,
+      "text": "Write the formula for magnesium nitrate.",
+      "caseSensitive": true,
+      "correctAnswer": "Mg(NO3)2",
+      "explanation": "Magnesium is $\\ce{Mg^{2+}}$ and nitrate is $\\ce{NO3-}$. Two nitrate ions are needed to balance one magnesium ion: $\\ce{Mg(NO3)2}$."
+    },
+    {
+      "id": "q4",
+      "type": "truefalse",
+      "points": 1,
+      "text": "Atomic radius generally decreases from left to right across a period.",
+      "correctAnswer": true,
+      "explanation": "Across a period the nuclear charge increases while electrons are added to the same shell, so the electrons are pulled in more tightly and the radius shrinks."
+    },
+    {
+      "id": "q5",
+      "type": "matching",
+      "points": 4,
+      "partialCredit": true,
+      "text": "Match each molecule to its molecular geometry (VSEPR).",
+      "left": [
+        {
+          "id": "ch4",
+          "text": "$\\ce{CH4}$"
+        },
+        {
+          "id": "nh3",
+          "text": "$\\ce{NH3}$"
+        },
+        {
+          "id": "h2o",
+          "text": "$\\ce{H2O}$"
+        },
+        {
+          "id": "co2",
+          "text": "$\\ce{CO2}$"
+        }
+      ],
+      "right": [
+        {
+          "id": "tet",
+          "text": "Tetrahedral"
+        },
+        {
+          "id": "pyr",
+          "text": "Trigonal pyramidal"
+        },
+        {
+          "id": "bent",
+          "text": "Bent"
+        },
+        {
+          "id": "lin",
+          "text": "Linear"
+        },
+        {
+          "id": "pla",
+          "text": "Trigonal planar"
+        }
+      ],
+      "correctAnswer": {
+        "ch4": "tet",
+        "nh3": "pyr",
+        "h2o": "bent",
+        "co2": "lin"
+      },
+      "explanation": "$\\ce{CH4}$ has 4 bonding pairs (tetrahedral). $\\ce{NH3}$ has 3 bonding pairs and 1 lone pair (trigonal pyramidal). $\\ce{H2O}$ has 2 bonding pairs and 2 lone pairs (bent). $\\ce{CO2}$ has two double bonds and no lone pairs on carbon (linear)."
+    },
+    {
+      "id": "q6",
+      "type": "numeric",
+      "points": 1,
+      "text": "How many electrons are in one chloride ion, $\\ce{Cl-}$? (Chlorine has atomic number 17.)",
+      "correctAnswer": 18,
+      "tolerance": 0,
+      "toleranceType": "absolute",
+      "unit": "",
+      "explanation": "A neutral chlorine atom has 17 electrons. The chloride ion has gained one electron, so it has 18."
+    },
+    {
+      "id": "q7",
+      "type": "mcq",
+      "points": 1,
+      "text": "Which molecule contains a triple bond?",
+      "options": [
+        {
+          "id": "a",
+          "text": "$\\ce{O2}$"
+        },
+        {
+          "id": "b",
+          "text": "$\\ce{N2}$"
+        },
+        {
+          "id": "c",
+          "text": "$\\ce{Cl2}$"
+        },
+        {
+          "id": "d",
+          "text": "$\\ce{CO2}$"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": "Each nitrogen atom needs three more electrons, so two N atoms share three pairs: $\\ce{N#N}$. $\\ce{O2}$ has a double bond, $\\ce{Cl2}$ a single bond, and $\\ce{CO2}$ has two C=O double bonds."
+    },
+    {
+      "id": "q8",
+      "type": "numeric",
+      "points": 2,
+      "text": "How many valence electrons are available in total for drawing the Lewis structure of $\\ce{CO2}$?",
+      "correctAnswer": 16,
+      "tolerance": 0,
+      "toleranceType": "absolute",
+      "unit": "",
+      "explanation": "Carbon contributes 4 valence electrons and each oxygen contributes 6: 4 + 6 + 6 = 16."
+    },
+    {
+      "id": "q9",
+      "type": "mcq",
+      "points": 1,
+      "text": "Which ion has the same electron configuration as the noble gas neon?",
+      "options": [
+        {
+          "id": "a",
+          "text": "$\\ce{Na+}$"
+        },
+        {
+          "id": "b",
+          "text": "$\\ce{Cl-}$"
+        },
+        {
+          "id": "c",
+          "text": "$\\ce{K+}$"
+        },
+        {
+          "id": "d",
+          "text": "$\\ce{Li+}$"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": "Neon has 10 electrons. $\\ce{Na+}$ (11 − 1 = 10) matches. $\\ce{Cl-}$ and $\\ce{K+}$ both have 18 electrons (argon), and $\\ce{Li+}$ has 2 (helium)."
+    },
+    {
+      "id": "q10",
+      "type": "formula",
+      "points": 2,
+      "text": "Write the formula of the sulfate ion, including its charge.",
+      "caseSensitive": true,
+      "correctAnswer": "SO4^2-",
+      "explanation": "Sulfate is a polyatomic ion with one sulfur, four oxygens and a 2− charge: $\\ce{SO4^{2-}}$."
+    }
+  ]
+}

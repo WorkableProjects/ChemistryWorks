@@ -1,3 +1,22 @@
 [
-  { "code": "CHEM101", "title": "Foundations of Chemistry", "description": "Atoms, formulas, the mole, and reactions." }
+  {
+    "code": "CHEM101",
+    "title": "Foundations of Chemistry",
+    "description": "Atoms, formulas, the mole, and reactions."
+  },
+  {
+    "code": "CHEM102",
+    "title": "Stoichiometry & the Mole",
+    "description": "Molar mass, mole conversions, balancing, limiting reagents and percent yield."
+  },
+  {
+    "code": "CHEM110",
+    "title": "Periodic Table & Bonding",
+    "description": "Periodic trends, ions, ionic and covalent bonding, and molecular shapes."
+  },
+  {
+    "code": "CHEM201",
+    "title": "Acids, Bases & Equilibrium",
+    "description": "pH calculations, Brønsted–Lowry theory, buffers, Ka, Kc and Le Chatelier’s principle (all at 25 °C)."
+  }
 ]

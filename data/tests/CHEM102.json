@@ -1,0 +1,215 @@
+{
+  "code": "CHEM102",
+  "title": "Stoichiometry & the Mole",
+  "description": "Molar mass, mole conversions, balancing, limiting reagents and percent yield.",
+  "timeLimitMinutes": 30,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "passingPercent": 70,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "points": 1,
+      "text": "What is the molar mass of sodium chloride, $\\ce{NaCl}$? (Na = 22.99, Cl = 35.45)",
+      "options": [
+        {
+          "id": "a",
+          "text": "58.44 g/mol"
+        },
+        {
+          "id": "b",
+          "text": "12.46 g/mol"
+        },
+        {
+          "id": "c",
+          "text": "35.45 g/mol"
+        },
+        {
+          "id": "d",
+          "text": "22.99 g/mol"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": "Add the atomic masses of one Na and one Cl: 22.99 + 35.45 = 58.44 g/mol."
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "points": 2,
+      "text": "What mass of calcium carbonate, $\\ce{CaCO3}$, is 0.250 mol? (Ca = 40.08, C = 12.01, O = 16.00)",
+      "correctAnswer": 25.02,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "unit": "g",
+      "explanation": "Molar mass of $\\ce{CaCO3}$ = 40.08 + 12.01 + 3(16.00) = 100.09 g/mol. Mass = 0.250 mol × 100.09 g/mol = 25.02 g."
+    },
+    {
+      "id": "q3",
+      "type": "numeric",
+      "points": 2,
+      "text": "How many moles of water are in 36.0 g of $\\ce{H2O}$? (H = 1.008, O = 16.00)",
+      "correctAnswer": 1.998,
+      "tolerance": 0.02,
+      "toleranceType": "absolute",
+      "unit": "mol",
+      "explanation": "Molar mass of $\\ce{H2O}$ = 2(1.008) + 16.00 = 18.016 g/mol. Moles = 36.0 g ÷ 18.016 g/mol = 1.998 mol (about 2.00 mol)."
+    },
+    {
+      "id": "q4",
+      "type": "formula",
+      "points": 1,
+      "text": "Write the chemical formula for calcium chloride.",
+      "caseSensitive": true,
+      "correctAnswer": "CaCl2",
+      "explanation": "Calcium forms $\\ce{Ca^{2+}}$ and chloride is $\\ce{Cl-}$, so two chloride ions balance one calcium ion: $\\ce{CaCl2}$."
+    },
+    {
+      "id": "q5",
+      "type": "truefalse",
+      "points": 1,
+      "text": "The limiting reactant is always the reactant with the smallest mass in the reaction mixture.",
+      "correctAnswer": false,
+      "explanation": "The limiting reactant is the one that runs out first, which depends on moles and the balanced mole ratio, not on mass alone."
+    },
+    {
+      "id": "q6",
+      "type": "multi",
+      "points": 3,
+      "partialCredit": true,
+      "text": "Select ALL quantities that equal exactly one mole of carbon dioxide, $\\ce{CO2}$. (C = 12.01, O = 16.00)",
+      "options": [
+        {
+          "id": "a",
+          "text": "$6.022 \\times 10^{23}$ molecules of $\\ce{CO2}$"
+        },
+        {
+          "id": "b",
+          "text": "44.01 g of $\\ce{CO2}$"
+        },
+        {
+          "id": "c",
+          "text": "22.4 L of $\\ce{CO2}$ gas at 0 °C and 1 atm"
+        },
+        {
+          "id": "d",
+          "text": "1.00 g of $\\ce{CO2}$"
+        },
+        {
+          "id": "e",
+          "text": "12.01 g of $\\ce{CO2}$"
+        }
+      ],
+      "correctAnswer": [
+        "a",
+        "b",
+        "c"
+      ],
+      "explanation": "One mole is 6.022 × 10²³ particles, has a mass equal to the molar mass (12.01 + 2(16.00) = 44.01 g), and occupies about 22.4 L as an ideal gas at 0 °C and 1 atm. 12.01 g is the molar mass of carbon, not $\\ce{CO2}$."
+    },
+    {
+      "id": "q7",
+      "type": "matching",
+      "points": 4,
+      "partialCredit": true,
+      "text": "Match each compound to its molar mass. (H = 1.008, C = 12.01, O = 16.00, Na = 22.99, Cl = 35.45)",
+      "left": [
+        {
+          "id": "h2o",
+          "text": "$\\ce{H2O}$"
+        },
+        {
+          "id": "co2",
+          "text": "$\\ce{CO2}$"
+        },
+        {
+          "id": "nacl",
+          "text": "$\\ce{NaCl}$"
+        },
+        {
+          "id": "ch4",
+          "text": "$\\ce{CH4}$"
+        }
+      ],
+      "right": [
+        {
+          "id": "m1",
+          "text": "18.02 g/mol"
+        },
+        {
+          "id": "m2",
+          "text": "44.01 g/mol"
+        },
+        {
+          "id": "m3",
+          "text": "58.44 g/mol"
+        },
+        {
+          "id": "m4",
+          "text": "16.04 g/mol"
+        },
+        {
+          "id": "m5",
+          "text": "28.01 g/mol"
+        }
+      ],
+      "correctAnswer": {
+        "h2o": "m1",
+        "co2": "m2",
+        "nacl": "m3",
+        "ch4": "m4"
+      },
+      "explanation": "$\\ce{H2O}$: 2(1.008) + 16.00 = 18.02. $\\ce{CO2}$: 12.01 + 2(16.00) = 44.01. $\\ce{NaCl}$: 22.99 + 35.45 = 58.44. $\\ce{CH4}$: 12.01 + 4(1.008) = 16.04. 28.01 g/mol (CO) is a distractor."
+    },
+    {
+      "id": "q8",
+      "type": "numeric",
+      "points": 3,
+      "text": "For $\\ce{2H2 + O2 -> 2H2O}$, how many grams of water form from 4.00 g of $\\ce{H2}$ with excess $\\ce{O2}$? (H = 1.008, O = 16.00)",
+      "correctAnswer": 35.75,
+      "tolerance": 1,
+      "toleranceType": "percent",
+      "unit": "g",
+      "explanation": "Moles of $\\ce{H2}$ = 4.00 g ÷ 2.016 g/mol = 1.984 mol. The ratio $\\ce{H2}$ : $\\ce{H2O}$ is 1 : 1, so 1.984 mol of water forms. Mass = 1.984 mol × 18.016 g/mol = 35.7 g."
+    },
+    {
+      "id": "q9",
+      "type": "numeric",
+      "points": 2,
+      "text": "A reaction has a theoretical yield of 12.5 g, but only 10.0 g of product is actually collected. What is the percent yield?",
+      "correctAnswer": 80,
+      "tolerance": 0.5,
+      "toleranceType": "absolute",
+      "unit": "%",
+      "explanation": "Percent yield = (actual ÷ theoretical) × 100 = (10.0 ÷ 12.5) × 100 = 80.0%."
+    },
+    {
+      "id": "q10",
+      "type": "mcq",
+      "points": 2,
+      "text": "Which equation is the correctly balanced combustion of propane?",
+      "options": [
+        {
+          "id": "a",
+          "text": "$\\ce{C3H8 + O2 -> 3CO2 + 4H2O}$"
+        },
+        {
+          "id": "b",
+          "text": "$\\ce{C3H8 + 3O2 -> 3CO2 + 4H2O}$"
+        },
+        {
+          "id": "c",
+          "text": "$\\ce{C3H8 + 5O2 -> 3CO2 + 4H2O}$"
+        },
+        {
+          "id": "d",
+          "text": "$\\ce{2C3H8 + 5O2 -> 6CO2 + 8H2O}$"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": "Balance C (3), H (8), then O: 3(2) + 4(1) = 10 oxygen atoms, which needs 5 $\\ce{O2}$. Option d has the right ratio of products but too little oxygen (10 vs 20 O atoms)."
+    }
+  ]
+}

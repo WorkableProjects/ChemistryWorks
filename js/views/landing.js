@@ -127,5 +127,9 @@ export function render(root, ctx, params = {}) {
   renderMath(root);
   if (params.error) toast(params.error, { type: 'error' });
   const focusEl = root.querySelector('[data-testid="code-input"], [data-testid="demo-name"]');
-  setTimeout(() => focusEl?.focus(), 60);
+  // Autofocus only if the user hasn't already focused something (or a modal, e.g. the admin gate, is open).
+  setTimeout(() => {
+    const idle = !document.activeElement || document.activeElement === document.body;
+    if (idle && !document.querySelector('#modal-root .modal-overlay')) focusEl?.focus();
+  }, 60);
 }

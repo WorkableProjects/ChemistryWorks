@@ -1,0 +1,205 @@
+{
+  "code": "CHEM201",
+  "title": "Acids, Bases & Equilibrium",
+  "description": "pH calculations, Brønsted–Lowry theory, buffers, Ka, Kc and Le Chatelier’s principle (all at 25 °C).",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "passingPercent": 75,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "points": 1,
+      "text": "Which of the following is a strong acid?",
+      "options": [
+        {
+          "id": "a",
+          "text": "$\\ce{HCl}$"
+        },
+        {
+          "id": "b",
+          "text": "$\\ce{CH3COOH}$"
+        },
+        {
+          "id": "c",
+          "text": "$\\ce{HF}$"
+        },
+        {
+          "id": "d",
+          "text": "$\\ce{H2CO3}$"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": "Hydrochloric acid dissociates essentially completely in water. Acetic acid, hydrofluoric acid and carbonic acid are all weak acids."
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "points": 2,
+      "text": "What is the pH of a 0.010 M solution of $\\ce{HCl}$?",
+      "correctAnswer": 2,
+      "tolerance": 0.01,
+      "toleranceType": "absolute",
+      "unit": "",
+      "explanation": "$\\ce{HCl}$ is a strong acid, so $[\\ce{H+}]$ = 0.010 M and pH = −log(0.010) = 2.00."
+    },
+    {
+      "id": "q3",
+      "type": "numeric",
+      "points": 2,
+      "text": "What is the pH of a 0.0010 M solution of $\\ce{NaOH}$ at 25 °C?",
+      "correctAnswer": 11,
+      "tolerance": 0.01,
+      "toleranceType": "absolute",
+      "unit": "",
+      "explanation": "$[\\ce{OH-}]$ = 0.0010 M, so pOH = 3.00 and pH = 14.00 − 3.00 = 11.00."
+    },
+    {
+      "id": "q4",
+      "type": "truefalse",
+      "points": 1,
+      "text": "A buffer can be made by mixing a weak acid with its conjugate base.",
+      "correctAnswer": true,
+      "explanation": "The weak acid neutralizes added base and its conjugate base neutralizes added acid, which resists large pH changes."
+    },
+    {
+      "id": "q5",
+      "type": "formula",
+      "points": 2,
+      "text": "Write the formula, including charge, of the conjugate base of $\\ce{H2PO4-}$.",
+      "caseSensitive": true,
+      "correctAnswer": "HPO4^2-",
+      "explanation": "A conjugate base is formed by removing one $\\ce{H+}$. Removing $\\ce{H+}$ from $\\ce{H2PO4-}$ leaves $\\ce{HPO4^{2-}}$."
+    },
+    {
+      "id": "q6",
+      "type": "multi",
+      "points": 2,
+      "partialCredit": true,
+      "text": "In $\\ce{NH3 + H2O <=> NH4+ + OH-}$, select ALL species that act as Brønsted–Lowry acids (in either direction).",
+      "options": [
+        {
+          "id": "a",
+          "text": "$\\ce{NH3}$"
+        },
+        {
+          "id": "b",
+          "text": "$\\ce{H2O}$"
+        },
+        {
+          "id": "c",
+          "text": "$\\ce{NH4+}$"
+        },
+        {
+          "id": "d",
+          "text": "$\\ce{OH-}$"
+        }
+      ],
+      "correctAnswer": [
+        "b",
+        "c"
+      ],
+      "explanation": "A Brønsted–Lowry acid donates $\\ce{H+}$. In the forward reaction $\\ce{H2O}$ donates one; in the reverse reaction $\\ce{NH4+}$ donates one. $\\ce{NH3}$ and $\\ce{OH-}$ accept protons, so they are bases."
+    },
+    {
+      "id": "q7",
+      "type": "matching",
+      "points": 3,
+      "partialCredit": true,
+      "text": "Match each solution (25 °C) to its approximate pH.",
+      "left": [
+        {
+          "id": "hcl",
+          "text": "0.10 M $\\ce{HCl}$"
+        },
+        {
+          "id": "water",
+          "text": "Pure water"
+        },
+        {
+          "id": "naoh",
+          "text": "0.10 M $\\ce{NaOH}$"
+        }
+      ],
+      "right": [
+        {
+          "id": "p1",
+          "text": "pH 1"
+        },
+        {
+          "id": "p3",
+          "text": "pH 3"
+        },
+        {
+          "id": "p7",
+          "text": "pH 7"
+        },
+        {
+          "id": "p11",
+          "text": "pH 11"
+        },
+        {
+          "id": "p13",
+          "text": "pH 13"
+        }
+      ],
+      "correctAnswer": {
+        "hcl": "p1",
+        "water": "p7",
+        "naoh": "p13"
+      },
+      "explanation": "0.10 M strong acid: pH = −log(0.10) = 1. Pure water at 25 °C: pH = 7. 0.10 M strong base: pOH = 1, so pH = 13."
+    },
+    {
+      "id": "q8",
+      "type": "numeric",
+      "points": 3,
+      "text": "Use the approximation $x = \\sqrt{K_a C}$ to estimate $[\\ce{H+}]$ in 0.100 M acetic acid ($K_a = 1.8 \\times 10^{-5}$).",
+      "correctAnswer": 0.0013416,
+      "tolerance": 3,
+      "toleranceType": "percent",
+      "unit": "M",
+      "explanation": "$x^2 / 0.100 = 1.8 \\times 10^{-5}$, so $x = \\sqrt{1.8 \\times 10^{-6}} = 1.34 \\times 10^{-3}$ M (pH ≈ 2.87)."
+    },
+    {
+      "id": "q9",
+      "type": "numeric",
+      "points": 3,
+      "text": "For $\\ce{2NO2 <=> N2O4}$, the equilibrium concentrations are $[\\ce{NO2}]$ = 0.10 M and $[\\ce{N2O4}]$ = 0.20 M. What is $K_c$?",
+      "correctAnswer": 20,
+      "tolerance": 1,
+      "toleranceType": "percent",
+      "unit": "",
+      "explanation": "$K_c = [\\ce{N2O4}] / [\\ce{NO2}]^2 = 0.20 / (0.10)^2 = 0.20 / 0.010 = 20$."
+    },
+    {
+      "id": "q10",
+      "type": "mcq",
+      "points": 1,
+      "text": "For the exothermic reaction $\\ce{N2 + 3H2 <=> 2NH3}$, which change shifts the equilibrium toward more $\\ce{NH3}$?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Increasing the temperature"
+        },
+        {
+          "id": "b",
+          "text": "Increasing the volume of the container (lower pressure)"
+        },
+        {
+          "id": "c",
+          "text": "Decreasing the volume of the container (higher pressure)"
+        },
+        {
+          "id": "d",
+          "text": "Adding a catalyst"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": "The forward reaction converts 4 mol of gas into 2 mol, so higher pressure favors products. Heating an exothermic reaction and lowering the pressure both favor reactants, and a catalyst does not change the position of equilibrium."
+    }
+  ]
+}

@@ -345,7 +345,7 @@ export function renderBuilder(root, ctx) {
     S.open.add(S.test.questions[i]);
     el._sync();
     el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
-    setTimeout(() => el.querySelector('[data-testid="q-text"]')?.focus({ preventScroll: true }), 120);
+    setTimeout(() => { if (!el.contains(document.activeElement)) el.querySelector('[data-testid="q-text"]')?.focus({ preventScroll: true }); }, 120);
   }
 
   function renderList() {
@@ -407,7 +407,7 @@ export function renderBuilder(root, ctx) {
     el.classList.add('is-new');
     setTimeout(() => el.classList.remove('is-new'), 600);
     el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
-    setTimeout(() => el.querySelector('[data-testid="q-text"]')?.focus({ preventScroll: true }), 80);
+    setTimeout(() => { if (!el.contains(document.activeElement)) el.querySelector('[data-testid="q-text"]')?.focus({ preventScroll: true }); }, 80);
   }
 
   // ----- question editor -----

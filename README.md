@@ -21,7 +21,7 @@ npm run test:e2e   # browser tests (Playwright/Chromium) of the full student and
 npm run validate:tests   # validate every test JSON in data/tests/
 ```
 
-No dependencies to install: tests use Node's built-in runner (Node 20+) and Playwright for E2E.
+No dependencies are needed for the app or unit tests (Node's built-in runner, Node 20+). E2E tests need Playwright with Chromium available; if it isn't installed globally, run `npm i --no-save playwright && npx playwright install chromium` first.
 
 ## Question types
 
