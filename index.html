@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChemistryWorks</title>
+  <meta name="description" content="ChemistryWorks — a fluid, auto-graded chemistry testing platform." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563EB'/><path d='M12 7h8M14 7v7l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V7' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" />
+
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/runner.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+
+  <!-- KaTeX + mhchem (\ce{...}) for chemistry notation. Loaded deferred; the app re-renders math once ready. -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/contrib/mhchem.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/contrib/auto-render.min.js"></script>
+  <!-- Google Identity Services -->
+  <script async defer src="https://accounts.google.com/gsi/client"></script>
+
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#app">Skip to content</a>
+
+  <!-- Netlify Forms: detected at deploy time; populated and posted by js/lib/submit.js -->
+  <form name="chemistryworks-submissions" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden>
+    <input type="hidden" name="form-name" value="chemistryworks-submissions" />
+    <input type="hidden" name="bot-field" />
+    <input type="hidden" name="submission_id" />
+    <input type="hidden" name="student_name" />
+    <input type="hidden" name="student_email" />
+    <input type="hidden" name="test_code" />
+    <input type="hidden" name="test_title" />
+    <input type="hidden" name="score_achieved" />
+    <input type="hidden" name="score_total" />
+    <input type="hidden" name="percentage" />
+    <input type="hidden" name="duration_seconds" />
+    <input type="hidden" name="needs_grading" />
+    <input type="hidden" name="responses_json" />
+    <input type="hidden" name="flags_json" />
+    <input type="hidden" name="submitted_at" />
+  </form>
+
+  <div id="app" class="app" aria-live="polite">
+    <div class="boot">
+      <div class="boot__flask" aria-hidden="true"></div>
+      <p>Loading ChemistryWorks…</p>
+    </div>
+  </div>
+
+  <div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
+  <div id="modal-root"></div>
+
+  <noscript>ChemistryWorks needs JavaScript enabled to run tests.</noscript>
+</body>
+</html>

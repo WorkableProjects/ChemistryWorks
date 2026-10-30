@@ -1,0 +1,12 @@
+{
+  "project": "chemistryworks",
+  "mode": "delegate-multi",
+  "base_dir": ".claude/delegation/chemistryworks",
+  "tasks": [
+    {"id":"T01","title":"Core engine: schema/formula/grading + unit tests","agent":"executor-sonnet","depends_on":[],"owns":["js/lib/schema.js","js/lib/formula.js","js/lib/grading.js","test/unit/schema.test.mjs","test/unit/formula.test.mjs","test/unit/grading.test.mjs"],"reads":["docs/ARCHITECTURE.md","data/tests/CHEM101.json"],"spec":"tasks/T01.md","verify_cmd":"node --test test/unit/schema.test.mjs test/unit/formula.test.mjs test/unit/grading.test.mjs"},
+    {"id":"T02","title":"Student runner + results views","agent":"executor-sonnet","depends_on":[],"owns":["js/views/runner.js","js/views/results.js","css/runner.css"],"reads":["docs/ARCHITECTURE.md","js/ui.js","css/base.css"],"spec":"tasks/T02.md","verify_cmd":"node --check js/views/runner.js && node --check js/views/results.js"},
+    {"id":"T03","title":"Admin panel","agent":"executor-sonnet","depends_on":[],"owns":["js/views/admin.js","js/views/admin/**","css/admin.css"],"reads":["docs/ARCHITECTURE.md","js/ui.js","js/lib/tests.js"],"spec":"tasks/T03.md","verify_cmd":"node --check js/views/admin.js"},
+    {"id":"T04","title":"API client, submission pipeline, Apps Script, DEPLOYMENT.md","agent":"executor-sonnet","depends_on":[],"owns":["js/lib/api.js","js/lib/submit.js","apps-script/**","DEPLOYMENT.md","test/unit/submit.test.mjs","test/unit/api.test.mjs","test/unit/apps-script.test.mjs"],"reads":["docs/ARCHITECTURE.md","js/config.js","index.html"],"spec":"tasks/T04.md","verify_cmd":"node --test test/unit/submit.test.mjs test/unit/api.test.mjs test/unit/apps-script.test.mjs"},
+    {"id":"T05","title":"Question bank, validator script, E2E suite","agent":"executor-sonnet","depends_on":["T01","T02","T03","T04"],"owns":["data/tests/**","scripts/validate-tests.mjs","test/e2e/**","test/unit/stats.test.mjs","test/unit/bank.test.mjs"],"reads":["docs/ARCHITECTURE.md"],"spec":"tasks/T05.md","verify_cmd":"npm run test:all"}
+  ]
+}
