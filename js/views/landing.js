@@ -1,17 +1,9 @@
-// Landing: "Sign in with Google to Begin" gate, then test-code entry and resumable attempts.
+// Landing: a single centered panel, like a testing-platform login screen.
+// Signed out: "Sign in with Google to Begin". Signed in: test-code entry and resumable attempts.
 
 import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
 import { keys, load } from '../lib/storage.js';
-
-function hero() {
-  return h('div', { class: 'hero__art', 'aria-hidden': 'true' },
-    h('div', { class: 'orbit orbit--1' }, h('span', { class: 'electron' })),
-    h('div', { class: 'orbit orbit--2' }, h('span', { class: 'electron' })),
-    h('div', { class: 'orbit orbit--3' }, h('span', { class: 'electron' })),
-    h('div', { class: 'nucleus' }, icon('flask', { size: 34 })),
-  );
-}
 
 function signInCard(ctx, params) {
   const { config } = ctx;
@@ -40,7 +32,8 @@ function signInCard(ctx, params) {
     body.push(h('div', { class: 'notice notice--error' }, icon('alert'), h('span', {}, 'Sign-in is not configured. Ask your teacher for help.')));
   }
 
-  return h('section', { class: 'card card--glass signin-card', dataset: { testid: 'signin-card' } },
+  return h('section', { class: 'card signin-card', dataset: { testid: 'signin-card' } },
+    h('span', { class: 'signin-card__mark', 'aria-hidden': 'true' }, icon('flask', { size: 22 })),
     h('h2', { class: 'card__title' }, params.code ? `Sign in to begin ${params.code}` : 'Sign in with Google to Begin'),
     h('p', { class: 'muted' }, 'Your name and email are attached to your submission automatically.'),
     ...body,
@@ -74,7 +67,7 @@ function codeCard(ctx, params) {
   };
 
   const resumable = inProgress(user);
-  return h('section', { class: 'card card--glass code-card', dataset: { testid: 'code-card' } },
+  return h('section', { class: 'card code-card', dataset: { testid: 'code-card' } },
     h('div', { class: 'code-card__top' },
       h('h2', { class: 'card__title' }, `Welcome, ${user.name.split(' ')[0]}`),
       userBadge(user, { onSignOut: () => ctx.signOut() }),
@@ -101,22 +94,11 @@ function codeCard(ctx, params) {
 
 export function render(root, ctx, params = {}) {
   const user = getUser();
-  const features = [
-    ['Auto-graded', 'Instant, fair scoring with partial credit where your teacher allows it.'],
-    ['Chemistry-native', 'Formulas like H2O render as H₂O; equations are typeset beautifully.'],
-    ['Never lose work', 'Answers save as you go — refresh or reconnect and pick up where you left off.'],
-  ];
   mount(root,
     h('main', { class: 'landing' },
-      h('div', { class: 'landing__bg', 'aria-hidden': 'true' }),
+      h('h1', { class: 'sr-only' }, 'ChemistryWorks'),
       h('div', { class: 'landing__inner' },
-        h('div', { class: 'landing__copy' },
-          h('div', { class: 'brand brand--lg' }, h('span', { class: 'brand__mark' }, icon('flask', { size: 22 })), h('span', { class: 'brand__name' }, 'ChemistryWorks')),
-          h('h1', { class: 'landing__title' }, 'Chemistry tests that feel ', h('em', {}, 'effortless'), '.'),
-          h('p', { class: 'landing__lead' }, 'Focused, beautifully typeset assessments with instant results for students and live analytics for teachers.'),
-          h('ul', { class: 'feature-list' }, features.map(([t, d]) => h('li', {}, icon('check'), h('span', {}, h('strong', {}, t), ' — ', d)))),
-        ),
-        h('div', { class: 'landing__panel' }, hero(), user ? codeCard(ctx, params) : signInCard(ctx, params)),
+        h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),

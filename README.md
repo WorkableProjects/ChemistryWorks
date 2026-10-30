@@ -37,7 +37,7 @@ No dependencies are needed for the app or unit tests (Node's built-in runner, No
 | Matching matrix | pairs | per-pair partial credit |
 | Short answer | free text | teacher graded in the admin **Grading** tab |
 
-The full test JSON schema and module contracts are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The full test JSON schema and module contracts are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). To have an AI write tests for you, give it [docs/guide.md](docs/guide.md).
 
 ## Deploying
 

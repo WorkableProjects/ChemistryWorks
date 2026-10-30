@@ -122,7 +122,7 @@ Two ways to ship a test:
 | Version history | Git | Overwritten on re-publish (same code) |
 | Works if Apps Script is down | Yes | No |
 
-Test JSON reference (short): a test has `code`, `title`, optional settings (`timeLimitMinutes`, `shuffleQuestions`, `shuffleOptions`, `showResults`, `showCorrectAnswers`, `passingPercent`, ...) and a `questions` array. Question types are `mcq`, `multi`, `numeric`, `formula`, `truefalse` and `matching`; chemistry notation uses KaTeX with mhchem, e.g. `$\ce{H2O}$`. The full schema, scoring rules and numeric/formula matching behavior are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). `data/tests/CHEM101.json` is a complete example.
+Test JSON reference (short): a test has `code`, `title`, optional settings (`timeLimitMinutes`, `shuffleQuestions`, `shuffleOptions`, `showResults`, `showCorrectAnswers`, `passingPercent`, ...) and a `questions` array. Question types are `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching` and `short` (teacher graded); chemistry notation uses KaTeX with mhchem, e.g. `$\ce{H2O}$`. The full schema, scoring rules and numeric/formula matching behavior are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). `data/tests/CHEM101.json` is a complete example, and [docs/guide.md](docs/guide.md) is a step-by-step authoring guide you can hand to an AI assistant.
 
 ---
 
