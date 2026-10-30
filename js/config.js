@@ -6,13 +6,13 @@ const DEFAULTS = {
   APP_NAME: 'ChemistryWorks',
 
   // Google Identity Services OAuth Web Client ID (DEPLOYMENT.md step 1).
-  GOOGLE_CLIENT_ID: '',
+  GOOGLE_CLIENT_ID: '179519385690-u3qo36gnublg8pmfve57uqtv0lm24e9r.apps.googleusercontent.com',
 
   // Google Apps Script Web App URL ending in /exec (DEPLOYMENT.md step 2).
-  GAS_WEB_APP_URL: '',
+  GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbzJsz0weq8EC7AOA5XjWufYnQ2FlbTjxGfcYjKtrf7DGP3LJwmSkbyNuFep96_ka7Wd/exec',
 
   // Link to the Google Sheet that receives submissions (shown in the admin panel).
-  SHEET_URL: '',
+  SHEET_URL: 'https://docs.google.com/spreadsheets/d/1yYGaYJAW_dDIUwu73nvUbgE78HbEQAdfVqupW6eKSWQ/edit?gid=0#gid=0',
 
   // Client-side gate for the admin UI. This only hides the UI; real protection for
   // publishing tests and reading results is the ADMIN_KEY script property in Apps Script.
@@ -20,7 +20,7 @@ const DEFAULTS = {
 
   // When no GOOGLE_CLIENT_ID is set, allow a name/email "demo" sign-in so the app is usable
   // locally. Set to false in production once Google Sign-In is configured.
-  ALLOW_DEMO_SIGNIN: true,
+  ALLOW_DEMO_SIGNIN: false,
 
   // Optional: restrict Google sign-in to these email domains, e.g. ['myschool.org'].
   ALLOWED_EMAIL_DOMAINS: [],
