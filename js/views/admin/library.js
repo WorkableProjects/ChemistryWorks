@@ -26,10 +26,14 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
     const can = !!test;
     add('list', 'Edit in builder', () => openInBuilder(test, { duplicate: false }), `edit-${code}`, { disabled: !can });
     add('eye', 'Preview as a student', () => ctx.navigate('runner', { test, source, preview: true }), `preview-${code}`, { disabled: !can });
-    add('right', 'Copy student link', async () => {
-      const ok = await copyText(testLink(code));
-      toast(ok ? 'Link copied' : 'Could not copy link', { type: ok ? 'success' : 'error' });
-    }, `copy-link-${code}`);
+    // Drafts live only in this browser, so students cannot open them by link.
+    if (source !== 'draft') {
+      actions.appendChild(h('button', { class: 'btn btn--ghost btn--sm adm-item__link', type: 'button', title: 'Students open this link, sign in with Google, and the test starts',
+        dataset: { testid: `copy-link-${code}` }, on: { click: async () => {
+          const ok = await copyText(testLink(code));
+          toast(ok ? `Student link copied: ${testLink(code)}` : 'Could not copy link', { type: ok ? 'success' : 'error', timeout: 5000 });
+        } } }, icon('copy', { size: 14 }), 'Copy student link'));
+    }
     add('copy', 'Duplicate into builder', () => openInBuilder({ ...test, code: `${code}_COPY`.slice(0, 32) }, { duplicate: true }), `duplicate-${code}`, { disabled: !can });
     if (source !== 'bundled') {
       add('trash', source === 'draft' ? 'Delete draft' : 'Delete published test', () => confirmDelete(code, source), `delete-${code}`, { className: 'icon-btn--danger' });

@@ -243,3 +243,10 @@
 .adm-points { width: 96px; }
 .adm-pre { white-space: pre-wrap; }
 .adm-grade__bar { position: sticky; bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; z-index: 2; box-shadow: var(--shadow-sm); }
+
+/* Student link */
+.adm-item__actions { align-items: center; }
+.adm-item__link { margin-right: 6px; }
+.adm-linkbox { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.adm-linkbox .row { gap: 8px; flex-wrap: nowrap; }
+.adm-linkbox .input { height: 36px; font-size: 13px; min-width: 0; flex: 1; }

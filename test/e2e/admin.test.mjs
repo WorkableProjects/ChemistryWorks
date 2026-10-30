@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   startEnv, withSession, startTest, tid, poll, waitText, waitAttr, A, answerCHEM101, submit, unlockAdmin, goNext,
-  ADMIN_CODE, STUDENT, addQuestion,
+  ADMIN_CODE, STUDENT, addQuestion, signIn,
 } from './helpers.mjs';
 
 let env;
@@ -271,4 +271,19 @@ test('settings: admin key can be saved; checklist renders; backend status shown'
   await page.locator(tid('ping-backend')).click();
   await page.locator(tid('backend-status')).waitFor();
   await poll(async () => !/Checking|Not checked/.test((await page.locator(tid('backend-status')).textContent()) || ''), { message: 'ping result' });
+}));
+
+test('library: "Copy student link" gives a one-click link that signs in and opens the test', () => withSession(env, {}, async ({ page, url }) => {
+  await unlockAdmin(page, url);
+  await page.locator(tid('tab-library')).click();
+  await page.locator(tid('copy-link-CHEM101')).click();
+  const toastText = await waitText(page.locator('.toast').last(), /Student link copied/);
+  const link = toastText.match(/https?:\/\/\S+/)[0];
+  assert.equal(link, `${url}/test?code=CHEM101`);
+
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto(link);
+  await waitText(page.locator(`${tid('signin-card')} h2`), 'Sign in to begin CHEM101');
+  await signIn(page);
+  await page.locator(tid('runner')).waitFor();
 }));

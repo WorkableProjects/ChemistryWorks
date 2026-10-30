@@ -9,6 +9,7 @@ import { saveDraft } from '../../lib/tests.js';
 import { QUESTION_TYPES, TYPE_LABELS, normalizeTest, validateTest, blankQuestion, nextQuestionId, blankTest } from '../../lib/schema.js';
 import { formulaToHTML } from '../../lib/formula.js';
 import { publishTest } from '../../lib/api.js';
+import { testLink } from './library.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
 // ---------- module-level state (survives tab switches within the session) ----------
@@ -109,6 +110,20 @@ export function renderBuilder(root, ctx) {
   const summaryEl = h('p', { class: 'adm-summary muted' });
   const mainEl = h('div', { class: 'adm-builder__main' });
   const publishNote = h('p', { class: 'field__hint adm-publish-note' });
+  const linkBox = h('div', { class: 'adm-linkbox', hidden: true, dataset: { testid: 'published-link' } });
+  function showLink(code) {
+    const url = testLink(code);
+    const input = h('input', { class: 'input', readonly: true, value: url, 'aria-label': 'Student link', on: { focus: () => input.select() } });
+    mount(linkBox,
+      h('span', { class: 'field__label' }, 'Student link'),
+      h('div', { class: 'row' }, input,
+        h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'copy-published-link' }, on: { click: async () => {
+          const ok = await copyText(url);
+          toast(ok ? 'Link copied' : 'Could not copy link', { type: ok ? 'success' : 'error' });
+        } } }, icon('copy', { size: 14 }), 'Copy')),
+      h('span', { class: 'field__hint' }, 'Share this one link (Google Classroom, email). Students sign in with Google and the test opens. No code to type.'));
+    linkBox.hidden = false;
+  }
   const buttons = {};
 
   const btn = (key, label, iconName, variant, onClick, testid) => {
@@ -205,6 +220,7 @@ export function renderBuilder(root, ctx) {
       try {
         const res = await publishTest(t, { gasUrl, adminKey: load('adminKey', '', 'session') });
         toast(res.ok ? `Published ${t.code}` : `Publish failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error', timeout: res.ok ? 3200 : 6000 });
+        if (res.ok) showLink(t.code);
       } catch (e) {
         toast(`Publish failed: ${e.message}`, { type: 'error', timeout: 6000 });
       } finally {
@@ -217,7 +233,7 @@ export function renderBuilder(root, ctx) {
   const side = h('aside', { class: 'adm-builder__side' },
     h('div', { class: 'card adm-side-card' },
       h('h3', { class: 'adm-h3' }, 'Checks'),
-      validationBox, summaryEl, actions, publishNote,
+      validationBox, summaryEl, actions, publishNote, linkBox,
       h('p', { class: 'field__hint adm-bundle-note' },
         icon('info', { size: 14 }),
         ' To bundle a test permanently: Download JSON, commit the file to data/tests/, and add it to data/tests/index.json.'),
