@@ -14,7 +14,7 @@ const errsOf = (t) => validateTest(t).errors;
 const has = (errors, re) => assert.ok(errors.some((e) => re.test(e)), `expected /${re}/ in ${JSON.stringify(errors)}`);
 
 test('constants', () => {
-  assert.deepEqual(QUESTION_TYPES, ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching']);
+  assert.deepEqual(QUESTION_TYPES, ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'short']);
   for (const t of QUESTION_TYPES) assert.equal(typeof TYPE_LABELS[t], 'string');
   assert.equal(TYPE_LABELS.truefalse, 'True / False');
 });

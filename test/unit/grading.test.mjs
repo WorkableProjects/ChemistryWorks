@@ -324,7 +324,7 @@ test('gradeTest result rows carry the contract fields', () => {
   const r1 = g.results[0];
   assert.deepEqual(Object.keys(r1).sort(), [
     'answered', 'correctAnswer', 'correctAnswerText', 'givenAnswer', 'givenAnswerText', 'isCorrect',
-    'pointsEarned', 'pointsPossible', 'questionId', 'questionText', 'type',
+    'needsGrading', 'pointsEarned', 'pointsPossible', 'questionId', 'questionText', 'type',
   ]);
   assert.equal(r1.questionId, 'q1');
   assert.equal(r1.questionText, t.questions[0].text);
@@ -381,4 +381,27 @@ test('scores sum without float drift', () => {
   assert.equal(g.scoreAchieved, 1);
   assert.equal(g.scoreTotal, 1);
   assert.equal(g.percentage, '100.00');
+});
+
+test('short answer: answered is pending teacher grading and scores 0 for now', () => {
+  const t = { questions: [
+    { id: 'q1', type: 'mcq', text: 'x', points: 1, options: [{ id: 'a', text: 'A' }, { id: 'b', text: 'B' }], correctAnswer: 'a' },
+    { id: 'q2', type: 'short', text: 'Explain', points: 3, sampleAnswer: 'Because.' },
+    { id: 'q3', type: 'short', text: 'Explain again', points: 2 },
+  ] };
+  const g = gradeTest(t, { q1: 'a', q2: '  Electrons are shared.  ', q3: '   ' });
+  assert.equal(g.scoreAchieved, 1);
+  assert.equal(g.scoreTotal, 6);
+  assert.equal(g.pendingCount, 1);
+  assert.equal(g.pendingPoints, 3);
+  assert.equal(g.answeredCount, 2);
+  const [, r2, r3] = g.results;
+  assert.equal(r2.needsGrading, true);
+  assert.equal(r2.pointsEarned, 0);
+  assert.equal(r2.givenAnswerText, 'Electrons are shared.');
+  assert.equal(r2.correctAnswerText, 'Because.');
+  assert.equal(r3.answered, false);
+  assert.equal(r3.needsGrading, false);
+  assert.equal(r3.correctAnswerText, '—');
+  assert.equal(g.results[0].needsGrading, false);
 });

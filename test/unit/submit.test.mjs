@@ -217,3 +217,11 @@ test('flushOutbox never throws and keeps entries when everything fails', async (
   assert.equal(n, 0);
   assert.equal(getOutbox().length, 1);
 });
+
+test('payload and Netlify fields flag submissions that need teacher grading', async () => {
+  const { buildPayload: bp, toNetlifyFields: tn } = await import('../../js/lib/submit.js');
+  const p = bp({ test: { code: 'T' }, grade: { pendingCount: 1, results: [] } });
+  assert.equal(p.needs_grading, true);
+  assert.equal(tn(p).needs_grading, 'true');
+  assert.equal(bp({ test: { code: 'T' }, grade: { results: [] } }).needs_grading, false);
+});

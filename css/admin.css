@@ -236,3 +236,10 @@
 @media (prefers-reduced-motion: reduce) {
   .adm-hist__bar, .adm-meter__fill, .adm-q__collapse, .adm-tabs__indicator { transition: none !important; }
 }
+
+/* ---------- Grading ---------- */
+.adm-grade.is-pending { border-left-color: var(--warning); }
+.adm-grade__pts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.adm-points { width: 96px; }
+.adm-pre { white-space: pre-wrap; }
+.adm-grade__bar { position: sticky; bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; z-index: 2; box-shadow: var(--shadow-sm); }

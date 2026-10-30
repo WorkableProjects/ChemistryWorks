@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   mean, median, formatPercent, histogramBuckets, normalizeRow, filterRows, sortRows, summarize,
-  questionStats, csvField, CSV_COLUMNS, toCsv,
+  questionStats, csvField, CSV_COLUMNS, toCsv, applyGrades, toGradebookCsv, STATUS,
 } from '../../js/views/admin/stats.js';
 
 test('mean', () => {
@@ -146,4 +146,53 @@ test('toCsv header, CRLF endings and quoting', () => {
   assert.match(lines[1], /'=evil@x\.org/);
   assert.match(lines[1], /,85\.71,/);
   assert.equal(toCsv([]), `${lines[0]}\r\n`);
+});
+
+// ---- Grading ----
+const gradedResponses = [
+  { questionId: 'q1', type: 'mcq', answered: true, isCorrect: false, pointsEarned: 0, pointsPossible: 2 },
+  { questionId: 'q2', type: 'short', answered: true, isCorrect: false, pointsEarned: 0, pointsPossible: 4, needsGrading: true, givenAnswerText: 'An essay' },
+];
+
+test('applyGrades overrides and clamps points', () => {
+  const r = applyGrades(gradedResponses, { q2: 9, q1: 1 });
+  assert.equal(r.scoreAchieved, 5);
+  assert.equal(r.scoreTotal, 6);
+  assert.equal(r.responses[1].pointsEarned, 4);
+  assert.equal(r.responses[1].isCorrect, true);
+  assert.equal(r.responses[1].needsGrading, false);
+  assert.equal(r.responses[0].pointsEarned, 1);
+  assert.equal(applyGrades(gradedResponses, null).scoreAchieved, 0);
+});
+
+test('normalizeRow derives status and applies teacher grades', () => {
+  const pending = normalizeRow({ score_achieved: 0, score_total: 6, percentage: 0, responses: gradedResponses });
+  assert.equal(pending.status, STATUS.NEEDS_GRADING);
+  const auto = normalizeRow({ score_achieved: 2, score_total: 2, percentage: 100, responses: [gradedResponses[0]] });
+  assert.equal(auto.status, STATUS.AUTO);
+  const graded = normalizeRow({ status: 'Graded', score_achieved: 0, score_total: 6, percentage: 0, responses: JSON.stringify(gradedResponses), grades: '{"q2":3}' });
+  assert.equal(graded.status, STATUS.GRADED);
+  assert.equal(graded.score_achieved, 3);
+  assert.equal(graded.percentage, 50);
+  assert.equal(graded.auto_score, 0);
+  assert.equal(graded.auto_responses[1].needsGrading, true);
+  assert.equal(graded.responses[1].pointsEarned, 3);
+});
+
+test('questionStats ignores open-ended text for the most common wrong answer', () => {
+  const rows = [normalizeRow({ responses: gradedResponses }), normalizeRow({ responses: gradedResponses })];
+  const q2 = questionStats(rows).find((q) => q.questionId === 'q2');
+  assert.equal(q2.commonWrong, null);
+});
+
+test('filterRows by status and gradebook CSV', () => {
+  const rows = [
+    normalizeRow({ student_name: 'Ada', student_email: 'ada@x.org', test_code: 'T', score_achieved: 0, score_total: 6, responses: gradedResponses }),
+    normalizeRow({ student_name: 'Bo', student_email: 'bo@x.org', test_code: 'T', status: 'Graded', score_total: 6, responses: gradedResponses, grades: { q1: 2, q2: 4 } }),
+  ];
+  assert.deepEqual(filterRows(rows, { status: STATUS.GRADED }).map((r) => r.student_name), ['Bo']);
+  const csv = toGradebookCsv(rows).split('\r\n');
+  assert.equal(csv[0], 'Student Name,Student Email,Test Code,Test Title,Score,Points Possible,Percent,Status,Submitted');
+  assert.ok(csv[1].startsWith('Ada,ada@x.org,T,,0,6,0,Needs grading,'));
+  assert.ok(csv[2].startsWith('Bo,bo@x.org,T,,6,6,100,Graded,'));
 });

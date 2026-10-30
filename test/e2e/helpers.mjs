@@ -25,7 +25,7 @@ export async function startEnv() {
 
 /**
  * Create an isolated browser context + page with deterministic network.
- * Returns a session: { page, context, gas, netlify, errors, modes, serveTest(code, obj), close() }.
+ * Returns a session: { page, context, gas, netlify, errors, modes, onGas, serveTest(code, obj), close() }.
  *   gas / netlify   every captured POST (parsed), including ones answered with a failure
  *   modes           { gas: 'ok'|'fail', netlify: 200|500 } mutable at any time
  */
@@ -37,7 +37,8 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
   const modes = { gas: 'ok', netlify: 200 };
   const overrides = new Map(); // pathname -> body object
 
-  const cfg = { GAS_WEB_APP_URL: GAS_URL, NETLIFY_FORMS: true, ...config };
+  // Tests always use demo sign-in, whatever Google settings js/config.js has for the live site.
+  const cfg = { GAS_WEB_APP_URL: GAS_URL, NETLIFY_FORMS: true, GOOGLE_CLIENT_ID: '', ALLOW_DEMO_SIGNIN: true, ...config };
   await context.addInitScript((c) => { window.CHEMISTRYWORKS_CONFIG = c; }, cfg);
 
   const origin = new URL(env.url).origin;
@@ -61,7 +62,8 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
         try { body = JSON.parse(req.postData() || 'null'); } catch { body = { raw: req.postData() }; }
         gas.push(body);
         if (modes.gas === 'fail') return route.abort('failed');
-        return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"result":"success"}' });
+        const reply = session.onGas?.(body) || { result: 'success' };
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(reply) });
       }
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"result":"error","error":"not_found"}' });
     }
@@ -78,13 +80,15 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
     errors.push(`console.error: ${text}`);
   });
 
-  return {
+  const session = {
     page, context, gas, netlify, errors, modes, url: env.url,
+    onGas: null, // optional (body) => reply object for Apps Script POSTs (admin actions)
     serveTest(code, test) { overrides.set(`/data/tests/${code}.json`, test); },
     async close() {
       await context.close().catch(() => {});
     },
   };
+  return session;
 }
 
 /** Run `fn(session)` and fail afterwards if the page logged any error. */

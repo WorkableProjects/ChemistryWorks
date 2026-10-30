@@ -327,8 +327,8 @@ export function renderBuilder(root, ctx) {
       h('div', { class: 'adm-switches' },
         sw('shuffleQuestions', 'Shuffle questions', null, false),
         sw('shuffleOptions', 'Shuffle options', 'Multiple choice / select', false),
-        sw('showResults', 'Show score to students', null, true),
-        sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations', true),
+        sw('showResults', 'Show score to students', 'Off: students only see “Submission received”. Grade in the Grading tab.', true),
+        sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations (only when the score is shown)', true),
         sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true)),
     );
   }
@@ -549,6 +549,7 @@ function typeEditor(q, redraw, changed, uid) {
     case 'formula': return formulaEditor(q, changed);
     case 'truefalse': return tfEditor(q, changed);
     case 'matching': return matchingEditor(q, redraw, changed);
+    case 'short': return shortEditor(q, changed);
     default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
   }
 }
@@ -634,6 +635,15 @@ function formulaEditor(q, changed) {
     field('Accepted answers (comma-separated)', inp, 'Subscripts and charges are normalized when grading: SO4^2- = SO₄²⁻'),
     chips,
     switchEl({ label: 'Case sensitive', hint: 'Off lets "nacl" match "NaCl"', checked: q.caseSensitive !== false, testid: 'case-sensitive', onChange: (v) => { q.caseSensitive = v; changed(); } }));
+}
+
+function shortEditor(q, changed) {
+  const ta = h('textarea', { class: 'textarea', rows: 3, placeholder: 'Model answer or rubric (optional)', dataset: { testid: 'short-sample' },
+    on: { input: () => { q.sampleAnswer = ta.value; changed(); } } });
+  ta.value = q.sampleAnswer || '';
+  return h('div', { class: 'stack' },
+    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Not auto-graded. Students’ answers appear in the Grading tab, where you assign points.')),
+    field('Sample answer', ta, 'Shown to you while grading. Students see it in the review only if “Show correct answers” is on.'));
 }
 
 function tfEditor(q, changed) {

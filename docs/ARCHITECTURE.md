@@ -87,6 +87,7 @@ Common question fields: `id` (required, unique, /^[A-Za-z0-9_-]+$/), `type`, `te
 | `formula` | `caseSensitive` (default true) | string, or array of accepted strings | raw input string |
 | `truefalse` | — | boolean | boolean |
 | `matching` | `left: [{id,text}]` (≥2), `right: [{id,text}]` (≥2, may include distractors, reusable), `partialCredit` (default true) | `{ leftId: rightId }` covering every left id | `{ leftId: rightId }` (partial allowed) |
+| `short` | `sampleAnswer` (default "", model answer / rubric for the teacher) | — (teacher graded) | free text |
 
 Answers map: `answers = { [questionId]: answer }`. Unanswered = key missing, `null`, `""` (after trim), `[]`, or `{}`.
 
@@ -97,6 +98,7 @@ Answers map: `answers = { [questionId]: answer }`. Unanswered = key missing, `nu
 - `numeric`: parse input with `parseNumber` (accepts `18.02`, `-3`, `1,204.5`, `6.02e23`, `6.02E+23`, `6.02x10^23`, `6.02 × 10^23`, `6.02*10^23`, `6.02×10²³`, unicode minus `−`; a trailing unit equal to the question's `unit` — case-insensitive, whitespace-insensitive — is ignored). Correct when `|x − key| ≤ tolerance` (absolute) or `|x − key| ≤ |key| × tolerance / 100` (percent). Also add a relative epsilon of 1e-9·|key| for float noise.
 - `formula`: correct when `normalizeFormula(input)` equals `normalizeFormula(any accepted)`; case-insensitive comparison only if `caseSensitive: false`.
 - `matching`: without partial credit: all pairs correct → full points. With `partialCredit` (default): `correctPairs / leftCount × points`.
+- `short`: never auto-graded. An answered short question scores 0 with `needsGrading: true` until a teacher grades it in the admin **Grading** tab; `gradeTest` also returns `pendingCount` / `pendingPoints`. The Sheet row gets `Status = Needs grading`; saving a grade (`saveGrade`, admin key required) stores per-question points in `Grades (JSON)` and the recomputed `Final Score` / `Final Percentage (%)`, with `Status = Graded`. Teachers may also override auto-graded points.
 - `pointsEarned` rounded to 2 decimals. `isCorrect` is true only for full points. `percentage = (scoreAchieved / scoreTotal × 100).toFixed(2)` (string), `"0.00"` when total is 0.
 
 ## Module interfaces

@@ -79,20 +79,23 @@ function confetti() {
 
 function reviewItem(r, i, test, stagger) {
   const q = test.questions.find((x) => x.id === r.questionId);
-  const status = r.isCorrect ? 'correct' : !r.answered ? 'unanswered' : r.pointsEarned > 0 ? 'partial' : 'incorrect';
-  const statusLabel = { correct: 'Correct', partial: 'Partially correct', incorrect: 'Incorrect', unanswered: 'Not answered' }[status];
-  const statusIcon = status === 'correct' ? 'check' : status === 'partial' ? 'info' : status === 'unanswered' ? 'alert' : 'x';
+  const status = r.needsGrading ? 'pending' : r.isCorrect ? 'correct' : !r.answered ? 'unanswered' : r.pointsEarned > 0 ? 'partial' : 'incorrect';
+  const statusLabel = { correct: 'Correct', partial: 'Partially correct', incorrect: 'Incorrect', unanswered: 'Not answered', pending: 'Awaiting teacher grading' }[status];
+  const statusIcon = status === 'correct' ? 'check' : status === 'partial' || status === 'pending' ? 'info' : status === 'unanswered' ? 'alert' : 'x';
   const open = status !== 'correct';
 
   const formulaHtml = (text) => h('span', { class: 'results-formula', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
   const given = !r.answered
     ? h('span', { class: 'muted' }, 'Not answered')
-    : r.type === 'formula' ? formulaHtml(r.givenAnswerText) : richText(r.givenAnswerText, 'span');
+    : r.type === 'formula' ? formulaHtml(r.givenAnswerText)
+      : r.type === 'short' ? h('span', { class: 'results-pre' }, r.givenAnswerText) : richText(r.givenAnswerText, 'span');
   let correct;
   if (r.type === 'formula') {
     const list = Array.isArray(r.correctAnswer) ? r.correctAnswer : [r.correctAnswer];
     correct = h('span', {}, list.flatMap((a, k) => (k ? [' / ', formulaHtml(a)] : [formulaHtml(a)])));
   } else correct = richText(r.correctAnswerText, 'span');
+  const isShort = r.type === 'short';
+  const showCorrect = !isShort || (q?.sampleAnswer ?? '') !== '';
 
   const bodyId = `review-body-${r.questionId}`;
   const toggle = h('button', {
@@ -105,7 +108,7 @@ function reviewItem(r, i, test, stagger) {
     h('span', { class: `results-item__status results-item__status--${status}`, title: statusLabel }, icon(statusIcon, { size: 16 }), h('span', { class: 'sr-only' }, statusLabel)),
     h('span', { class: 'results-item__num' }, `Q${i + 1}`),
     richText(r.questionText, 'span', 'results-item__text'),
-    h('span', { class: 'results-item__pts' }, `${r.pointsEarned} / ${r.pointsPossible} pts`),
+    h('span', { class: 'results-item__pts' }, r.needsGrading ? `— / ${r.pointsPossible} pts` : `${r.pointsEarned} / ${r.pointsPossible} pts`),
     h('span', { class: 'results-item__chev' }, icon('down', { size: 16 })),
   );
   const explanation = q?.explanation ? h('div', { class: 'results-answer results-answer--expl' },
@@ -119,7 +122,8 @@ function reviewItem(r, i, test, stagger) {
     h('div', { class: 'results-item__body', id: bodyId },
       h('div', { class: 'results-item__inner' },
         h('div', { class: 'results-answer' }, h('span', { class: 'results-answer__label' }, 'Your answer'), given),
-        h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, 'Correct answer'), correct),
+        showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, isShort ? 'Sample answer' : 'Correct answer'), correct) : null,
+        r.needsGrading ? h('p', { class: 'muted' }, 'Your teacher will grade this answer.') : null,
         explanation)),
   );
   return item;
@@ -182,14 +186,16 @@ export function render(root, ctx, params = {}) {
 
   /* ---- score */
   const showScore = !!test.showResults || preview;
+  const pending = Number(grade.pendingCount) || 0;
   let scoreCard;
-  const heading = preview ? 'Preview complete' : showScore ? (pct >= 90 ? 'Excellent work!' : pct >= 70 ? 'Nice work!' : 'Test submitted') : 'Submission received';
+  const heading = preview ? 'Preview complete' : !showScore ? 'Submission received'
+    : pending ? 'Test submitted' : pct >= 90 ? 'Excellent work!' : pct >= 70 ? 'Nice work!' : 'Test submitted';
   const titleEl = h('h1', { class: 'results-title', tabindex: '-1' }, heading);
   if (showScore) {
     const ring = scoreRing(pct, grade);
     cleanups.push(ring.stop);
     let passBadge = null;
-    if (typeof test.passingPercent === 'number') {
+    if (typeof test.passingPercent === 'number' && !pending) {
       const passed = pct >= test.passingPercent;
       passBadge = h('span', { class: ['pill', 'results-pass', passed ? 'pill--success' : 'pill--warning'], dataset: { testid: 'pass-badge' } },
         icon(passed ? 'check' : 'info', { size: 14 }), passed ? 'Passed' : 'Not yet');
@@ -200,13 +206,15 @@ export function render(root, ctx, params = {}) {
         titleEl,
         h('p', { class: 'muted' }, test.title),
         h('div', { class: 'results-score__stats' },
-          h('div', {}, h('strong', { dataset: { testid: 'score-points' } }, `${grade.scoreAchieved} / ${grade.scoreTotal}`), h('span', { class: 'muted' }, ' points')),
+          h('div', {}, h('strong', { dataset: { testid: 'score-points' } }, `${grade.scoreAchieved} / ${grade.scoreTotal}`), h('span', { class: 'muted' }, pending ? ' points so far' : ' points')),
           h('div', {}, h('strong', { dataset: { testid: 'score-correct' } }, `${grade.correctCount} of ${grade.questionCount} correct`))),
         passBadge,
-        test.passingPercent != null && typeof test.passingPercent === 'number'
+        pending ? h('p', { class: 'notice notice--info', dataset: { testid: 'pending-note' } }, icon('info'),
+          h('span', {}, `${pending} ${pending === 1 ? 'answer' : 'answers'} (${grade.pendingPoints} pts) will be graded by your teacher. This score is not final.`)) : null,
+        !pending && test.passingPercent != null && typeof test.passingPercent === 'number'
           ? h('p', { class: 'faint results-score__pass-note' }, `Passing score: ${test.passingPercent}%`) : null),
     );
-    if (pct >= 90 && !prefersReducedMotion()) {
+    if (pct >= 90 && !pending && !prefersReducedMotion()) {
       const c = confetti();
       cleanups.push(c.stop);
       scoreCard.appendChild(c.el);

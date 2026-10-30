@@ -10,6 +10,11 @@ import { normalizeRow, filterRows, sortRows, summarize, histogramBuckets, questi
 // Module state: remembered while switching tabs in the session.
 const A = { source: 'device', testCode: 'all', query: '', sortKey: 'timestamp', sortDir: 'desc', sheetRows: null, sheetError: '' };
 
+/** Drop cached Sheet rows so the next visit reloads them (called after a teacher saves a grade). */
+export function invalidateSheetCache() {
+  A.sheetRows = null;
+}
+
 export function renderAnalytics(root, ctx, { goSettings }) {
   let alive = true;
   const cleanups = [];
@@ -156,7 +161,7 @@ export function renderAnalytics(root, ctx, { goSettings }) {
 
     const cols = [
       ['student_name', 'Student'], ['student_email', 'Email'], ['test_code', 'Test'], ['score', 'Score'],
-      ['percentage', '%'], ['duration_seconds', 'Duration'], ['timestamp', 'Submitted'], ['tab_switches', 'Tab switches'],
+      ['percentage', '%'], ['duration_seconds', 'Duration'], ['timestamp', 'Submitted'], ['tab_switches', 'Tab switches'], ['status', 'Status'],
     ];
     function drawTable() {
       filtered = sortRows(filterRows(byTest, { query: A.query }), A.sortKey, A.sortDir);
@@ -174,7 +179,8 @@ export function renderAnalytics(root, ctx, { goSettings }) {
         h('td', {}, `${round2(r.score_achieved)} / ${round2(r.score_total)}`),
         h('td', {}, h('span', { class: ['pill', r.percentage >= 70 ? 'pill--success' : r.percentage >= 40 ? 'pill--warning' : 'pill--danger'] }, formatPercent(r.percentage))),
         h('td', {}, formatDurationLong(r.duration_seconds)), h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
-        h('td', {}, r.tab_switches ? h('span', { class: 'pill pill--warning' }, r.tab_switches) : '0')));
+        h('td', {}, r.tab_switches ? h('span', { class: 'pill pill--warning' }, r.tab_switches) : '0'),
+        h('td', {}, h('span', { class: ['pill', r.status === 'Needs grading' ? 'pill--warning' : r.status === 'Graded' ? 'pill--success' : ''] }, r.status))));
       mount(tableHost, h('table', { class: 'adm-table adm-table--results' }, h('thead', {}, head), h('tbody', {}, body.length ? body : h('tr', {}, h('td', { colspan: cols.length, class: 'muted adm-center' }, 'No matching submissions')))));
     }
     const onSearch = debounce(() => { A.query = search.value; drawTable(); }, 120);
@@ -194,8 +200,9 @@ export function renderAnalytics(root, ctx, { goSettings }) {
   }
 
   function showSubmission(r) {
-    const items = (r.responses || []).map((res, i) => h('li', { class: ['adm-resp', res.isCorrect ? 'is-correct' : res.answered ? 'is-wrong' : 'is-skipped'] },
-      h('div', { class: 'adm-resp__head' }, h('strong', {}, `Q${i + 1}`), h('span', { class: ['pill', res.isCorrect ? 'pill--success' : res.answered ? 'pill--danger' : ''] }, res.isCorrect ? 'Correct' : res.answered ? 'Incorrect' : 'Skipped'),
+    const label = (res) => (res.needsGrading ? 'Needs grading' : res.isCorrect ? 'Correct' : res.answered ? (res.pointsEarned > 0 ? 'Partial' : 'Incorrect') : 'Skipped');
+    const items = (r.responses || []).map((res, i) => h('li', { class: ['adm-resp', res.isCorrect ? 'is-correct' : res.needsGrading ? '' : res.answered ? 'is-wrong' : 'is-skipped'] },
+      h('div', { class: 'adm-resp__head' }, h('strong', {}, `Q${i + 1}`), h('span', { class: ['pill', res.needsGrading ? 'pill--warning' : res.isCorrect ? 'pill--success' : res.answered ? 'pill--danger' : ''] }, label(res)),
         h('span', { class: 'faint' }, `${round2(res.pointsEarned)} / ${round2(res.pointsPossible)} pts`)),
       richText(res.questionText, 'div', 'adm-resp__q'),
       h('dl', { class: 'adm-resp__ans' },

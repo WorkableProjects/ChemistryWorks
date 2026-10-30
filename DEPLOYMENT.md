@@ -69,7 +69,9 @@ New origins can take a few minutes (occasionally longer) to start working.
    - **Execute as: Me**
    - **Who has access: Anyone** (required so students' browsers can post without a Google login prompt)
 7. Click **Deploy** and copy the **Web app URL** ending in `/exec`. (The `/dev` URL is a test URL that only works for you; do not use it.)
-8. Sanity check: open `YOUR_EXEC_URL?action=ping` in a browser. You should see `{"result":"success","version":"1.0.0"}`.
+8. Sanity check: open `YOUR_EXEC_URL?action=ping` in a browser. You should see `{"result":"success","version":"1.1.0"}`.
+
+**Upgrading from 1.0.0 (adds grading):** paste the new `apps-script/Code.gs`, then redeploy as below. The first submission or `getResults` after the upgrade adds the new columns (Status, Final Score, Final Percentage (%), Grades (JSON), Graded At, Teacher Note) to your existing Submissions tab; old rows are kept.
 
 **Updating the script later without changing the URL:** after editing `Code.gs`, choose **Deploy > Manage deployments**, click the pencil (**Edit**) on your existing deployment, set **Version: New version**, and **Deploy**. The `/exec` URL stays the same. If you instead choose **New deployment**, you get a different URL and must update `js/config.js`. Saving the file alone does not change what `/exec` serves.
 

@@ -212,6 +212,29 @@ function matchingWidget(q, api) {
   };
 }
 
+function shortWidget(q, api) {
+  const countId = `sc-${q.id}`;
+  const count = h('p', { class: 'q-hint q-short__count', id: countId, 'aria-live': 'polite' });
+  const updateCount = () => {
+    const n = input.value.trim() ? input.value.trim().split(/\s+/).length : 0;
+    count.textContent = `${n} ${n === 1 ? 'word' : 'words'} · Your teacher will grade this answer`;
+  };
+  const input = h('textarea', {
+    class: 'textarea q-short', rows: 6, maxlength: '5000', spellcheck: 'true', placeholder: 'Type your answer',
+    'aria-label': 'Your answer', 'aria-describedby': countId, dataset: { testid: 'short-input' },
+    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updateCount(); } },
+  });
+  updateCount();
+  return {
+    el: h('div', { class: 'q-short-wrap' }, input, count),
+    refresh(answer) {
+      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
+      updateCount();
+    },
+    focus: () => input.focus(),
+  };
+}
+
 function buildWidget(q, api) {
   switch (q.type) {
     case 'mcq': return choiceWidget(q, api, false);
@@ -220,6 +243,7 @@ function buildWidget(q, api) {
     case 'formula': return formulaWidget(q, api);
     case 'truefalse': return trueFalseWidget(q, api);
     case 'matching': return matchingWidget(q, api);
+    case 'short': return shortWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }

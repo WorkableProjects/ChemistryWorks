@@ -1,9 +1,11 @@
 # ChemistryWorks
 
-A lightweight, serverless chemistry testing platform: Google sign-in, six question types with chemistry-aware grading, instant client-side scoring, and submissions synced to Google Sheets (with Netlify Forms as a backup).
+A lightweight, serverless chemistry testing platform: Google sign-in, seven question types (six auto-graded, plus teacher-graded short answer), instant client-side scoring, and submissions synced to Google Sheets (with Netlify Forms as a backup).
 
 - **Students** sign in with Google, enter a test code (or open `/test?code=CHEM101`), and take a focused, auto-saved, keyboard-friendly test with live formula rendering.
-- **Teachers** open `?admin=true` to build tests visually or as JSON, preview them, publish them to the Sheet, and view analytics.
+- **Teachers** open `?admin=true` to build tests visually or as JSON, preview them, publish them to the Sheet, grade open-ended answers, export final scores for a gradebook, and view analytics.
+
+Turn off **Show score to students** on a test and students only see "Submission received"; you review and grade every answer privately in the **Grading** tab, then export the final scores (CSV) to copy into Aeries or Google Classroom.
 
 ## Quick start
 
@@ -33,6 +35,7 @@ No dependencies are needed for the app or unit tests (Node's built-in runner, No
 | Chemical formula | `H2SO4`, `CuSO4·5H2O`, `SO4^2-` | normalized formula match |
 | True / False | true/false | exact |
 | Matching matrix | pairs | per-pair partial credit |
+| Short answer | free text | teacher graded in the admin **Grading** tab |
 
 The full test JSON schema and module contracts are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

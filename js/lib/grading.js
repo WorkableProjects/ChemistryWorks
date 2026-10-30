@@ -54,6 +54,7 @@ export function isAnswered(question, answer) {
     case 'numeric':
       return (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
     case 'formula':
+    case 'short':
       return typeof answer === 'string' && answer.trim() !== '';
     case 'truefalse':
       return typeof answer === 'boolean';
@@ -130,6 +131,8 @@ export function gradeQuestion(question, answer) {
   const pointsPossible = round2(Number.isFinite(pts) && pts >= 0 ? pts : 1);
   const answered = isAnswered(q, answer);
   if (!answered) return { answered: false, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false };
+  // Open-ended answers score 0 until a teacher grades them in the admin panel.
+  if (q.type === 'short') return { answered: true, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false, needsGrading: true };
   let res;
   try {
     res = score(q, answer);
@@ -176,6 +179,8 @@ export function formatAnswer(question, answer) {
       }
       case 'formula':
         return Array.isArray(answer) ? answer.map(String).join(' / ') : String(answer);
+      case 'short':
+        return String(answer).trim();
       case 'matching':
         return (q.left || [])
           .map((l) => {
@@ -193,6 +198,7 @@ export function formatAnswer(question, answer) {
 }
 
 function formatCorrect(q) {
+  if (q.type === 'short') return q.sampleAnswer ? String(q.sampleAnswer) : DASH;
   const a = q.correctAnswer;
   if (q.type === 'formula' && Array.isArray(a)) return a.join(' / ');
   if (q.type === 'formula') return typeof a === 'string' ? a : DASH;
@@ -206,6 +212,8 @@ export function gradeTest(test, answers) {
   let scoreTotal = 0;
   let correctCount = 0;
   let answeredCount = 0;
+  let pendingCount = 0;
+  let pendingPoints = 0;
 
   const results = questions.map((q) => {
     const raw = given[q.id];
@@ -214,23 +222,28 @@ export function gradeTest(test, answers) {
     scoreTotal += g.pointsPossible;
     if (g.isCorrect) correctCount++;
     if (g.answered) answeredCount++;
+    if (g.needsGrading) { pendingCount++; pendingPoints += g.pointsPossible; }
     return {
       questionId: q.id,
       questionText: q.text,
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: q.correctAnswer,
+      correctAnswer: q.type === 'short' ? (q.sampleAnswer || null) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,
       pointsEarned: g.pointsEarned,
       pointsPossible: g.pointsPossible,
+      needsGrading: !!g.needsGrading,
     };
   });
 
   scoreAchieved = round2(scoreAchieved);
   scoreTotal = round2(scoreTotal);
   const percentage = scoreTotal > 0 ? ((scoreAchieved / scoreTotal) * 100).toFixed(2) : '0.00';
-  return { scoreAchieved, scoreTotal, percentage, correctCount, answeredCount, questionCount: questions.length, results };
+  return {
+    scoreAchieved, scoreTotal, percentage, correctCount, answeredCount, questionCount: questions.length,
+    pendingCount, pendingPoints: round2(pendingPoints), results,
+  };
 }

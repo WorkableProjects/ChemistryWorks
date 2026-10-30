@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { normalizeTest, validateTest, QUESTION_TYPES } from '../../js/lib/schema.js';
+import { normalizeTest, validateTest, QUESTION_TYPES, MANUAL_TYPES } from '../../js/lib/schema.js';
 import { gradeTest } from '../../js/lib/grading.js';
 import { validateBank } from '../../scripts/validate-tests.mjs';
 
@@ -49,10 +49,10 @@ for (const f of files) {
 }
 
 for (const code of ['CHEM102', 'CHEM110', 'CHEM201']) {
-  test(`${code}: uses all six question types, 10 questions, math notation`, () => {
+  test(`${code}: uses all six auto-graded question types, 10 questions, math notation`, () => {
     const t = load(`${code}.json`);
     assert.equal(t.questions.length, 10);
-    assert.deepEqual([...new Set(t.questions.map((q) => q.type))].sort(), [...QUESTION_TYPES].sort());
+    assert.deepEqual([...new Set(t.questions.map((q) => q.type))].sort(), QUESTION_TYPES.filter((x) => !MANUAL_TYPES.includes(x)).sort());
     assert.ok(t.questions.some((q) => q.text.includes('\\ce{')));
   });
 }

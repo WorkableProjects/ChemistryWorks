@@ -1,6 +1,8 @@
 // Test schema: normalization, validation, templates. Pure functions, no DOM.
 
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'short'];
+// Types a teacher grades by hand in the admin Grading tab (everything else is auto-graded).
+export const MANUAL_TYPES = ['short'];
 export const TYPE_LABELS = {
   mcq: 'Multiple choice',
   multi: 'Multiple select',
@@ -8,6 +10,7 @@ export const TYPE_LABELS = {
   formula: 'Chemical formula',
   truefalse: 'True / False',
   matching: 'Matching',
+  short: 'Short answer (teacher graded)',
 };
 
 const CODE_RE = /^[A-Z0-9_-]{2,32}$/;
@@ -64,6 +67,9 @@ function normalizeQuestion(raw) {
       q.left = normOptions(q.left);
       q.right = normOptions(q.right);
       q.partialCredit = bool(q.partialCredit, true);
+      break;
+    case 'short':
+      q.sampleAnswer = str(q.sampleAnswer);
       break;
     default:
       break;
@@ -169,6 +175,9 @@ function validateQuestion(q, index, seenIds, errors) {
       }
       break;
     }
+    case 'short':
+      if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
+      break;
     default:
       break;
   }
@@ -216,6 +225,7 @@ export function blankQuestion(type, id = 'q1') {
         right: [{ id: 'r1', text: 'Match 1' }, { id: 'r2', text: 'Match 2' }],
         correctAnswer: { l1: 'r1', l2: 'r2' },
       };
+    case 'short': return { ...base, points: 2, sampleAnswer: '' };
     default:
       throw new RangeError(`Unknown question type: ${type}`);
   }

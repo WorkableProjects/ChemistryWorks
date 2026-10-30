@@ -6,7 +6,7 @@
  * (Execute as: Me, Who has access: Anyone). See DEPLOYMENT.md.
  */
 
-var VERSION = '1.0.0';
+var VERSION = '1.1.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
@@ -14,8 +14,14 @@ var TESTS_SHEET = 'Tests';
 var SUBMISSION_HEADERS = [
   'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title',
   'Score Achieved', 'Total Score', 'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted',
-  'Detailed Responses (JSON)', 'Flags (JSON)'
+  'Detailed Responses (JSON)', 'Flags (JSON)',
+  'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note'
 ];
+// 1-based columns of the grading fields (appended after the original 14 columns).
+var COL = { RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20 };
+var STATUS_NEEDS_GRADING = 'Needs grading';
+var STATUS_AUTO = 'Auto-graded';
+var STATUS_GRADED = 'Graded';
 var TEST_HEADERS = ['Code', 'Title', 'Updated At', 'Test JSON'];
 
 var HEADER_BACKGROUND = '#E2E8F0';
@@ -52,6 +58,7 @@ function doPost(e) {
       case 'listTests':
       case 'deleteTest':
       case 'getResults':
+      case 'saveGrade':
         return json_(handleAdmin_(body));
       case undefined:
       case null:
@@ -106,6 +113,15 @@ function getSheet_(name, headers) {
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground(HEADER_BACKGROUND);
     sheet.setFrozenRows(1);
+  } else {
+    // Sheets created by an older version have fewer columns: add any missing headers at the end.
+    var current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+    for (var i = 0; i < headers.length; i++) {
+      if (current[i] === '' || current[i] === null || current[i] === undefined) {
+        sheet.getRange(1, i + 1, 1, headers.length - i).setValues([headers.slice(i)]).setFontWeight('bold').setBackground(HEADER_BACKGROUND);
+        break;
+      }
+    }
   }
   return sheet;
 }
@@ -175,8 +191,40 @@ function normalizeSubmission_(body) {
     duration_seconds: num_(d.duration_seconds),
     responses: parseJson_(d.responses_json !== undefined ? d.responses_json : d.responses, []),
     flags: parseJson_(d.flags_json !== undefined ? d.flags_json : d.flags, {}) || {},
+    needs_grading: d.needs_grading === true || d.needs_grading === 'true',
     submitted_at: d.submitted_at || ''
   };
+}
+
+function round2_(n) {
+  return Math.round(n * 100) / 100;
+}
+
+// Final score = teacher points where given (clamped to 0..possible), otherwise the auto-graded points.
+function applyGrades_(responses, grades) {
+  var earned = 0;
+  var total = 0;
+  var list = Array.isArray(responses) ? responses : [];
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i] || {};
+    var possible = Math.max(0, num_(r.pointsPossible));
+    var pts = num_(r.pointsEarned);
+    if (grades && r.questionId !== undefined && Object.prototype.hasOwnProperty.call(grades, r.questionId)) {
+      pts = Math.min(possible, Math.max(0, num_(grades[r.questionId])));
+    }
+    earned += pts;
+    total += possible;
+  }
+  earned = round2_(earned);
+  total = round2_(total);
+  return { score: earned, total: total, percentage: total > 0 ? round2_((earned / total) * 100) : 0 };
+}
+
+function needsGrading_(s) {
+  if (s.needs_grading) return true;
+  var list = Array.isArray(s.responses) ? s.responses : [];
+  for (var i = 0; i < list.length; i++) if (list[i] && list[i].needsGrading) return true;
+  return false;
 }
 
 // Sheets evaluates strings starting with = + - @ as formulas; prefix an apostrophe so student-supplied
@@ -193,6 +241,7 @@ function handleSubmission_(body) {
   var responsesJson = JSON.stringify(s.responses);
   var flagsJson = JSON.stringify(s.flags);
   if (responsesJson.length > MAX_CELL_CHARS) return { result: 'error', error: 'submission_too_large' };
+  var pending = needsGrading_(s);
 
   return withLock_(function () {
     var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
@@ -211,7 +260,13 @@ function handleSubmission_(body) {
       num_(s.flags.tab_switches),
       s.flags.auto_submitted === true || s.flags.auto_submitted === 'true',
       responsesJson,
-      flagsJson
+      flagsJson,
+      pending ? STATUS_NEEDS_GRADING : STATUS_AUTO,
+      pending ? '' : s.score_achieved,
+      pending ? '' : s.percentage,
+      '',
+      '',
+      ''
     ]);
     return { result: 'success' };
   });
@@ -250,6 +305,7 @@ function handleAdmin_(body) {
     case 'listTests': return listTests_();
     case 'deleteTest': return deleteTest_(body.code);
     case 'getResults': return getResults_(body.testCode);
+    case 'saveGrade': return saveGrade_(body);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -308,6 +364,8 @@ function getResults_(testCode) {
     for (var i = 0; i < values.length; i++) {
       var v = values[i];
       if (filter && normalizeCode_(v[4]) !== filter) continue;
+      var finalScore = v[COL.FINAL_SCORE - 1];
+      var finalPct = v[COL.FINAL_PCT - 1];
       rows.push({
         timestamp: iso_(v[0]),
         submission_id: String(v[1]),
@@ -320,9 +378,43 @@ function getResults_(testCode) {
         percentage: num_(v[8]),
         duration_seconds: num_(v[9]),
         responses: parseJson_(v[12], []),
-        flags: parseJson_(v[13], {})
+        flags: parseJson_(v[13], {}),
+        status: String(v[COL.STATUS - 1] || ''),
+        final_score: finalScore === '' || finalScore === null ? null : num_(finalScore),
+        final_percentage: finalPct === '' || finalPct === null ? null : num_(finalPct),
+        grades: parseJson_(v[COL.GRADES - 1], null),
+        graded_at: iso_(v[COL.GRADED_AT - 1]),
+        teacher_note: String(v[COL.NOTE - 1] || '')
       });
     }
   }
   return { result: 'success', rows: rows };
+}
+
+// body: { submissionId, grades: { [questionId]: points }, note }
+function saveGrade_(body) {
+  var id = body && body.submissionId ? String(body.submissionId) : '';
+  if (!id) return { result: 'error', error: 'missing_submission_id' };
+  var grades = body.grades && typeof body.grades === 'object' && !Array.isArray(body.grades) ? body.grades : {};
+  var clean = {};
+  for (var k in grades) {
+    if (Object.prototype.hasOwnProperty.call(grades, k) && grades[k] !== '' && grades[k] !== null && isFinite(parseFloat(grades[k]))) clean[k] = num_(grades[k]);
+  }
+  var note = String(body.note == null ? '' : body.note).slice(0, 5000);
+
+  return withLock_(function () {
+    var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+    var row = findRow_(sheet, 2, id);
+    if (!row) return { result: 'error', error: 'not_found' };
+    var responses = parseJson_(sheet.getRange(row, COL.RESPONSES).getValue(), []);
+    var final = applyGrades_(responses, clean);
+    var gradedAt = new Date();
+    sheet.getRange(row, COL.STATUS, 1, 6).setValues([[
+      STATUS_GRADED, final.score, final.percentage, JSON.stringify(clean), gradedAt, text_(note)
+    ]]);
+    return {
+      result: 'success',
+      grade: { status: STATUS_GRADED, final_score: final.score, score_total: final.total, final_percentage: final.percentage, grades: clean, graded_at: gradedAt.toISOString(), teacher_note: note }
+    };
+  });
 }

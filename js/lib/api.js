@@ -90,3 +90,14 @@ export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {
     return { ok: false, rows: [], error: msg(e) };
   }
 }
+
+// Saves a teacher's grade for one submission. grades: { [questionId]: points }. The backend recomputes
+// the final score from the stored responses and returns { final_score, score_total, final_percentage, graded_at }.
+export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action: 'saveGrade', adminKey, submissionId, grades, note }, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, grade: d.grade || null } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
