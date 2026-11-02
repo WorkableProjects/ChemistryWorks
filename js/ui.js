@@ -60,6 +60,7 @@ export function mount(root, ...nodes) {
 /** Inline SVG icon from a small built-in set. */
 const ICONS = {
   flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 14h9"/>',
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
