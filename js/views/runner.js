@@ -1,4 +1,4 @@
-// Student test runner: focus/scroll modes, six question widgets, navigator drawer, keyboard shortcuts,
+// Student test runner: focus/scroll modes, question widgets, navigator drawer, keyboard shortcuts,
 // autosave/resume, timer, integrity counters and the submit flow.
 //
 // render(root, ctx, { test, source, preview }) -> cleanup()
@@ -12,6 +12,7 @@ import { formulaToHTML } from '../lib/formula.js';
 import { TYPE_LABELS } from '../lib/schema.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
 import { load, save, remove } from '../lib/storage.js';
+import { lewisWidget } from './lewis-view.js';
 
 const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻', '+': '⁺' };
 
@@ -243,6 +244,7 @@ function buildWidget(q, api) {
     case 'formula': return formulaWidget(q, api);
     case 'truefalse': return trueFalseWidget(q, api);
     case 'matching': return matchingWidget(q, api);
+    case 'lewis': return lewisWidget(q, api);
     case 'short': return shortWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }

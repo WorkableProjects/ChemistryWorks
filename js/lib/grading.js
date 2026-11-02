@@ -1,6 +1,7 @@
 // Auto-grading engine. Pure functions, no DOM. Never throws on malformed answers.
 
 import { formulasEqual } from './formula.js';
+import { isDotArray, dotTotal, followsPlacementRule, canonicalDots, describeDots } from './lewis.js';
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
@@ -58,6 +59,8 @@ export function isAnswered(question, answer) {
       return typeof answer === 'string' && answer.trim() !== '';
     case 'truefalse':
       return typeof answer === 'boolean';
+    case 'lewis':
+      return isDotArray(answer) && dotTotal(answer) > 0;
     case 'matching':
       return isPlainObject(answer) && Object.values(answer).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
     default:
@@ -106,6 +109,12 @@ function score(q, answer) {
       const accepted = Array.isArray(q.correctAnswer) ? q.correctAnswer : [q.correctAnswer];
       const opts = { caseSensitive: q.caseSensitive !== false };
       const ok = accepted.some((a) => typeof a === 'string' && a.trim() !== '' && formulasEqual(answer, a, opts));
+      return { fraction: ok ? 1 : 0, full: ok };
+    }
+    case 'lewis': {
+      if (!isDotArray(answer)) return { fraction: 0, full: false };
+      const ok = dotTotal(answer) === Number(q.correctAnswer)
+        && (q.checkPlacement === false || followsPlacementRule(answer, q.element));
       return { fraction: ok ? 1 : 0, full: ok };
     }
     case 'matching': {
@@ -181,6 +190,8 @@ export function formatAnswer(question, answer) {
         return Array.isArray(answer) ? answer.map(String).join(' / ') : String(answer);
       case 'short':
         return String(answer).trim();
+      case 'lewis':
+        return describeDots(answer, q.element);
       case 'matching':
         return (q.left || [])
           .map((l) => {
@@ -202,6 +213,11 @@ function formatCorrect(q) {
   const a = q.correctAnswer;
   if (q.type === 'formula' && Array.isArray(a)) return a.join(' / ');
   if (q.type === 'formula') return typeof a === 'string' ? a : DASH;
+  if (q.type === 'lewis') {
+    const n = Number(a);
+    if (!Number.isInteger(n) || n < 1) return DASH;
+    return `${describeDots(canonicalDots(n, q.element), q.element)}${q.checkPlacement === false ? ' — any placement' : ''}`;
+  }
   return formatAnswer(q, a);
 }
 

@@ -7,7 +7,8 @@ import { normalizeTest, validateTest, QUESTION_TYPES, MANUAL_TYPES } from '../..
 import { gradeTest } from '../../js/lib/grading.js';
 import { validateBank } from '../../scripts/validate-tests.mjs';
 
-const DIR = new URL('../../data/tests/', import.meta.url);
+// Sample tests live in test/fixtures/tests (data/tests ships empty).
+const DIR = new URL('../fixtures/tests/', import.meta.url);
 const files = readdirSync(DIR).filter((f) => f.endsWith('.json') && f !== 'index.json').sort();
 const load = (f) => normalizeTest(JSON.parse(readFileSync(new URL(f, DIR), 'utf8')));
 
@@ -52,7 +53,10 @@ for (const code of ['CHEM102', 'CHEM110', 'CHEM201']) {
   test(`${code}: uses all six auto-graded question types, 10 questions, math notation`, () => {
     const t = load(`${code}.json`);
     assert.equal(t.questions.length, 10);
-    assert.deepEqual([...new Set(t.questions.map((q) => q.type))].sort(), QUESTION_TYPES.filter((x) => !MANUAL_TYPES.includes(x)).sort());
+    // The original six auto-graded types (lewis was added later and is optional in these banks).
+    const original = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching'];
+    assert.ok(original.every((x) => QUESTION_TYPES.includes(x) && !MANUAL_TYPES.includes(x)));
+    assert.deepEqual([...new Set(t.questions.map((q) => q.type))].sort(), original.sort());
     assert.ok(t.questions.some((q) => q.text.includes('\\ce{')));
   });
 }
@@ -80,7 +84,7 @@ test('spot-check chemistry keys', () => {
 });
 
 test('validateBank reports no errors and the CLI exits 0', async () => {
-  const { rows, errors } = await validateBank();
+  const { rows, errors } = await validateBank(fileURLToPath(DIR));
   assert.deepEqual(errors, []);
   assert.equal(rows.length, files.length);
   const r = spawnSync(process.execPath, [fileURLToPath(new URL('../../scripts/validate-tests.mjs', import.meta.url))], { encoding: 'utf8' });

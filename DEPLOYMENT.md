@@ -31,7 +31,7 @@ npm test             # unit tests (node --test)
 npm run test:e2e     # browser tests (uses the pre-installed playwright package)
 ```
 
-With no `GOOGLE_CLIENT_ID` configured, the landing page shows a **demo sign-in** (type any name and email). Enter `CHEM101` to take the bundled sample test. Open `http://localhost:3000/?admin=true` and enter the admin access code (`chemadmin` by default) to see the admin panel.
+With no `GOOGLE_CLIENT_ID` configured, the landing page shows a **demo sign-in** (type any name and email). No tests are bundled by default: add your own to `data/tests/` or publish one from the admin panel. Open `http://localhost:3000/?admin=true` and enter the admin access code (`chemadmin` by default) to see the admin panel.
 
 On `localhost`/`127.0.0.1` the Netlify Forms backup is skipped automatically, and Apps Script is skipped until you configure its URL. Submissions are still saved on the device ("This device" analytics).
 
@@ -122,7 +122,7 @@ Two ways to ship a test:
 | Version history | Git | Overwritten on re-publish (same code) |
 | Works if Apps Script is down | Yes | No |
 
-Test JSON reference (short): a test has `code`, `title`, optional settings (`timeLimitMinutes`, `shuffleQuestions`, `shuffleOptions`, `showResults`, `showCorrectAnswers`, `passingPercent`, ...) and a `questions` array. Question types are `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching` and `short` (teacher graded); chemistry notation uses KaTeX with mhchem, e.g. `$\ce{H2O}$`. The full schema, scoring rules and numeric/formula matching behavior are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). `data/tests/CHEM101.json` is a complete example, and [docs/guide.md](docs/guide.md) is a step-by-step authoring guide you can hand to an AI assistant.
+Test JSON reference (short): a test has `code`, `title`, optional settings (`timeLimitMinutes`, `shuffleQuestions`, `shuffleOptions`, `showResults`, `showCorrectAnswers`, `passingPercent`, ...) and a `questions` array. Question types are `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `lewis` (Lewis dot diagram) and `short` (teacher graded); chemistry notation uses KaTeX with mhchem, e.g. `$\ce{H2O}$`. The full schema, scoring rules and numeric/formula matching behavior are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). [docs/guide.md](docs/guide.md) is a step-by-step authoring guide you can hand to an AI assistant.
 
 ---
 
@@ -132,7 +132,7 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 - [ ] `YOUR_EXEC_URL?action=ping` returns `success` and a version.
 - [ ] Admin panel > Settings > **Ping backend** shows connected.
 - [ ] On the live site, the Google sign-in button appears (not the demo form) and signing in shows your name and email.
-- [ ] Take `CHEM101`: answer, submit, and see the score and review.
+- [ ] Take one of your tests: answer, submit, and see the score and review.
 - [ ] The **Submissions** tab has a new row with the right name, email, test code, score, percentage and JSON responses.
 - [ ] Submit the same attempt's retry (**retry-submit** on the results page, or the webhook if enabled): the sheet still has one row for that attempt.
 - [ ] Netlify **Forms** shows the submission.

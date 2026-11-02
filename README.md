@@ -1,6 +1,6 @@
 # ChemistryWorks
 
-A lightweight, serverless chemistry testing platform: Google sign-in, seven question types (six auto-graded, plus teacher-graded short answer), instant client-side scoring, and submissions synced to Google Sheets (with Netlify Forms as a backup).
+A lightweight, serverless chemistry testing platform: Google sign-in, eight question types (seven auto-graded, including Lewis dot diagrams, plus teacher-graded short answer), instant client-side scoring, and submissions synced to Google Sheets (with Netlify Forms as a backup).
 
 - **Students** sign in with Google, enter a test code (or open `/test?code=CHEM101`), and take a focused, auto-saved, keyboard-friendly test with live formula rendering.
 - **Teachers** open `?admin=true` to build tests visually or as JSON, preview them, publish them to the Sheet, grade open-ended answers, export final scores for a gradebook, and view analytics.
@@ -13,7 +13,7 @@ Turn off **Show score to students** on a test and students only see "Submission 
 npm start          # http://localhost:3000  (demo sign-in is enabled until a Google Client ID is set)
 ```
 
-Open http://localhost:3000/?code=CHEM101 to take the sample test, or http://localhost:3000/?admin=true (code `chemadmin`) for the admin panel.
+Open http://localhost:3000/?admin=true (code `chemadmin`) for the admin panel.
 
 ## Tests
 
@@ -49,7 +49,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for Google Cloud (sign-in), Google Sheets + A
 index.html            app shell + hidden Netlify form
 js/                   app (ES modules, no build step)
 css/                  styles
-data/tests/           bundled tests (index.json = catalog)
+data/tests/           bundled tests (index.json = catalog; ships empty)
+test/fixtures/tests/  sample tests used only by the automated test suite
 apps-script/Code.gs   Google Apps Script backend
 test/                 unit + E2E tests
 ```

@@ -287,3 +287,35 @@
   .results-confetti { display: none; }
   .runner-timer.is-danger { animation: none; }
 }
+
+/* ---------- Lewis dot diagrams (static + interactive) ---------- */
+.lewis {
+  --cell: 18px; --sym: 26px; --dot: 6px;
+  display: inline-grid; grid-template-columns: var(--cell) auto var(--cell); grid-template-rows: var(--cell) auto var(--cell);
+  grid-template-areas: ". top ." "left sym right" ". bottom ."; align-items: center; justify-items: center; vertical-align: middle;
+}
+.lewis--sm { --cell: 12px; --sym: 18px; --dot: 4px; }
+.lewis--lg { --cell: 30px; --sym: 44px; --dot: 9px; }
+.lewis__sym { grid-area: sym; font-size: var(--sym); font-weight: 700; line-height: 1; padding: 2px 4px; color: var(--text); }
+.lewis__side { display: flex; gap: calc(var(--dot) * 0.8); align-items: center; justify-content: center; }
+.lewis__side--top { grid-area: top; }
+.lewis__side--bottom { grid-area: bottom; }
+.lewis__side--left { grid-area: left; flex-direction: column; }
+.lewis__side--right { grid-area: right; flex-direction: column; }
+.lewis__dot { display: block; width: var(--dot); height: var(--dot); border-radius: 50%; background: currentColor; color: var(--text); }
+
+.q-lewis { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.lewis--edit { --cell: 54px; --sym: 56px; --dot: 12px; padding: 10px; border-radius: var(--radius-lg); background: var(--bg-sunken); }
+.lewis--edit .lewis__sym { padding: 6px 10px; user-select: none; }
+.lewis__btn {
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius); background: var(--bg-elev); cursor: pointer; padding: 0;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), transform 220ms var(--ease-spring);
+}
+.lewis__btn.lewis__side--top, .lewis__btn.lewis__side--bottom { width: 72px; height: 44px; }
+.lewis__btn.lewis__side--left, .lewis__btn.lewis__side--right { width: 44px; height: 72px; }
+.lewis__btn:hover { border-color: var(--primary); transform: scale(1.04); }
+.lewis__btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--primary-ring); border-color: var(--primary); }
+.lewis__btn.has-dots { border-style: solid; border-color: var(--primary); }
+.lewis__btn .lewis__dot { color: var(--primary); }
+.q-lewis__count { margin: 0; text-align: center; }
+.results-lewis { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }

@@ -4,6 +4,8 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 
 **Your job:** produce **one JSON object** describing a test. Output only the JSON: no comments, no trailing commas, no Markdown outside a single ```json code block. The teacher then imports it as described in [Importing into ChemistryWorks](#importing-into-chemistryworks).
 
+**When you're done:** always tell the user to save the JSON as `<CODE>.json` and add it to `~/data/tests` (the `data/tests/` folder of the ChemistryWorks repository), along with an entry in `data/tests/index.json`. See [Option B](#option-b-bundle-it-with-the-site-for-repository-maintainers).
+
 ---
 
 ## Quick rules
@@ -11,7 +13,7 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 1. Output strict JSON: double-quoted keys and strings, no `//` comments, no trailing commas.
 2. `code`: 2–32 characters, uppercase letters, digits, `-` or `_` (e.g. `CHEM-U3-QUIZ`). Must be unique among the teacher's tests.
 3. Every question needs a unique `id` (letters, digits, `-`, `_`). Use `q1`, `q2`, `q3`, …
-4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `short`.
+4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `lewis`, `short`.
 5. `points` must be a number greater than 0.
 6. Option ids (`mcq`, `multi`) and item ids (`matching`) must be unique **within that question**. Use `a`, `b`, `c`, `d` for options.
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
@@ -62,14 +64,14 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | Field | Required | Notes |
 |---|---|---|
 | `id` | yes | Unique in the test. `q1`, `q2`, … |
-| `type` | yes | One of the seven types below. |
+| `type` | yes | One of the eight types below. |
 | `text` | yes | The question. Supports math, see [Writing chemistry and math](#writing-chemistry-and-math). |
 | `points` | no | Number > 0. Default `1`. |
 | `explanation` | no | Shown in the student review after submitting (if `showCorrectAnswers` is on). Strongly recommended. |
 
 ---
 
-## The seven question types
+## The eight question types
 
 ### 1. `mcq`: multiple choice (one answer)
 
@@ -203,7 +205,29 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 - `correctAnswer`: an object mapping **every** left id to one right id.
 - `partialCredit` (default `true`): points for each correct pair.
 
-### 7. `short`: short answer / open-ended (teacher graded)
+### 7. `lewis`: Lewis (electron) dot diagram for an element
+
+```json
+{
+  "id": "q8",
+  "type": "lewis",
+  "text": "Draw the Lewis dot diagram for oxygen.",
+  "points": 2,
+  "element": "O",
+  "correctAnswer": 6,
+  "checkPlacement": true,
+  "explanation": "Oxygen is in group 16, so it has 6 valence electrons: one dot on each side, then two pairs."
+}
+```
+
+- The student sees the `element` symbol and clicks each side (top, right, bottom, left) to add a dot; a second click makes a pair, a third clears that side.
+- `element` (required): an element symbol such as `"O"`, `"Cl"`, `"Mg"`.
+- `correctAnswer`: the number of valence electrons (whole number 1–8). It can be left out for main-group elements (groups 1, 2, 13–18, including H and He); it is filled in automatically. For any other element (e.g. transition metals) you must give it.
+- `checkPlacement` (default `true`): also require the conventional placement, one dot on each side before any side gets a pair (so O = 2, 2, 1, 1 in any arrangement, but not 2, 2, 2, 0). Helium may be drawn as one pair or two single dots. Set to `false` to grade only the total number of dots.
+- All or nothing: no partial credit. A student's answer is stored as `[top, right, bottom, left]`, e.g. `[2, 2, 1, 1]`.
+- Don't reveal the valence count in `text`; ask for the diagram.
+
+### 8. `short`: short answer / open-ended (teacher graded)
 
 ```json
 {
@@ -253,6 +277,7 @@ Before outputting, check:
 - [ ] `mcq` distractors are plausible and reflect real misconceptions; exactly one option is correct.
 - [ ] `multi` questions say "Select ALL that apply".
 - [ ] Each auto-graded question has a short `explanation`.
+- [ ] `lewis` questions use a valid element symbol; non-main-group elements give `correctAnswer` explicitly.
 - [ ] `short` questions have a `sampleAnswer` / rubric and appropriate `points`.
 - [ ] Chemistry is correct: balanced equations, correct charges, significant figures.
 - [ ] Backslashes are doubled and the output is valid JSON.
@@ -261,7 +286,7 @@ Before outputting, check:
 
 ## Complete example
 
-A complete, valid test using all seven types (copy this as a template):
+A complete, valid test using all eight types (copy this as a template):
 
 ```json
 {
@@ -353,6 +378,15 @@ A complete, valid test using all seven types (copy this as a template):
     },
     {
       "id": "q7",
+      "type": "lewis",
+      "text": "Draw the Lewis dot diagram for nitrogen.",
+      "points": 2,
+      "element": "N",
+      "correctAnswer": 5,
+      "explanation": "Nitrogen (group 15) has 5 valence electrons: one dot on each side, then one pair."
+    },
+    {
+      "id": "q8",
       "type": "short",
       "text": "Explain why increasing temperature increases the rate of a reaction.",
       "points": 4,

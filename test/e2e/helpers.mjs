@@ -1,5 +1,6 @@
 // Shared Playwright helpers for the E2E suite. Not a test file (no .test.mjs suffix).
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { listen } from '../../scripts/serve.mjs';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
@@ -53,6 +54,16 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
       }
       if (req.method() === 'GET' && overrides.has(u.pathname)) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overrides.get(u.pathname)) });
+      }
+      // The sample tests (CHEM101, ...) live in test/fixtures/tests; serve them as if bundled in data/tests.
+      if (req.method() === 'GET' && u.pathname.startsWith('/data/tests/')) {
+        const name = u.pathname.slice('/data/tests/'.length);
+        if (/^[A-Za-z0-9_-]+\.json$/.test(name)) {
+          try {
+            const body = readFileSync(new URL(`../fixtures/tests/${name}`, import.meta.url), 'utf8');
+            return route.fulfill({ status: 200, contentType: 'application/json', body });
+          } catch { return route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' }); }
+        }
       }
       return route.continue();
     }

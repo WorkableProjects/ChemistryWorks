@@ -5,7 +5,7 @@ import {
   QUESTION_TYPES, TYPE_LABELS, normalizeTest, validateTest, blankQuestion, nextQuestionId, blankTest,
 } from '../../js/lib/schema.js';
 
-const chem = () => JSON.parse(readFileSync(new URL('../../data/tests/CHEM101.json', import.meta.url), 'utf8'));
+const chem = () => JSON.parse(readFileSync(new URL('../fixtures/tests/CHEM101.json', import.meta.url), 'utf8'));
 
 function mk(q) {
   return normalizeTest({ code: 'T1', title: 'T', questions: [q] });
@@ -14,7 +14,7 @@ const errsOf = (t) => validateTest(t).errors;
 const has = (errors, re) => assert.ok(errors.some((e) => re.test(e)), `expected /${re}/ in ${JSON.stringify(errors)}`);
 
 test('constants', () => {
-  assert.deepEqual(QUESTION_TYPES, ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'short']);
+  assert.deepEqual(QUESTION_TYPES, ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis', 'short']);
   for (const t of QUESTION_TYPES) assert.equal(typeof TYPE_LABELS[t], 'string');
   assert.equal(TYPE_LABELS.truefalse, 'True / False');
 });

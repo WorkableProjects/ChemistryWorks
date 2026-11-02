@@ -1,6 +1,8 @@
 // Test schema: normalization, validation, templates. Pure functions, no DOM.
 
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'short'];
+import { normalizeSymbol, valenceOf } from './lewis.js';
+
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis', 'short'];
 // Types a teacher grades by hand in the admin Grading tab (everything else is auto-graded).
 export const MANUAL_TYPES = ['short'];
 export const TYPE_LABELS = {
@@ -10,6 +12,7 @@ export const TYPE_LABELS = {
   formula: 'Chemical formula',
   truefalse: 'True / False',
   matching: 'Matching',
+  lewis: 'Lewis dot diagram',
   short: 'Short answer (teacher graded)',
 };
 
@@ -68,6 +71,18 @@ function normalizeQuestion(raw) {
       q.right = normOptions(q.right);
       q.partialCredit = bool(q.partialCredit, true);
       break;
+    case 'lewis': {
+      const sym = normalizeSymbol(q.element);
+      q.element = sym || str(q.element).trim();
+      q.checkPlacement = bool(q.checkPlacement, true);
+      if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer === '') {
+        const v = valenceOf(sym);
+        if (v !== null) q.correctAnswer = v;
+      } else if (typeof q.correctAnswer === 'string' && Number.isFinite(Number(q.correctAnswer))) {
+        q.correctAnswer = Number(q.correctAnswer);
+      }
+      break;
+    }
     case 'short':
       q.sampleAnswer = str(q.sampleAnswer);
       break;
@@ -175,6 +190,10 @@ function validateQuestion(q, index, seenIds, errors) {
       }
       break;
     }
+    case 'lewis':
+      if (!nonEmptyStr(q.element) || !normalizeSymbol(q.element)) errors.push(`${where}: element must be an element symbol such as "O" or "Cl".`);
+      if (!Number.isInteger(a) || a < 1 || a > 8) errors.push(`${where}: correctAnswer must be the number of valence electrons (a whole number from 1 to 8).`);
+      break;
     case 'short':
       if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
       break;
@@ -225,6 +244,7 @@ export function blankQuestion(type, id = 'q1') {
         right: [{ id: 'r1', text: 'Match 1' }, { id: 'r2', text: 'Match 2' }],
         correctAnswer: { l1: 'r1', l2: 'r2' },
       };
+    case 'lewis': return { ...base, text: 'Draw the Lewis dot diagram for oxygen.', element: 'O', correctAnswer: 6, checkPlacement: true };
     case 'short': return { ...base, points: 2, sampleAnswer: '' };
     default:
       throw new RangeError(`Unknown question type: ${type}`);

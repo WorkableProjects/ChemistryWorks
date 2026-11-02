@@ -34,7 +34,8 @@ js/views/runner.js         student test-taking                           (T02)
 js/views/results.js        submission confirmation + score review        (T02)
 js/views/admin.js          builder, library, analytics, settings         (T03)
 apps-script/Code.gs        Apps Script backend                           (T04)
-data/tests/*.json          bundled tests; index.json = catalog
+data/tests/*.json          bundled tests; index.json = catalog (ships empty)
+test/fixtures/tests/       sample tests (CHEM101, ...) used only by the automated tests
 scripts/serve.mjs          static dev server (exports listen(port) -> {server,url})
 test/unit/*.test.mjs       unit tests (node --test)
 test/e2e/*.test.mjs        browser tests (node --test + playwright)
@@ -149,7 +150,7 @@ export function formatAnswer(question, answer): string
 
 ### js/lib/schema.js (T01)
 ```js
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis', 'short'];
 export const TYPE_LABELS = { mcq: 'Multiple choice', multi: 'Multiple select', numeric: 'Numeric', formula: 'Chemical formula', truefalse: 'True / False', matching: 'Matching' };
 export function normalizeTest(raw): Test          // deep copy with defaults applied; never mutates input; code uppercased/trimmed
 export function validateTest(test): { valid: boolean, errors: string[] }

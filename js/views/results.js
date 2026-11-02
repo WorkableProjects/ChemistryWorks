@@ -7,6 +7,8 @@ import {
 } from '../ui.js';
 import { formulaToHTML } from '../lib/formula.js';
 import { flushOutbox } from '../lib/submit.js';
+import { canonicalDots } from '../lib/lewis.js';
+import { lewisDiagram } from './lewis-view.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -88,11 +90,14 @@ function reviewItem(r, i, test, stagger) {
   const given = !r.answered
     ? h('span', { class: 'muted' }, 'Not answered')
     : r.type === 'formula' ? formulaHtml(r.givenAnswerText)
+      : r.type === 'lewis' ? h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, r.givenAnswer), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'short' ? h('span', { class: 'results-pre' }, r.givenAnswerText) : richText(r.givenAnswerText, 'span');
   let correct;
   if (r.type === 'formula') {
     const list = Array.isArray(r.correctAnswer) ? r.correctAnswer : [r.correctAnswer];
     correct = h('span', {}, list.flatMap((a, k) => (k ? [' / ', formulaHtml(a)] : [formulaHtml(a)])));
+  } else if (r.type === 'lewis') {
+    correct = h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, canonicalDots(r.correctAnswer, q?.element)), h('span', { class: 'muted' }, r.correctAnswerText));
   } else correct = richText(r.correctAnswerText, 'span');
   const isShort = r.type === 'short';
   const showCorrect = !isShort || (q?.sampleAnswer ?? '') !== '';
