@@ -149,7 +149,7 @@ export function formatAnswer(question, answer): string
 
 ### js/lib/schema.js (T01)
 ```js
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis', 'short'];
 export const TYPE_LABELS = { mcq: 'Multiple choice', multi: 'Multiple select', numeric: 'Numeric', formula: 'Chemical formula', truefalse: 'True / False', matching: 'Matching' };
 export function normalizeTest(raw): Test          // deep copy with defaults applied; never mutates input; code uppercased/trimmed
 export function validateTest(test): { valid: boolean, errors: string[] }

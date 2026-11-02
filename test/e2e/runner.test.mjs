@@ -260,6 +260,44 @@ test('formula and numeric widgets show live previews', () => withSession(env, {}
   await waitText(activeCard(page).locator(tid('numeric-preview')), 'Not a number yet');
 }));
 
+test('lewis dot diagram widget: click sides to place dots, graded on count and placement', () => withSession(env, {}, async (s) => {
+  const { page } = s;
+  s.serveTest('LEWIS1', {
+    code: 'LEWIS1', title: 'Lewis',
+    questions: [
+      { id: 'q1', type: 'lewis', text: 'Draw oxygen', element: 'O', points: 2, explanation: 'Oxygen has 6 valence electrons.' },
+      { id: 'q2', type: 'lewis', text: 'Draw nitrogen', element: 'N', points: 1, explanation: 'Nitrogen has 5 valence electrons.' },
+    ],
+  });
+  await startTest(s, 'LEWIS1');
+  const card = activeCard(page);
+  // oxygen: top 2, right 2, bottom 1, left 1
+  for (const [side, n] of [['top', 2], ['right', 2], ['bottom', 1], ['left', 1]]) {
+    for (let i = 0; i < n; i++) await card.locator(tid(`lewis-${side}`)).click();
+  }
+  await waitText(card.locator(tid('lewis-count')), /^6 dots placed/);
+  await waitText(page.locator(tid('progress-text')), '1 of 2 answered');
+  // a third click clears that side
+  await card.locator(tid('lewis-top')).click();
+  await waitText(card.locator(tid('lewis-count')), /^4 dots placed/);
+  await card.locator(tid('lewis-top')).click();
+  await card.locator(tid('lewis-top')).click();
+  await waitText(card.locator(tid('lewis-count')), /^6 dots placed/);
+  await goNext(page);
+  // nitrogen with the right count but two pairs (wrong placement)
+  const c2 = activeCard(page);
+  for (let i = 0; i < 2; i++) await c2.locator(tid('lewis-top')).click();
+  for (let i = 0; i < 2; i++) await c2.locator(tid('lewis-right')).click();
+  await c2.locator(tid('lewis-bottom')).click();
+  await submit(page);
+
+  await waitText(page.locator(tid('score-points')), '2 / 3');
+  await waitAttr(page.locator(tid('review-item-q1')), 'data-correct', 'true');
+  await waitAttr(page.locator(tid('review-item-q2')), 'data-correct', 'false');
+  const r = s.gas[0].responses.find((x) => x.questionId === 'q1');
+  assert.deepEqual(r.givenAnswer, [2, 2, 1, 1]);
+}));
+
 test('clear-answer removes an answer', () => withSession(env, {}, async (s) => {
   const { page } = s;
   await startTest(s);

@@ -1,6 +1,6 @@
 # ChemistryWorks
 
-A lightweight, serverless chemistry testing platform: Google sign-in, seven question types (six auto-graded, plus teacher-graded short answer), instant client-side scoring, and submissions synced to Google Sheets (with Netlify Forms as a backup).
+A lightweight, serverless chemistry testing platform: Google sign-in, eight question types (seven auto-graded, including Lewis dot diagrams, plus teacher-graded short answer), instant client-side scoring, and submissions synced to Google Sheets (with Netlify Forms as a backup).
 
 - **Students** sign in with Google, enter a test code (or open `/test?code=CHEM101`), and take a focused, auto-saved, keyboard-friendly test with live formula rendering.
 - **Teachers** open `?admin=true` to build tests visually or as JSON, preview them, publish them to the Sheet, grade open-ended answers, export final scores for a gradebook, and view analytics.

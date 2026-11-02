@@ -250,3 +250,4 @@
 .adm-linkbox { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
 .adm-linkbox .row { gap: 8px; flex-wrap: nowrap; }
 .adm-linkbox .input { height: 36px; font-size: 13px; min-width: 0; flex: 1; }
+.adm-lewis-preview { display: flex; align-items: center; gap: 16px; min-height: 96px; padding: 10px 16px; border-radius: var(--radius); background: var(--bg-sunken); }

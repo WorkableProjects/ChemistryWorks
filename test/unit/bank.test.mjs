@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { normalizeTest, validateTest, QUESTION_TYPES, MANUAL_TYPES } from '../../js/lib/schema.js';
 import { gradeTest } from '../../js/lib/grading.js';
+import { canonicalDots } from '../../js/lib/lewis.js';
 import { validateBank } from '../../scripts/validate-tests.mjs';
 
 const DIR = new URL('../../data/tests/', import.meta.url);
@@ -15,6 +16,7 @@ function keyAnswer(q) {
   switch (q.type) {
     case 'numeric': return String(q.correctAnswer);
     case 'formula': return Array.isArray(q.correctAnswer) ? q.correctAnswer[0] : q.correctAnswer;
+    case 'lewis': return canonicalDots(q.correctAnswer, q.element);
     default: return q.correctAnswer;
   }
 }
@@ -52,7 +54,10 @@ for (const code of ['CHEM102', 'CHEM110', 'CHEM201']) {
   test(`${code}: uses all six auto-graded question types, 10 questions, math notation`, () => {
     const t = load(`${code}.json`);
     assert.equal(t.questions.length, 10);
-    assert.deepEqual([...new Set(t.questions.map((q) => q.type))].sort(), QUESTION_TYPES.filter((x) => !MANUAL_TYPES.includes(x)).sort());
+    // The original six auto-graded types (lewis was added later and is optional in these banks).
+    const original = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching'];
+    assert.ok(original.every((x) => QUESTION_TYPES.includes(x) && !MANUAL_TYPES.includes(x)));
+    assert.deepEqual([...new Set(t.questions.map((q) => q.type))].sort(), original.sort());
     assert.ok(t.questions.some((q) => q.text.includes('\\ce{')));
   });
 }
