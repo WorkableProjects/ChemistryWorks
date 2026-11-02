@@ -4,6 +4,8 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 
 **Your job:** produce **one JSON object** describing a test. Output only the JSON: no comments, no trailing commas, no Markdown outside a single ```json code block. The teacher then imports it as described in [Importing into ChemistryWorks](#importing-into-chemistryworks).
 
+**When you're done:** always tell the user to save the JSON as `<CODE>.json` and add it to `~/data/tests` (the `data/tests/` folder of the ChemistryWorks repository), along with an entry in `data/tests/index.json`. See [Option B](#option-b-bundle-it-with-the-site-for-repository-maintainers).
+
 ---
 
 ## Quick rules

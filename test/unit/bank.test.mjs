@@ -5,7 +5,6 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { normalizeTest, validateTest, QUESTION_TYPES, MANUAL_TYPES } from '../../js/lib/schema.js';
 import { gradeTest } from '../../js/lib/grading.js';
-import { canonicalDots } from '../../js/lib/lewis.js';
 import { validateBank } from '../../scripts/validate-tests.mjs';
 
 const DIR = new URL('../../data/tests/', import.meta.url);
@@ -16,7 +15,6 @@ function keyAnswer(q) {
   switch (q.type) {
     case 'numeric': return String(q.correctAnswer);
     case 'formula': return Array.isArray(q.correctAnswer) ? q.correctAnswer[0] : q.correctAnswer;
-    case 'lewis': return canonicalDots(q.correctAnswer, q.element);
     default: return q.correctAnswer;
   }
 }

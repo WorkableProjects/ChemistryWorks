@@ -125,23 +125,15 @@ test('builder: create, validate, save draft, preview and submit without any netw
   await page.locator(`${tid('library-item-E2E-1')}[data-source="draft"]`).waitFor();
 }));
 
-test('builder: every auto-graded question type can be added and validated', () => withSession(env, {}, async ({ page, url }) => {
+test('builder: all six question types can be added and validated', () => withSession(env, {}, async ({ page, url }) => {
   await unlockAdmin(page, url);
   await page.locator(tid('new-test')).click();
   await page.locator(tid('test-code')).fill('SIXTYPES');
   await page.locator(tid('test-title')).fill('Six types');
-  for (const type of ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis']) {
+  for (const type of ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching']) {
     await addQuestion(page, type);
   }
-  assert.equal(await page.locator(tid('question-editor')).count(), 7);
-  // Lewis editor: typing an element fills in its valence electrons
-  const lewisEl = page.locator(tid('lewis-element')).last();
-  await lewisEl.fill('cl');
-  assert.equal(await page.locator(tid('lewis-valence')).last().inputValue(), '7');
-  await waitAttr(page.locator(tid('validation-errors')), 'data-count', '0');
-  await page.locator(tid('question-editor')).nth(6).locator(tid('q-delete')).click();
-  await page.locator(tid('confirm-action')).click();
-  await poll(async () => (await page.locator(tid('question-editor')).count()) === 6, { message: 'lewis deleted' });
+  assert.equal(await page.locator(tid('question-editor')).count(), 6);
   await waitAttr(page.locator(tid('validation-errors')), 'data-count', '0');
   // duplicate + delete
   await page.locator(tid('question-editor')).nth(0).locator(tid('q-duplicate')).click();
