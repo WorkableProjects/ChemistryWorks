@@ -357,3 +357,4 @@ body[data-view="runner"] .toast-root { bottom: 88px; }
 .theme-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--sw); transform: scale(1.06); }
 .theme-ctl__note { font-size: 12px; color: var(--text-faint); }
 .theme-float { position: fixed; top: 14px; right: 16px; z-index: 60; }
+.landing__topbar { display: flex; gap: 8px; align-items: center; }
