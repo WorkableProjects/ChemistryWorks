@@ -6,3 +6,4 @@
 - Add Lewis dot structures with a bracket & charge
 - Be able to add comment on questions in submissions (via admin)
 - Be able to EXPORT questions with the student's answers & with comments from admin
+- DE-AI the UI, make it look unique but able to be read and understood for testing purposes.
