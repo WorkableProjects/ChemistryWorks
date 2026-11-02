@@ -9,6 +9,8 @@ import { formulaToHTML } from '../lib/formula.js';
 import { flushOutbox } from '../lib/submit.js';
 import { canonicalDots } from '../lib/lewis.js';
 import { lewisDiagram } from './lewis-view.js';
+import { structureDiagram } from './structure-view.js';
+import { acceptedStructures } from '../lib/structure.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -91,16 +93,25 @@ function reviewItem(r, i, test, stagger) {
     ? h('span', { class: 'muted' }, 'Not answered')
     : r.type === 'formula' ? formulaHtml(r.givenAnswerText)
       : r.type === 'lewis' ? h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, r.givenAnswer), h('span', { class: 'muted' }, r.givenAnswerText))
-      : r.type === 'short' ? h('span', { class: 'results-pre' }, r.givenAnswerText) : richText(r.givenAnswerText, 'span');
+      : r.type === 'structure' && q ? h('span', { class: 'results-structure' }, structureDiagram(q, r.givenAnswer, { label: 'Your Lewis structure' }), h('span', { class: 'muted' }, r.givenAnswerText))
+      : r.type === 'short' || r.type === 'open' ? h('span', { class: 'results-pre' }, r.givenAnswerText) : richText(r.givenAnswerText, 'span');
   let correct;
-  if (r.type === 'formula') {
+  if (r.type === 'structure' && q) {
+    correct = h('span', { class: 'results-structure' },
+      acceptedStructures(q).map((k, n, all) => h('span', { class: 'results-structure__form' },
+        all.length > 1 ? h('span', { class: 'faint' }, `Resonance form ${n + 1}`) : null,
+        structureDiagram(q, k, { label: 'Correct Lewis structure' }))),
+      h('span', { class: 'muted' }, r.correctAnswerText));
+  } else if (r.type === 'open') {
+    correct = h('span', { class: 'results-pre' }, r.correctAnswerText);
+  } else if (r.type === 'formula') {
     const list = Array.isArray(r.correctAnswer) ? r.correctAnswer : [r.correctAnswer];
     correct = h('span', {}, list.flatMap((a, k) => (k ? [' / ', formulaHtml(a)] : [formulaHtml(a)])));
   } else if (r.type === 'lewis') {
     correct = h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, canonicalDots(r.correctAnswer, q?.element)), h('span', { class: 'muted' }, r.correctAnswerText));
   } else correct = richText(r.correctAnswerText, 'span');
-  const isShort = r.type === 'short';
-  const showCorrect = !isShort || (q?.sampleAnswer ?? '') !== '';
+  const isShort = r.type === 'short' || r.type === 'open';
+  const showCorrect = !isShort || (q?.sampleAnswer ?? '') !== '' || (r.type === 'open' && (q?.rubric || []).length > 0);
 
   const bodyId = `review-body-${r.questionId}`;
   const toggle = h('button', {
@@ -127,7 +138,7 @@ function reviewItem(r, i, test, stagger) {
     h('div', { class: 'results-item__body', id: bodyId },
       h('div', { class: 'results-item__inner' },
         h('div', { class: 'results-answer' }, h('span', { class: 'results-answer__label' }, 'Your answer'), given),
-        showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, isShort ? 'Sample answer' : 'Correct answer'), correct) : null,
+        showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, r.type === 'open' ? 'Sample answer & rubric' : isShort ? 'Sample answer' : 'Correct answer'), correct) : null,
         r.needsGrading ? h('p', { class: 'muted' }, 'Your teacher will grade this answer.') : null,
         explanation)),
   );

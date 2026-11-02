@@ -1,4 +1,4 @@
-// Admin panel: library, test builder, grading, analytics, settings.
+// Admin panel: library, test builder, grading, settings.
 // Sub-views live in js/views/admin/*.js. Builder state is module-level so it survives tab switches.
 
 import { h, mount, icon, appHeader, openModal } from '../ui.js';
@@ -6,7 +6,6 @@ import { CONFIG } from '../config.js';
 import { load, save, remove } from '../lib/storage.js';
 import { renderBuilder, setBuilderTest, newBuilderTest, builderIsDirty } from './admin/builder.js';
 import { renderLibrary } from './admin/library.js';
-import { renderAnalytics } from './admin/analytics.js';
 import { renderGrading } from './admin/grading.js';
 import { renderSettings } from './admin/settings.js';
 
@@ -16,7 +15,6 @@ const TABS = [
   { id: 'library', label: 'Library', icon: 'list' },
   { id: 'builder', label: 'Builder', icon: 'grid' },
   { id: 'grading', label: 'Grading', icon: 'pen' },
-  { id: 'analytics', label: 'Analytics', icon: 'chart' },
   { id: 'settings', label: 'Settings', icon: 'key' },
 ];
 
@@ -96,7 +94,6 @@ export function render(root, ctx, params = {}) {
     const sub = { library: () => renderLibrary(host, ctx, { openInBuilder, goSettings }),
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
-      analytics: () => renderAnalytics(host, ctx, { goSettings }),
       settings: () => renderSettings(host, ctx, {}) }[tab];
     const res = sub();
     tabCleanup = typeof res === 'function' ? res : null;

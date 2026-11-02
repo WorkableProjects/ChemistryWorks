@@ -1,7 +1,7 @@
 // Landing: a single centered panel, like a testing-platform login screen.
 // Signed out: "Sign in with Google to Begin". Signed in: test-code entry and resumable attempts.
 
-import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong } from '../ui.js';
+import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
 import { keys, load } from '../lib/storage.js';
 
@@ -97,6 +97,7 @@ export function render(root, ctx, params = {}) {
   mount(root,
     h('main', { class: 'landing' },
       h('h1', { class: 'sr-only' }, 'ChemistryWorks'),
+      themeControl({ floating: true }),
       h('div', { class: 'landing__inner' },
         h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
       ),

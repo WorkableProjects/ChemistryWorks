@@ -2,6 +2,11 @@
 
 import { formulasEqual } from './formula.js';
 import { isDotArray, dotTotal, followsPlacementRule, canonicalDots, describeDots } from './lewis.js';
+import { isStructureAnswered, scoreStructure, describeStructure, acceptedStructures } from './structure.js';
+import { blankCorrect, blankedText } from './blanks.js';
+
+// Types a teacher grades by hand (kept in sync with MANUAL_TYPES in schema.js).
+const MANUAL = new Set(['short', 'open']);
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
@@ -56,7 +61,14 @@ export function isAnswered(question, answer) {
       return (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
     case 'formula':
     case 'short':
+    case 'open':
       return typeof answer === 'string' && answer.trim() !== '';
+    case 'ordering':
+      return Array.isArray(answer) && answer.length > 0;
+    case 'fillblank':
+      return isPlainObject(answer) && Object.values(answer).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
+    case 'structure':
+      return isStructureAnswered(answer);
     case 'truefalse':
       return typeof answer === 'boolean';
     case 'lewis':
@@ -117,6 +129,23 @@ function score(q, answer) {
         && (q.checkPlacement === false || followsPlacementRule(answer, q.element));
       return { fraction: ok ? 1 : 0, full: ok };
     }
+    case 'ordering': {
+      const key = Array.isArray(q.correctAnswer) ? q.correctAnswer.map(String) : [];
+      if (!Array.isArray(answer) || !key.length) return { fraction: 0, full: false };
+      let right = 0;
+      key.forEach((id, i) => { if (String(answer[i]) === id) right++; });
+      if (right === key.length && answer.length === key.length) return { fraction: 1, full: true };
+      return { fraction: q.partialCredit === false ? 0 : right / key.length, full: false };
+    }
+    case 'fillblank': {
+      const blanks = Array.isArray(q.blanks) ? q.blanks : [];
+      if (!isPlainObject(answer) || !blanks.length) return { fraction: 0, full: false };
+      const right = blanks.filter((b) => blankCorrect(b, answer[b.id], { caseSensitive: !!q.caseSensitive, parseNumber })).length;
+      if (right === blanks.length) return { fraction: 1, full: true };
+      return { fraction: q.partialCredit === false ? 0 : right / blanks.length, full: false };
+    }
+    case 'structure':
+      return scoreStructure(q, answer);
     case 'matching': {
       if (!isPlainObject(answer) || !isPlainObject(q.correctAnswer)) return { fraction: 0, full: false };
       const leftIds = Array.isArray(q.left) && q.left.length ? q.left.map((l) => l.id) : Object.keys(q.correctAnswer);
@@ -141,7 +170,7 @@ export function gradeQuestion(question, answer) {
   const answered = isAnswered(q, answer);
   if (!answered) return { answered: false, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false };
   // Open-ended answers score 0 until a teacher grades them in the admin panel.
-  if (q.type === 'short') return { answered: true, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false, needsGrading: true };
+  if (MANUAL.has(q.type)) return { answered: true, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false, needsGrading: true };
   let res;
   try {
     res = score(q, answer);
@@ -189,7 +218,17 @@ export function formatAnswer(question, answer) {
       case 'formula':
         return Array.isArray(answer) ? answer.map(String).join(' / ') : String(answer);
       case 'short':
+      case 'open':
         return String(answer).trim();
+      case 'ordering':
+        return answer.map((id) => optionText(q.items, id)).join(' → ');
+      case 'fillblank':
+        return (q.blanks || []).map((b, i) => {
+          const v = answer[b.id];
+          return `(${i + 1}) ${v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : DASH}`;
+        }).join('; ');
+      case 'structure':
+        return describeStructure(q, answer);
       case 'lewis':
         return describeDots(answer, q.element);
       case 'matching':
@@ -208,8 +247,31 @@ export function formatAnswer(question, answer) {
   }
 }
 
+/** Rubric as text: "• Uses ions (2 pts)\n• ..." */
+export function rubricText(rubric) {
+  return (Array.isArray(rubric) ? rubric : []).map((r) => `• ${r.text} (${r.points} pt${Number(r.points) === 1 ? '' : 's'})`).join('\n');
+}
+
+/** Question text as shown in results / grading (fill-in blanks become numbered lines). */
+export function displayQuestionText(q) {
+  return q && q.type === 'fillblank' ? blankedText(q.text) : String(q?.text ?? '');
+}
+
 function formatCorrect(q) {
   if (q.type === 'short') return q.sampleAnswer ? String(q.sampleAnswer) : DASH;
+  if (q.type === 'open') {
+    const parts = [q.sampleAnswer ? String(q.sampleAnswer) : '', q.rubric && q.rubric.length ? `Rubric:\n${rubricText(q.rubric)}` : ''].filter(Boolean);
+    return parts.length ? parts.join('\n\n') : DASH;
+  }
+  if (q.type === 'fillblank') {
+    return (q.blanks || []).map((b, i) => `(${i + 1}) ${(b.answers || []).map(String).join(' / ') || DASH}`).join('; ') || DASH;
+  }
+  if (q.type === 'structure') {
+    const list = acceptedStructures(q);
+    if (!list.length) return DASH;
+    return list.map((k, i) => `${list.length > 1 ? `Form ${i + 1}: ` : ''}${describeStructure(q, k)}`).join(' | ');
+  }
+  if (q.type === 'ordering') return Array.isArray(q.correctAnswer) ? q.correctAnswer.map((id) => optionText(q.items, id)).join(' → ') : DASH;
   const a = q.correctAnswer;
   if (q.type === 'formula' && Array.isArray(a)) return a.join(' / ');
   if (q.type === 'formula') return typeof a === 'string' ? a : DASH;
@@ -241,17 +303,18 @@ export function gradeTest(test, answers) {
     if (g.needsGrading) { pendingCount++; pendingPoints += g.pointsPossible; }
     return {
       questionId: q.id,
-      questionText: q.text,
+      questionText: displayQuestionText(q),
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: q.type === 'short' ? (q.sampleAnswer || null) : q.correctAnswer,
+      correctAnswer: MANUAL.has(q.type) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,
       pointsEarned: g.pointsEarned,
       pointsPossible: g.pointsPossible,
       needsGrading: !!g.needsGrading,
+      ...(q.type === 'open' && Array.isArray(q.rubric) && q.rubric.length ? { rubric: q.rubric.map((r) => ({ text: r.text, points: r.points })) } : {}),
     };
   });
 
