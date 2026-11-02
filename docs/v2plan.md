@@ -1,2 +1,8 @@
-Add splitscreen mode so one side could be ptable / resources another is questons
-Half grading option (not just full and 0)
+- In library, see # of submissions on each test
+- Add splitscreen mode so one side could be ptable / resources AND the another is questons
+- Half grading option (not just full and 0)
+- Add sections (easier grading later on with Google Classroom)
+- Add Energy Orbital Diagrams (ones with arrows)
+- Add Lewis dot structures with a bracket & charge
+- Be able to add comment on questions in submissions (via admin)
+- Be able to EXPORT questions with the student's answers & with comments from admin
