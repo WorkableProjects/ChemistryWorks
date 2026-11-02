@@ -29,7 +29,11 @@ async function post(gasUrl, body, fetchImpl) {
 }
 
 const msg = (e) => (e && e.message) || String(e);
-const failure = (data) => (data && data.error) || 'unknown_error';
+const OUTDATED_BACKEND = 'unknown_action: the deployed Apps Script is out of date. Paste the latest apps-script/Code.gs, then Deploy > Manage deployments > Edit > New version > Deploy.';
+const failure = (data) => {
+  const e = (data && data.error) || 'unknown_error';
+  return e === 'unknown_action' ? OUTDATED_BACKEND : e;
+};
 
 export async function pingBackend({ gasUrl, fetchImpl } = {}) {
   try {
