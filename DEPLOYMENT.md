@@ -16,7 +16,7 @@ This guide takes you from a fresh clone to a live site that signs students in wi
                                           (backup) ---+  (deduplicated by submission_id)
 
  Teacher: /?admin=true --> builds tests, "Publish" --> Apps Script (ADMIN_KEY) --> Tests tab
-                       <-- analytics reads results from the Submissions tab (ADMIN_KEY)
+                       <-- Grading tab reads results from the Submissions tab (ADMIN_KEY)
 ```
 
 What you need: a Google account, a free Netlify account, a Git host (GitHub/GitLab/Bitbucket) holding this repo. Everything except the Google OAuth client and Apps Script URL works without any setup, so you can start locally.
@@ -33,7 +33,7 @@ npm run test:e2e     # browser tests (uses the pre-installed playwright package)
 
 With no `GOOGLE_CLIENT_ID` configured, the landing page shows a **demo sign-in** (type any name and email). No tests are bundled by default: add your own to `data/tests/` or publish one from the admin panel. Open `http://localhost:3000/?admin=true` and enter the admin access code (`chemadmin` by default) to see the admin panel.
 
-On `localhost`/`127.0.0.1` the Netlify Forms backup is skipped automatically, and Apps Script is skipped until you configure its URL. Submissions are still saved on the device ("This device" analytics).
+On `localhost`/`127.0.0.1` the Netlify Forms backup is skipped automatically, and Apps Script is skipped until you configure its URL. Submissions are still saved in a local log on the device.
 
 ---
 
@@ -137,7 +137,7 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 - [ ] Submit the same attempt's retry (**retry-submit** on the results page, or the webhook if enabled): the sheet still has one row for that attempt.
 - [ ] Netlify **Forms** shows the submission.
 - [ ] Publish a test from the admin panel; open it by code in a private window from another account.
-- [ ] Admin > Analytics with source "Sheet" loads the results.
+- [ ] Admin > Grading loads the submissions from the Sheet.
 - [ ] Go offline (browser dev tools), submit: the result is queued, and it is delivered on the next visit once you are back online.
 
 ---

@@ -1,6 +1,8 @@
 // Shared DOM helpers used by every view. No framework: views build DOM with `h()` and
 // return a cleanup function from their render function.
 
+import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange } from './lib/theme.js';
+
 /**
  * Create an element.
  *   h('button', { class: 'btn', on: { click: fn }, dataset: { testid: 'x' }, disabled: true }, 'Label')
@@ -82,6 +84,10 @@ const ICONS = {
   alert: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5M12 18h.01"/>',
   refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  sort: '<path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/>',
   keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
 };
 export function icon(name, { size = 18, className = '' } = {}) {
@@ -245,6 +251,57 @@ export function prefersReducedMotion() {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/**
+ * Appearance menu: Light / Dark / System and an accent colour for the current role (student or teacher).
+ * Rendered in every app header; the landing page shows it floating in the corner.
+ */
+export function themeControl({ floating = false } = {}) {
+  const btnIcon = h('span', { class: 'theme-ctl__icon' });
+  const drawIcon = () => btnIcon.replaceChildren(icon(resolvedTheme() === 'dark' ? 'moon' : 'sun', { size: 18 }));
+  const LABELS = { system: ['monitor', 'System'], light: ['sun', 'Light'], dark: ['moon', 'Dark'] };
+  const segBtns = THEMES.map((t) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `theme-${t}` },
+    on: { click: () => setThemePref(t) } }, icon(LABELS[t][0], { size: 16 }), LABELS[t][1]));
+  const swatches = Object.entries(ACCENTS).map(([name, color]) => h('button', {
+    type: 'button', role: 'radio', class: 'theme-swatch', style: `--sw:${color}`, title: name[0].toUpperCase() + name.slice(1),
+    'aria-label': `${name} accent`, dataset: { testid: `accent-${name}` }, on: { click: () => setAccent(name) },
+  }));
+  const roleNote = h('p', { class: 'theme-ctl__note' });
+  const sync = () => {
+    drawIcon();
+    const pref = getThemePref();
+    segBtns.forEach((b, i) => b.setAttribute('aria-checked', String(THEMES[i] === pref)));
+    const acc = getAccent();
+    swatches.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.testid === `accent-${acc}`)));
+    roleNote.textContent = getRole() === 'admin' ? 'Accent for the teacher panel. Students have their own.' : 'Accent for the student view. The teacher panel has its own.';
+  };
+  const pop = h('div', { class: 'theme-ctl__pop', role: 'dialog', 'aria-label': 'Appearance', hidden: true, dataset: { testid: 'theme-menu' } },
+    h('span', { class: 'theme-ctl__label' }, 'Theme'),
+    h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Theme' }, segBtns),
+    h('span', { class: 'theme-ctl__label' }, 'Accent colour'),
+    h('div', { class: 'theme-swatches', role: 'radiogroup', 'aria-label': 'Accent colour' }, swatches),
+    roleNote);
+  const btn = h('button', { type: 'button', class: 'theme-ctl__btn', 'aria-label': 'Appearance: theme and accent colour', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', title: 'Appearance',
+    dataset: { testid: 'theme-toggle' }, on: { click: (e) => { e.stopPropagation(); setOpen(pop.hidden); } } }, btnIcon);
+  const wrap = h('div', { class: ['theme-ctl', floating && 'theme-float'] }, btn, pop);
+  function setOpen(open) {
+    pop.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) { sync(); (pop.querySelector('[aria-checked="true"]') || segBtns[0]).focus(); }
+  }
+  const onDoc = (e) => { if (!pop.hidden && !wrap.contains(e.target)) setOpen(false); };
+  const onKey = (e) => { if (!pop.hidden && e.key === 'Escape') { e.stopPropagation(); setOpen(false); btn.focus(); } };
+  document.addEventListener('click', onDoc);
+  document.addEventListener('keydown', onKey, true);
+  const off = onThemeChange(sync);
+  // Detach global listeners once the header is removed from the page.
+  const mo = new MutationObserver(() => {
+    if (!wrap.isConnected) { document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey, true); off(); mo.disconnect(); }
+  });
+  requestAnimationFrame(() => { if (wrap.isConnected) mo.observe(document.body, { childList: true, subtree: true }); });
+  sync();
+  return wrap;
+}
+
 /** Standard app header used by runner/admin. `right` is a Node or array of Nodes. */
 export function appHeader({ title = 'ChemistryWorks', subtitle = '', right = null, onHome = null } = {}) {
   return h('header', { class: 'app-header' },
@@ -255,7 +312,7 @@ export function appHeader({ title = 'ChemistryWorks', subtitle = '', right = nul
         subtitle ? h('span', { class: 'brand__sub' }, subtitle) : null,
       ),
     ),
-    h('div', { class: 'app-header__right' }, right),
+    h('div', { class: 'app-header__right' }, right, themeControl()),
   );
 }
 

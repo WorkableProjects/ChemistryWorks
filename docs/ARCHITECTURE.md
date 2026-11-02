@@ -7,7 +7,7 @@ This is the source of truth for data shapes and module interfaces. Every module 
 - Static site, **no build step**. Native ES modules (`<script type="module">`), plain CSS. Netlify publishes the repo root.
 - KaTeX 0.16.11 + mhchem + auto-render from cdnjs (globals `katex`, `renderMathInElement`). Use `renderMath(root)` from `js/ui.js`; never call KaTeX directly from views.
 - Google Identity Services for sign-in (`js/lib/auth.js`). Demo sign-in when no client ID is configured.
-- Submissions: Google Apps Script Web App (primary) + Netlify Forms (backup). Apps Script also stores **published tests** and serves **results** to the admin analytics panel.
+- Submissions: Google Apps Script Web App (primary) + Netlify Forms (backup). Apps Script also stores **published tests** and serves **results** to the admin Grading tab.
 - Tests: Node's built-in runner (`node --test`), zero npm dependencies. E2E uses the pre-installed `playwright` package (`require('playwright')` / `import { chromium } from 'playwright'`).
 
 ## File map
@@ -26,13 +26,20 @@ js/lib/auth.js             getUser/signOut/onAuthChange/demoSignIn/renderGoogleB
 js/lib/tests.js            loadTest/loadCatalog/getDrafts/saveDraft/deleteDraft/normalizeCode
 js/lib/schema.js           test schema: normalize/validate/templates     (T01)
 js/lib/formula.js          chemical formula parsing/formatting           (T01)
+js/lib/lewis.js            Lewis dot diagrams (one element)
+js/lib/structure.js        full Lewis structures: validation, scoring, layout, formal charges
+js/lib/blanks.js           fill-in-the-blank markers, per-blank matching, word bank
+js/lib/hints.js            when to show "how to type charges / exponents" help (formatHelpFor)
+js/lib/theme.js            light/dark/system theme + accent per role (student / admin)
+js/views/lewis-view.js     dot-diagram widget + static diagram
+js/views/structure-view.js Lewis-structure SVG widget + static diagram
 js/lib/grading.js          auto-grading engine                           (T01)
 js/lib/api.js              Apps Script client                            (T04)
 js/lib/submit.js           payload + dual submission + outbox            (T04)
 js/views/landing.js        sign-in + code entry                          (Opus)
 js/views/runner.js         student test-taking                           (T02)
 js/views/results.js        submission confirmation + score review        (T02)
-js/views/admin.js          builder, library, analytics, settings         (T03)
+js/views/admin.js          library, builder, grading, settings
 apps-script/Code.gs        Apps Script backend                           (T04)
 data/tests/*.json          bundled tests; index.json = catalog (ships empty)
 test/fixtures/tests/       sample tests (CHEM101, ...) used only by the automated tests
@@ -88,7 +95,14 @@ Common question fields: `id` (required, unique, /^[A-Za-z0-9_-]+$/), `type`, `te
 | `formula` | `caseSensitive` (default true) | string, or array of accepted strings | raw input string |
 | `truefalse` | — | boolean | boolean |
 | `matching` | `left: [{id,text}]` (≥2), `right: [{id,text}]` (≥2, may include distractors, reusable), `partialCredit` (default true) | `{ leftId: rightId }` covering every left id | `{ leftId: rightId }` (partial allowed) |
+| `ordering` | `items: [{id,text}]` (≥2), `partialCredit` (default true), `topLabel`, `bottomLabel` | array of every item id in order | array of item ids |
+| `fillblank` | `blanks: [{id, answers: [..], kind: 'text'|'number'|'formula', tolerance?, toleranceType?, unit?}]`, text contains `{{id}}` once per blank, `partialCredit` (default true), `caseSensitive` (default false, text blanks), `wordBank` (default false), `distractors` | — (answers live in `blanks`) | `{ blankId: string }` |
+| `lewis` | `element`, `checkPlacement` (default true) | valence electrons 1–8 | `[top, right, bottom, left]` dots |
+| `structure` | `atoms: [{id, symbol, x?, y?}]`, `bonds: [[idA, idB]]`, `charge` (default 0), `partialCredit` (default false), `showElectronCount` (default false) | `{ bonds: [order per bond], lonePairs: {atomId: n} }` or an array of them (resonance) | same shape |
 | `short` | `sampleAnswer` (default "", model answer / rubric for the teacher) | — (teacher graded) | free text |
+| `open` | `rubric: [{text, points}]` (sum must equal `points`), `minWords`, `maxWords`, `showRubric` (default true), `sampleAnswer` | — (teacher graded) | free text |
+
+`formula`, `numeric` and `fillblank` also take `formatHelp`: `'auto'` (default) | `'always'` | `'never'`. `formatHelpFor(q)` (js/lib/hints.js) returns `{ charges, exponents }`; the runner shows a "How to type charges" / "How to type powers of ten" box plus insert buttons when true. Auto = an accepted formula has a charge or the text mentions ions; a numeric answer is ≥ 10⁴ or < 10⁻³ or the text mentions scientific notation.
 
 Answers map: `answers = { [questionId]: answer }`. Unanswered = key missing, `null`, `""` (after trim), `[]`, or `{}`.
 
@@ -99,6 +113,10 @@ Answers map: `answers = { [questionId]: answer }`. Unanswered = key missing, `nu
 - `numeric`: parse input with `parseNumber` (accepts `18.02`, `-3`, `1,204.5`, `6.02e23`, `6.02E+23`, `6.02x10^23`, `6.02 × 10^23`, `6.02*10^23`, `6.02×10²³`, unicode minus `−`; a trailing unit equal to the question's `unit` — case-insensitive, whitespace-insensitive — is ignored). Correct when `|x − key| ≤ tolerance` (absolute) or `|x − key| ≤ |key| × tolerance / 100` (percent). Also add a relative epsilon of 1e-9·|key| for float noise.
 - `formula`: correct when `normalizeFormula(input)` equals `normalizeFormula(any accepted)`; case-insensitive comparison only if `caseSensitive: false`.
 - `matching`: without partial credit: all pairs correct → full points. With `partialCredit` (default): `correctPairs / leftCount × points`.
+- `ordering`: `correctPositions / itemCount × points` (all-or-nothing when `partialCredit: false`).
+- `fillblank`: each blank matches when the input equals any accepted answer: text = trimmed, whitespace-collapsed, trailing `.!?` ignored, case-insensitive unless `caseSensitive`; number = `parseNumber` + tolerance; formula = `formulasEqual`. Score `correctBlanks / blankCount × points` with partial credit. `gradeTest` reports `questionText` with blanks as `____(1)`.
+- `structure`: answer normalized (missing = 0). Correct when every bond order and every atom's lone-pair count equals one accepted structure. With `partialCredit`: best `(matching bonds + matching atoms) / (bondCount + atomCount)`. Validation checks the key uses exactly the valence electrons (Σ valence − charge) for main-group atoms.
+- `open`: like `short` (needs grading); results carry `rubric` so the Grading tab can show checkboxes that sum into the points box.
 - `short`: never auto-graded. An answered short question scores 0 with `needsGrading: true` until a teacher grades it in the admin **Grading** tab; `gradeTest` also returns `pendingCount` / `pendingPoints`. The Sheet row gets `Status = Needs grading`; saving a grade (`saveGrade`, admin key required) stores per-question points in `Grades (JSON)` and the recomputed `Final Score` / `Final Percentage (%)`, with `Status = Graded`. Teachers may also override auto-graded points.
 - `pointsEarned` rounded to 2 decimals. `isCorrect` is true only for full points. `percentage = (scoreAchieved / scoreTotal × 100).toFixed(2)` (string), `"0.00"` when total is 0.
 
@@ -150,8 +168,9 @@ export function formatAnswer(question, answer): string
 
 ### js/lib/schema.js (T01)
 ```js
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis', 'short'];
-export const TYPE_LABELS = { mcq: 'Multiple choice', multi: 'Multiple select', numeric: 'Numeric', formula: 'Chemical formula', truefalse: 'True / False', matching: 'Matching' };
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'short', 'open'];
+export const MANUAL_TYPES = ['short', 'open'];      // teacher graded
+export const TYPE_LABELS = { mcq: 'Multiple choice', ..., structure: 'Lewis structure (bonding)', open: 'Open response (teacher graded)' };
 export function normalizeTest(raw): Test          // deep copy with defaults applied; never mutates input; code uppercased/trimmed
 export function validateTest(test): { valid: boolean, errors: string[] }
 //  error strings are human-readable and prefixed with a location, e.g. 'Question 3 (q3): correctAnswer must be a number.'
@@ -193,7 +212,7 @@ export async function submitResults(payload, { config, fetchImpl = fetch, hostna
   { gas: 'sent'|'skipped'|'failed', netlify: 'sent'|'skipped'|'failed', queued: boolean }
 // - GAS: skipped when !config.GAS_WEB_APP_URL; else POST mode:'no-cors', text/plain JSON body (opaque response = 'sent').
 // - Netlify: skipped when !netlifyFormsEnabled(config, hostname); else POST "/" form-urlencoded; res.ok -> 'sent'.
-// - Always appends payload to local results log (storage key 'localResults', newest last, cap 500) — powers "This device" analytics.
+// - Always appends payload to local results log (storage key 'localResults', newest last, cap 500).
 // - If every non-skipped channel failed: push to storage 'outbox' and queued=true.
 export async function flushOutbox({ config, fetchImpl = fetch, hostname }): number  // resend queued payloads; returns count sent
 export function getOutbox(): Payload[]
@@ -220,18 +239,28 @@ export function getLocalResults(): Payload[]
 | `progress:<email>:<CODE>` | local | runner.js | `{ answers, flagged: string[], index: number, startedAt: ms, tabSwitches: number, mode: 'focus'|'scroll', updatedAt: ms, title }` |
 | `outbox` | local | submit.js | Payload[] |
 | `localResults` | local | submit.js | Payload[] |
+| `theme` | local | theme.js | `'system'|'light'|'dark'` |
+| `accent:student`, `accent:admin` | local | theme.js | `'blue'|'violet'|'teal'|'green'|'orange'|'rose'` |
 
 ## Required `data-testid`s (E2E tests depend on these)
 
 Landing (done): `signin-card`, `demo-name`, `demo-email`, `demo-signin`, `code-card`, `code-input`, `code-submit`, `code-error`, `user-badge`, `sign-out`, `admin-link`, `resume-list`, `resume-<CODE>`; admin gate: `admin-gate`, `admin-code-input`, `admin-unlock`. Shared: `toast`, `brand`.
 
-Runner: `runner`; `progress-bar` (role=progressbar with `aria-valuenow` = answered count, `aria-valuemax` = total), `progress-text` ("3 of 7 answered"), `timer`, `question-card` (attr `data-question-id`, and class `is-active` on the current card in focus mode), within a card: `flag-btn` (aria-pressed), `clear-answer`, `option-<optionId>` (mcq/multi clickable card; `aria-checked`), `numeric-input`, `numeric-preview`, `formula-input`, `formula-preview`, `tf-true`, `tf-false`, `match-<leftId>-<rightId>` (radio input in the matrix); navigation: `prev-btn`, `next-btn`, `review-btn`, `mode-toggle`, `navigator-toggle`, `navigator`, `nav-item-<questionId>` (class `is-answered` / `is-flagged` / `is-current`), `submit-btn`, `submit-modal`, `confirm-submit`, `cancel-submit`, `unanswered-warning`, `preview-banner`, `exit-preview`, `shortcuts-modal`.
+Runner: `runner`; `progress-bar` (role=progressbar with `aria-valuenow` = answered count, `aria-valuemax` = total), `progress-text` ("3 of 7 answered"), `timer`, `question-card` (attr `data-question-id`, and class `is-active` on the current card in focus mode), within a card: `flag-btn` (aria-pressed), `clear-answer`, `option-<optionId>` (mcq/multi clickable card; `aria-checked`), `numeric-input`, `numeric-preview`, `formula-input`, `formula-preview`, `tf-true`, `tf-false`, `match-<leftId>-<rightId>` (radio input in the matrix), `charge-help`, `exponent-help`, `insert-<label>` (e.g. `insert-^`), `blank-<blankId>`, `ordering-item-<id>`, `ordering-up-<id>`, `ordering-down-<id>`, `ordering-keep`, `structure-bond-<i>`, `structure-atom-<atomId>`, `structure-count`, `open-input`, `open-rubric`, `lewis-<side>`, `short-input`; navigation: `prev-btn`, `next-btn`, `review-btn`, `mode-toggle`, `navigator-toggle`, `navigator`, `nav-item-<questionId>` (class `is-answered` / `is-flagged` / `is-current`), `submit-btn`, `submit-modal`, `confirm-submit`, `cancel-submit`, `unanswered-warning`, `preview-banner`, `exit-preview`, `shortcuts-modal`.
 
 Results: `results`, `score-percentage` (e.g. "85.71%"), `score-points` (e.g. "10 / 12"), `score-correct` ("5 of 7 correct"), `completion-time`, `answered-count`, `submission-status` (attr `data-gas`, `data-netlify`, `data-queued`), `review-list`, `review-item-<questionId>` (attr `data-correct="true|false"`), `pass-badge`, `home-btn`, `retry-submit`, `results-hidden` (shown instead of score when `showResults` false).
 
-Admin: `admin`, `tab-library`, `tab-builder`, `tab-analytics`, `tab-settings`, `lock-admin`; library: `library-item-<CODE>`, `edit-<CODE>`, `preview-<CODE>`, `copy-link-<CODE>`; builder: `test-code`, `test-title`, `test-description`, `test-time-limit`, `add-question` (opens type menu) and `add-question-<type>`, `question-editor` (attr `data-index`), within editor: `q-id`, `q-text`, `q-points`, `q-delete`, `q-up`, `q-down`, `q-duplicate`, `option-text-<i>`, `option-correct-<i>`, `add-option`, `numeric-answer`, `numeric-tolerance`, `formula-answers`, `tf-answer`, `match-left-<i>`, `match-right-<i>`, `match-correct-<i>`; `validation-errors` (attr `data-count`), `builder-mode-visual`, `builder-mode-json`, `json-textarea`, `apply-json`, `save-draft`, `preview-test`, `download-json`, `import-json`, `publish-test`, `new-test`; analytics: `analytics-source` (select: 'device'|'sheet'), `analytics-test-filter`, `kpi-submissions`, `kpi-average`, `kpi-median`, `kpi-high`, `kpi-low`, `histogram`, `question-stats`, `results-table`, `results-search`, `export-csv`, `sheet-link`, `analytics-empty`; settings: `admin-key-input`, `save-admin-key`, `ping-backend`, `backend-status`, `setup-checklist`.
+Shared header: `theme-toggle`, `theme-menu`, `theme-system|light|dark`, `accent-<name>`.
+
+Admin: `admin`, `tab-library`, `tab-builder`, `tab-grading`, `tab-settings`, `lock-admin`; library: `library-item-<CODE>`, `edit-<CODE>`, `preview-<CODE>`, `copy-link-<CODE>`; builder: `test-code`, `test-title`, `test-description`, `test-time-limit`, `add-question` (opens type menu) and `add-question-<type>`, `question-editor` (attr `data-index`), within editor: `q-id`, `q-text`, `q-points`, `q-delete`, `q-up`, `q-down`, `q-duplicate`, `option-text-<i>`, `option-correct-<i>`, `add-option`, `numeric-answer`, `numeric-tolerance`, `formula-answers`, `tf-answer`, `match-left-<i>`, `match-right-<i>`, `match-correct-<i>`, `format-help`, `format-help-note`, `order-item-<i>`, `add-order-item`, `blank-answers-<i>`, `blank-kind-<i>`, `add-blank`, `atom-id|symbol|x|y|lp-<i>`, `add-atom`, `bond-a|b|order-<i>`, `add-bond`, `structure-charge`, `structure-preview`, `structure-electrons`, `rubric-text-<i>`, `rubric-points-<i>`, `add-rubric`; `validation-errors` (attr `data-count`), `builder-mode-visual`, `builder-mode-json`, `json-textarea`, `apply-json`, `save-draft`, `preview-test`, `download-json`, `import-json`, `publish-test`, `new-test`; grading: `grading`, `grading-row`, `points-<qid>`, `rubric-<qid>-<i>`, `grade-total`, `save-grade`, `export-grades`; `sheet-link`; settings: `admin-key-input`, `save-admin-key`, `ping-backend`, `backend-status`, `setup-checklist`.
 
 ## Security notes
 
 - Answer keys ship to the browser (client-side grading is part of the spec). Treat ChemistryWorks as a low/medium-stakes formative assessment tool. See DEPLOYMENT.md "Limitations".
 - Never insert test content or student input via `innerHTML`. Use `h()` / `richText()` / `textContent`. `formulaToHTML()` output is the only HTML string allowed (it escapes input).
+
+## Theming
+
+- `css/base.css` defines every colour as a custom property on `:root`. Accent palettes: `:root[data-accent="blue|violet|teal|green|orange|rose"]`. Dark mode: `:root[data-theme="dark"]` (neutral tokens) plus `:root[data-theme="dark"][data-accent=…]` (lighter accent). Never hard-code colours in view CSS: use tokens (`--primary`, `--primary-soft`, `--primary-ink`, `--on-primary`, `--success-ink`, `--warning-line`, `--glass`, …).
+- `js/lib/theme.js`: `applyRole('student'|'admin')` is called by `navigate()` in js/app.js (admin view and admin previews use the teacher accent). `themeControl()` in js/ui.js renders the header menu; `appHeader()` includes it automatically and the landing page shows it floating.
+- index.html has a tiny inline script that applies the saved theme/accent before first paint.

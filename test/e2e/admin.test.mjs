@@ -205,60 +205,6 @@ test('library: duplicate a bundled test and delete the draft', () => withSession
   await page.locator(tid('library-item-CHEM201_COPY')).waitFor({ state: 'detached' });
 }));
 
-test('analytics: a real submission appears under "This device"; CSV export downloads', () => withSession(env, {}, async (s) => {
-  const { page, url } = s;
-  await startTest(s);
-  await answerCHEM101(page);
-  await submit(page);
-  await waitText(page.locator(tid('score-percentage')), '100.00%');
-
-  await unlockAdmin(page, url);
-  await page.locator(tid('tab-analytics')).click();
-  assert.equal(await page.locator(tid('analytics-source')).inputValue(), 'device');
-  await waitText(page.locator(tid('kpi-submissions')), '1');
-  await waitText(page.locator(tid('kpi-average')), '100.0%');
-  await waitText(page.locator(tid('kpi-median')), '100.0%');
-  await waitText(page.locator(tid('kpi-high')), '100.0%');
-  await waitText(page.locator(tid('kpi-low')), '100.0%');
-  await page.locator(tid('histogram')).waitFor();
-  await page.locator(tid('question-stats')).waitFor();
-  const rows = page.locator(tid('result-row'));
-  assert.equal(await rows.count(), 1);
-  const rowText = await rows.first().textContent();
-  assert.ok(rowText.includes(STUDENT.name) && rowText.includes(STUDENT.email) && rowText.includes('CHEM101'), rowText);
-  assert.ok(rowText.includes('12 / 12'), rowText);
-  assert.equal(await page.locator(tid('analytics-test-filter')).inputValue(), 'all');
-
-  // search filters rows
-  await page.locator(tid('results-search')).fill('nobody');
-  await poll(async () => (await page.locator(tid('result-row')).count()) === 0, { message: 'search filters out' });
-  await page.locator(tid('results-search')).fill('ada');
-  await poll(async () => (await page.locator(tid('result-row')).count()) === 1, { message: 'search matches' });
-
-  // row opens the submission modal
-  await page.locator(tid('result-row')).first().click();
-  await page.locator(tid('submission-modal')).waitFor();
-  assert.match(await page.locator(tid('submission-modal')).textContent(), /Foundations|12 \/ 12/);
-  await page.keyboard.press('Escape');
-  await page.locator(tid('submission-modal')).waitFor({ state: 'detached' });
-
-  // CSV export
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator(tid('export-csv')).click()]);
-  assert.match(download.suggestedFilename(), /^chemistryworks-results.*\.csv$/);
-  const csv = await readFile(await download.path(), 'utf8');
-  const lines = csv.split('\r\n');
-  assert.match(lines[0], /^Timestamp,Submission ID,Student Name,Student Email,Test Code,Test Title/);
-  assert.equal(lines.filter(Boolean).length, 2);
-  assert.ok(lines[1].includes(STUDENT.email) && lines[1].includes('CHEM101'), lines[1]);
-}));
-
-test('analytics: empty state without submissions; sheet source disabled when no admin key', () => withSession(env, {}, async ({ page, url }) => {
-  await unlockAdmin(page, url);
-  await page.locator(tid('tab-analytics')).click();
-  await page.locator(tid('analytics-empty')).waitFor();
-  assert.equal(await page.locator('[data-testid="analytics-source"] option[value="sheet"]').evaluate((o) => o.disabled), true);
-}));
-
 test('settings: admin key can be saved; checklist renders; backend status shown', () => withSession(env, {}, async ({ page, url }) => {
   await unlockAdmin(page, url);
   await page.locator(tid('tab-settings')).click();

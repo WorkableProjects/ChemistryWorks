@@ -14,6 +14,7 @@ import { getUser, signOut, onAuthChange } from './lib/auth.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { load, save } from './lib/storage.js';
 import { h, mount, openModal, toast } from './ui.js';
+import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
 import * as runner from './views/runner.js';
 import * as results from './views/results.js';
@@ -49,6 +50,8 @@ function navigate(view, params = {}) {
   cleanup = null;
   currentView = view;
   document.body.dataset.view = view;
+  // Teacher accent in the admin panel and in admin previews of a test; student accent everywhere else.
+  applyRole(view === 'admin' || params.preview ? 'admin' : 'student');
   if (view === 'admin') setUrl({ admin: 'true' });
   else if (view === 'runner' && !params.preview) setUrl({ code: params.test.code });
   else if (view === 'landing') setUrl({ code: params.code || null });
@@ -91,7 +94,7 @@ function adminGate() {
     title: 'Admin access',
     testid: 'admin-gate',
     body: h('form', { class: 'stack', on: { submit: (e) => { e.preventDefault(); tryUnlock(m.close); } } },
-      h('p', { class: 'muted' }, 'Enter the admin access code to configure tests and view analytics.'), input, err),
+      h('p', { class: 'muted' }, 'Enter the admin access code to build tests and grade submissions.'), input, err),
     actions: [
       { label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } },
       { label: 'Unlock', variant: 'primary', testid: 'admin-unlock', onClick: (close) => tryUnlock(close) },

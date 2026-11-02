@@ -13,6 +13,9 @@ import { TYPE_LABELS } from '../lib/schema.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
 import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
+import { structureWidget } from './structure-view.js';
+import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
+import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
 
 const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻', '+': '⁺' };
 
@@ -97,6 +100,44 @@ function choiceWidget(q, api, multi) {
   };
 }
 
+/* ---- "how to type it" help for charges and exponents */
+
+/** Insert text at the caret of an input and fire its input handler. */
+function insertAtCaret(input, text, caretBack = 0) {
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.value = input.value.slice(0, start) + text + input.value.slice(end);
+  const pos = start + text.length - caretBack;
+  input.focus();
+  input.setSelectionRange(pos, pos);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function helpBox(kind, testid) {
+  const charges = kind === 'charges';
+  const rows = (charges ? CHARGE_EXAMPLES : EXPONENT_EXAMPLES).map(([typed, means]) => h('li', {},
+    h('kbd', { class: 'q-help__kbd' }, typed), h('span', { class: 'q-help__arrow', 'aria-hidden': 'true' }, '→'), h('span', {}, means)));
+  return h('div', { class: ['q-help', charges ? 'q-help--charges' : 'q-help--exp'], role: 'note', dataset: { testid } },
+    h('p', { class: 'q-help__title' }, icon('info', { size: 16 }), charges ? 'How to type charges' : 'How to type powers of ten'),
+    h('p', { class: 'q-help__lead' }, charges
+      ? 'Type the formula with normal numbers for subscripts (H2O). For a charge, type ^ then the number, then the sign. Leave out the number for a charge of 1.'
+      : 'Type e (or x10^) before the exponent. The preview under the box shows how your number was read, so check it before moving on.'),
+    h('ul', { class: 'q-help__list' }, rows));
+}
+
+/** Small buttons that type ^, +, −, etc. into an input (helpful on phones and tablets). */
+function insertBar(input, keys) {
+  return h('div', { class: 'q-insert', role: 'group', 'aria-label': 'Insert symbol' },
+    keys.map(([label, text, back = 0, title]) => h('button', {
+      type: 'button', class: 'q-insert__btn', title: title || `Insert ${text}`, 'aria-label': title || `Insert ${text}`,
+      dataset: { testid: `insert-${label}` },
+      on: { mousedown: (e) => e.preventDefault(), click: () => insertAtCaret(input, text, back) },
+    }, label)));
+}
+
+const CHARGE_KEYS = [['^', '^', 0, 'Insert ^ (start a charge)'], ['+', '+', 0, 'Insert + sign'], ['−', '-', 0, 'Insert − sign'], ['( )', '()', 1, 'Insert parentheses'], ['·', '.', 0, 'Insert hydrate dot']];
+const EXP_KEYS = [['×10^', 'x10^', 0, 'Insert ×10^'], ['e', 'e', 0, 'Insert e (exponent)'], ['−', '-', 0, 'Insert minus sign']];
+
 function numericWidget(q, api) {
   const previewId = `np-${q.id}`;
   const preview = h('p', { class: 'q-preview', id: previewId, 'aria-live': 'polite', dataset: { testid: 'numeric-preview' } });
@@ -115,9 +156,12 @@ function numericWidget(q, api) {
     on: { input: () => { api.set(q.id, input.value, { debounce: true }); updatePreview(); } },
   });
   updatePreview();
+  const help = formatHelpFor(q);
   return {
     el: h('div', { class: 'q-numeric' },
+      help.exponents ? helpBox('exponents', 'exponent-help') : null,
       h('div', { class: 'q-field' }, input, q.unit ? h('span', { class: 'q-unit' }, q.unit) : null),
+      help.exponents ? insertBar(input, EXP_KEYS) : null,
       preview),
     refresh(answer) {
       if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : answer == null ? '' : String(answer);
@@ -147,10 +191,13 @@ function formulaWidget(q, api) {
     on: { input: () => { api.set(q.id, input.value, { debounce: true }); updatePreview(); } },
   });
   updatePreview();
+  const help = formatHelpFor(q);
   return {
     el: h('div', { class: 'q-formula' },
+      help.charges ? helpBox('charges', 'charge-help') : null,
       input,
-      h('p', { class: 'q-hint' }, 'Type H2O, CuSO4.5H2O, SO4^2-'),
+      help.charges ? insertBar(input, CHARGE_KEYS)
+        : h('p', { class: 'q-hint' }, 'Subscripts are plain numbers: H2O, Ca(OH)2, CuSO4.5H2O. Charges: SO4^2-, Na^+'),
       preview),
     refresh(answer) {
       if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
@@ -236,6 +283,143 @@ function shortWidget(q, api) {
   };
 }
 
+function orderingWidget(q, api) {
+  // q.items is already in this student's shuffled display order (see render()).
+  const startOrder = q.items.map((it) => it.id);
+  const textOf = new Map(q.items.map((it) => [it.id, it.text]));
+  const list = h('ol', { class: 'q-order__list', 'aria-labelledby': `qt-${q.id}` });
+  const status = h('p', { class: 'sr-only', 'aria-live': 'polite' });
+  const current = () => {
+    const a = api.get(q.id);
+    return Array.isArray(a) && a.length === startOrder.length && startOrder.every((id) => a.includes(id)) ? a.slice() : startOrder.slice();
+  };
+  const move = (from, to) => {
+    const order = current();
+    if (to < 0 || to >= order.length) return;
+    const [id] = order.splice(from, 1);
+    order.splice(to, 0, id);
+    api.set(q.id, order);
+    status.textContent = `${textOf.get(id)} moved to position ${to + 1} of ${order.length}`;
+    requestAnimationFrame(() => list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__btn--${to < from ? 'up' : 'down'}`)?.focus()
+      || list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__handle`)?.focus());
+  };
+  let dragFrom = -1;
+  const keepBtn = h('button', { type: 'button', class: 'btn btn--subtle btn--sm q-order__keep', dataset: { testid: 'ordering-keep' },
+    on: { click: () => api.set(q.id, current()) } }, icon('check', { size: 14 }), 'Use this order');
+
+  function refresh(answer) {
+    const order = Array.isArray(answer) && answer.length ? current() : startOrder;
+    list.replaceChildren(...order.map((id, i) => {
+      const li = h('li', { class: 'q-order__item', draggable: 'true', dataset: { item: id, testid: `ordering-item-${id}` },
+        on: {
+          dragstart: (e) => { dragFrom = i; li.classList.add('is-dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); },
+          dragend: () => li.classList.remove('is-dragging'),
+          dragover: (e) => { e.preventDefault(); li.classList.add('is-over'); },
+          dragleave: () => li.classList.remove('is-over'),
+          drop: (e) => { e.preventDefault(); li.classList.remove('is-over'); if (dragFrom >= 0 && dragFrom !== i) move(dragFrom, i); dragFrom = -1; },
+        } },
+      h('span', { class: 'q-order__pos', 'aria-hidden': 'true' }, String(i + 1)),
+      h('span', { class: 'q-order__handle', tabindex: '-1', 'aria-hidden': 'true' }, icon('grid', { size: 14 })),
+      richText(textOf.get(id), 'span', 'q-order__text'),
+      h('span', { class: 'q-order__btns' },
+        h('button', { type: 'button', class: 'icon-btn q-order__btn q-order__btn--up', disabled: i === 0, 'aria-label': `Move ${textOf.get(id)} up`, dataset: { testid: `ordering-up-${id}` }, on: { click: () => move(i, i - 1) } }, icon('up', { size: 16 })),
+        h('button', { type: 'button', class: 'icon-btn q-order__btn q-order__btn--down', disabled: i === order.length - 1, 'aria-label': `Move ${textOf.get(id)} down`, dataset: { testid: `ordering-down-${id}` }, on: { click: () => move(i, i + 1) } }, icon('down', { size: 16 }))));
+      return li;
+    }));
+    renderMath(list);
+    keepBtn.hidden = Array.isArray(answer) && answer.length > 0;
+  }
+  refresh(api.get(q.id));
+  return {
+    el: h('div', { class: 'q-order' },
+      h('p', { class: 'q-hint' }, 'Drag items, or use the arrow buttons, to put them in order.'),
+      q.topLabel ? h('p', { class: 'q-order__label' }, icon('up', { size: 14 }), q.topLabel) : null,
+      list,
+      q.bottomLabel ? h('p', { class: 'q-order__label' }, icon('down', { size: 14 }), q.bottomLabel) : null,
+      keepBtn, status),
+    refresh,
+  };
+}
+
+function fillBlankWidget(q, api) {
+  const byId = new Map((q.blanks || []).map((b, i) => [b.id, { ...b, n: i + 1 }]));
+  const bank = q.wordBank ? seededShuffle(wordBankChoices(q), `bank${q.id}`) : null;
+  const inputs = new Map();
+  const update = (id, value, debounce) => {
+    const next = { ...(api.get(q.id) || {}) };
+    if (value === '' || value == null) delete next[id]; else next[id] = value;
+    api.set(q.id, Object.keys(next).length ? next : undefined, { debounce });
+  };
+  const textEl = h('div', { class: 'q-text q-fill' }, splitBlanks(q.text).map((part) => {
+    if (part.text !== undefined) return richText(part.text, 'span');
+    const b = byId.get(part.blank);
+    if (!b) return h('span', {}, '____');
+    const label = `Blank ${b.n}`;
+    let el;
+    if (bank) {
+      el = h('select', { class: 'select q-fill__select', 'aria-label': label, dataset: { testid: `blank-${b.id}` },
+        on: { change: () => update(b.id, el.value, false) } },
+      h('option', { value: '' }, `(${b.n}) choose…`), bank.map((w) => h('option', { value: w }, w)));
+    } else {
+      const longest = Math.max(4, ...(b.answers || []).map((a) => String(a).length));
+      el = h('input', {
+        class: ['input', 'q-fill__input', b.kind === 'formula' && 'q-input--formula'], type: 'text', autocomplete: 'off', spellcheck: b.kind === 'text' ? 'true' : 'false',
+        autocapitalize: 'off', 'aria-label': label, placeholder: `(${b.n})`, inputmode: b.kind === 'number' ? 'decimal' : 'text',
+        style: `--chars:${Math.min(24, longest + 3)}`, dataset: { testid: `blank-${b.id}` },
+        on: { input: () => update(b.id, el.value, true) },
+      });
+    }
+    inputs.set(b.id, el);
+    return h('span', { class: 'q-fill__slot' }, el, b.kind === 'number' && b.unit ? h('span', { class: 'q-fill__unit' }, b.unit) : null);
+  }));
+  const help = formatHelpFor(q);
+  return {
+    textEl,
+    el: h('div', { class: 'q-fillwrap' },
+      bank ? h('div', { class: 'q-bank', 'aria-label': 'Word bank' }, h('span', { class: 'q-bank__label' }, 'Word bank'), bank.map((w) => h('span', { class: 'q-bank__chip' }, w))) : null,
+      help.charges ? helpBox('charges', 'charge-help') : null,
+      help.exponents ? helpBox('exponents', 'exponent-help') : null,
+      h('p', { class: 'q-hint' }, bank ? 'Choose a word for each blank. Words may be used more than once.' : 'Type your answer in each blank.')),
+    refresh(answer) {
+      const a = answer && typeof answer === 'object' ? answer : {};
+      for (const [id, el] of inputs) if (document.activeElement !== el) el.value = a[id] == null ? '' : String(a[id]);
+    },
+    focus: () => inputs.values().next().value?.focus(),
+  };
+}
+
+function openWidget(q, api) {
+  const countId = `oc-${q.id}`;
+  const count = h('p', { class: 'q-hint q-short__count', id: countId, 'aria-live': 'polite' });
+  const min = Number(q.minWords) || 0;
+  const max = Number(q.maxWords) || 0;
+  const target = min && max ? `aim for ${min}–${max} words` : min ? `at least ${min} words` : max ? `up to ${max} words` : '';
+  const updateCount = () => {
+    const n = input.value.trim() ? input.value.trim().split(/\s+/).length : 0;
+    count.textContent = `${n} ${n === 1 ? 'word' : 'words'}${target ? ` · ${target}` : ''} · Your teacher will grade this answer`;
+    count.classList.toggle('is-warn', (min && n > 0 && n < min) || (max && n > max));
+  };
+  const input = h('textarea', {
+    class: 'textarea q-short q-open', rows: 10, maxlength: '20000', spellcheck: 'true', placeholder: 'Write your response',
+    'aria-label': 'Your answer', 'aria-describedby': countId, dataset: { testid: 'open-input' },
+    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updateCount(); } },
+  });
+  updateCount();
+  const rubric = q.showRubric !== false && Array.isArray(q.rubric) && q.rubric.length
+    ? h('div', { class: 'q-rubric', dataset: { testid: 'open-rubric' } },
+      h('p', { class: 'q-rubric__title' }, 'How this will be graded'),
+      h('ul', {}, q.rubric.map((r) => h('li', {}, richText(r.text, 'span'), h('span', { class: 'pill' }, pointsLabel(r.points))))))
+    : null;
+  return {
+    el: h('div', { class: 'q-short-wrap' }, rubric, input, count),
+    refresh(answer) {
+      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
+      updateCount();
+    },
+    focus: () => input.focus(),
+  };
+}
+
 function buildWidget(q, api) {
   switch (q.type) {
     case 'mcq': return choiceWidget(q, api, false);
@@ -246,6 +430,10 @@ function buildWidget(q, api) {
     case 'matching': return matchingWidget(q, api);
     case 'lewis': return lewisWidget(q, api);
     case 'short': return shortWidget(q, api);
+    case 'ordering': return orderingWidget(q, api);
+    case 'fillblank': return fillBlankWidget(q, api);
+    case 'open': return openWidget(q, api);
+    case 'structure': return structureWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }
@@ -264,6 +452,14 @@ export function render(root, ctx, params = {}) {
   let ordered = test.shuffleQuestions ? seededShuffle(test.questions, seed) : test.questions.slice();
   ordered = ordered.map((q) => (test.shuffleOptions && (q.type === 'mcq' || q.type === 'multi')
     ? { ...q, options: seededShuffle(q.options, seed + q.id) } : q));
+  // Ordering items always start scrambled (never already in the correct order).
+  ordered = ordered.map((q) => {
+    if (q.type !== 'ordering') return q;
+    let items = seededShuffle(q.items, `${seed}${q.id}order`);
+    const key = Array.isArray(q.correctAnswer) ? q.correctAnswer.join('|') : '';
+    if (items.length > 1 && items.map((it) => it.id).join('|') === key) items = [...items.slice(1), items[0]];
+    return { ...q, items };
+  });
   const total = ordered.length;
   const byId = new Map(ordered.map((q) => [q.id, q]));
   const limitSec = test.timeLimitMinutes ? Number(test.timeLimitMinutes) * 60 : 0;
@@ -374,7 +570,7 @@ export function render(root, ctx, params = {}) {
         h('span', { class: 'pill' }, pointsLabel(q.points ?? 1)),
         h('span', { class: 'spacer' }),
         flagBtn),
-      richText(q.text, 'div', 'q-text'),
+      widget.textEl || richText(q.text, 'div', 'q-text'),
       widget.el,
       clearSlot,
     );
@@ -759,7 +955,7 @@ export function render(root, ctx, params = {}) {
 
   /* ---- global listeners */
   function onKeyDown(e) {
-    if (state.submitting || state.done) return;
+    if (e.defaultPrevented || state.submitting || state.done) return;
     if (e.key === 'Escape' && drawerOpen) { closeDrawer(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('#modal-root .modal-overlay.is-open')) return;

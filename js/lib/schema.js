@@ -1,10 +1,13 @@
 // Test schema: normalization, validation, templates. Pure functions, no DOM.
 
 import { normalizeSymbol, valenceOf } from './lewis.js';
+import { bondEnds, validateStructure } from './structure.js';
+import { BLANK_KINDS, markerIds } from './blanks.js';
+import { FORMAT_HELP_MODES } from './hints.js';
 
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'lewis', 'short'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'short', 'open'];
 // Types a teacher grades by hand in the admin Grading tab (everything else is auto-graded).
-export const MANUAL_TYPES = ['short'];
+export const MANUAL_TYPES = ['short', 'open'];
 export const TYPE_LABELS = {
   mcq: 'Multiple choice',
   multi: 'Multiple select',
@@ -12,8 +15,12 @@ export const TYPE_LABELS = {
   formula: 'Chemical formula',
   truefalse: 'True / False',
   matching: 'Matching',
+  ordering: 'Ordering',
+  fillblank: 'Fill in the blanks',
   lewis: 'Lewis dot diagram',
+  structure: 'Lewis structure (bonding)',
   short: 'Short answer (teacher graded)',
+  open: 'Open response (teacher graded)',
 };
 
 const CODE_RE = /^[A-Z0-9_-]{2,32}$/;
@@ -66,6 +73,47 @@ function normalizeQuestion(raw) {
     case 'formula':
       q.caseSensitive = bool(q.caseSensitive, true);
       break;
+    case 'ordering':
+      q.items = normOptions(q.items);
+      q.partialCredit = bool(q.partialCredit, true);
+      q.topLabel = str(q.topLabel);
+      q.bottomLabel = str(q.bottomLabel);
+      break;
+    case 'fillblank':
+      q.blanks = Array.isArray(q.blanks) ? q.blanks.map((b) => {
+        const src = isObj(b) ? b : {};
+        const answers = Array.isArray(src.answers) ? src.answers : src.answers === undefined || src.answers === null ? [] : [src.answers];
+        const out = { ...src, id: str(src.id).trim(), answers: answers.map((a) => (typeof a === 'number' ? a : str(a))), kind: src.kind ? str(src.kind).trim() : 'text' };
+        if (out.kind === 'number') {
+          out.tolerance = src.tolerance === undefined || src.tolerance === null || src.tolerance === '' ? 0 : Number(src.tolerance);
+          out.toleranceType = src.toleranceType || 'absolute';
+          out.unit = str(src.unit);
+        }
+        return out;
+      }) : [];
+      q.partialCredit = bool(q.partialCredit, true);
+      q.caseSensitive = bool(q.caseSensitive, false);
+      q.wordBank = bool(q.wordBank, false);
+      q.distractors = Array.isArray(q.distractors) ? q.distractors.map((d) => str(d)) : [];
+      break;
+    case 'structure':
+      q.atoms = Array.isArray(q.atoms) ? q.atoms.map((a) => {
+        const src = isObj(a) ? a : {};
+        const sym = normalizeSymbol(src.symbol);
+        return { ...src, id: str(src.id).trim(), symbol: sym || str(src.symbol).trim() };
+      }) : [];
+      q.bonds = Array.isArray(q.bonds) ? q.bonds.map((b) => bondEnds(b) || b) : [];
+      q.charge = q.charge === undefined || q.charge === null || q.charge === '' ? 0 : Number(q.charge);
+      q.partialCredit = bool(q.partialCredit, false);
+      q.showElectronCount = bool(q.showElectronCount, false);
+      break;
+    case 'open':
+      q.sampleAnswer = str(q.sampleAnswer);
+      q.rubric = Array.isArray(q.rubric) ? q.rubric.map((r) => (isObj(r) ? { ...r, text: str(r.text), points: Number(r.points) } : { text: str(r), points: NaN })) : [];
+      q.minWords = nullableNum(q.minWords);
+      q.maxWords = nullableNum(q.maxWords);
+      q.showRubric = bool(q.showRubric, true);
+      break;
     case 'matching':
       q.left = normOptions(q.left);
       q.right = normOptions(q.right);
@@ -88,6 +136,10 @@ function normalizeQuestion(raw) {
       break;
     default:
       break;
+  }
+  if (['formula', 'numeric', 'fillblank'].includes(q.type)) {
+    q.formatHelp = q.formatHelp === undefined || q.formatHelp === null || q.formatHelp === '' ? 'auto'
+      : q.formatHelp === true ? 'always' : q.formatHelp === false ? 'never' : q.formatHelp;
   }
   return q;
 }
@@ -197,8 +249,69 @@ function validateQuestion(q, index, seenIds, errors) {
     case 'short':
       if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
       break;
+    case 'ordering': {
+      const ids = validateList(q.items, 'item', where, errors);
+      if (!Array.isArray(a) || a.length !== ids.size || new Set(a).size !== a.length || a.some((id) => !ids.has(id))) {
+        errors.push(`${where}: correctAnswer must list every item id exactly once, in the correct order.`);
+      }
+      break;
+    }
+    case 'fillblank': {
+      const blanks = Array.isArray(q.blanks) ? q.blanks : [];
+      if (!blanks.length) { errors.push(`${where}: blanks needs at least 1 blank.`); break; }
+      const ids = new Set();
+      blanks.forEach((b, i) => {
+        const n = i + 1;
+        if (!isObj(b)) { errors.push(`${where}: blank ${n} must be an object with id and answers.`); return; }
+        if (!nonEmptyStr(b.id) || !ID_RE.test(b.id)) errors.push(`${where}: blank ${n} has an invalid id (use letters, digits, "_" or "-").`);
+        else if (ids.has(b.id)) errors.push(`${where}: duplicate blank id "${b.id}".`);
+        else ids.add(b.id);
+        const kind = b.kind === undefined ? 'text' : b.kind;
+        if (!BLANK_KINDS.includes(kind)) errors.push(`${where}: blank ${n} kind must be "text", "number" or "formula".`);
+        if (!Array.isArray(b.answers) || !b.answers.length || b.answers.some((x) => !(nonEmptyStr(x) || isNum(x)))) {
+          errors.push(`${where}: blank ${n} needs answers: a list of accepted answers, e.g. ["H2O"].`);
+        } else if (kind === 'number' && b.answers.some((x) => !isNum(x) && !Number.isFinite(Number(String(x).replace(/\s*[x×*]\s*10\s*\^\s*/i, 'e'))))) {
+          errors.push(`${where}: blank ${n} is a number blank, so every answer must be a number.`);
+        }
+        if (kind === 'number' && b.tolerance !== undefined && (!isNum(b.tolerance) || b.tolerance < 0)) errors.push(`${where}: blank ${n} tolerance must be 0 or greater.`);
+      });
+      const marks = markerIds(q.text);
+      for (const id of ids) {
+        const c = marks.filter((m) => m === id).length;
+        if (c === 0) errors.push(`${where}: text is missing the marker {{${id}}} for blank "${id}".`);
+        else if (c > 1) errors.push(`${where}: marker {{${id}}} appears more than once in the text.`);
+      }
+      for (const m of new Set(marks)) if (!ids.has(m)) errors.push(`${where}: text has {{${m}}} but there is no blank with id "${m}".`);
+      if (q.distractors !== undefined && (!Array.isArray(q.distractors) || q.distractors.some((d) => typeof d !== 'string'))) errors.push(`${where}: distractors must be a list of text.`);
+      break;
+    }
+    case 'structure':
+      validateStructure(q, where, errors);
+      break;
+    case 'open': {
+      const rubric = q.rubric === undefined ? [] : q.rubric;
+      if (!Array.isArray(rubric)) { errors.push(`${where}: rubric must be a list of { text, points }.`); break; }
+      rubric.forEach((r, i) => {
+        if (!isObj(r) || !nonEmptyStr(r.text)) errors.push(`${where}: rubric item ${i + 1} needs text.`);
+        else if (!isNum(r.points) || r.points <= 0) errors.push(`${where}: rubric item ${i + 1} points must be a number greater than 0.`);
+      });
+      if (rubric.length && rubric.every((r) => isObj(r) && isNum(r.points)) && isNum(q.points)) {
+        const sum = Math.round(rubric.reduce((s, r) => s + r.points, 0) * 100) / 100;
+        if (sum !== q.points) errors.push(`${where}: rubric points add up to ${sum} but the question is worth ${q.points}.`);
+      }
+      for (const k of ['minWords', 'maxWords']) {
+        const v = q[k];
+        if (v !== undefined && v !== null && (!Number.isInteger(v) || v < 0)) errors.push(`${where}: ${k} must be a whole number or empty.`);
+      }
+      if (Number.isInteger(q.minWords) && Number.isInteger(q.maxWords) && q.maxWords > 0 && q.maxWords < q.minWords) errors.push(`${where}: maxWords must be at least minWords.`);
+      if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
+      break;
+    }
     default:
       break;
+  }
+  if (q.formatHelp !== undefined && ['formula', 'numeric', 'fillblank'].includes(q.type) && !FORMAT_HELP_MODES.includes(q.formatHelp)) {
+    errors.push(`${where}: formatHelp must be "auto", "always" or "never".`);
   }
 }
 
@@ -233,8 +346,8 @@ export function blankQuestion(type, id = 'q1') {
   switch (type) {
     case 'mcq': return { ...base, options: opts(), correctAnswer: 'a' };
     case 'multi': return { ...base, options: opts(), partialCredit: false, correctAnswer: ['a', 'b'] };
-    case 'numeric': return { ...base, correctAnswer: 0, tolerance: 0, toleranceType: 'absolute', unit: '' };
-    case 'formula': return { ...base, caseSensitive: true, correctAnswer: 'H2O' };
+    case 'numeric': return { ...base, correctAnswer: 0, tolerance: 0, toleranceType: 'absolute', unit: '', formatHelp: 'auto' };
+    case 'formula': return { ...base, caseSensitive: true, correctAnswer: 'H2O', formatHelp: 'auto' };
     case 'truefalse': return { ...base, correctAnswer: true };
     case 'matching':
       return {
@@ -246,6 +359,30 @@ export function blankQuestion(type, id = 'q1') {
       };
     case 'lewis': return { ...base, text: 'Draw the Lewis dot diagram for oxygen.', element: 'O', correctAnswer: 6, checkPlacement: true };
     case 'short': return { ...base, points: 2, sampleAnswer: '' };
+    case 'ordering':
+      return {
+        ...base, text: 'Arrange these elements from lowest to highest electronegativity.', partialCredit: true, topLabel: 'Lowest', bottomLabel: 'Highest',
+        items: [{ id: 'na', text: 'Na' }, { id: 'c', text: 'C' }, { id: 'o', text: 'O' }, { id: 'f', text: 'F' }],
+        correctAnswer: ['na', 'c', 'o', 'f'],
+      };
+    case 'fillblank':
+      return {
+        ...base, points: 2, text: 'Water has the formula {{b1}} and contains {{b2}} hydrogen atoms per molecule.',
+        blanks: [{ id: 'b1', answers: ['H2O'], kind: 'formula' }, { id: 'b2', answers: ['2', 'two'], kind: 'text' }],
+        partialCredit: true, caseSensitive: false, wordBank: false, distractors: [], formatHelp: 'auto',
+      };
+    case 'structure':
+      return {
+        ...base, points: 3, text: 'Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.', partialCredit: false,
+        atoms: [{ id: 'o1', symbol: 'O', x: 0, y: 0 }, { id: 'c', symbol: 'C', x: 1, y: 0 }, { id: 'o2', symbol: 'O', x: 2, y: 0 }],
+        bonds: [['o1', 'c'], ['c', 'o2']], charge: 0, showElectronCount: false,
+        correctAnswer: { bonds: [2, 2], lonePairs: { o1: 2, c: 0, o2: 2 } },
+      };
+    case 'open':
+      return {
+        ...base, points: 4, text: 'Explain why ionic compounds have high melting points.', sampleAnswer: '', minWords: null, maxWords: null, showRubric: true,
+        rubric: [{ text: 'Identifies strong electrostatic attraction between oppositely charged ions', points: 2 }, { text: 'Links it to the energy needed to break the lattice', points: 2 }],
+      };
     default:
       throw new RangeError(`Unknown question type: ${type}`);
   }

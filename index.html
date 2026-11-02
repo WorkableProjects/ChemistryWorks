@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ChemistryWorks</title>
   <meta name="description" content="ChemistryWorks — a fluid, auto-graded chemistry testing platform." />
+  <meta name="theme-color" content="#F8FAFC" />
+  <script>
+    // Apply the saved theme before first paint (js/lib/theme.js takes over once the app loads).
+    (function () {
+      try {
+        var d = document.documentElement, ls = window.localStorage;
+        var t = JSON.parse(ls.getItem('cw:theme') || '"system"');
+        var admin = /[?&]admin=true/.test(location.search);
+        var a = JSON.parse(ls.getItem(admin ? 'cw:accent:admin' : 'cw:accent:student') || 'null') || (admin ? 'violet' : 'blue');
+        d.dataset.theme = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        d.dataset.accent = a;
+      } catch (e) { /* storage blocked: defaults apply */ }
+    })();
+  </script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563EB'/><path d='M12 7h8M14 7v7l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V7' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />

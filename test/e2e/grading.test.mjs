@@ -103,3 +103,29 @@ test('grading tab asks for the Sheet connection when no admin key is set', () =>
   await page.locator(tid('tab-grading')).click();
   await page.locator(tid('grading-unconfigured')).waitFor();
 }));
+
+test('grading tab: rubric checkboxes fill in points for an open response', () => withSession(env, {}, async (s) => {
+  const { page, url } = s;
+  s.serveTest('OPEN2', {
+    code: 'OPEN2', title: 'Open response',
+    questions: [{ id: 'q1', type: 'open', text: 'Explain ionic bonding.', points: 5,
+      rubric: [{ text: 'Electron transfer', points: 2 }, { text: 'Electrostatic attraction', points: 3 }] }],
+  });
+  await startTest(s, 'OPEN2');
+  await page.locator(`[data-testid="question-card"].is-active ${tid('open-input')}`).fill('Metals give electrons to nonmetals.');
+  await submit(page);
+  await poll(() => s.gas.length === 1, { message: 'GAS submission' });
+  const sub = s.gas[0];
+  const row = { ...sub, timestamp: sub.submitted_at, status: 'Needs grading', final_score: null, final_percentage: null, grades: null };
+  s.onGas = (body) => (body.action === 'getResults' ? { result: 'success', rows: [row] } : null);
+
+  await unlockAdmin(page, url);
+  await page.evaluate(() => sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')));
+  await page.locator(tid('tab-grading')).click();
+  await page.locator(tid('grading-row')).first().click();
+  await page.locator(tid('rubric-q1-0')).check();
+  await waitText(page.locator(tid('grade-total')), '2 / 5 (40.0%)');
+  await page.locator(tid('rubric-q1-1')).check();
+  await waitText(page.locator(tid('grade-total')), '5 / 5 (100.0%)');
+  assert.equal(await page.locator(tid('points-q1')).inputValue(), '5');
+}));

@@ -4,10 +4,9 @@ import { h, mount, icon, richText, renderMath, toast, formatDurationLong } from 
 import { CONFIG } from '../../config.js';
 import { load } from '../../lib/storage.js';
 import { fetchResults, saveGrade } from '../../lib/api.js';
-import { TYPE_LABELS } from '../../lib/schema.js';
+import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
 import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, STATUS } from './stats.js';
-import { invalidateSheetCache } from './analytics.js';
 
 // Module state: remembered while switching tabs in the session.
 const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null };
@@ -145,7 +144,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         const n = Number(v);
         if (!Number.isFinite(n)) continue;
         // Store a grade only for open-ended answers or real overrides of the auto score.
-        if (res.type === 'short' || res.needsGrading || n !== Number(res.pointsEarned) || Object.prototype.hasOwnProperty.call(saved, qid)) out[qid] = n;
+        if (MANUAL_TYPES.includes(res.type) || res.needsGrading || n !== Number(res.pointsEarned) || Object.prototype.hasOwnProperty.call(saved, qid)) out[qid] = n;
       }
       return out;
     };
@@ -173,7 +172,13 @@ export function renderGrading(root, ctx, { goSettings }) {
       });
       inputs.set(res.questionId, { input, res });
       const set = (v) => { input.value = String(v); updateTotal(); };
-      const isShort = res.type === 'short';
+      const isShort = MANUAL_TYPES.includes(res.type);
+      // Open responses: rubric checkboxes fill in the points box (the teacher can still type any value).
+      const rubric = Array.isArray(res.rubric) && res.rubric.length ? res.rubric : null;
+      const rubricBoxes = rubric ? rubric.map((r, k) => h('input', { type: 'checkbox', dataset: { testid: `rubric-${res.questionId}-${k}` },
+        on: { change: () => set(round2(rubricBoxes.reduce((sum, b, j) => sum + (b.checked ? Number(rubric[j].points) || 0 : 0), 0))) } })) : [];
+      const rubricEl = rubric ? h('div', { class: 'adm-rubric' }, h('span', { class: 'field__label' }, 'Rubric'),
+        h('ul', {}, rubric.map((r, k) => h('li', {}, h('label', { class: 'adm-rubric__item' }, rubricBoxes[k], richText(r.text, 'span'), h('span', { class: 'pill' }, `${r.points} pt${Number(r.points) === 1 ? '' : 's'}`)))))) : null;
       const label = res.needsGrading ? 'Needs grading' : isShort && !res.answered ? 'Not answered'
         : res.isCorrect ? 'Auto: correct' : res.answered ? (res.pointsEarned > 0 ? 'Auto: partial' : 'Auto: incorrect') : 'Not answered';
       const tone = res.needsGrading ? 'pill--warning' : res.isCorrect ? 'pill--success' : res.answered && !isShort ? 'pill--danger' : '';
@@ -185,7 +190,8 @@ export function renderGrading(root, ctx, { goSettings }) {
         richText(res.questionText, 'div', 'adm-resp__q'),
         h('dl', { class: 'adm-resp__ans' },
           h('dt', {}, 'Student'), h('dd', { class: isShort ? 'adm-pre' : '' }, res.answered ? (res.givenAnswerText || '—') : h('span', { class: 'faint' }, 'Not answered')),
-          (res.correctAnswerText && res.correctAnswerText !== '—') ? [h('dt', {}, isShort ? 'Sample' : 'Correct'), h('dd', { class: isShort ? 'adm-pre' : '' }, res.correctAnswerText)] : null),
+          (res.correctAnswerText && res.correctAnswerText !== '—' && !(rubric && /^Rubric:/.test(res.correctAnswerText))) ? [h('dt', {}, isShort ? 'Sample' : 'Correct'), h('dd', { class: isShort ? 'adm-pre' : '' }, rubric ? res.correctAnswerText.replace(/\n*Rubric:[\s\S]*$/, '') : res.correctAnswerText)] : null),
+        rubricEl,
         h('div', { class: 'adm-grade__pts' },
           h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Points'), input, h('span', { class: 'muted' }, `/ ${possible}`)),
           h('button', { class: 'btn btn--subtle btn--sm', type: 'button', on: { click: () => set(possible) } }, 'Full'),
@@ -221,7 +227,6 @@ export function renderGrading(root, ctx, { goSettings }) {
         Object.assign(raw, { status: STATUS.GRADED, grades: gr.grades || grades, final_score: gr.final_score ?? null, final_percentage: gr.final_percentage ?? null, graded_at: gr.graded_at || new Date().toISOString(), teacher_note: note.value });
       }
       rows = G.rawRows.map(normalizeRow);
-      invalidateSheetCache();
       toast(`Saved grade for ${row.student_name || row.student_email}`, { type: 'success' });
       if (next) {
         if (following) go(following);
