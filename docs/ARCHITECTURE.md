@@ -34,7 +34,8 @@ js/views/runner.js         student test-taking                           (T02)
 js/views/results.js        submission confirmation + score review        (T02)
 js/views/admin.js          builder, library, analytics, settings         (T03)
 apps-script/Code.gs        Apps Script backend                           (T04)
-data/tests/*.json          bundled tests; index.json = catalog
+data/tests/*.json          bundled tests; index.json = catalog (ships empty)
+test/fixtures/tests/       sample tests (CHEM101, ...) used only by the automated tests
 scripts/serve.mjs          static dev server (exports listen(port) -> {server,url})
 test/unit/*.test.mjs       unit tests (node --test)
 test/e2e/*.test.mjs        browser tests (node --test + playwright)

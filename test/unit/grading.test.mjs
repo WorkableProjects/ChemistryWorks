@@ -5,7 +5,7 @@ import * as grading from '../../js/lib/grading.js';
 import { normalizeTest } from '../../js/lib/schema.js';
 
 const { parseNumber, isAnswered, gradeQuestion, gradeTest, formatAnswer } = grading;
-const chem = () => normalizeTest(JSON.parse(readFileSync(new URL('../../data/tests/CHEM101.json', import.meta.url), 'utf8')));
+const chem = () => normalizeTest(JSON.parse(readFileSync(new URL('../fixtures/tests/CHEM101.json', import.meta.url), 'utf8')));
 
 test('exports match the contract', () => {
   for (const name of ['parseNumber', 'isAnswered', 'gradeQuestion', 'gradeTest', 'formatAnswer']) {
