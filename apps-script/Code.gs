@@ -16,12 +16,12 @@ var SUBMISSION_HEADERS = [
   'Score Achieved', 'Total Score', 'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted',
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-  'Comments (JSON)', 'Released At'
+  'Comments (JSON)', 'Released At', 'Graded By'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
@@ -396,7 +396,8 @@ function getResults_(testCode) {
         graded_at: iso_(v[COL.GRADED_AT - 1]),
         teacher_note: String(v[COL.NOTE - 1] || ''),
         comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
-        released_at: iso_(v[COL.RELEASED_AT - 1])
+        released_at: iso_(v[COL.RELEASED_AT - 1]),
+        graded_by: String(v[COL.GRADED_BY - 1] || '')
       });
     }
   }
@@ -459,11 +460,13 @@ function getFeedback_(body) {
     score_total: num_(v[7]),
     final_percentage: finalPct === '' || finalPct === null ? num_(v[8]) : num_(finalPct),
     grades: parseJson_(v[COL.GRADES - 1], {}) || {},
-    comments: parseJson_(v[COL.COMMENTS - 1], {}) || {}
+    comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
+    graded_by: String(v[COL.GRADED_BY - 1] || '')
   };
 }
 
-// body: { submissionId, grades: { [questionId]: points }, note, comments?: { [questionId]: text }, release?: boolean }
+// body: { submissionId, grades: { [questionId]: points }, note, comments?: { [questionId]: text }, release?: boolean, gradedBy?: string }
+// gradedBy omitted -> existing value kept.
 // comments omitted -> existing comments kept. release: true -> set Released At (kept if already set),
 // false -> clear it, omitted -> unchanged.
 function saveGrade_(body) {
@@ -475,6 +478,8 @@ function saveGrade_(body) {
     if (Object.prototype.hasOwnProperty.call(grades, k) && grades[k] !== '' && grades[k] !== null && isFinite(parseFloat(grades[k]))) clean[k] = num_(grades[k]);
   }
   var note = String(body.note == null ? '' : body.note).slice(0, 5000);
+  var hasGradedBy = body.gradedBy !== undefined && body.gradedBy !== null;
+  var gradedBy = String(hasGradedBy ? body.gradedBy : '').trim().slice(0, 200);
   var hasComments = body.comments !== undefined && body.comments !== null;
   var comments = cleanComments_(body.comments);
 
@@ -485,19 +490,20 @@ function saveGrade_(body) {
     var responses = parseJson_(sheet.getRange(row, COL.RESPONSES).getValue(), []);
     var final = applyGrades_(responses, clean);
     var gradedAt = new Date();
-    var existing = sheet.getRange(row, COL.COMMENTS, 1, 2).getValues()[0];
+    var existing = sheet.getRange(row, COL.COMMENTS, 1, 3).getValues()[0];
+    if (!hasGradedBy) gradedBy = String(existing[2] || '');
     if (!hasComments) comments = parseJson_(existing[0], {}) || {};
     var commentsJson = JSON.stringify(comments);
     if (commentsJson.length > MAX_CELL_CHARS) return { result: 'error', error: 'comments_too_large' };
     var releasedAt = existing[1] instanceof Date || (existing[1] !== '' && existing[1] !== null) ? existing[1] : '';
     if (body.release === true && !releasedAt) releasedAt = gradedAt;
     if (body.release === false) releasedAt = '';
-    sheet.getRange(row, COL.STATUS, 1, 8).setValues([[
-      STATUS_GRADED, final.score, final.percentage, JSON.stringify(clean), gradedAt, text_(note), commentsJson, releasedAt
+    sheet.getRange(row, COL.STATUS, 1, 9).setValues([[
+      STATUS_GRADED, final.score, final.percentage, JSON.stringify(clean), gradedAt, text_(note), commentsJson, releasedAt, text_(gradedBy)
     ]]);
     return {
       result: 'success',
-      grade: { status: STATUS_GRADED, final_score: final.score, score_total: final.total, final_percentage: final.percentage, grades: clean, graded_at: gradedAt.toISOString(), teacher_note: note, comments: comments, released_at: iso_(releasedAt) }
+      grade: { status: STATUS_GRADED, final_score: final.score, score_total: final.total, final_percentage: final.percentage, grades: clean, graded_at: gradedAt.toISOString(), teacher_note: note, comments: comments, released_at: iso_(releasedAt), graded_by: gradedBy }
     };
   });
 }

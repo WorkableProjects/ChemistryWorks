@@ -88,6 +88,7 @@ export function buildExportModel({ row, test, includeComments }) {
     title: exportFilename(r),
     studentName: str(r.student_name),
     studentEmail: str(r.student_email),
+    gradedBy: str(r.graded_by).trim(),
     testCode: str(r.test_code),
     testTitle: str(r.test_title),
     score: { earned: Math.round(earned * 100) / 100, total: Math.round(total * 100) / 100, percentage: round1(pct), pending: responses.filter((x) => x.needsGrading).length },

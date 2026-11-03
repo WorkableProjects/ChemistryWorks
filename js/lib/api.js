@@ -99,11 +99,12 @@ export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {
 // the final score from the stored responses and returns { final_score, score_total, final_percentage, graded_at }.
 // v2: comments ({ [questionId]: text }, omitted = keep existing) and release (true = release grade + comments
 // to the student, false = un-release, omitted = unchanged). grade also carries { comments, released_at }.
-export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', comments, release, fetchImpl } = {}) {
+export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', comments, release, gradedBy, fetchImpl } = {}) {
   try {
     const body = { action: 'saveGrade', adminKey, submissionId, grades, note };
     if (comments !== undefined) body.comments = comments;
     if (release !== undefined) body.release = !!release;
+    if (gradedBy !== undefined) body.gradedBy = String(gradedBy);
     const d = await post(gasUrl, body, fetchImpl);
     return d && d.result === 'success' ? { ok: true, grade: d.grade || null } : { ok: false, error: failure(d) };
   } catch (e) {

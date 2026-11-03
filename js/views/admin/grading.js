@@ -2,7 +2,7 @@
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
 import { h, mount, icon, richText, renderMath, toast, formatDurationLong } from '../../ui.js';
 import { CONFIG } from '../../config.js';
-import { load } from '../../lib/storage.js';
+import { load, save } from '../../lib/storage.js';
 import { fetchResults, saveGrade } from '../../lib/api.js';
 import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
@@ -300,12 +300,16 @@ export function renderGrading(root, ctx, { goSettings }) {
     const note = h('textarea', { class: 'textarea', rows: 2, placeholder: 'Private note (only teachers see this)', dataset: { testid: 'grade-note' } });
     note.value = row.teacher_note || '';
 
+    // Who graded: saved with the grade; defaults to the name last used on this device.
+    const gradedBy = h('input', { class: 'input', type: 'text', id: 'graded-by', maxlength: '200', autocomplete: 'name', placeholder: 'e.g. Ms. Rivera', dataset: { testid: 'graded-by' } });
+    gradedBy.value = row.graded_by || load('gradedBy', '') || '';
+
     const releaseBox = h('input', { type: 'checkbox', id: 'release-grade', dataset: { testid: 'release-grade' } });
     releaseBox.checked = !!row.released_at;
     const releaseStatus = h('span', { class: 'faint', dataset: { testid: 'released-status' } },
       row.released_at ? `Released ${fmtDate(row.released_at)}` : 'Not released — the student sees no comments yet');
 
-    const snapshot = () => JSON.stringify([currentGrades(), currentComments(), note.value, releaseBox.checked]);
+    const snapshot = () => JSON.stringify([currentGrades(), currentComments(), note.value, releaseBox.checked, gradedBy.value.trim()]);
     let baseline = '';
     const isDirty = () => snapshot() !== baseline;
 
@@ -330,7 +334,8 @@ export function renderGrading(root, ctx, { goSettings }) {
       for (const b of [saveBtn, saveNextBtn]) b.disabled = true;
       (next ? saveNextBtn : saveBtn).classList.add('is-loading');
       const grades = currentGrades();
-      const res = await saveGrade({ gasUrl, adminKey: adminKey(), submissionId: row.submission_id, grades, note: note.value, comments: currentComments(), release: releaseBox.checked });
+      const res = await saveGrade({ gasUrl, adminKey: adminKey(), submissionId: row.submission_id, grades, note: note.value, comments: currentComments(), release: releaseBox.checked, gradedBy: gradedBy.value.trim() });
+      if (gradedBy.value.trim()) save('gradedBy', gradedBy.value.trim());
       if (!alive) return;
       for (const b of [saveBtn, saveNextBtn]) { b.disabled = false; b.classList.remove('is-loading'); }
       if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
@@ -341,6 +346,7 @@ export function renderGrading(root, ctx, { goSettings }) {
           status: STATUS.GRADED, grades: gr.grades || grades, final_score: gr.final_score ?? null, final_percentage: gr.final_percentage ?? null,
           graded_at: gr.graded_at || new Date().toISOString(), teacher_note: note.value,
           comments: gr.comments && typeof gr.comments === 'object' ? gr.comments : currentComments(),
+          graded_by: gr.graded_by !== undefined ? gr.graded_by : gradedBy.value.trim(),
           released_at: gr.released_at !== undefined ? gr.released_at : (releaseBox.checked ? (raw.released_at || new Date().toISOString()) : ''),
         });
       }
@@ -359,7 +365,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         // Use the comments on screen: `row` is captured when the grader opens and goes stale after a save.
         const latest = G.rawRows.find((r) => r.submission_id === row.submission_id);
         const comments = { ...(latest && typeof latest.comments === 'object' ? latest.comments : {}), ...row.comments, ...currentComments() };
-        await printSubmission({ row: { ...row, comments }, test, includeComments: true });
+        await printSubmission({ row: { ...row, comments, graded_by: gradedBy.value.trim() }, test, includeComments: true });
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 
@@ -377,9 +383,11 @@ export function renderGrading(root, ctx, { goSettings }) {
           statusPill(row.status)),
         h('p', { class: 'muted' }, [row.student_email, `${row.test_code}${row.test_title ? ` · ${row.test_title}` : ''}`, fmtDate(row.timestamp), formatDurationLong(row.duration_seconds),
           row.tab_switches ? `${row.tab_switches} tab switch${row.tab_switches === 1 ? '' : 'es'}` : null].filter(Boolean).join(' · ')),
-        row.status === STATUS.GRADED ? h('p', { class: 'faint' }, `Graded ${fmtDate(row.graded_at)} · auto score was ${round2(row.auto_score)} / ${round2(row.score_total)}`) : null),
+        row.status === STATUS.GRADED ? h('p', { class: 'faint' }, `Graded ${fmtDate(row.graded_at)}${row.graded_by ? ` by ${row.graded_by}` : ''} · auto score was ${round2(row.auto_score)} / ${round2(row.score_total)}`) : null),
       body || h('div', { class: 'card' }, h('p', { class: 'muted' }, 'No per-question responses were stored for this submission.')),
-      h('section', { class: 'card stack' }, note),
+      h('section', { class: 'card stack' },
+        h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Graded by'), gradedBy),
+        note),
       h('div', { class: 'adm-grade__bar card' },
         h('span', {}, 'Final score: ', totalEl), warnEl, h('span', { class: 'spacer' }),
         h('label', { class: 'adm-inline adm-release', for: 'release-grade' }, releaseBox, 'Release grade & comments to student'),

@@ -309,7 +309,7 @@ Scores stay numeric in `Grades (JSON)` `{ questionId: points }` — any number 0
 ### Comments & release (V2-07)
 
 - Formatting (`js/lib/comments.js`): `**bold**`, `*italic*`/`_italic_`, `- ` / `1. ` lists, `[text](https://…)` and bare http(s) URLs; schemes https/http/mailto only. `parseComment(text)` → block tree; `commentBody(text)` (`js/views/comment-view.js`) renders it with textContent only, links `target=_blank rel="noopener noreferrer nofollow"`. `cleanComment`/`cleanComments` trim, cap at 2000 chars and drop empty comments. `commentToText` = plain text.
-- Storage: Submissions columns 21 `Comments (JSON)` `{ questionId: text }` and 22 `Released At` (ISO, empty = not released). Older sheets get the headers appended; empty cells = no comments / not released.
+- Storage: Submissions columns 21 `Comments (JSON)` `{ questionId: text }`, 22 `Released At` (ISO, empty = not released) and 23 `Graded By` (free text; `saveGrade({ gradedBy })`, omitted = kept; rows add `graded_by`). Older sheets get the headers appended; empty cells = no comments / not released.
 - `saveGrade({ …, comments?, release? })`: comments omitted → kept; `release: true` sets Released At (kept if already set), `false` clears it. Response `grade` adds `comments`, `released_at`. `fetchResults` rows (after `normalizeRow`) add `comments` (`{}` default) and `released_at` (`''`).
 - Students: `fetchFeedback({ gasUrl, submissionId, studentEmail })` (backend `getFeedback`, no admin key; id + matching email required). Before release → `{ ok:true, released:false }` only. After → `{ ok:true, released:true, released_at, status, final_score, score_total, final_percentage, grades, comments }`. The private teacher note is never returned.
 
