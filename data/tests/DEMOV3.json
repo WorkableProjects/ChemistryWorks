@@ -1,0 +1,34 @@
+{
+  "code": "DEMOV3",
+  "title": "V3 Question Types Demo",
+  "description": "One question of each new V3 type: balancing, electron configuration, periodic-table pick and significant figures.",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "allowModeToggle": true,
+  "passingPercent": 70,
+  "questions": [
+    {
+      "id": "q1", "type": "balance", "text": "Balance the equation for the formation of water.", "points": 2,
+      "reactants": ["H2", "O2"], "products": ["H2O"], "coefficients": [2, 1, 2], "allowMultiples": false, "partialCredit": true,
+      "explanation": "Two H2 molecules react with one O2 molecule to give two H2O molecules."
+    },
+    {
+      "id": "q2", "type": "econfig", "text": "Write the ground-state electron configuration of sodium.", "points": 2,
+      "answers": ["1s2 2s2 2p6 3s1", "[Ne] 3s1"],
+      "explanation": "Sodium has 11 electrons: the neon core plus one 3s electron."
+    },
+    {
+      "id": "q3", "type": "ptable", "text": "Click the two alkali metals that are in periods 3 and 4.", "points": 2,
+      "answers": ["Na", "K"], "multiple": true, "partialCredit": true,
+      "explanation": "Alkali metals are in group 1: sodium is in period 3 and potassium is in period 4."
+    },
+    {
+      "id": "q4", "type": "sigfigs", "text": "Write 0.00450 g in scientific notation using the correct number of significant figures (in grams).", "points": 2,
+      "answer": 0.0045, "sigFigs": 3, "tolerance": 0.000001, "partialCredit": true,
+      "explanation": "0.00450 has three significant figures, so it is 4.50 x 10^-3."
+    }
+  ]
+}

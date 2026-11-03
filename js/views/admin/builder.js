@@ -17,6 +17,10 @@ import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextRefer
 import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../lib/orbital.js';
 import { ELEMENTS } from '../../lib/elements.js';
 import { orbitalWidget } from '../orbital-view.js';
+import { balanceEditor } from './editors/balance.js';
+import { econfigEditor } from './editors/econfig.js';
+import { ptableEditor } from './editors/ptable.js';
+import { sigfigsEditor } from './editors/sigfigs.js';
 import { withQuestionImage } from '../question-image.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
@@ -872,6 +876,10 @@ function typeEditor(q, redraw, changed, uid) {
     case 'structure': return structureEditor(q, redraw, changed);
     case 'open': return openEditor(q, redraw, changed);
     case 'orbital': return orbitalEditor(q, redraw, changed);
+    case 'balance': return balanceEditor(q, redraw, changed);
+    case 'econfig': return econfigEditor(q, changed);
+    case 'ptable': return ptableEditor(q, changed, redraw);
+    case 'sigfigs': return sigfigsEditor(q, changed);
     default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
   }
 }

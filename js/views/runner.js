@@ -18,6 +18,10 @@ import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
 import { structureWidget } from './structure-view.js';
 import { orbitalWidget } from './orbital-view.js';
+import { balanceWidget } from './widgets/balance.js';
+import { econfigWidget } from './widgets/econfig.js';
+import { ptableWidget } from './widgets/ptable.js';
+import { sigfigsWidget } from './widgets/sigfigs.js';
 import { referencePane } from './reference-pane.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
@@ -508,6 +512,10 @@ function buildWidget(q, api) {
     case 'open': return openWidget(q, api);
     case 'structure': return structureWidget(q, api);
     case 'orbital': return orbitalWidget(q, api);
+    case 'balance': return balanceWidget(q, api);
+    case 'econfig': return econfigWidget(q, api);
+    case 'ptable': return ptableWidget(q, api);
+    case 'sigfigs': return sigfigsWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }

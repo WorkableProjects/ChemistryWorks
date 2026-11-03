@@ -19,7 +19,7 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 1. Output strict JSON: double-quoted keys and strings, no `//` comments, no trailing commas.
 2. `code`: 2–32 characters, uppercase letters, digits, `-` or `_` (e.g. `CHEM-U3-QUIZ`). Must be unique among the teacher's tests.
 3. Every question needs a unique `id` (letters, digits, `-`, `_`). Use `q1`, `q2`, `q3`, …
-4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`.
+4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`, `balance`, `econfig`, `ptable`, `sigfigs`.
 5. `points` must be a number greater than 0.
 6. Option ids (`mcq`, `multi`), item ids (`matching`, `ordering`), blank ids (`fillblank`) and atom ids (`structure`) must be unique **within that question**. Use `a`, `b`, `c`, `d` for options.
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
@@ -131,6 +131,10 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 | draw the full Lewis structure of a molecule or polyatomic ion (bonds + lone pairs) | `structure` |
 | draw a structure with brackets, an overall charge and formal charges (teacher graded) | `structure` with `"studentCharges": true` |
 | fill in an energy orbital diagram with up/down arrows (teacher graded) | `orbital` |
+| balance a chemical equation by typing coefficients | `balance` |
+| write an electron configuration (`1s2 2s2 2p6` or `[Ne] 3s1`) | `econfig` |
+| click one or more elements on the periodic table | `ptable` |
+| give a number with the right number of significant figures | `sigfigs` |
 | write a sentence or two (teacher graded) | `short` |
 | write an extended explanation graded with a rubric (teacher graded) | `open` |
 
@@ -547,6 +551,93 @@ Students get an empty orbital diagram (one box per orbital, grouped by sublevel,
 - `orbitalTypes` (default `["s","p"]`): which sublevel types to include, any subset of `s`, `p`, `d`, `f`. Include every type up to the highest one you need (for iron, `3d` needs `["s","p","d"]`).
 - `sampleAnswer` (optional, recommended): the reference diagram the teacher sees while grading. An object keyed by sublevel, each value an array with **one entry per orbital box** (s = 1, p = 3, d = 5, f = 7): `""` empty, `"u"` one up arrow, `"d"` one down arrow, `"ud"` a pair. Example iron 3d: `["ud","u","u","u","u"]`. It is shown to students in the review only if `showCorrectAnswers` is on.
 - Set `points` to reflect the work (for example 1 point per correctly filled sublevel).
+
+---
+
+### 14. `balance`: balance the equation
+
+Students type a whole-number coefficient into a box in front of every formula (`_ H2 + _ O2 → _ H2O`). Formulas are shown with subscripts and charges.
+
+```json
+{
+  "id": "bal1",
+  "type": "balance",
+  "text": "Balance the equation for the formation of water.",
+  "points": 2,
+  "reactants": ["H2", "O2"],
+  "products": ["H2O"],
+  "coefficients": [2, 1, 2],
+  "allowMultiples": false,
+  "partialCredit": false
+}
+```
+
+- `reactants` and `products`: non-empty lists of formulas, written like `formula` answers (`Fe^3+`, `Ca(OH)2`).
+- `coefficients`: positive whole numbers, one per formula, **reactants first and then products** (so the length is `reactants` + `products`). A coefficient of 1 must still be listed.
+- `allowMultiples` (default `false`): when `true`, any whole-number multiple of the lowest ratio is also correct (`[4, 2, 4]` for `[2, 1, 2]`). When `false`, only `coefficients` is correct.
+- `partialCredit` (default `false`): credit is the fraction of boxes that match.
+- The student's answer is stored as a list of numbers (a blank box is `0`).
+
+### 15. `econfig`: electron configuration
+
+Students type a configuration such as `1s2 2s2 2p6 3s1` or the noble-gas shorthand `[Ne] 3s1`. A live preview shows the electron counts as superscripts.
+
+```json
+{
+  "id": "ec1",
+  "type": "econfig",
+  "text": "Write the ground-state electron configuration of sodium.",
+  "points": 2,
+  "answers": ["1s2 2s2 2p6 3s1", "[Ne] 3s1"]
+}
+```
+
+- `answers`: one or more accepted configurations. A student's answer is correct if it matches **any** of them.
+- Spacing, order of the subshells, `^` or superscript digits (`2p^6`, `2p⁶`), upper or lower-case subshell letters and noble-gas cores (`[He]`, `[Ne]`, `[Ar]`, `[Kr]`, `[Xe]`, `[Rn]`) are all normalized before comparing, so `[Ar] 4s1 3d5` equals `1s2 2s2 2p6 3s2 3p6 3d5 4s1`.
+- List exceptions (Cr, Cu and others) simply by giving the accepted configuration(s) in `answers`.
+- Separate subshells with spaces when typing without superscripts (`1s2 2s2`).
+
+### 16. `ptable`: pick elements on the periodic table
+
+Students click one or more elements on a periodic table. Every element is a real button with its name as the accessible label.
+
+```json
+{
+  "id": "pt1",
+  "type": "ptable",
+  "text": "Click the alkali metals in periods 3 and 4.",
+  "points": 2,
+  "answers": ["Na", "K"],
+  "multiple": true,
+  "partialCredit": true
+}
+```
+
+- `answers`: element symbols (`"Na"`, `"Fe"`), no duplicates.
+- `multiple` (default `true`): `false` makes it single select and needs exactly one answer.
+- Graded like `multi`: all and only the answers is correct. `partialCredit` (default `false`) gives `(right - wrong) / answers` of the points.
+
+### 17. `sigfigs`: significant figures
+
+Students type a number (scientific notation such as `4.50e-3` or `4.50 × 10^-3` is accepted). It is correct when the **value** is within `tolerance` and the number of **significant figures they wrote** equals `sigFigs`.
+
+```json
+{
+  "id": "sf1",
+  "type": "sigfigs",
+  "text": "Write 0.00450 g in scientific notation with the correct number of significant figures.",
+  "points": 2,
+  "answer": 0.0045,
+  "sigFigs": 3,
+  "tolerance": 0.000001,
+  "partialCredit": true
+}
+```
+
+- `answer`: the correct number. `sigFigs`: whole number from 1 to 15. `tolerance` (default `0`): absolute (plus or minus).
+- `partialCredit` (default `true`): half the points for the right value, half for the right number of significant figures.
+- Counting rules: leading zeros never count; zeros after a decimal point count (`0.00450` has 3); trailing zeros of a whole number with no decimal point are **not** significant (`1500` has 2, `1500.` has 4). Use scientific notation to be exact: `1.50e3` has 3.
+- The student's raw text is kept as the answer.
 
 ---
 

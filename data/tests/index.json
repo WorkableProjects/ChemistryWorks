@@ -1,1 +1,7 @@
-[]
+[
+  {
+    "code": "DEMOV3",
+    "title": "V3 Question Types Demo",
+    "description": "One question of each new V3 type: balancing, electron configuration, periodic-table pick and significant figures."
+  }
+]

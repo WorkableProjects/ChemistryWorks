@@ -6,8 +6,10 @@ import { BLANK_KINDS, markerIds } from './blanks.js';
 import { FORMAT_HELP_MODES } from './hints.js';
 import { AUFBAU, ORBITAL_TYPES, DEFAULT_MAX_SUBLEVEL, DEFAULT_ORBITAL_TYPES, validateOrbital } from './orbital.js';
 import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
+import { ELEMENTS } from './elements.js';
+import { parseConfig } from './qtypes/econfig.js';
 
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs'];
 // Types a teacher always grades by hand in the admin Grading tab.
 export const MANUAL_TYPES = ['short', 'open', 'orbital'];
 
@@ -32,6 +34,10 @@ export const TYPE_LABELS = {
   orbital: 'Orbital diagram (teacher graded)',
   short: 'Short answer (teacher graded)',
   open: 'Open response (teacher graded)',
+  balance: 'Balance the equation',
+  econfig: 'Electron configuration',
+  ptable: 'Periodic-table pick',
+  sigfigs: 'Significant figures',
 };
 
 const CODE_RE = /^[A-Z0-9_-]{2,32}$/;
@@ -162,6 +168,32 @@ function normalizeQuestion(raw) {
     }
     case 'short':
       q.sampleAnswer = str(q.sampleAnswer);
+      break;
+    case 'balance': {
+      const list = (v) => (Array.isArray(v) ? v : v === undefined || v === null || v === '' ? [] : [v]).map((x) => str(x).trim());
+      q.reactants = list(q.reactants);
+      q.products = list(q.products);
+      q.coefficients = Array.isArray(q.coefficients) ? q.coefficients.map((n) => (typeof n === 'string' && n.trim() !== '' ? Number(n) : n)) : [];
+      q.allowMultiples = bool(q.allowMultiples, false);
+      q.partialCredit = bool(q.partialCredit, false);
+      break;
+    }
+    case 'econfig':
+      q.answers = (Array.isArray(q.answers) ? q.answers : q.answers === undefined || q.answers === null || q.answers === '' ? [] : [q.answers]).map((a) => str(a).trim());
+      break;
+    case 'ptable': {
+      const bySymbol = new Map(ELEMENTS.map((e) => [e.symbol.toLowerCase(), e.symbol]));
+      q.answers = (Array.isArray(q.answers) ? q.answers : q.answers === undefined || q.answers === null || q.answers === '' ? [] : [q.answers])
+        .map((a) => bySymbol.get(str(a).trim().toLowerCase()) || str(a).trim());
+      q.multiple = bool(q.multiple, true);
+      q.partialCredit = bool(q.partialCredit, false);
+      break;
+    }
+    case 'sigfigs':
+      if (typeof q.answer === 'string' && q.answer.trim() !== '' && Number.isFinite(Number(q.answer))) q.answer = Number(q.answer);
+      if (typeof q.sigFigs === 'string' && q.sigFigs.trim() !== '' && Number.isFinite(Number(q.sigFigs))) q.sigFigs = Number(q.sigFigs);
+      q.tolerance = q.tolerance === undefined || q.tolerance === null || q.tolerance === '' ? 0 : Number(q.tolerance);
+      q.partialCredit = bool(q.partialCredit, true);
       break;
     default:
       break;
@@ -354,6 +386,38 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
     case 'orbital':
       validateOrbital(q, where, errors);
       break;
+    case 'balance': {
+      const names = (list, label) => {
+        if (!Array.isArray(list) || list.length === 0 || list.some((f) => !nonEmptyStr(f))) { errors.push(`${where}: ${label} must be a non-empty list of formulas, e.g. ["H2", "O2"].`); return 0; }
+        return list.length;
+      };
+      const n = names(q.reactants, 'reactants') + names(q.products, 'products');
+      const c = q.coefficients;
+      if (!Array.isArray(c) || c.some((x) => !Number.isInteger(x) || x < 1)) errors.push(`${where}: coefficients must be a list of positive whole numbers.`);
+      else if (n && c.length !== n) errors.push(`${where}: coefficients needs ${n} numbers (one per reactant and product, in order) but has ${c.length}.`);
+      break;
+    }
+    case 'econfig': {
+      if (!Array.isArray(q.answers) || q.answers.length === 0) { errors.push(`${where}: answers must list at least one electron configuration, e.g. ["1s2 2s2 2p6 3s1", "[Ne] 3s1"].`); break; }
+      q.answers.forEach((x, i) => {
+        if (!nonEmptyStr(x) || !parseConfig(x)) errors.push(`${where}: answer ${i + 1} is not a readable electron configuration (use forms like "1s2 2s2 2p6" or "[Ne] 3s1").`);
+      });
+      break;
+    }
+    case 'ptable': {
+      const symbols = new Set(ELEMENTS.map((e) => e.symbol));
+      if (!Array.isArray(q.answers) || q.answers.length === 0) { errors.push(`${where}: answers must list at least one element symbol, e.g. ["Na"].`); break; }
+      q.answers.forEach((x) => { if (typeof x !== 'string' || !symbols.has(x)) errors.push(`${where}: "${x}" is not an element symbol.`); });
+      if (new Set(q.answers).size !== q.answers.length) errors.push(`${where}: answers lists the same element more than once.`);
+      if (q.multiple !== undefined && typeof q.multiple !== 'boolean') errors.push(`${where}: multiple must be true or false.`);
+      if (q.multiple === false && q.answers.length !== 1) errors.push(`${where}: a single-select question (multiple: false) needs exactly one answer.`);
+      break;
+    }
+    case 'sigfigs':
+      if (!isNum(q.answer)) errors.push(`${where}: answer must be a number.`);
+      if (!Number.isInteger(q.sigFigs) || q.sigFigs < 1 || q.sigFigs > 15) errors.push(`${where}: sigFigs must be a whole number from 1 to 15.`);
+      if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
+      break;
     case 'open': {
       const rubric = q.rubric === undefined ? [] : q.rubric;
       if (!Array.isArray(rubric)) { errors.push(`${where}: rubric must be a list of { text, points }.`); break; }
@@ -492,6 +556,14 @@ export function blankQuestion(type, id = 'q1') {
         ...base, points: 4, text: 'Explain why ionic compounds have high melting points.', sampleAnswer: '', minWords: null, maxWords: null, showRubric: true,
         rubric: [{ text: 'Identifies strong electrostatic attraction between oppositely charged ions', points: 2 }, { text: 'Links it to the energy needed to break the lattice', points: 2 }],
       };
+    case 'balance':
+      return { ...base, text: 'Balance the equation for the formation of water.', reactants: ['H2', 'O2'], products: ['H2O'], coefficients: [2, 1, 2], allowMultiples: false, partialCredit: false };
+    case 'econfig':
+      return { ...base, text: 'Write the ground-state electron configuration of sodium.', answers: ['1s2 2s2 2p6 3s1', '[Ne] 3s1'] };
+    case 'ptable':
+      return { ...base, text: 'Click the alkali metal in period 3.', answers: ['Na'], multiple: true, partialCredit: false };
+    case 'sigfigs':
+      return { ...base, text: 'Write 0.00450 g in scientific notation with the correct number of significant figures.', answer: 0.0045, sigFigs: 3, tolerance: 0.000001, partialCredit: true };
     default:
       throw new RangeError(`Unknown question type: ${type}`);
   }

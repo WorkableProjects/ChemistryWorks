@@ -6,6 +6,10 @@ import { isStructureAnswered, scoreStructure, describeStructure, acceptedStructu
 import { blankCorrect, blankedText } from './blanks.js';
 import { isOrbitalAnswered, describeOrbital } from './orbital.js';
 import { isManualQuestion } from './schema.js';
+import { ELEMENTS } from './elements.js';
+import { isBalanceAnswered, scoreBalance, equationText } from './qtypes/balance.js';
+import { matchesAny, configToText } from './qtypes/econfig.js';
+import { countSigFigs, formatWithSigFigs } from './qtypes/sigfigs.js';
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
@@ -76,6 +80,14 @@ export function isAnswered(question, answer) {
       return isDotArray(answer) && dotTotal(answer) > 0;
     case 'matching':
       return isPlainObject(answer) && Object.values(answer).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
+    case 'balance':
+      return isBalanceAnswered(answer);
+    case 'econfig':
+      return typeof answer === 'string' && answer.trim() !== '';
+    case 'ptable':
+      return Array.isArray(answer) && answer.length > 0;
+    case 'sigfigs':
+      return (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
     default:
       if (typeof answer === 'string') return answer.trim() !== '';
       if (Array.isArray(answer)) return answer.length > 0;
@@ -159,6 +171,36 @@ function score(q, answer) {
       if (full) return { fraction: 1, full: true };
       return { fraction: q.partialCredit === false ? 0 : right / leftIds.length, full: false };
     }
+    case 'balance':
+      return scoreBalance(q, answer);
+    case 'econfig': {
+      const ok = typeof answer === 'string' && matchesAny(answer, q.answers);
+      return { fraction: ok ? 1 : 0, full: ok };
+    }
+    case 'ptable': {
+      // Same set rules as `multi` (partial credit = (right - wrong) / expected).
+      if (!Array.isArray(answer) || !Array.isArray(q.answers)) return { fraction: 0, full: false };
+      const correct = new Set(q.answers.map(String));
+      const picked = new Set(answer.map(String));
+      let right = 0;
+      let wrong = 0;
+      for (const sym of picked) (correct.has(sym) ? right++ : wrong++);
+      if (right === correct.size && wrong === 0) return { fraction: 1, full: true };
+      if (q.partialCredit && correct.size > 0) return { fraction: Math.max(0, (right - wrong) / correct.size), full: false };
+      return { fraction: 0, full: false };
+    }
+    case 'sigfigs': {
+      const raw = typeof answer === 'number' ? String(answer) : answer;
+      const x = parseNumber(raw);
+      const key = Number(q.answer);
+      if (Number.isNaN(x) || !Number.isFinite(key) || q.answer === null || q.answer === '' || typeof q.answer === 'boolean') return { fraction: 0, full: false };
+      const tol = Number(q.tolerance) > 0 ? Number(q.tolerance) : 0;
+      const valueOk = Math.abs(x - key) <= tol + 1e-9 * Math.abs(key);
+      const sfOk = countSigFigs(raw) === Number(q.sigFigs);
+      if (valueOk && sfOk) return { fraction: 1, full: true };
+      if (q.partialCredit !== false && (valueOk || sfOk)) return { fraction: 0.5, full: false };
+      return { fraction: 0, full: false };
+    }
     default:
       return { fraction: 0, full: false };
   }
@@ -236,6 +278,18 @@ export function formatAnswer(question, answer) {
         return describeStructure(q, answer);
       case 'orbital':
         return describeOrbital(q, answer);
+      case 'balance':
+        return equationText(q, answer);
+      case 'econfig':
+        return configToText(String(answer));
+      case 'ptable': {
+        const picked = new Set(answer.map(String));
+        const known = ELEMENTS.filter((e) => picked.has(e.symbol)).map((e) => `${e.name} (${e.symbol})`);
+        const unknown = [...picked].filter((sym) => !ELEMENTS.some((e) => e.symbol === sym));
+        return [...known, ...unknown].join('; ');
+      }
+      case 'sigfigs':
+        return String(answer).trim();
       case 'lewis':
         return describeDots(answer, q.element);
       case 'matching':
@@ -272,6 +326,16 @@ function formatCorrect(q) {
   }
   if (q.type === 'fillblank') {
     return (q.blanks || []).map((b, i) => `(${i + 1}) ${(b.answers || []).map(String).join(' / ') || DASH}`).join('; ') || DASH;
+  }
+  if (q.type === 'balance') {
+    const text = equationText(q, q.coefficients);
+    return q.allowMultiples ? `${text} (or any whole-number multiple)` : text;
+  }
+  if (q.type === 'econfig') return Array.isArray(q.answers) && q.answers.length ? q.answers.map((a) => configToText(a)).join(' / ') : DASH;
+  if (q.type === 'ptable') return Array.isArray(q.answers) && q.answers.length ? formatAnswer(q, q.answers) : DASH;
+  if (q.type === 'sigfigs') {
+    const n = Number(q.sigFigs);
+    return Number.isFinite(Number(q.answer)) && q.answer !== null && q.answer !== '' ? `${formatWithSigFigs(q.answer, n)} (${n} significant ${n === 1 ? 'figure' : 'figures'})` : DASH;
   }
   if (q.type === 'orbital') return q.sampleAnswer ? `Sample: ${describeOrbital(q, q.sampleAnswer)}` : DASH;
   if (q.type === 'structure') {
@@ -315,7 +379,7 @@ export function gradeTest(test, answers) {
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
+      correctAnswer: q.type === 'balance' ? q.coefficients : q.type === 'econfig' || q.type === 'ptable' ? q.answers : q.type === 'sigfigs' ? q.answer : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,

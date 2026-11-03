@@ -71,6 +71,7 @@ test('game mode: play through, scores, end screen, no submission', () => withSes
   s.serveTest('GM2', gameTest('GM2'));
   await open(s, 'GM2');
   await page.locator(tid('mode-game')).click();
+  await page.locator(tid('game-pick-classic')).click();
   await waitText(page.locator(tid('game-skipped')), '1 question skipped in game mode.');
   await page.locator(tid('game-start')).click();
 
@@ -121,6 +122,7 @@ test('game mode: keyboard answers, power-ups and switching to Study mode', () =>
   s.serveTest('GM3', gameTest('GM3', { questions: gameTest('x').questions.slice(0, 1) }));
   await open(s, 'GM3');
   await page.locator(tid('mode-game')).click();
+  await page.locator(tid('game-pick-classic')).click();
   await page.locator(tid('game-start')).click();
   await page.locator(tid('game-question')).waitFor();
   await page.locator(tid('game-fifty')).click();
@@ -149,6 +151,7 @@ test('game mode: dark theme and narrow viewport render without horizontal scroll
   await page.locator(tid('mode-select')).waitFor();
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await page.locator(tid('mode-game')).click();
+  await page.locator(tid('game-pick-classic')).click();
   await page.locator(tid('game-start')).click();
   await page.locator(tid('game-question')).waitFor();
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
