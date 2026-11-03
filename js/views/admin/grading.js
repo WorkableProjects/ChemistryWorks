@@ -356,7 +356,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       if (isDirty()) { toast('Save the grade first', { type: 'warning' }); return; }
       try {
         const { printSubmission } = await import('./export-view.js');
-        printSubmission({ row, test, includeComments: true });
+        await printSubmission({ row, test, includeComments: true });
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 

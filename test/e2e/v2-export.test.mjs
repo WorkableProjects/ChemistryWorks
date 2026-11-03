@@ -18,6 +18,8 @@ const row = (over = {}) => ({
       givenAnswer: '1s2 2s2 2p6 3s1', givenAnswerText: '1s2 2s2 2p6 3s1', correctAnswerText: '1s2 2s2 2p6 3s1' },
     { questionId: 'no3', type: 'structure', sectionId: 'secB', questionText: 'Draw the Lewis structure of nitrate.', pointsPossible: 4, pointsEarned: 3, isCorrect: false, answered: true, needsGrading: false, manual: true,
       givenAnswer: { bonds: [2, 1, 1], lonePairs: { n: 0, o1: 2, o2: 3, o3: 3 }, bracket: true, charge: -1, formalCharges: { n: 1, o2: -1, o3: -1 } }, givenAnswerText: 'NO3-', correctAnswerText: '—' },
+    { questionId: 'calc', type: 'numeric', questionText: 'Find $n$ for $\\ce{H2O}$.', pointsPossible: 1, pointsEarned: 1, isCorrect: true, answered: true, needsGrading: false, manual: false,
+      givenAnswer: 2, givenAnswerText: '$2.0 \\times 10^{3}$', correctAnswerText: '$2.0 \\times 10^{3}$ mol' },
   ],
   ...over,
 });
@@ -27,6 +29,23 @@ async function openGrader(s, r) {
   await page.addInitScript(() => {
     window.__printed = 0; window.__titles = [];
     window.print = () => { window.__printed++; window.__titles.push(document.title); };
+    // KaTeX stand-in (the CDN is blocked in tests) that arrives late, so export must wait for it.
+    setTimeout(() => {
+      window.katex = {};
+      window.renderMathInElement = (el) => {
+        const walk = (n) => {
+          for (const c of [...n.childNodes]) {
+            if (c.nodeType === 1) walk(c);
+            else if (c.nodeType === 3 && /\$[^$]+\$/.test(c.data)) {
+              const span = document.createElement('span');
+              span.innerHTML = c.data.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\$([^$]+)\$/g, '<span class="katex">$1</span>');
+              c.replaceWith(...span.childNodes);
+            }
+          }
+        };
+        walk(el);
+      };
+    }, 1500);
   });
   s.onGas = (body) => (body.action === 'getResults' ? { result: 'success', rows: [r] } : null);
   await unlockAdmin(page, url);
@@ -49,9 +68,14 @@ test('exports a released submission with diagrams and comments', () => withSessi
   const doc = page.locator('#print-root [data-testid="export-doc"]');
   assert.equal(await doc.count(), 1);
   assert.match(await doc.textContent(), /Ada Lovelace/);
-  assert.match(await page.locator(`#print-root ${tid('export-score')}`).textContent(), /7\.5 \/ 9 · 83\.3%/);
+  assert.match(await page.locator(`#print-root ${tid('export-score')}`).textContent(), /8\.5 \/ 10 · 85%/);
   assert.equal(await page.locator(`#print-root ${tid('export-section')}`).count(), 2);
-  assert.equal(await page.locator(`#print-root ${tid('export-item-orbN')} .orb`).count(), 1);
+  assert.equal(await page.locator(`#print-root ${tid('export-item-orbN')} ${tid('export-answer')} .orb`).count(), 1);
+  // correct answers are printed; LaTeX in answers and correct answers is typeset
+  assert.match(await page.locator(`#print-root ${tid('export-item-warm')} ${tid('export-correct')}`).textContent(), /Electron/);
+  assert.equal(await page.locator(`#print-root ${tid('export-item-calc')} ${tid('export-answer')} .katex`).count(), 1);
+  assert.equal(await page.locator(`#print-root ${tid('export-item-calc')} ${tid('export-correct')} .katex`).count(), 1);
+  assert.doesNotMatch(await page.locator(`#print-root ${tid('export-item-calc')}`).textContent(), /\$/);
   assert.equal(await page.locator(`#print-root ${tid('export-item-no3')} svg`).count() > 0, true);
   assert.match(await page.locator(`#print-root ${tid('export-item-orbN')}`).textContent(), /Nice work on Hund rule/);
   assert.match(await page.locator(`#print-root ${tid('export-item-orbN')}`).textContent(), /2\.5 \/ 3 pts/);

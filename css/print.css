@@ -21,7 +21,13 @@
 .export-comment .comment-body p { margin: 2px 0; }
 .export-pre { white-space: pre-wrap; }
 .export-empty { margin: 2px 0; font-style: italic; }
-.export-diagram { margin: 4px 0; }
+.export-diagram { margin: 4px 0; max-width: 100%; }
+.export-diagram-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.export-answer-text { overflow-wrap: anywhere; }
+.export-correct, [data-testid="export-correct"] { margin-top: 6px; }
+/* Nothing in a question may be wider than the page. */
+.export-item, .export-item * { max-width: 100%; box-sizing: border-box; }
+.export-item svg, .export-item img { height: auto; }
 
 @media print {
   /* Zero page margin removes the browser's header/footer (date, page title, URL, page numbers). */
@@ -48,4 +54,15 @@
   .export-doc svg * { stroke-opacity: 1; }
   .export-doc a { color: #000; text-decoration: underline; }
   .export-item { border-top-color: #000; }
+
+  /* Keep every question whole on one page; only a question taller than a page may split, and then
+     never right after its header or prompt. */
+  .export-item { break-inside: avoid; page-break-inside: avoid; }
+  .export-item__head, .export-prompt, .export-label, .export-section, .export-instructions { break-after: avoid; page-break-after: avoid; }
+  .export-diagram, .export-diagram-row > *, .katex-display, .export-answer-text p { break-inside: avoid; page-break-inside: avoid; }
+  .export-group { break-inside: auto; }
+  /* Display math prints in full instead of clipping in a scroll box. */
+  .export-doc .katex-display { overflow: visible !important; }
+  .export-doc .katex-display > .katex { white-space: normal; }
+  .print-frame tr, .print-frame td { break-inside: auto; page-break-inside: auto; }
 }
