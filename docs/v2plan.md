@@ -13,7 +13,7 @@ ChemistryWorks supports creating and taking chemistry tests, reviewing submissio
 Status values: `Proposed`, `Accepted`, `In progress`, `Done`, or `Deferred`.
 
 ### V2-01 — Submission counts in the test library
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Show completed submission counts in the instructor's test library. Exclude in-progress, draft, and deleted submissions.
 
@@ -23,7 +23,7 @@ Show completed submission counts in the instructor's test library. Exclude in-pr
 - [ ] Counts fit narrow layouts without obscuring test actions.
 
 ### V2-02 — Split-screen assessment mode
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Show questions alongside a per-test reference pane for the periodic table and other supported instructor-provided resources. Students can resize and collapse the pane.
 
@@ -34,7 +34,7 @@ Show questions alongside a per-test reference pane for the periodic table and ot
 - [ ] Controls work with keyboard and touch; assessment navigation, timing, and submission remain intact.
 
 ### V2-03 — Partial-credit grading
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Support full-, half-, zero-credit buttons and direct numeric score entry up to the question maximum. Store scores numerically. For auto-graded questions, retain the automatic score as the default and allow instructor overrides.
 
@@ -46,19 +46,19 @@ Support full-, half-, zero-credit buttons and direct numeric score entry up to t
 - [ ] Score changes follow existing save, audit, and permission behavior.
 
 ### V2-04 — Assessment sections
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Allow optional named sections with instructions and a point total. Assessments may also retain unsectioned questions. No Google Classroom integration is in scope.
 
 **Acceptance criteria**
 - [ ] Instructors can create sections and assign questions.
-- [ ] Section point totals match their questions; document whether totals are calculated or manually set.
+- [ ] Section point totals match their questions; document whether totals are calculated or manually set. *(Calculated — see docs/ARCHITECTURE.md "V2 contracts".)*
 - [ ] Section and question order is stable in authoring, assessment-taking, and review.
 - [ ] Associations persist through editing and reopening. Existing unsectioned assessments remain intact.
 - [ ] The model can support future section-level scoring or export mapping.
 
 ### V2-05 — Energy orbital diagram question type
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Add instructor-graded orbital-diagram questions. Students place electrons in an empty diagram; instructors choose the orbital range (s, p, d, f) per question. Automatic grading is out of scope for v1.
 
@@ -69,7 +69,7 @@ Add instructor-graded orbital-diagram questions. Students place electrons in an 
 - [ ] Responses support grading with V2-03 controls.
 
 ### V2-06 — Lewis structures with brackets and charge
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Extend the existing Lewis editor to support brackets, an overall bracket charge, and per-atom formal charges. Responses are instructor-graded only in v1.
 
@@ -81,7 +81,7 @@ Extend the existing Lewis editor to support brackets, an overall bracket charge,
 - [ ] Responses support grading with V2-03 controls.
 
 ### V2-07 — Instructor comments on submitted questions
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Allow authorized instructors and administrators to add comments to individual questions in a submission. Students see comments only after grades are released. Support basic formatting and links.
 
@@ -94,7 +94,7 @@ Allow authorized instructors and administrators to add comments to individual qu
 - [ ] Comment changes do not alter answers or scores.
 
 ### V2-08 — Export reviewed submissions
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** Done
 
 Allow authorized staff to export one student's reviewed submission as print/PDF. Include student name, assessment name, and total score. Per-section totals, timestamps, extra metadata, and rubrics are out of scope for v1.
 
@@ -106,7 +106,7 @@ Allow authorized staff to export one student's reviewed submission as print/PDF.
 - [ ] The filename meaningfully identifies the student and assessment.
 
 ### V2-09 — Distinctive, readable UI
-**Priority:** High · **Status:** Accepted
+**Priority:** High · **Status:** In progress
 
 Apply a whole-app **Lab notebook** visual direction: warm off-white surfaces, ink-blue text, subtle graph-paper accents, and monospace for formulas and numbers. Use the full treatment on student-facing screens and a toned-down treatment in instructor/admin views. Define reusable design tokens and components; no existing brand guide is available.
 

@@ -13,12 +13,13 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 1. Output strict JSON: double-quoted keys and strings, no `//` comments, no trailing commas.
 2. `code`: 2–32 characters, uppercase letters, digits, `-` or `_` (e.g. `CHEM-U3-QUIZ`). Must be unique among the teacher's tests.
 3. Every question needs a unique `id` (letters, digits, `-`, `_`). Use `q1`, `q2`, `q3`, …
-4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`.
+4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`.
 5. `points` must be a number greater than 0.
 6. Option ids (`mcq`, `multi`), item ids (`matching`, `ordering`), blank ids (`fillblank`) and atom ids (`structure`) must be unique **within that question**. Use `a`, `b`, `c`, `d` for options.
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
 8. In JSON, a backslash must be written as `\\`. So the math `$\ce{H2O}$` is written `"$\\ce{H2O}$"`.
 9. Pick the type that fits the skill being tested (see [Choosing a question type](#choosing-a-question-type)). For bonding, use `structure` (full Lewis structure) rather than describing a structure in words.
+10. Optional v2 features: group questions into `sections`, give students a `references` pane (periodic table, text, image), use `orbital` for orbital diagrams and `studentCharges` on `structure` for brackets and charges. See [Sections and references](#sections-and-references-v2), [13. `orbital`](#13-orbital-energy-orbital-diagram-teacher-graded) and [Brackets and charges](#brackets-and-charges-studentcharges-teacher-graded).
 
 ---
 
@@ -54,9 +55,52 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | `allowModeToggle` | no | boolean | `true` | Student may switch between one-at-a-time and all-on-one-page. |
 | `defaultMode` | no | `"focus"`, `"scroll"` or `null` | `null` (site default) | Starting layout. |
 | `passingPercent` | no | number 0–100 or `null` | `null` | Shows a Passed / Not yet badge. |
+| `sections` | no | array of `{ id, title, instructions? }` | `[]` | Named groups of questions. See [Sections and references](#sections-and-references-v2). |
+| `references` | no | array of reference items | `[]` | Resources shown in a split-screen pane beside the questions. See [Sections and references](#sections-and-references-v2). |
 | `questions` | yes | array, at least 1 | — | See below. |
 
 **Hidden-score tests:** if the teacher wants students *not* to see their score (for example, to grade privately and enter grades into Aeries or Google Classroom), set `"showResults": false`.
+
+---
+
+## Sections and references (v2)
+
+Both are optional. A test without them behaves exactly as before.
+
+### `sections`
+
+```json
+"sections": [
+  { "id": "secA", "title": "Part A: Electron configuration", "instructions": "Use the periodic table in the reference pane." },
+  { "id": "secB", "title": "Part B: Bonding", "instructions": "Draw complete Lewis structures, including **brackets** and charges for ions." }
+]
+```
+
+- `id`: unique among sections (letters, digits, `-`, `_`). `title`: required, non-empty. `instructions`: optional text shown under the section heading.
+- Put a question in a section with `"section": "secA"` on the question. A question without `section` is **unsectioned**. Every `section` value must match a section `id`.
+- **Canonical ordering rule:** the app always orders questions as *unsectioned questions first, then each section in the order of the `sections` array; inside each group, questions keep their order in the `questions` array*. Write the `questions` array in that order (the app re-sorts it on import, so the order you see after importing is the order students see). With `shuffleQuestions`, questions shuffle only inside their own group; the groups never move.
+- **Section point totals are calculated** from the questions' `points` and shown automatically. Do not write a total anywhere.
+
+### `references`
+
+A reference pane appears beside the questions on wide screens (stacked or collapsible on small screens). Students can switch between items, resize the pane and collapse it; answers are kept.
+
+```json
+"references": [
+  { "id": "pt", "type": "periodic-table", "title": "" },
+  { "id": "consts", "type": "text", "title": "Constants", "content": "$R = 8.314$ J/(mol·K)" },
+  { "id": "sol", "type": "image", "title": "Solubility chart", "url": "https://example.org/solubility.png", "alt": "Table of solubility rules for common ionic compounds" }
+]
+```
+
+| `type` | Extra fields | Notes |
+|---|---|---|
+| `periodic-table` | none | Built-in periodic table. **At most one per test.** `title` may be `""` (it then shows "Periodic table"). |
+| `text` | `content` (required) | Formulas, constants or notes. Supports math between `$…$` like question text. Use `\n\n` for a new paragraph. |
+| `image` | `url` (required), `alt` (required) | The URL must be **https** (or a site-relative path such as `data/img/chart.png`); other schemes are rejected. **`alt` is required**: describe the image for screen readers. |
+
+- Each reference needs a unique `id` (`ref1`, `pt`, …). References are per test, not per section.
+- Only include what students may use during the test: everything in the pane is visible to them.
 
 ---
 
@@ -74,6 +118,8 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | complete a sentence (vocabulary, formulas or numbers in context) | `fillblank` |
 | draw valence dots around one element | `lewis` |
 | draw the full Lewis structure of a molecule or polyatomic ion (bonds + lone pairs) | `structure` |
+| draw a structure with brackets, an overall charge and formal charges (teacher graded) | `structure` with `"studentCharges": true` |
+| fill in an energy orbital diagram with up/down arrows (teacher graded) | `orbital` |
 | write a sentence or two (teacher graded) | `short` |
 | write an extended explanation graded with a rubric (teacher graded) | `open` |
 
@@ -84,10 +130,11 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | Field | Required | Notes |
 |---|---|---|
 | `id` | yes | Unique in the test. `q1`, `q2`, … |
-| `type` | yes | One of the twelve types below. |
+| `type` | yes | One of the thirteen types below. |
 | `text` | yes | The question. Supports math, see [Writing chemistry and math](#writing-chemistry-and-math). |
 | `points` | no | Number > 0. Default `1`. |
 | `explanation` | no | Shown in the student review after submitting (if `showCorrectAnswers` is on). Strongly recommended. |
+| `section` | no | Id of a section in the test's `sections`. Omit for an unsectioned question. |
 
 ---
 
@@ -342,7 +389,7 @@ The student sees the atoms of a molecule placed on a grid with the skeleton conn
 - **Electron check:** for main-group atoms the app verifies `2 × (sum of bond orders) + 2 × (sum of lone pairs) = total valence electrons − charge`. If it doesn't match, the test will not import. Count before you write. CO₂: valence 4 + 6 + 6 = 16; drawn = 2 × (2 + 2) for the bonds + 2 × (2 + 0 + 2) for the lone pairs = 8 + 8 = 16 ✓.
 - `partialCredit` (default `false`): credit = (correct bond orders + atoms with the correct lone-pair count) ÷ (bonds + atoms), using the closest resonance form.
 - `showElectronCount` (default `false`): when `true`, the counter says "14 of 16 valence electrons drawn", which gives the total away. Leave `false` when counting valence electrons is part of the skill.
-- Do not draw formal charges; they are not asked for. Expanded octets (SF₆, PCl₅, XeF₄) work: up to 4 lone pairs per atom and triple bonds are allowed.
+- By default formal charges are not asked for (see [Brackets and charges](#brackets-and-charges-studentcharges-teacher-graded) to require them). Expanded octets (SF₆, PCl₅, XeF₄) work: up to 4 lone pairs per atom and triple bonds are allowed.
 
 **Water (bent; give coordinates):**
 ```json
@@ -389,6 +436,39 @@ The student sees the atoms of a molecule placed on a grid with the skeleton conn
 
 Electron counts for these: H₂O = 1 + 6 + 1 = 8; NH₄⁺ = 5 + 4 − 1 = 8; NO₃⁻ = 5 + 18 + 1 = 24.
 
+#### Brackets and charges (`studentCharges`, teacher graded)
+
+Add `"studentCharges": true` to a `structure` question when students must also draw **brackets**, the **overall charge** and **per-atom formal charges**. Such a question is **teacher graded**: it scores 0 until the teacher grades it, and `correctAnswer` becomes the reference answer the teacher sees. Without `studentCharges` (the default `false`) the question behaves exactly as before and is auto graded.
+
+- With `studentCharges` on, the skeleton's `charge` is not pre-drawn as brackets (the student draws them), but it still sets the valence-electron total, so keep it correct. The electron check above still applies.
+- `correctAnswer` gains three fields (single object only, no resonance array):
+  - `bracket`: `true` if the structure should be enclosed in brackets (polyatomic ions).
+  - `charge`: overall charge, whole number from −4 to 4 (`-1` for NO₃⁻). Use `0` when there is none.
+  - `formalCharges`: `{ atomId: charge }` for atoms with a non-zero formal charge, each −4 to 4. Atoms you leave out count as 0.
+- Because grading is by the teacher, the answer is not compared automatically; make `explanation` say how formal charges were found.
+
+```json
+{
+  "id": "no3", "type": "structure", "points": 4, "studentCharges": true, "charge": -1,
+  "text": "Draw the Lewis structure of the nitrate ion, $\\ce{NO3-}$, with brackets, the overall charge and formal charges.",
+  "atoms": [
+    { "id": "n", "symbol": "N", "x": 1, "y": 1 },
+    { "id": "o1", "symbol": "O", "x": 1, "y": 0 },
+    { "id": "o2", "symbol": "O", "x": 0, "y": 2 },
+    { "id": "o3", "symbol": "O", "x": 2, "y": 2 }
+  ],
+  "bonds": [["n", "o1"], ["n", "o2"], ["n", "o3"]],
+  "correctAnswer": {
+    "bonds": [2, 1, 1],
+    "lonePairs": { "n": 0, "o1": 2, "o2": 3, "o3": 3 },
+    "bracket": true,
+    "charge": -1,
+    "formalCharges": { "n": 1, "o2": -1, "o3": -1 }
+  },
+  "explanation": "24 valence electrons. N is +1, each single-bonded O is -1; overall 1-."
+}
+```
+
 ### 11. `short`: short answer / open-ended (teacher graded)
 
 ```json
@@ -432,6 +512,29 @@ Electron counts for these: H₂O = 1 + 6 + 1 = 8; NH₄⁺ = 5 + 4 − 1 = 8; NO
 - `showRubric` (default `true`): students see the criteria above the answer box. Set `false` to hide them.
 - `minWords` / `maxWords` (optional whole numbers): shown as a target ("aim for 60–200 words"); not enforced.
 - `sampleAnswer` (optional): model answer for the teacher; shown to students in the review only if `showCorrectAnswers` is on.
+
+### 13. `orbital`: energy orbital diagram (teacher graded)
+
+Students get an empty orbital diagram (one box per orbital, grouped by sublevel, lowest energy first) and click or tap each box to place spin-up, spin-down or paired arrows. Spin is shown by arrow direction and the box label, never by colour alone.
+
+```json
+{
+  "id": "orbN",
+  "type": "orbital",
+  "text": "Draw the orbital diagram for a ground-state nitrogen atom.",
+  "points": 3,
+  "maxSublevel": "2p",
+  "orbitalTypes": ["s", "p"],
+  "sampleAnswer": { "1s": ["ud"], "2s": ["ud"], "2p": ["u", "u", "u"] },
+  "explanation": "Nitrogen has 7 electrons: 1s2 2s2 2p3. By Hund's rule the three 2p electrons sit in separate orbitals with parallel spins."
+}
+```
+
+- **Teacher graded**: no `correctAnswer`; it scores 0 until the teacher grades it in the **Grading** tab.
+- `maxSublevel` (default `"2p"`): the highest sublevel shown. Sublevels are listed in **Aufbau order**: `1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p 7s 5f 6d 7p`. Everything up to and including `maxSublevel` (in that order) is shown, filtered by `orbitalTypes`.
+- `orbitalTypes` (default `["s","p"]`): which sublevel types to include, any subset of `s`, `p`, `d`, `f`. Include every type up to the highest one you need (for iron, `3d` needs `["s","p","d"]`).
+- `sampleAnswer` (optional, recommended): the reference diagram the teacher sees while grading. An object keyed by sublevel, each value an array with **one entry per orbital box** (s = 1, p = 3, d = 5, f = 7): `""` empty, `"u"` one up arrow, `"d"` one down arrow, `"ud"` a pair. Example iron 3d: `["ud","u","u","u","u"]`. It is shown to students in the review only if `showCorrectAnswers` is on.
+- Set `points` to reflect the work (for example 1 point per correctly filled sublevel).
 
 ---
 
@@ -643,6 +746,225 @@ A complete, valid test using every type (copy this as a template):
 
 ---
 
+## Complete v2 example (sections, references, orbital, charges)
+
+A shorter test using the v2 features. Note the canonical order: the unsectioned question first, then Part A, then Part B.
+
+```json
+{
+  "code": "CHEM-V2-DEMO",
+  "title": "Electrons & Bonding (v2 sample)",
+  "description": "Sections, references, orbital diagrams and Lewis structures with charges.",
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "sections": [
+    {
+      "id": "secA",
+      "title": "Part A: Electron configuration",
+      "instructions": "Use the periodic table in the reference pane."
+    },
+    {
+      "id": "secB",
+      "title": "Part B: Bonding",
+      "instructions": "Draw complete Lewis structures, including **brackets** and charges for ions."
+    }
+  ],
+  "references": [
+    {
+      "id": "pt",
+      "type": "periodic-table",
+      "title": ""
+    },
+    {
+      "id": "consts",
+      "type": "text",
+      "title": "Constants",
+      "content": "Avogadro's number: $6.022 \\times 10^{23}$ mol$^{-1}$\n\n$R = 8.314$ J/(mol·K)"
+    }
+  ],
+  "questions": [
+    {
+      "id": "warm",
+      "type": "mcq",
+      "text": "Which particle has a negative charge?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Proton"
+        },
+        {
+          "id": "b",
+          "text": "Electron"
+        },
+        {
+          "id": "c",
+          "text": "Neutron"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": "Electrons carry a negative charge; protons are positive and neutrons are neutral."
+    },
+    {
+      "id": "orbN",
+      "section": "secA",
+      "type": "orbital",
+      "text": "Draw the orbital diagram for a ground-state nitrogen atom.",
+      "points": 3,
+      "maxSublevel": "2p",
+      "orbitalTypes": [
+        "s",
+        "p"
+      ],
+      "sampleAnswer": {
+        "1s": [
+          "ud"
+        ],
+        "2s": [
+          "ud"
+        ],
+        "2p": [
+          "u",
+          "u",
+          "u"
+        ]
+      },
+      "explanation": "Nitrogen has 7 electrons: 1s² 2s² 2p³. By Hund’s rule the three 2p electrons occupy separate orbitals with parallel spins."
+    },
+    {
+      "id": "config",
+      "section": "secA",
+      "type": "short",
+      "text": "Write the electron configuration of sodium.",
+      "points": 1,
+      "sampleAnswer": "1s2 2s2 2p6 3s1",
+      "explanation": "Sodium has 11 electrons: 1s² 2s² 2p⁶ 3s¹."
+    },
+    {
+      "id": "no3",
+      "section": "secB",
+      "type": "structure",
+      "points": 4,
+      "studentCharges": true,
+      "text": "Draw the Lewis structure of the nitrate ion, $\\ce{NO3-}$, with brackets, the overall charge and formal charges.",
+      "atoms": [
+        {
+          "id": "n",
+          "symbol": "N",
+          "x": 1,
+          "y": 1
+        },
+        {
+          "id": "o1",
+          "symbol": "O",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "o2",
+          "symbol": "O",
+          "x": 0,
+          "y": 2
+        },
+        {
+          "id": "o3",
+          "symbol": "O",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "bonds": [
+        [
+          "n",
+          "o1"
+        ],
+        [
+          "n",
+          "o2"
+        ],
+        [
+          "n",
+          "o3"
+        ]
+      ],
+      "charge": -1,
+      "correctAnswer": {
+        "bonds": [
+          2,
+          1,
+          1
+        ],
+        "lonePairs": {
+          "n": 0,
+          "o1": 2,
+          "o2": 3,
+          "o3": 3
+        },
+        "bracket": true,
+        "charge": -1,
+        "formalCharges": {
+          "n": 1,
+          "o2": -1,
+          "o3": -1
+        }
+      },
+      "explanation": "Nitrate has 24 valence electrons. One N=O double bond and two N–O single bonds give N a formal charge of +1 and each single-bonded O −1; the ion carries an overall 1− charge shown outside brackets. Three resonance forms exist."
+    },
+    {
+      "id": "co2",
+      "section": "secB",
+      "type": "structure",
+      "points": 2,
+      "text": "Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.",
+      "atoms": [
+        {
+          "id": "o1",
+          "symbol": "O",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "c",
+          "symbol": "C",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "o2",
+          "symbol": "O",
+          "x": 2,
+          "y": 0
+        }
+      ],
+      "bonds": [
+        [
+          "o1",
+          "c"
+        ],
+        [
+          "c",
+          "o2"
+        ]
+      ],
+      "correctAnswer": {
+        "bonds": [
+          2,
+          2
+        ],
+        "lonePairs": {
+          "o1": 2,
+          "c": 0,
+          "o2": 2
+        }
+      },
+      "explanation": "CO₂ has 16 valence electrons: two C=O double bonds and two lone pairs on each oxygen give every atom an octet and zero formal charge."
+    }
+  ]
+}
+```
+
+---
+
 ## Importing into ChemistryWorks
 
 This section is for the teacher (or an AI with access to the repository).
@@ -681,6 +1003,10 @@ If a bundled test and a published test share a code, the bundled one is used.
 ### Grading tests with `short` / `open` questions or hidden scores
 
 After students submit, open the admin **Grading** tab (it needs the admin key in **Settings**). Filter by **Needs grading**, open each submission, tick rubric criteria (for `open` questions) or enter points for open-ended answers (and override any auto-graded points if needed), and click **Save & next**. **Export grades** downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom.
+
+v2 additions to the grader: the **Full / Half / Zero** buttons set 100%, 50% or 0% of a question's points in one click, or type any score from 0 up to the question's points (negative, too-high or non-numeric entries are rejected with a message). Scores can be fractional (for example 1.5). Auto-graded questions keep their automatic score as the default; a different score is saved as an **override** and labelled with the automatic score. Orbital diagrams and `structure` questions with `studentCharges` are teacher graded like `short` and `open`.
+
+To give feedback, add a **comment** to any question (supports `**bold**`, `*italic*`, `- ` and `1. ` lists and `[text](https://…)` links; empty comments are not saved). Comments are private until you tick **Release grade & comments to student** and save. After release, students see their score and your comments under **Your submitted tests > View feedback**. **Export PDF** (in an open submission) prints one student's reviewed submission, with comments included only if the grade is released.
 
 ---
 
