@@ -1,5 +1,6 @@
 // Mode chooser shown for tests with gameMode === true: Study mode (the normal runner) or Game mode (practice).
-// render(root, ctx, { test, source }) -> cleanup()
+// render(root, ctx, { test, source, studyBlocked? }) -> cleanup()
+// studyBlocked (V3-02): the student already submitted a single-submission test, so only Game mode is offered.
 
 import { h, mount, icon, richText, renderMath, appHeader, userBadge } from '../ui.js';
 import { load } from '../lib/storage.js';
@@ -28,7 +29,7 @@ export function render(root, ctx, params = {}) {
       test.description ? richText(test.description, 'p', 'muted') : null,
       h('p', { class: 'muted' }, 'How do you want to work through this test?')),
     h('div', { class: 'mode-select__grid' },
-      choice('study', 'pen', 'Study mode',
+      params.studyBlocked ? null : choice('study', 'pen', 'Study mode',
         'The normal test: every question, at your own pace. Your answers are submitted when you finish.',
         h('span', { class: 'mode-choice__go' }, 'Start studying'),
         () => ctx.navigate('runner', { test, source })),

@@ -50,7 +50,8 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
         h('strong', { class: 'adm-item__title' }, title || '(untitled)'),
         h('div', { class: 'adm-item__stats' },
           test ? [stat('list', `${test.questions.length} question${test.questions.length === 1 ? '' : 's'}`), stat('check', `${points(test)} pts`),
-            stat('clock', test.timeLimitMinutes ? `${test.timeLimitMinutes} min` : 'Untimed')] : null,
+            stat('clock', test.timeLimitMinutes ? `${test.timeLimitMinutes} min` : 'Untimed'),
+            test.singleSubmission ? h('span', { class: 'adm-stat adm-stat--tag', dataset: { testid: `test-single-submission-${code}` } }, icon('lock', { size: 14 }), '1 attempt') : null] : null,
           counts ? countStat(code) : null,
           note ? h('span', { class: 'faint' }, note) : null)),
       actions);

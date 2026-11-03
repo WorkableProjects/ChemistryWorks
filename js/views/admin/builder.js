@@ -413,7 +413,8 @@ export function renderBuilder(root, ctx) {
         sw('showResults', 'Show score to students', 'Off: students only see “Submission received”. Grade in the Grading tab.', true),
         sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations (only when the score is shown)', true),
         sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true),
-        sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false)),
+        sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false),
+        sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false)),
     );
   }
 

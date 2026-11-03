@@ -37,6 +37,7 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
     percentage: String(grade?.percentage ?? '0.00'),
     responses: grade?.results || [],
     needs_grading: Number(grade?.pendingCount) > 0,
+    single_submission: !!test?.singleSubmission,
     started_at: start.toISOString(),
     submitted_at: end.toISOString(),
     duration_seconds: Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000)),
@@ -62,6 +63,7 @@ export function toNetlifyFields(payload) {
     percentage: String(payload.percentage ?? ''),
     duration_seconds: String(payload.duration_seconds ?? ''),
     needs_grading: String(!!payload.needs_grading),
+    single_submission: String(!!payload.single_submission),
     responses_json: JSON.stringify(payload.responses ?? []),
     flags_json: JSON.stringify(payload.flags ?? {}),
     submitted_at: String(payload.submitted_at ?? ''),
@@ -191,4 +193,13 @@ export function getOutbox() {
 
 export function getLocalResults() {
   return readList(LOCAL_RESULTS_KEY);
+}
+
+/** V3-02: true when this device already holds a submission (sent or queued) for this email + test code. */
+export function hasLocalSubmission(email, code) {
+  const e = String(email || '').trim().toLowerCase();
+  const c = String(code || '').trim().toUpperCase();
+  if (!e || !c) return false;
+  const match = (p) => p && String(p.student_email || '').trim().toLowerCase() === e && String(p.test_code || '').trim().toUpperCase() === c;
+  return getLocalResults().some(match) || getOutbox().some(match);
 }

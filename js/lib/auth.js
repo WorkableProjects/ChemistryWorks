@@ -1,7 +1,8 @@
 // Student identity via Google Identity Services, with a demo fallback for local use.
 // The signed-in user is kept in sessionStorage so a refresh mid-test does not sign the student out.
 //
-// User shape: { name: string, email: string, picture: string|null, provider: 'google'|'demo' }
+// User shape: { name: string, email: string, picture: string|null, provider: 'google'|'demo', idToken?: string, idTokenExp?: number }
+// v3: the Google ID token is kept (sessionStorage) so the backend can verify the student's email (V3-00).
 
 import { load, save, remove } from './storage.js';
 
@@ -11,6 +12,32 @@ const listeners = new Set();
 
 export function getUser() {
   return currentUser;
+}
+
+/**
+ * The current Google ID token when it has more than 60 s left, else null. When it is missing or about to
+ * expire, asks Google Identity Services (auto_select) to re-issue one silently; the new token arrives via the
+ * sign-in callback and replaces the stored user without a visible sign-out.
+ */
+export function getIdToken(nowMs = Date.now()) {
+  const u = currentUser;
+  if (!u || u.provider !== 'google') return null;
+  if (u.idToken && Number(u.idTokenExp) * 1000 - nowMs > 60000) return u.idToken;
+  try { if (typeof window !== 'undefined') window.google?.accounts?.id?.prompt(); } catch { /* ignore */ }
+  return null;
+}
+
+/** Like getIdToken(), but waits up to `timeoutMs` for a silent refresh. */
+export async function getFreshIdToken(timeoutMs = 4000) {
+  const t = getIdToken();
+  if (t) return t;
+  if (!currentUser || currentUser.provider !== 'google') return null;
+  return new Promise((resolve) => {
+    const off = onAuthChange((u) => {
+      if (u?.idToken && Number(u.idTokenExp) * 1000 - Date.now() > 60000) { off(); clearTimeout(timer); resolve(u.idToken); }
+    });
+    const timer = setTimeout(() => { off(); resolve(null); }, timeoutMs);
+  });
 }
 
 export function onAuthChange(fn) {
@@ -90,7 +117,7 @@ export async function renderGoogleButton(container, config, { onError } = {}) {
           onError?.(`Please sign in with your school account (${config.ALLOWED_EMAIL_DOMAINS.join(', ')}).`);
           return;
         }
-        setUser({ name: p.name || p.email, email: p.email, picture: p.picture || null, provider: 'google' });
+        setUser({ name: p.name || p.email, email: p.email, picture: p.picture || null, provider: 'google', idToken: response.credential, idTokenExp: Number(p.exp) || 0 });
       } catch (err) {
         onError?.('Sign-in failed: ' + err.message);
       }

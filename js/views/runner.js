@@ -13,6 +13,7 @@ import { formulaToHTML } from '../lib/formula.js';
 import { TYPE_LABELS } from '../lib/schema.js';
 import { groupQuestions, safeImageUrl } from '../lib/sections.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
+import { preSubmitBlocked } from '../lib/student-status.js';
 import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
 import { structureWidget } from './structure-view.js';
@@ -1013,6 +1014,19 @@ export function render(root, ctx, params = {}) {
         submitModal?.close();
         ctx.navigate('results', { test, grade, payload: null, submission: null, preview: true });
       } else {
+        // V3-02: re-check just before sending (second tab / device). Network errors send anyway (server backstop).
+        if (test.singleSubmission && await preSubmitBlocked(ctx, test)) {
+          state.done = true;
+          remove(progressKey);
+          submitModal?.close();
+          openModal({
+            title: 'Already submitted',
+            testid: 'already-submitted-modal',
+            body: 'You’ve already submitted this test, so this attempt was not sent. Ask your teacher if you need a retake.',
+            actions: [{ label: 'OK', variant: 'primary', onClick: (close) => { close(); ctx.openTest(test.code); } }],
+          });
+          return;
+        }
         const payload = buildPayload({
           test, grade, user, startedAt: state.startedAt, submittedAt: Date.now(),
           flags: { tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode },

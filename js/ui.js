@@ -62,6 +62,7 @@ const ICONS = {
   flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 14h9"/>',
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',

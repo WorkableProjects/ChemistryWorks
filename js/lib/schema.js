@@ -184,6 +184,8 @@ export function normalizeTest(raw) {
   t.showResults = bool(t.showResults, true);
   t.showCorrectAnswers = bool(t.showCorrectAnswers, true);
   t.allowModeToggle = bool(t.allowModeToggle, true);
+  t.singleSubmission = bool(t.singleSubmission, false);
+  if (t.games !== undefined) t.games = Array.isArray(t.games) ? t.games.map((g) => str(g).trim()).filter(Boolean) : undefined;
   t.defaultMode = t.defaultMode === undefined || t.defaultMode === null || t.defaultMode === '' ? null : t.defaultMode;
   t.passingPercent = nullableNum(t.passingPercent);
   t.sections = Array.isArray(t.sections) ? t.sections.map((x) => {
@@ -513,6 +515,7 @@ export function blankTest() {
     showResults: true,
     showCorrectAnswers: true,
     allowModeToggle: true,
+    singleSubmission: false,
     defaultMode: null,
     passingPercent: null,
     sections: [],
