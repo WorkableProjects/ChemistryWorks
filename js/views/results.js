@@ -240,6 +240,8 @@ export function render(root, ctx, params = {}) {
       ring.el,
       h('div', { class: 'results-score__text' },
         titleEl,
+        h('span', { class: 'sr-only', role: 'status', 'aria-live': 'polite', dataset: { testid: 'score-live' } },
+          `Your score is ${grade.percentage} percent, ${grade.correctCount} of ${grade.questionCount} correct.`),
         h('p', { class: 'muted' }, test.title),
         h('div', { class: 'results-score__stats' },
           h('div', {}, h('strong', { dataset: { testid: 'score-points' } }, `${grade.scoreAchieved} / ${grade.scoreTotal}`), h('span', { class: 'muted' }, pending ? ' points so far' : ' points')),
@@ -250,7 +252,8 @@ export function render(root, ctx, params = {}) {
         !pending && test.passingPercent != null && typeof test.passingPercent === 'number'
           ? h('p', { class: 'faint results-score__pass-note' }, `Passing score: ${test.passingPercent}%`) : null),
     );
-    if (pct >= 90 && !pending && !prefersReducedMotion()) {
+    const confettiAt = typeof test.passingPercent === 'number' ? test.passingPercent : 90;
+    if (pct >= confettiAt && !pending && !prefersReducedMotion()) {
       const c = confetti();
       cleanups.push(c.stop);
       scoreCard.appendChild(c.el);

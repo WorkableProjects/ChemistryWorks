@@ -82,11 +82,16 @@ function codeCard(ctx, params) {
     dataset: { testid: 'code-input' },
   });
   const err = h('p', { class: 'field-error', role: 'alert', dataset: { testid: 'code-error' } }, params.error || '');
+  // Errors use the shared .notice style; a Retry shows only when the last attempt failed to load a test.
+  const retryBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'code-retry' }, hidden: !(params.error && params.code),
+    on: { click: () => { retryBtn.disabled = true; ctx.openTest(params.code); } } }, icon('refresh', { size: 14 }), 'Retry');
+  const errBox = h('div', { class: 'notice notice--error code-notice', hidden: !params.error }, icon('alert'), err, retryBtn);
+  const showError = (msg) => { err.textContent = msg; errBox.hidden = !msg; retryBtn.hidden = true; };
   const btn = h('button', { class: 'btn btn--primary btn--lg', type: 'submit', dataset: { testid: 'code-submit' } }, 'Start test', icon('right'));
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!input.value.trim()) {
-      err.textContent = 'Enter the test code from your teacher.';
+      showError('Enter the test code from your teacher.');
       input.classList.remove('shake');
       void input.offsetWidth;
       input.classList.add('shake');
@@ -121,7 +126,7 @@ function codeCard(ctx, params) {
     ),
     h('p', { class: 'muted' }, 'Enter your test code to begin.'),
     h('form', { class: 'code-form', on: { submit: onSubmit } }, input, btn),
-    err,
+    errBox,
     resumeBox,
   );
 }

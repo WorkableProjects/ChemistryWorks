@@ -9,7 +9,7 @@
 .runner-top { position: sticky; top: 0; z-index: 60; }
 .runner-top .app-header { position: relative; }
 .runner-progress { height: 4px; width: 100%; background: var(--border); overflow: hidden; }
-.runner-progress__fill { height: 100%; width: 0; border-radius: 0 4px 4px 0; background: linear-gradient(90deg, var(--primary), var(--accent-2)); transition: width 400ms var(--ease); }
+.runner-progress__fill { height: 100%; width: 0; border-radius: 0 4px 4px 0; background: linear-gradient(90deg, var(--primary), var(--accent-2)); transition: width var(--dur-slow) var(--ease-out, ease-out); }
 .runner-preview { display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap; padding: 8px 16px; background: var(--warning-soft); color: var(--warning-ink); font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--warning-line); }
 
 .runner-main { flex: 1; width: min(760px, 100%); margin: 0 auto; padding: 28px 20px 40px; }
@@ -36,7 +36,7 @@
 .q-card {
   background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-xl);
   padding: 28px; box-shadow: var(--shadow); width: 100%;
-  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--dur-base) var(--ease-out, ease-out), opacity var(--dur-base) var(--ease-out, ease-out);
 }
 .runner--focus .q-card.is-entering-next { transform: translateX(56px); opacity: 0; }
 .runner--focus .q-card.is-entering-prev { transform: translateX(-56px); opacity: 0; }
@@ -449,3 +449,15 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 .opt-imgs, .results-choice { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 .results-choice { flex-direction: column; }
 .opt-imgs { margin-top: 6px; }
+
+/* ---------- V3 polish: motion + touch targets ---------- */
+.nav-tile.is-pop { animation: nav-pop var(--dur-base) var(--ease-spring, ease-out); }
+@keyframes nav-pop { 40% { transform: scale(1.22); } }
+.runner-saved { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--success-ink, var(--text-muted)); opacity: 0; transform: translateY(2px); transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); pointer-events: none; }
+.runner-saved.is-visible { opacity: 1; transform: none; }
+.runner-timer { min-height: 34px; }
+.runner-timer.is-danger { font-weight: 800; }
+.runner-actions .btn, .runner-footer .btn, .runner-hbtn, .q-flag, .q-clear, .runner-top .icon-btn, .nav-drawer .icon-btn, .runner-jump, .q-order__btn { min-height: 44px; }
+.runner-hbtn, .q-flag, .runner-top .icon-btn, .nav-drawer .icon-btn, .runner-jump, .q-order__btn { min-width: 44px; }
+.nav-tile { min-height: 44px; min-width: 44px; }
+.q-clear { min-width: 44px; padding: 10px 8px; }

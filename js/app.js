@@ -22,18 +22,23 @@ import { checkSubmissionState } from './lib/student-status.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
 import * as runner from './views/runner.js';
-import * as modeSelect from './views/mode-select.js';
-import * as game from './views/game.js';
 import * as results from './views/results.js';
 import * as feedback from './views/feedback.js';
-import * as admin from './views/admin.js';
 import * as submitted from './views/submitted.js';
 
-const VIEWS = { landing, runner, 'mode-select': modeSelect, game, results, feedback, admin, submitted };
+// Rarely needed heavy views are lazy: an entry may be a loader `() => import(...)` that navigate() awaits once.
+const VIEWS = {
+  landing, runner, results, feedback, submitted,
+  'mode-select': () => import('./views/mode-select.js'),
+  game: () => import('./views/game.js'),
+  admin: () => import('./views/admin.js'),
+};
 const root = document.getElementById('app');
 let cleanup = null;
 let currentView = null;
 let navSeq = 0;
+const loaded = new Map();
+const resolveView = (view) => loaded.get(view) || VIEWS[view];
 
 function setUrl(params) {
   const url = new URL(location.href);
@@ -70,9 +75,14 @@ function navigate(view, params = {}) {
   const seq = ++navSeq;
   const swap = () => {
     if (seq !== navSeq) return; // a newer navigation won the race
-    const res = VIEWS[view].render(root, ctx, params);
+    const res = resolveView(view).render(root, ctx, params);
     cleanup = typeof res === 'function' ? res : null;
   };
+  const start = () => {
+    if (seq !== navSeq) return;
+    transition();
+  };
+  const transition = () => {
   root.classList.remove('view-enter');
   // View Transitions API where supported and motion is allowed (skipped under automation so renders stay synchronous);
   // otherwise the CSS view-enter animation.
@@ -82,6 +92,17 @@ function navigate(view, params = {}) {
     void root.offsetWidth; // restart the enter animation
     root.classList.add('view-enter');
     swap();
+  }
+  };
+  const entry = VIEWS[view];
+  if (typeof entry === 'function') {
+    // Lazy view: load its module first (once), then run the same transition/swap path.
+    entry().then((mod) => { loaded.set(view, mod); start(); }).catch((e) => {
+      console.error(e);
+      if (seq === navSeq) { toast('Could not load this page. Check your connection and try again.', { type: 'error' }); if (view !== 'landing') navigate('landing'); }
+    });
+  } else {
+    start();
   }
 }
 

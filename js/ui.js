@@ -111,7 +111,37 @@ export function richText(text, tag = 'span', className = '') {
   const el = document.createElement(tag);
   el.className = `rich ${className}`.trim();
   el.textContent = text == null ? '' : String(text);
+  if (el.textContent && NEEDS_MATH.test(el.textContent)) loadKatex();
   return el;
+}
+
+// KaTeX (+ mhchem, auto-render) is loaded on demand, only once some content actually contains math delimiters.
+const KATEX_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/';
+const NEEDS_MATH = /\$|\\\(|\\\[/;
+let katexPromise = null;
+function addScript(src) {
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+/** Load KaTeX once (katex, then mhchem + auto-render). Resolves true when ready. Safe to call repeatedly. */
+export function loadKatex() {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (window.katex && typeof window.renderMathInElement === 'function') return Promise.resolve(true);
+  if (!katexPromise) {
+    katexPromise = (async () => {
+      if (!window.katex && !(await addScript(`${KATEX_BASE}katex.min.js`))) return false;
+      await Promise.all([addScript(`${KATEX_BASE}contrib/mhchem.min.js`), addScript(`${KATEX_BASE}contrib/auto-render.min.js`)]);
+      flushMath();
+      return true;
+    })().catch(() => false);
+    katexPromise.then((ok) => { if (!ok) katexPromise = null; });
+  }
+  return katexPromise;
 }
 
 const MATH_DELIMITERS = [
@@ -170,6 +200,10 @@ export function renderMath(root) {
   if (!root) return;
   const targets = root.matches?.('.rich') ? [root] : Array.from(root.querySelectorAll('.rich:not(.math-ready)'));
   if (!katexReady()) {
+    const plain = targets.filter((t) => !NEEDS_MATH.test(t.textContent || ''));
+    plain.forEach((t) => requestAnimationFrame(() => t.classList.add('math-ready')));
+    if (plain.length === targets.length) return; // no math anywhere: nothing to load or replay
+    loadKatex();
     mathQueue.push(root);
     // Still show text immediately if KaTeX never arrives (offline): reveal after a grace period.
     setTimeout(() => targets.forEach((t) => t.classList.add('math-ready')), 1200);

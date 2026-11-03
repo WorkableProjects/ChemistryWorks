@@ -598,6 +598,16 @@ export function render(root, ctx, params = {}) {
       answers: state.answers, flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
       tabSwitches: state.tabSwitches, mode: state.mode, updatedAt: Date.now(), title: test.title,
     });
+    flashSaved();
+  }
+  // Brief "Saved" tick after an autosave (hidden from assistive tech; purely visual reassurance).
+  let savedEl = null;
+  let savedT = null;
+  function flashSaved() {
+    if (!savedEl) return;
+    savedEl.classList.add('is-visible');
+    clearTimeout(savedT);
+    savedT = setTimeout(() => savedEl.classList.remove('is-visible'), 1400);
   }
   function persist(debounce = false) {
     if (preview || state.done) return;
@@ -606,7 +616,9 @@ export function render(root, ctx, params = {}) {
 
   /* ---- header chrome */
   const timerText = h('span', { class: 'runner-timer__text' }, '0:00');
-  const timerEl = h('div', { class: 'runner-timer', role: 'timer', dataset: { testid: 'timer' } }, icon('clock', { size: 16 }), timerText);
+  const timerEl = h('div', { class: 'runner-timer', role: 'timer', 'aria-live': 'off', dataset: { testid: 'timer' } }, icon('clock', { size: 16 }), timerText);
+  // Screen readers hear the time once per minute (not every second).
+  const timerAnnouncer = h('span', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true', dataset: { testid: 'timer-announcer' } });
 
   const modeLabel = h('span', { class: 'runner-hbtn__label' });
   const modeIcon = h('span', { class: 'runner-hbtn__icon' });
@@ -625,7 +637,7 @@ export function render(root, ctx, params = {}) {
   const header = appHeader({
     subtitle: test.title,
     onHome: () => ctx.navigate(preview ? 'admin' : 'landing'),
-    right: [timerEl, modeBtn, navToggle, userBadge(user)],
+    right: [timerEl, timerAnnouncer, modeBtn, navToggle, userBadge(user)],
   });
 
   const progressFill = h('div', { class: 'runner-progress__fill' });
@@ -717,10 +729,12 @@ export function render(root, ctx, params = {}) {
 
   /* ---- footer */
   const progressText = h('span', { class: 'runner-footer__progress', dataset: { testid: 'progress-text' } });
+  savedEl = h('span', { class: 'runner-saved', 'aria-hidden': 'true', dataset: { testid: 'saved-tick' } }, icon('check', { size: 14 }), 'Saved');
   const submitBtn = h('button', { type: 'button', class: 'btn btn--primary', dataset: { testid: 'submit-btn' }, on: { click: () => openSubmit() } }, icon('check', { size: 16 }), 'Submit test');
   const footer = h('footer', { class: 'runner-footer' },
     h('div', { class: 'runner-footer__inner' },
       progressText,
+      savedEl,
       h('button', { type: 'button', class: 'btn btn--subtle btn--sm runner-footer__hint', dataset: { testid: 'shortcuts-btn' }, on: { click: () => openShortcuts() } },
         icon('keyboard', { size: 16 }), h('span', {}, 'Keyboard shortcuts (?)')),
       h('span', { class: 'spacer' }),
@@ -798,6 +812,7 @@ export function render(root, ctx, params = {}) {
   }
 
   /* ---- chrome refresh */
+  const tileState = new Map();
   function updateChrome() {
     const done = answeredCount();
     progressBar.setAttribute('aria-valuenow', String(done));
@@ -810,6 +825,13 @@ export function render(root, ctx, params = {}) {
       const t = tiles.get(q.id);
       const a = isAnswered(q, state.answers[q.id]);
       const f = state.flagged.has(q.id);
+      const was = tileState.get(q.id);
+      if (was && ((a && !was.a) || (f && !was.f)) && !prefersReducedMotion()) {
+        t.classList.remove('is-pop');
+        void t.offsetWidth;
+        t.classList.add('is-pop');
+      }
+      tileState.set(q.id, { a, f });
       t.classList.toggle('is-answered', a);
       t.classList.toggle('is-flagged', f);
       t.classList.toggle('is-current', i === state.index);
@@ -950,11 +972,17 @@ export function render(root, ctx, params = {}) {
   let timerId = null;
   let warned5 = false;
   let warned1 = false;
+  let lastAnnouncedMin = null;
   function tick(initial = false) {
     const elapsed = (Date.now() - state.startedAt) / 1000;
     if (!limitSec) { timerText.textContent = formatDuration(elapsed); return; }
     const rem = Math.ceil(limitSec - elapsed);
     timerText.textContent = formatDuration(Math.max(0, rem));
+    const remMin = Math.ceil(Math.max(0, rem) / 60);
+    if (remMin !== lastAnnouncedMin) {
+      lastAnnouncedMin = remMin;
+      if (!initial && rem > 0) timerAnnouncer.textContent = `${remMin} ${remMin === 1 ? 'minute' : 'minutes'} remaining`;
+    }
     timerEl.classList.toggle('is-warning', rem <= 300 && rem > 60);
     timerEl.classList.toggle('is-danger', rem <= 60);
     if (rem <= 300 && !warned5) { warned5 = true; if (rem > 60) toast('5 minutes left', { type: 'warning' }); }
@@ -1156,6 +1184,7 @@ export function render(root, ctx, params = {}) {
 
   return function cleanup() {
     stopTimer();
+    clearTimeout(savedT);
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('visibilitychange', onVisibility);
     window.removeEventListener('pagehide', onPageHide);

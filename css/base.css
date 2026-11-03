@@ -450,3 +450,9 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 
 /* ---------- Status never relies on colour alone ---------- */
 .q-structure__count.is-match::after { content: " \2713"; }
+
+/* V3 polish: notices with an inline action */
+.code-notice { align-items: center; flex-wrap: wrap; }
+.code-notice[hidden] { display: none; }
+.code-notice .field-error { flex: 1; min-width: 160px; margin: 0; color: inherit; }
+.app-header .icon-btn, .app-header .theme-ctl__btn { min-width: 44px; min-height: 44px; }
