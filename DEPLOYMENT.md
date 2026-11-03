@@ -69,7 +69,7 @@ New origins can take a few minutes (occasionally longer) to start working.
    - **Execute as: Me**
    - **Who has access: Anyone** (required so students' browsers can post without a Google login prompt)
 7. Click **Deploy** and copy the **Web app URL** ending in `/exec`. (The `/dev` URL is a test URL that only works for you; do not use it.)
-8. Sanity check: open `YOUR_EXEC_URL?action=ping` in a browser. You should see `{"result":"success","version":"2.0.0"}`.
+8. Sanity check: open `YOUR_EXEC_URL?action=ping` in a browser. You should see `{"result":"success","version":"3.0.0"}`.
 
 **Upgrading from 1.0.0 (adds grading):** paste the new `apps-script/Code.gs`, then redeploy as below. The first submission or `getResults` after the upgrade adds the new columns (Status, Final Score, Final Percentage (%), Grades (JSON), Graded At, Teacher Note) to your existing Submissions tab; old rows are kept.
 
@@ -81,6 +81,21 @@ v2 adds two backend actions:
 
 - `getSubmissionCounts` (admin key required) powers the submission counts in the test library.
 - `getFeedback` is the **student feedback endpoint**. It needs **no admin key**, but the request must carry the submission id and the matching student email, and it returns nothing but "not released" until the teacher releases the grade. It never returns the private teacher note. Because the submission id is stored on the device that submitted, released comments are visible to the student **on the device they submitted from** (the submission list under **Your submitted tests** is kept in that browser).
+
+### Upgrading to v3
+
+v3 verifies who the student is (from their Google sign-in) so it can show released feedback on any device and enforce **One submission per student**. Do these steps **before** deploying the new site (the new site works against a 2.0.0 backend, but falls back to v2.5 behavior):
+
+1. Paste the new `apps-script/Code.gs` over the old one and **Save**.
+2. **Project Settings > Script properties > Add script property**: name `GOOGLE_CLIENT_ID`, value = the same OAuth Client ID as `GOOGLE_CLIENT_ID` in `js/config.js` (ends in `.apps.googleusercontent.com`). Without it, the new student actions answer `identity_not_configured` and the app keeps v2.5 behavior (feedback only on the submitting device, no server-side single-submission check on open).
+3. Optional script properties:
+   - `ALLOWED_DOMAINS`: comma-separated school domains, e.g. `myschool.org`. Makes the domain restriction real on the server.
+   - `ALLOW_UNVERIFIED_EMAIL` = `true`: **local/demo only.** Trusts the email the browser sends with no Google token. Leave unset in production.
+4. In the editor, select `setup` and click **Run** once. Google asks you to approve a **new permission: "Connect to an external service"** (`script.external_request`). It is used only to call `https://oauth2.googleapis.com/tokeninfo` to check student sign-in tokens. Approve it.
+5. **Deploy > Manage deployments > pencil (Edit) > Version: New version > Deploy.** Keep the same deployment so the `/exec` URL does not change.
+6. Open `YOUR_EXEC_URL?action=ping`: it must report `"version":"3.0.0"`.
+
+The new column `Retake Allowed At` (column 24) is appended to the Submissions tab automatically. New actions: `getStudentStatus` (student, token-verified), `releaseAll` and `allowRetake` (admin key).
 
 **Updating the script later without changing the URL:** after editing `Code.gs`, choose **Deploy > Manage deployments**, click the pencil (**Edit**) on your existing deployment, set **Version: New version**, and **Deploy**. The `/exec` URL stays the same. If you instead choose **New deployment**, you get a different URL and must update `js/config.js`. Saving the file alone does not change what `/exec` serves.
 
@@ -182,7 +197,9 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 - **The admin access code is UI-only.** It is visible in `js/config.js`. What actually protects publishing tests and reading results is the **`ADMIN_KEY`** script property, checked server-side by Apps Script. Use a long random value and do not commit it.
 - **Student data.** The sheet holds names, emails and answers. Keep it private to the teacher account, and follow your school's data-privacy policy (for example FERPA/COPPA). Anyone can POST submissions to the `/exec` URL and read published tests by code, but cannot read results without `ADMIN_KEY`.
 - **Quotas.** Apps Script has daily execution limits and the script serializes writes with a lock; this comfortably handles a class at a time. Netlify Forms has a monthly submission quota on free plans.
-- **Domain restriction** via `ALLOWED_EMAIL_DOMAINS` is client-side; use an Internal consent screen for enforcement.
+- **Domain restriction** via `ALLOWED_EMAIL_DOMAINS` is client-side; set the `ALLOWED_DOMAINS` script property (v3) or use an Internal consent screen for enforcement.
+- **Results lookup is token-verified (v3).** Students only get their own released review: the backend checks the Google ID token (audience, expiry, verified email) before reading any row. The teacher note is never returned. When the test has *Show correct answers* off, correct answers are removed from the reply.
+- **One submission per student relies on Google sign-in.** A student with two Google accounts can submit once per account (`ALLOWED_DOMAINS` narrows this). A forced duplicate is stored as `Extra attempt` (never lost, not counted). Demo sign-in cannot use these features unless `ALLOW_UNVERIFIED_EMAIL` is on.
 
 ---
 

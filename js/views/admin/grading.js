@@ -1,9 +1,9 @@
 // Admin "Grading" tab: review every submission from the Google Sheet, grade open-ended answers,
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
-import { h, mount, icon, richText, renderMath, toast, formatDurationLong } from '../../ui.js';
+import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
 import { CONFIG } from '../../config.js';
 import { load, save } from '../../lib/storage.js';
-import { fetchResults, saveGrade } from '../../lib/api.js';
+import { fetchResults, saveGrade, releaseAll, allowRetake } from '../../lib/api.js';
 import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
 import { groupQuestions } from '../../lib/sections.js';
@@ -14,7 +14,7 @@ import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
-import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, STATUS } from './stats.js';
+import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, STATUS, FILTER_RELEASED } from './stats.js';
 
 // Module state: remembered while switching tabs in the session.
 const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null };
@@ -29,7 +29,7 @@ async function ensureTest(code) {
 const isManual = (res) => (typeof res.manual === 'boolean' ? res.manual : MANUAL_TYPES.includes(res.type));
 
 const statusPill = (status) => h('span', {
-  class: ['pill', status === STATUS.NEEDS_GRADING ? 'pill--warning' : status === STATUS.GRADED ? 'pill--success' : 'pill--primary'],
+  class: ['pill', status === STATUS.NEEDS_GRADING ? 'pill--warning' : status === STATUS.GRADED ? 'pill--success' : status === STATUS.EXTRA ? 'pill--danger' : 'pill--primary'],
   dataset: { testid: 'grade-status' },
 }, status);
 
@@ -99,11 +99,35 @@ export function renderGrading(root, ctx, { goSettings }) {
     h('option', { value: STATUS.NEEDS_GRADING }, `Needs grading (${count(STATUS.NEEDS_GRADING)})`),
     h('option', { value: STATUS.GRADED }, `Graded (${count(STATUS.GRADED)})`),
     h('option', { value: STATUS.AUTO }, `Auto-graded (${count(STATUS.AUTO)})`),
-    h('option', { value: 'all' }, `All (${byTest.length})`));
+    h('option', { value: FILTER_RELEASED }, `Released (${byTest.filter((r) => r.released_at && r.status !== STATUS.EXTRA).length})`),
+    h('option', { value: STATUS.EXTRA }, `Extra attempts (${count(STATUS.EXTRA)})`),
+    h('option', { value: 'all' }, `All (${byTest.filter((r) => r.status !== STATUS.EXTRA).length})`));
     statusSel.value = G.status;
     const search = h('input', { class: 'input adm-search', type: 'search', placeholder: 'Search name or email', 'aria-label': 'Search submissions', value: G.query, dataset: { testid: 'grading-search' } });
     const tableHost = h('div', { class: 'adm-tablewrap', dataset: { testid: 'grading-table' } });
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
+    // V3-03: release every graded / auto-graded submission of the selected test.
+    const releaseAllBtn = G.testCode === 'all' ? null : h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'release-all' }, on: { click: () => {
+      const code = G.testCode;
+      const ready = byTest.filter((r) => (r.status === STATUS.GRADED || r.status === STATUS.AUTO) && !r.released_at).length;
+      openModal({
+        title: `Release all graded submissions for ${code}?`,
+        testid: 'release-all-modal',
+        body: ready
+          ? `${ready} graded submission${ready === 1 ? '' : 's'} will be released. Students then see their score, answers and your comments by opening the test link. Submissions that still need grading are not released.`
+          : 'There are no graded, unreleased submissions for this test right now. Release anyway to catch any new ones?',
+        actions: [
+          { label: 'Cancel', variant: 'ghost', onClick: (close) => close() },
+          { label: 'Release all', variant: 'primary', testid: 'confirm-release-all', onClick: async (close) => {
+            const res = await releaseAll({ gasUrl, adminKey: adminKey(), testCode: code });
+            close();
+            if (!res.ok) { toast(`Could not release: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
+            toast(`Released ${res.released} submission${res.released === 1 ? '' : 's'}`, { type: 'success' });
+            loadRows(true);
+          } },
+        ],
+      });
+    } } }, icon('check', { size: 16 }), 'Release all graded');
     const exportBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'export-grades' }, on: { click: () => {
       const list = visibleRows();
       if (!list.length) return toast('Nothing to export', { type: 'warning' });
@@ -123,7 +147,8 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
         h('td', {}, r.status === STATUS.NEEDS_GRADING ? h('span', { class: 'faint' }, 'Pending') : `${round2(r.score_achieved)} / ${round2(r.score_total)} (${formatPercent(r.percentage)})`),
         h('td', {}, statusPill(r.status)),
-        h('td', { dataset: { testid: 'grading-released' } }, r.released_at ? 'Yes' : '—'));
+        h('td', { dataset: { testid: 'grading-released' } }, r.released_at ? 'Yes' : '—',
+          r.retake_allowed_at ? h('span', { class: 'pill pill--primary adm-retake-pill', dataset: { testid: 'retake-allowed' } }, 'Retake allowed') : null));
       });
       mount(tableHost, h('table', { class: 'adm-table adm-table--results' },
         h('thead', {}, h('tr', {}, ['Student', 'Email', 'Test', 'Submitted', 'Score', 'Status', 'Released'].map((t) => h('th', { scope: 'col' }, t)))),
@@ -138,7 +163,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Status'), statusSel),
-        h('span', { class: 'spacer' }), refreshBtn),
+        h('span', { class: 'spacer' }), releaseAllBtn, refreshBtn),
       G.error
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
         : h('section', { class: 'card adm-card-results', 'aria-label': 'Submissions to grade' },
@@ -308,7 +333,7 @@ export function renderGrading(root, ctx, { goSettings }) {
     const releaseBox = h('input', { type: 'checkbox', id: 'release-grade', dataset: { testid: 'release-grade' } });
     releaseBox.checked = !!row.released_at;
     const releaseStatus = h('span', { class: 'faint', dataset: { testid: 'released-status' } },
-      row.released_at ? `Released ${fmtDate(row.released_at)}` : 'Not released — the student sees no comments yet');
+      row.released_at ? `Released ${fmtDate(row.released_at)}` : 'Not released. Once released, the student sees this review by opening the test link.');
 
     const snapshot = () => JSON.stringify([currentGrades(), currentComments(), note.value, releaseBox.checked, gradedBy.value.trim()]);
     let baseline = '';
@@ -371,6 +396,21 @@ export function renderGrading(root, ctx, { goSettings }) {
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 
+    // V3-03: allow this student one more submission (single-submission tests).
+    const retakeBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'allow-retake' }, 'aria-pressed': String(!!row.retake_allowed_at),
+      on: { click: async () => {
+        const allow = !row.retake_allowed_at;
+        retakeBtn.disabled = true;
+        const res = await allowRetake({ gasUrl, adminKey: adminKey(), submissionId: row.submission_id, allow });
+        retakeBtn.disabled = false;
+        if (!res.ok) { toast(`Could not update retake: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
+        row.retake_allowed_at = allow ? (res.retake_allowed_at || new Date().toISOString()) : '';
+        const raw = G.rawRows && G.rawRows.find((r) => r.submission_id === row.submission_id);
+        if (raw) raw.retake_allowed_at = row.retake_allowed_at;
+        retakeBtn.setAttribute('aria-pressed', String(allow));
+        retakeBtn.lastChild.textContent = allow ? 'Retake allowed (undo)' : 'Allow retake';
+        toast(allow ? 'This student can submit once more.' : 'Retake removed.', { type: 'success' });
+      } } }, icon('refresh', { size: 16 }), h('span', {}, row.retake_allowed_at ? 'Retake allowed (undo)' : 'Allow retake'));
     const prevBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', disabled: !neighbor(-1), on: { click: () => go(neighbor(-1)) } }, icon('left', { size: 16 }), 'Previous');
     const nextBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', disabled: !neighbor(1), on: { click: () => go(neighbor(1)) } }, 'Next', icon('right', { size: 16 }));
 
@@ -382,7 +422,8 @@ export function renderGrading(root, ctx, { goSettings }) {
       h('section', { class: 'card stack', 'aria-label': 'Submission details' },
         h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
           h('h3', { class: 'adm-h3' }, row.student_name || row.student_email || 'Student'),
-          statusPill(row.status)),
+          statusPill(row.status), h('span', { class: 'spacer' }), retakeBtn),
+        row.status === STATUS.EXTRA ? h('p', { class: 'notice notice--warning' }, icon('alert'), h('span', {}, 'Extra attempt: this student had already submitted this one-submission test. It is stored for your records but not counted and not shown to the student.')) : null,
         h('p', { class: 'muted' }, [row.student_email, `${row.test_code}${row.test_title ? ` · ${row.test_title}` : ''}`, fmtDate(row.timestamp), formatDurationLong(row.duration_seconds),
           row.tab_switches ? `${row.tab_switches} tab switch${row.tab_switches === 1 ? '' : 'es'}` : null].filter(Boolean).join(' · ')),
         row.status === STATUS.GRADED ? h('p', { class: 'faint' }, `Graded ${fmtDate(row.graded_at)}${row.graded_by ? ` by ${row.graded_by}` : ''} · auto score was ${round2(row.auto_score)} / ${round2(row.score_total)}`) : null),

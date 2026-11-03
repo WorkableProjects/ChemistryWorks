@@ -324,3 +324,42 @@ Scores stay numeric in `Grades (JSON)` `{ questionId: points }` — any number 0
 ### CSS files (v2)
 
 `css/references.css` (reference pane, periodic table), `css/diagrams.css` (orbital + structure charge widgets/diagrams), `css/grading.css` (grader additions), `css/feedback.css` (student feedback view, landing results list), `css/print.css` (export). Design tokens for the Lab notebook look are documented in `docs/DESIGN.md` (V2-09).
+
+## V3 contracts (docs/v2.5/v3.0plan.md)
+
+### Identity (V3-00)
+- `js/lib/auth.js`: the Google user keeps `idToken` + `idTokenExp` (sessionStorage). `getIdToken()` returns it with > 60 s left,
+  else `null` and asks GIS to re-issue silently (`prompt()`); `getFreshIdToken(timeoutMs)` waits for that refresh.
+- `Code.gs verifyStudent_(body)`: tokeninfo check (`aud` = script property `GOOGLE_CLIENT_ID`, `email_verified`, `exp`, `iss`),
+  optional `ALLOWED_DOMAINS`; verified tokens cached in `CacheService` (SHA-256 key, TTL ≤ 6 h). `ALLOW_UNVERIFIED_EMAIL=true`
+  accepts `studentEmail` without a token (dev only). Errors: `unauthorized`, `identity_not_configured`.
+
+### Backend actions (Code.gs 3.0.0)
+| Action | Auth | Body | Reply |
+|---|---|---|---|
+| `getStudentStatus` | ID token | `{ testCode, idToken }` | `{ submitted, blocking, attempts, latest, others[], feedback? }` |
+| `releaseAll` | admin key | `{ testCode }` | `{ released: n }` |
+| `allowRetake` | admin key | `{ submissionId, allow }` | `{ retake_allowed_at }` |
+
+`feedback` = `{ submission_id, test_code, test_title, student_name, student_email, submitted_at, released_at, status, final_score,
+score_total, final_percentage, grades, comments, graded_by, responses }` for the latest **released** counted row. Never includes the
+teacher note; `correctAnswer(Text)` stripped when the published test has `showCorrectAnswers: false`. `blocking` = a counted row
+without `Retake Allowed At`.
+
+Submissions column 24 `Retake Allowed At` (`COL.RETAKE`). Status `Extra attempt`: a submission to a single-submission test
+(published `singleSubmission` or payload `single_submission: true`) when a blocking row already exists. Extra attempts are stored,
+excluded from counts, from `getStudentStatus`, and from the default grading list.
+
+### Client
+- `js/lib/student-status.js` `checkSubmissionState(ctx, test)` → `{ source: 'server'|'local'|'none', submitted, blocking, attempts,
+  latest, feedback, others }`. Server failure → local check (`hasLocalSubmission` = localResults or outbox). `preSubmitBlocked()`
+  is the runner's pre-send re-check.
+- `app.js openTest()`: shows `submission-status-check`, then routes: released → `feedback`; submitted and (single-submission
+  blocking, or server-confirmed) → `submitted`; otherwise `mode-select` / `runner`.
+- `feedback` view renders `exportDocument(buildExportModel(...))` and **Download PDF** (`printSubmission`).
+- Test JSON: `singleSubmission: boolean` (default false); `games?: string[]` (limits the game picker).
+- Payload / Netlify field: `single_submission`.
+
+### data-testids (v3)
+`submission-status-check`, `already-submitted`, `take-again`, `practice-game`, `feedback-download-pdf`, `test-single-submission-<CODE>`,
+`release-all`, `confirm-release-all`, `allow-retake`, `retake-allowed`, `already-submitted-modal`, `reduce-motion`.

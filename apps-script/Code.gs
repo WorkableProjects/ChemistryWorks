@@ -4,9 +4,13 @@
  * Stores submissions and published tests in the bound Google Sheet and serves them to the app.
  * Run setup() once from the editor, set the ADMIN_KEY script property, then deploy as a Web App
  * (Execute as: Me, Who has access: Anyone). See DEPLOYMENT.md.
+ *
+ * v3: set the GOOGLE_CLIENT_ID script property (same OAuth client as js/config.js) so student identity is
+ * verified from Google ID tokens (getStudentStatus, single-submission enforcement). Optional: ALLOWED_DOMAINS
+ * (comma-separated, e.g. "myschool.org"), ALLOW_UNVERIFIED_EMAIL=true (local/demo only).
  */
 
-var VERSION = '2.0.0';
+var VERSION = '3.0.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
@@ -16,16 +20,19 @@ var SUBMISSION_HEADERS = [
   'Score Achieved', 'Total Score', 'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted',
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-  'Comments (JSON)', 'Released At', 'Graded By'
+  'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
 var STATUS_GRADED = 'Graded';
+var STATUS_EXTRA = 'Extra attempt'; // v3: a second submission to a single-submission test (stored, never counted)
+var TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
+var TOKEN_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
 var TEST_HEADERS = ['Code', 'Title', 'Updated At', 'Test JSON'];
 
 var HEADER_BACKGROUND = '#E2E8F0';
@@ -64,9 +71,13 @@ function doPost(e) {
       case 'getResults':
       case 'saveGrade':
       case 'getSubmissionCounts':
+      case 'releaseAll':
+      case 'allowRetake':
         return json_(handleAdmin_(body));
       case 'getFeedback':
         return json_(getFeedback_(body));
+      case 'getStudentStatus':
+        return json_(getStudentStatus_(body));
       case undefined:
       case null:
       case '':
@@ -199,6 +210,7 @@ function normalizeSubmission_(body) {
     responses: parseJson_(d.responses_json !== undefined ? d.responses_json : d.responses, []),
     flags: parseJson_(d.flags_json !== undefined ? d.flags_json : d.flags, {}) || {},
     needs_grading: d.needs_grading === true || d.needs_grading === 'true',
+    single_submission: d.single_submission === true || d.single_submission === 'true',
     submitted_at: d.submitted_at || ''
   };
 }
@@ -253,6 +265,12 @@ function handleSubmission_(body) {
   return withLock_(function () {
     var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
     if (findRow_(sheet, 2, s.submission_id)) return { result: 'success', duplicate: true };
+    // v3 backstop: a second submission to a single-submission test is stored (never lost) but marked Extra attempt.
+    var extra = false;
+    if (s.single_submission || testIsSingleSubmission_(s.test_code)) {
+      var prior = findRowsByEmailCode_(sheet, s.student_email, s.test_code);
+      for (var p = 0; p < prior.length; p++) if (!prior[p].retake_allowed_at) { extra = true; break; }
+    }
     sheet.appendRow([
       new Date(),
       s.submission_id,
@@ -268,7 +286,7 @@ function handleSubmission_(body) {
       s.flags.auto_submitted === true || s.flags.auto_submitted === 'true',
       responsesJson,
       flagsJson,
-      pending ? STATUS_NEEDS_GRADING : STATUS_AUTO,
+      extra ? STATUS_EXTRA : (pending ? STATUS_NEEDS_GRADING : STATUS_AUTO),
       pending ? '' : s.score_achieved,
       pending ? '' : s.percentage,
       '',
@@ -277,7 +295,7 @@ function handleSubmission_(body) {
       '',
       ''
     ]);
-    return { result: 'success' };
+    return extra ? { result: 'success', extra_attempt: true } : { result: 'success' };
   });
 }
 
@@ -316,6 +334,8 @@ function handleAdmin_(body) {
     case 'getResults': return getResults_(body.testCode);
     case 'saveGrade': return saveGrade_(body);
     case 'getSubmissionCounts': return getSubmissionCounts_();
+    case 'releaseAll': return releaseAll_(body.testCode);
+    case 'allowRetake': return allowRetake_(body);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -397,7 +417,8 @@ function getResults_(testCode) {
         teacher_note: String(v[COL.NOTE - 1] || ''),
         comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
         released_at: iso_(v[COL.RELEASED_AT - 1]),
-        graded_by: String(v[COL.GRADED_BY - 1] || '')
+        graded_by: String(v[COL.GRADED_BY - 1] || ''),
+        retake_allowed_at: iso_(v[COL.RETAKE - 1])
       });
     }
   }
@@ -419,14 +440,16 @@ function cleanComments_(map) {
 
 // Completed submissions per test code. Every row in Submissions is a completed submission (in-progress
 // answers only live in the student's browser; there are no drafts or soft-deleted rows in the sheet).
+// Rows marked Extra attempt (v3) are skipped.
 function getSubmissionCounts_() {
   var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   var last = sheet.getLastRow();
   var counts = {};
   if (last >= 2) {
-    var values = sheet.getRange(2, 1, last - 1, 5).getValues();
+    var values = sheet.getRange(2, 1, last - 1, COL.STATUS).getValues();
     for (var i = 0; i < values.length; i++) {
       if (values[i][1] === '' || values[i][1] === null) continue; // no submission id
+      if (String(values[i][COL.STATUS - 1]) === STATUS_EXTRA) continue; // v3: extra attempts are not counted
       var code = normalizeCode_(values[i][4]);
       if (!code) continue;
       counts[code] = (counts[code] || 0) + 1;
@@ -505,5 +528,217 @@ function saveGrade_(body) {
       result: 'success',
       grade: { status: STATUS_GRADED, final_score: final.score, score_total: final.total, final_percentage: final.percentage, grades: clean, graded_at: gradedAt.toISOString(), teacher_note: note, comments: comments, released_at: iso_(releasedAt), graded_by: gradedBy }
     };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// v3: verified student identity, student status, teacher tools
+// ---------------------------------------------------------------------------
+
+function hex_(bytes) {
+  var out = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var b = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+    out += (b < 16 ? '0' : '') + b.toString(16);
+  }
+  return out;
+}
+
+function domainAllowed_(email, hd) {
+  var raw = PropertiesService.getScriptProperties().getProperty('ALLOWED_DOMAINS');
+  if (!raw) return true;
+  var list = String(raw).split(',').map(function (d) { return d.trim().toLowerCase(); }).filter(function (d) { return d; });
+  if (!list.length) return true;
+  var domain = String(email).split('@')[1] || '';
+  var h = String(hd || '').toLowerCase();
+  return list.indexOf(domain.toLowerCase()) >= 0 || (h && list.indexOf(h) >= 0);
+}
+
+// -> { email } (lowercased, verified) | { error: 'unauthorized' | 'identity_not_configured' }
+// Accepts a Google ID token only if aud = GOOGLE_CLIENT_ID, email_verified, not expired, issuer is Google.
+// Dev fallback: ALLOW_UNVERIFIED_EMAIL=true accepts body.studentEmail without a token (off by default).
+function verifyStudent_(body) {
+  var props = PropertiesService.getScriptProperties();
+  var clientId = props.getProperty('GOOGLE_CLIENT_ID');
+  var allowUnverified = props.getProperty('ALLOW_UNVERIFIED_EMAIL') === 'true';
+  var token = body && body.idToken ? String(body.idToken) : '';
+  var claimed = body && body.studentEmail ? String(body.studentEmail).trim().toLowerCase() : '';
+  if (!token || !clientId) {
+    if (allowUnverified && claimed && /^[^\s@]+@[^\s@]+$/.test(claimed)) {
+      return domainAllowed_(claimed, '') ? { email: claimed } : { error: 'unauthorized' };
+    }
+    return { error: clientId ? 'unauthorized' : 'identity_not_configured' };
+  }
+  var cache = null;
+  var key = '';
+  try {
+    cache = CacheService.getScriptCache();
+    key = 'tok:' + hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token));
+    var hit = cache.get(key);
+    if (hit) return { email: hit };
+  } catch (cacheErr) {
+    cache = null;
+  }
+  var info;
+  try {
+    var res = UrlFetchApp.fetch(TOKENINFO_URL + encodeURIComponent(token), { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return { error: 'unauthorized' };
+    info = JSON.parse(res.getContentText());
+  } catch (fetchErr) {
+    return { error: 'unauthorized' };
+  }
+  var nowSec = Math.floor(Date.now() / 1000);
+  var exp = num_(info && info.exp, 0);
+  var email = String((info && info.email) || '').trim().toLowerCase();
+  if (!info || info.aud !== clientId) return { error: 'unauthorized' };
+  if (!(info.email_verified === true || info.email_verified === 'true')) return { error: 'unauthorized' };
+  if (!(exp > nowSec)) return { error: 'unauthorized' };
+  if (TOKEN_ISSUERS.indexOf(String(info.iss)) < 0) return { error: 'unauthorized' };
+  if (!email) return { error: 'unauthorized' };
+  if (!domainAllowed_(email, info.hd)) return { error: 'unauthorized' };
+  if (cache && key) {
+    var ttl = Math.min(21600, exp - nowSec);
+    try { if (ttl > 0) cache.put(key, email, ttl); } catch (putErr) { /* quota: ignore */ }
+  }
+  return { email: email };
+}
+
+// Published test settings (bundled tests are not in the sheet -> null).
+function publishedTest_(code) {
+  var r = getTest_(code);
+  return r && r.result === 'success' ? r.test : null;
+}
+
+function testIsSingleSubmission_(code) {
+  var t = publishedTest_(code);
+  return !!(t && t.singleSubmission === true);
+}
+
+// Counted (non-Extra) rows for one student + test, oldest first. One getValues() pass per column block.
+// -> [{ row, submission_id, submitted_at, status, released_at, retake_allowed_at }]
+function findRowsByEmailCode_(sheet, email, code) {
+  var e = String(email || '').trim().toLowerCase();
+  var c = normalizeCode_(code);
+  var last = sheet.getLastRow();
+  var out = [];
+  if (!e || !c || last < 2) return out;
+  var head = sheet.getRange(2, 1, last - 1, 5).getValues();
+  var tail = sheet.getRange(2, COL.STATUS, last - 1, COL.RETAKE - COL.STATUS + 1).getValues();
+  for (var i = 0; i < head.length; i++) {
+    if (head[i][1] === '' || head[i][1] === null) continue;
+    if (String(head[i][3]).trim().toLowerCase() !== e) continue;
+    if (normalizeCode_(head[i][4]) !== c) continue;
+    var status = String(tail[i][0] || '');
+    if (status === STATUS_EXTRA) continue;
+    out.push({
+      row: i + 2,
+      submission_id: String(head[i][1]),
+      submitted_at: iso_(head[i][0]),
+      status: status,
+      released_at: iso_(tail[i][COL.RELEASED_AT - COL.STATUS]),
+      retake_allowed_at: iso_(tail[i][COL.RETAKE - COL.STATUS])
+    });
+  }
+  return out;
+}
+
+function stripAnswers_(responses) {
+  var list = Array.isArray(responses) ? responses : [];
+  return list.map(function (r) {
+    var c = {};
+    for (var k in r) if (Object.prototype.hasOwnProperty.call(r, k) && k !== 'correctAnswer' && k !== 'correctAnswerText') c[k] = r[k];
+    return c;
+  });
+}
+
+// Student-facing. body: { testCode, idToken } (or studentEmail under ALLOW_UNVERIFIED_EMAIL).
+// -> { result, submitted, blocking, attempts, latest, others, feedback? } — feedback only for a released row;
+// the teacher note is never returned.
+function getStudentStatus_(body) {
+  var who = verifyStudent_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var code = normalizeCode_(body && body.testCode);
+  if (!code) return { result: 'error', error: 'missing_test_code' };
+  var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+  var rows = findRowsByEmailCode_(sheet, who.email, code);
+  rows.sort(function (a, b) { return String(a.submitted_at) < String(b.submitted_at) ? -1 : String(a.submitted_at) > String(b.submitted_at) ? 1 : a.row - b.row; });
+  var blocking = false;
+  for (var i = 0; i < rows.length; i++) if (!rows[i].retake_allowed_at) blocking = true;
+  var summary = function (r) {
+    return { submission_id: r.submission_id, submitted_at: r.submitted_at, status: r.status, released: !!r.released_at, retake_allowed: !!r.retake_allowed_at };
+  };
+  var out = { result: 'success', email: who.email, submitted: rows.length > 0, blocking: blocking, attempts: rows.length, latest: rows.length ? summary(rows[rows.length - 1]) : null, others: [] };
+  var releasedRow = null;
+  for (var j = rows.length - 1; j >= 0; j--) if (rows[j].released_at) { releasedRow = rows[j]; break; }
+  for (var k = 0; k < rows.length; k++) if (!releasedRow || rows[k].row !== releasedRow.row) out.others.push(summary(rows[k]));
+  if (releasedRow) {
+    var v = sheet.getRange(releasedRow.row, 1, 1, SUBMISSION_HEADERS.length).getValues()[0];
+    var test = publishedTest_(code);
+    var responses = parseJson_(v[COL.RESPONSES - 1], []);
+    if (test && test.showCorrectAnswers === false) responses = stripAnswers_(responses);
+    var finalScore = v[COL.FINAL_SCORE - 1];
+    var finalPct = v[COL.FINAL_PCT - 1];
+    out.feedback = {
+      submission_id: String(v[1]),
+      test_code: String(v[4]),
+      test_title: String(v[5]),
+      student_name: String(v[2]),
+      student_email: String(v[3]),
+      submitted_at: iso_(v[0]),
+      released_at: iso_(v[COL.RELEASED_AT - 1]),
+      status: String(v[COL.STATUS - 1] || ''),
+      score_achieved: num_(v[6]),
+      final_score: finalScore === '' || finalScore === null ? num_(v[6]) : num_(finalScore),
+      score_total: num_(v[7]),
+      final_percentage: finalPct === '' || finalPct === null ? num_(v[8]) : num_(finalPct),
+      duration_seconds: num_(v[9]),
+      grades: parseJson_(v[COL.GRADES - 1], {}) || {},
+      comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
+      graded_by: String(v[COL.GRADED_BY - 1] || ''),
+      responses: responses
+    };
+  }
+  return out;
+}
+
+// Admin: set Released At on every Graded / Auto-graded, not-yet-released row of a test.
+function releaseAll_(testCode) {
+  var code = normalizeCode_(testCode);
+  if (!code) return { result: 'error', error: 'missing_test_code' };
+  return withLock_(function () {
+    var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+    var last = sheet.getLastRow();
+    if (last < 2) return { result: 'success', released: 0 };
+    var codes = sheet.getRange(2, 5, last - 1, 1).getValues();
+    var statuses = sheet.getRange(2, COL.STATUS, last - 1, 1).getValues();
+    var relRange = sheet.getRange(2, COL.RELEASED_AT, last - 1, 1);
+    var rel = relRange.getValues();
+    var now = new Date();
+    var n = 0;
+    for (var i = 0; i < rel.length; i++) {
+      if (normalizeCode_(codes[i][0]) !== code) continue;
+      var st = String(statuses[i][0] || '');
+      if (st !== STATUS_GRADED && st !== STATUS_AUTO) continue;
+      if (rel[i][0] !== '' && rel[i][0] !== null) continue;
+      rel[i][0] = now;
+      n++;
+    }
+    if (n) relRange.setValues(rel);
+    return { result: 'success', released: n };
+  });
+}
+
+// Admin: body { submissionId, allow } -> sets / clears Retake Allowed At on that row.
+function allowRetake_(body) {
+  var id = body && body.submissionId ? String(body.submissionId) : '';
+  if (!id) return { result: 'error', error: 'missing_submission_id' };
+  var allow = body.allow !== false;
+  return withLock_(function () {
+    var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+    var row = findRow_(sheet, 2, id);
+    if (!row) return { result: 'error', error: 'not_found' };
+    var value = allow ? new Date() : '';
+    sheet.getRange(row, COL.RETAKE).setValue(value);
+    return { result: 'success', retake_allowed_at: iso_(value) };
   });
 }
