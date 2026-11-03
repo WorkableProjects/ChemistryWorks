@@ -187,6 +187,12 @@ export function normalizeTest(raw) {
     const out = { ...src, id: str(src.id).trim(), type: str(src.type).trim(), title: str(src.title) };
     if (out.type === 'text') out.content = str(src.content);
     if (out.type === 'image') { out.url = str(src.url).trim(); out.alt = str(src.alt); }
+    if (out.type === 'constants') {
+      out.items = (Array.isArray(src.items) ? src.items : []).map((it) => {
+        const c = isObj(it) ? it : {};
+        return { name: str(c.name), value: str(c.value), unit: str(c.unit) };
+      });
+    }
     return out;
   }) : [];
   t.questions = Array.isArray(t.questions) ? t.questions.map(normalizeQuestion) : [];
@@ -390,6 +396,12 @@ export function validateTest(test) {
     else refIds.add(ref.id);
     if (!REFERENCE_TYPES.includes(ref.type)) { errors.push(`${where}: type must be one of ${REFERENCE_TYPES.map((x) => `"${x}"`).join(', ')}.`); return; }
     if (ref.type === 'text' && !nonEmptyStr(ref.content)) errors.push(`${where}: text references need content.`);
+    if (ref.type === 'constants') {
+      if (!Array.isArray(ref.items) || !ref.items.length) errors.push(`${where}: constants need at least one row.`);
+      else ref.items.forEach((it, k) => {
+        if (!isObj(it) || !nonEmptyStr(it.name) || !nonEmptyStr(it.value)) errors.push(`${where}: constant ${k + 1} needs a name and a value.`);
+      });
+    }
     if (ref.type === 'image') {
       if (!safeImageUrl(ref.url)) errors.push(`${where}: image url must start with https:// or be a path on this site.`);
       if (!nonEmptyStr(ref.alt)) errors.push(`${where}: image references need alt text describing the image.`);

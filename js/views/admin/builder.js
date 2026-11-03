@@ -12,7 +12,7 @@ import { normalizeSymbol, valenceOf, canonicalDots } from '../../lib/lewis.js';
 import { lewisDiagram } from '../lewis-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds, MAX_CHARGE } from '../../lib/structure.js';
-import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextReferenceId, REFERENCE_TYPES, REFERENCE_LABELS, safeImageUrl } from '../../lib/sections.js';
+import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextReferenceId, REFERENCE_TYPES, REFERENCE_LABELS, DEFAULT_CONSTANTS, safeImageUrl } from '../../lib/sections.js';
 import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered } from '../../lib/orbital.js';
 import { orbitalWidget } from '../orbital-view.js';
 import { formatHelpFor } from '../../lib/hints.js';
@@ -495,6 +495,24 @@ export function renderBuilder(root, ctx) {
             on: { input: () => { r.content = ta.value; changed(); } } });
           ta.value = r.content || '';
           extra = field('Content', ta, 'Math with $…$ is supported.');
+        } else if (r.type === 'constants') {
+          r.items = Array.isArray(r.items) ? r.items : [];
+          const rows = h('div', { class: 'stack adm-consts' });
+          const drawRows = () => mount(rows, r.items.map((it, k) => {
+            const inp = (key, ph, label) => {
+              const el = h('input', { class: `input adm-consts__${key}`, value: it[key] || '', placeholder: ph, 'aria-label': `Constant ${k + 1} ${label}`, dataset: { testid: `const-${key}-${i}-${k}` },
+                on: { input: () => { it[key] = el.value; changed(); } } });
+              return el;
+            };
+            return h('div', { class: 'adm-consts__row' },
+              inp('name', 'Name', 'name'), inp('value', 'Value, e.g. $6.02 \\times 10^{23}$', 'value'), inp('unit', 'Unit', 'unit'),
+              iconButton('trash', 'Delete constant', () => { r.items.splice(k, 1); drawRows(); changed(); }, { testid: `const-delete-${i}-${k}`, className: 'icon-btn--danger' }));
+          }));
+          drawRows();
+          const addRow = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `const-add-${i}` },
+            on: { click: () => { r.items.push({ name: '', value: '', unit: '' }); drawRows(); changed(); } } }, icon('plus', { size: 16 }), 'Add constant');
+          extra = h('div', { class: 'stack' }, rows, h('div', { class: 'row row--wrap' }, addRow,
+            h('span', { class: 'field__hint' }, 'Use the exact values your class uses. Math with $…$ is supported.')));
         } else if (r.type === 'image') {
           const prev = h('div', { class: 'adm-refprev' });
           const drawPrev = () => {
@@ -530,6 +548,7 @@ export function renderBuilder(root, ctx) {
       const refs = S.test.references;
       const ref = { id: nextReferenceId(refs), type, title: '' };
       if (type === 'text') ref.content = '';
+      if (type === 'constants') { ref.title = 'Constants'; ref.items = DEFAULT_CONSTANTS.map((c) => ({ ...c })); }
       if (type === 'image') { ref.url = ''; ref.alt = ''; }
       refs.push(ref);
       draw(); changed();
@@ -540,7 +559,7 @@ export function renderBuilder(root, ctx) {
       addBtns[type] = b;
       return b;
     };
-    const buttons = REFERENCE_TYPES.map((t) => addBtn(t, { 'periodic-table': 'Periodic table', text: 'Text / constants', image: 'Image' }[t]));
+    const buttons = REFERENCE_TYPES.map((t) => addBtn(t, { 'periodic-table': 'Periodic table', constants: 'Constants', text: 'Text', image: 'Image' }[t]));
     S.test.references = Array.isArray(S.test.references) ? S.test.references : [];
     const card = h('section', { class: 'card adm-settings', 'aria-label': 'References', dataset: { testid: 'references-editor' } },
       h('div', { class: 'row row--wrap' }, h('h3', { class: 'adm-h3' }, 'References'), h('span', { class: 'spacer' }), h('div', { class: 'row row--wrap' }, buttons)),

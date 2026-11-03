@@ -1011,3 +1011,16 @@ To give feedback, add a **comment** to any question (supports `**bold**`, `*ital
 ---
 
 Full technical reference (schema, scoring rules, module contracts): [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Constants reference (V2 patch 1)
+
+Use a `constants` reference for the values your class uses (they are shown exactly as written, so give the classroom value, e.g. 6.02 × 10²³ rather than 6.02214076 × 10²³):
+
+```json
+{ "id": "consts", "type": "constants", "title": "Constants", "items": [
+  { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+  { "name": "Ideal gas constant, R", "value": "0.0821", "unit": "L·atm/(mol·K)" }
+] }
+```
+
+Every row needs a `name` and a `value`; `unit` is optional. The periodic-table reference always shows the California Standards Test reference-sheet values (e.g. O 16.00, Fe 55.85).

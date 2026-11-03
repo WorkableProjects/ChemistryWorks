@@ -21,14 +21,14 @@ test('CHEMV2 shows the reference pane with tabs and a periodic table', () => wit
   assert.ok(await page.locator(tid('ref-tab-pt')).isVisible());
   assert.ok(await page.locator(tid('ref-tab-consts')).isVisible());
   assert.ok(await page.locator(tid('pt-Fe')).isVisible());
-  assert.match(await page.locator(tid('pt-Fe')).getAttribute('aria-label'), /26 Fe, Iron, 55\.845/);
+  assert.match(await page.locator(tid('pt-Fe')).getAttribute('aria-label'), /26 Fe, Iron, 55\.85/);
   // Side by side: the pane is to the right of the question card.
   const card = await box(activeCard(page).first());
   const p = await box(pane);
   assert.ok(p.x >= card.x + card.width - 1, 'pane is right of the questions');
 
   await page.locator(tid('pt-Fe')).click();
-  await waitText(page.locator(tid('pt-detail')), /Iron \(Fe\).*26.*55\.845.*group 8.*period 4/);
+  await waitText(page.locator(tid('pt-detail')), /Iron \(Fe\).*26.*55\.85.*group 8.*period 4/);
 
   await page.locator(tid('ref-tab-consts')).click();
   await waitAttr(page.locator(tid('ref-tab-consts')), 'aria-selected', 'true');

@@ -101,9 +101,10 @@ test('safeImageUrl', () => {
 test('referenceTitle fallback', () => {
   assert.equal(referenceTitle({ type: 'text', title: ' Constants ' }), 'Constants');
   assert.equal(referenceTitle({ type: 'periodic-table', title: '' }), 'Periodic table');
-  assert.equal(referenceTitle({ type: 'text', title: '  ' }), 'Text / constants');
+  assert.equal(referenceTitle({ type: 'text', title: '  ' }), 'Text');
   assert.equal(referenceTitle({ type: 'image' }), 'Image');
   assert.equal(referenceTitle({ type: 'weird' }), 'Reference');
   assert.equal(referenceTitle(null), 'Reference');
-  assert.deepEqual(REFERENCE_TYPES, ['periodic-table', 'text', 'image']);
+  assert.deepEqual(REFERENCE_TYPES, ['periodic-table', 'constants', 'text', 'image']);
+  assert.equal(referenceTitle({ type: 'constants', title: '' }), 'Constants');
 });

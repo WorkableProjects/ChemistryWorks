@@ -106,7 +106,7 @@ Allow authorized staff to export one student's reviewed submission as print/PDF.
 - [ ] The filename meaningfully identifies the student and assessment.
 
 ### V2-09 — Distinctive, readable UI
-**Priority:** High · **Status:** In progress
+**Priority:** High · **Status:** Done
 
 Apply a whole-app **Lab notebook** visual direction: warm off-white surfaces, ink-blue text, subtle graph-paper accents, and monospace for formulas and numbers. Use the full treatment on student-facing screens and a toned-down treatment in instructor/admin views. Define reusable design tokens and components; no existing brand guide is available.
 

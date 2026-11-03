@@ -1,77 +1,35 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ELEMENTS, CATEGORIES } from '../../js/lib/elements.js';
+import { ELEMENTS, GROUP_LABELS, STAIRCASE_RIGHT } from '../../js/lib/elements.js';
 
-const bySymbol = (s) => ELEMENTS.find((e) => e.symbol === s);
+const el = (s) => ELEMENTS.find((e) => e.symbol === s);
 
-test('118 elements, numbers 1-118 in order, unique symbols and names', () => {
+test('118 elements in order with unique symbols and names', () => {
   assert.equal(ELEMENTS.length, 118);
-  ELEMENTS.forEach((e, i) => assert.equal(e.number, i + 1, `number at index ${i}`));
+  ELEMENTS.forEach((e, i) => assert.equal(e.number, i + 1));
   assert.equal(new Set(ELEMENTS.map((e) => e.symbol)).size, 118);
   assert.equal(new Set(ELEMENTS.map((e) => e.name)).size, 118);
+  for (const e of ELEMENTS) assert.match(e.mass, /^(\d+\.\d{1,2}|\(\d+\))$/, `${e.symbol} ${e.mass}`);
 });
 
-test('fields are well-formed', () => {
-  const cats = new Set(CATEGORIES.map(([id]) => id));
-  for (const e of ELEMENTS) {
-    assert.match(e.symbol, /^[A-Z][a-z]?$/);
-    assert.ok(cats.has(e.category), `${e.symbol} category ${e.category}`);
-    assert.ok(Number.isInteger(e.period) && e.period >= 1 && e.period <= 7);
-    assert.ok(e.group === null || (Number.isInteger(e.group) && e.group >= 1 && e.group <= 18));
-    assert.ok((typeof e.mass === 'number' && e.mass > 0) || /^\[\d+\]$/.test(e.mass), `${e.symbol} mass ${e.mass}`);
-  }
+test('masses and names exactly as printed on the CST reference sheet', () => {
+  const want = { H: '1.01', He: '4.00', O: '16.00', Cl: '35.45', Fe: '55.85', Cu: '63.55', Zn: '65.39', Te: '127.60', Pb: '207.2',
+    Tc: '(98)', Rn: '(222)', Rf: '(261)', Uup: '(294)', Uuo: '(294)', Lr: '(262)', Yb: '173.04', Dy: '162.50' };
+  for (const [s, m] of Object.entries(want)) assert.equal(el(s).mass, m, s);
+  assert.equal(el('Al').name, 'Aluminum');
+  assert.equal(el('Cs').name, 'Cesium');
+  assert.equal(el('Ds').name, 'Darmstadium');
+  assert.equal(ELEMENTS[112].symbol, 'Uut');
 });
 
-test('known positions', () => {
-  assert.deepEqual([bySymbol('H').group, bySymbol('H').period], [1, 1]);
-  assert.deepEqual([bySymbol('He').group, bySymbol('He').period], [18, 1]);
-  assert.deepEqual([bySymbol('Li').group, bySymbol('Li').period], [1, 2]);
-  assert.deepEqual([bySymbol('Ne').group, bySymbol('Ne').period], [18, 2]);
-  assert.deepEqual([bySymbol('Al').group, bySymbol('Al').period], [13, 3]);
-  assert.deepEqual([bySymbol('Cl').group, bySymbol('Cl').period], [17, 3]);
-  assert.deepEqual([bySymbol('Fe').group, bySymbol('Fe').period], [8, 4]);
-  assert.deepEqual([bySymbol('Zn').group, bySymbol('Zn').period], [12, 4]);
-  assert.deepEqual([bySymbol('Kr').group, bySymbol('Kr').period], [18, 4]);
-  assert.deepEqual([bySymbol('Ag').group, bySymbol('Ag').period], [11, 5]);
-  assert.deepEqual([bySymbol('Ba').group, bySymbol('Ba').period], [2, 6]);
-  assert.deepEqual([bySymbol('Hf').group, bySymbol('Hf').period], [4, 6]);
-  assert.deepEqual([bySymbol('Pb').group, bySymbol('Pb').period], [14, 6]);
-  assert.deepEqual([bySymbol('Rn').group, bySymbol('Rn').period], [18, 6]);
-  assert.deepEqual([bySymbol('Ra').group, bySymbol('Ra').period], [2, 7]);
-  assert.deepEqual([bySymbol('Rf').group, bySymbol('Rf').period], [4, 7]);
-  assert.deepEqual([bySymbol('Og').group, bySymbol('Og').period], [18, 7]);
-});
-
-test('lanthanides and actinides have no group', () => {
-  const ln = ELEMENTS.filter((e) => e.category === 'lanthanide');
-  const ac = ELEMENTS.filter((e) => e.category === 'actinide');
-  assert.equal(ln.length, 15);
-  assert.equal(ac.length, 15);
-  assert.ok(ln.every((e) => e.group === null && e.period === 6));
-  assert.ok(ac.every((e) => e.group === null && e.period === 7));
-  assert.equal(bySymbol('La').category, 'lanthanide');
-  assert.equal(bySymbol('Lu').category, 'lanthanide');
-  assert.equal(bySymbol('Ac').category, 'actinide');
-  assert.equal(bySymbol('Lr').category, 'actinide');
-});
-
-test('categories of common elements', () => {
-  const cat = (s) => bySymbol(s).category;
-  assert.equal(cat('H'), 'nonmetal');
-  assert.equal(cat('Na'), 'alkali-metal');
-  assert.equal(cat('Mg'), 'alkaline-earth-metal');
-  assert.equal(cat('Fe'), 'transition-metal');
-  assert.equal(cat('Al'), 'post-transition-metal');
-  assert.equal(cat('Si'), 'metalloid');
-  assert.equal(cat('O'), 'nonmetal');
-  assert.equal(cat('Cl'), 'halogen');
-  assert.equal(cat('Ar'), 'noble-gas');
-});
-
-test('masses', () => {
-  assert.equal(bySymbol('H').mass, 1.008);
-  assert.equal(bySymbol('C').mass, 12.011);
-  assert.equal(bySymbol('Cl').mass, 35.45);
-  assert.equal(bySymbol('Fe').mass, 55.845);
-  assert.equal(bySymbol('Tc').mass, '[98]');
+test('layout: La/Ac in group 3, Ce–Lu and Th–Lr in the f-block rows', () => {
+  assert.deepEqual([el('La').group, el('La').period], [3, 6]);
+  assert.deepEqual([el('Ac').group, el('Ac').period], [3, 7]);
+  assert.deepEqual([el('Hf').group, el('Rf').group, el('Fe').group, el('Uuo').group], [4, 4, 8, 18]);
+  const f = ELEMENTS.filter((e) => e.group === null).map((e) => e.number);
+  assert.deepEqual(f, [...Array.from({ length: 14 }, (_, i) => 58 + i), ...Array.from({ length: 14 }, (_, i) => 90 + i)]);
+  assert.equal(GROUP_LABELS[0], '1A');
+  assert.equal(GROUP_LABELS[7], '8B');
+  assert.equal(GROUP_LABELS[17], '8A');
+  assert.ok(STAIRCASE_RIGHT.has('Si') && !STAIRCASE_RIGHT.has('Al'));
 });

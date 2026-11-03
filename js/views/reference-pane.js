@@ -10,7 +10,7 @@
 import { h, icon, richText, renderMath } from '../ui.js';
 import { load, save } from '../lib/storage.js';
 import { referenceTitle, safeImageUrl } from '../lib/sections.js';
-import { ELEMENTS, CATEGORIES, formatMass } from '../lib/elements.js';
+import { ELEMENTS, GROUP_LABELS, STAIRCASE_RIGHT, formatMass } from '../lib/elements.js';
 
 const MIN_W = 20;
 const MAX_W = 60;
@@ -19,72 +19,87 @@ const STEP = 5;
 const WIDE_QUERY = '(min-width: 1000px)';
 
 const clampW = (n) => Math.min(MAX_W, Math.max(MIN_W, Math.round(Number(n) || DEFAULT_W)));
-const categoryLabel = (id) => (CATEGORIES.find(([c]) => c === id) || [id, id])[1];
 
 /* ------------------------------------------------------------------ periodic table */
 
-/** Accessible periodic table: a real <table> (caption, group/period headers) with one button per element. */
+/**
+ * Periodic table laid out like the California Standards Test "Chemistry Reference Sheet": group numbers with
+ * A/B labels, period numbers, cells showing atomic number / symbol / name / average atomic mass, the heavy
+ * metal–nonmetal staircase line, La and Ac in group 3 with Ce–Lu and Th–Lr below, a key and the footnote.
+ * A real <table> with one button per element (click / Enter shows the details line).
+ */
 export function periodicTable() {
   const detail = h('p', { class: 'pt-detail', 'aria-live': 'polite', dataset: { testid: 'pt-detail' } }, 'Select an element to see its details.');
   const buttons = new Map();
   let selected = null;
+  const at = (period, group) => ELEMENTS.find((x) => x.period === period && x.group === group);
 
   function select(e) {
     if (selected) buttons.get(selected)?.setAttribute('aria-pressed', 'false');
     selected = e.symbol;
     buttons.get(e.symbol)?.setAttribute('aria-pressed', 'true');
-    detail.textContent = `${e.name} (${e.symbol}) · atomic number ${e.number} · atomic mass ${formatMass(e.mass)}`
-      + ` · ${e.group ? `group ${e.group}` : 'f-block (no group)'} · period ${e.period} · ${categoryLabel(e.category)}`;
+    detail.textContent = `${e.name} (${e.symbol}) · atomic number ${e.number} · average atomic mass ${formatMass(e.mass)}`
+      + ` · ${e.group ? `group ${e.group} (${GROUP_LABELS[e.group - 1]})` : 'f-block'} · period ${e.period}`;
   }
 
   const cell = (e) => {
+    // Heavy staircase line: left edge where the nonmetal side starts, bottom edge where it ends (periods 2-5).
+    const right = STAIRCASE_RIGHT.has(e.symbol);
+    const left = e.group && at(e.period, e.group - 1);
+    const below = e.group && e.period < 6 ? at(e.period + 1, e.group) : null;
+    const cls = ['pt-cell',
+      right && (!left || !STAIRCASE_RIGHT.has(left.symbol)) && e.group > 2 && 'pt-stair-l',
+      right && below && !STAIRCASE_RIGHT.has(below.symbol) && 'pt-stair-b',
+      e.group === 4 && e.period >= 6 && 'pt-fsplit'];
     const b = h('button', {
-      type: 'button', class: 'pt-el', 'aria-pressed': 'false', title: `${e.name} — ${categoryLabel(e.category)}`,
+      type: 'button', class: 'pt-el', 'aria-pressed': 'false', title: e.name,
       'aria-label': `${e.number} ${e.symbol}, ${e.name}, ${formatMass(e.mass)}`,
-      dataset: { testid: `pt-${e.symbol}`, category: e.category },
+      dataset: { testid: `pt-${e.symbol}` },
       on: { click: () => select(e) },
     },
       h('span', { class: 'pt-el__n', 'aria-hidden': 'true' }, String(e.number)),
       h('span', { class: 'pt-el__s', 'aria-hidden': 'true' }, e.symbol),
+      h('span', { class: 'pt-el__name', 'aria-hidden': 'true' }, e.name),
       h('span', { class: 'pt-el__m', 'aria-hidden': 'true' }, formatMass(e.mass)));
     buttons.set(e.symbol, b);
-    return h('td', { class: 'pt-cell' }, b);
+    return h('td', { class: cls }, b);
   };
   const gap = () => h('td', { class: 'pt-gap', 'aria-hidden': 'true' });
-  const marker = (text, cat) => h('td', { class: 'pt-cell' }, h('span', { class: 'pt-marker', dataset: { category: cat }, title: `${text}: see the row below the table` }, text));
 
   const head = h('tr', {}, h('td', { class: 'pt-corner' }),
-    Array.from({ length: 18 }, (_, i) => h('th', { scope: 'col', class: 'pt-head' }, String(i + 1))));
+    GROUP_LABELS.map((label, i) => h('th', { scope: 'col', class: 'pt-head', 'aria-label': `Group ${i + 1} (${label})` },
+      h('span', {}, String(i + 1)), h('span', { class: 'pt-head__ab' }, label))));
 
   const rows = [];
   for (let period = 1; period <= 7; period++) {
-    const tds = [h('th', { scope: 'row', class: 'pt-head' }, String(period))];
+    const tds = [h('th', { scope: 'row', class: 'pt-head pt-head--row' }, String(period))];
     for (let g = 1; g <= 18; g++) {
-      const e = ELEMENTS.find((x) => x.period === period && x.group === g);
-      if (e) tds.push(cell(e));
-      else if (g === 3 && period === 6) tds.push(marker('57–71', 'lanthanide'));
-      else if (g === 3 && period === 7) tds.push(marker('89–103', 'actinide'));
-      else tds.push(gap());
+      const e = at(period, g);
+      tds.push(e ? cell(e) : gap());
     }
     rows.push(h('tr', {}, tds));
   }
-  const fRow = (label, cat) => {
-    const list = ELEMENTS.filter((e) => e.category === cat);
-    return h('tr', { class: cat === 'lanthanide' ? 'pt-frow pt-frow--first' : 'pt-frow' },
-      h('th', { scope: 'row', class: 'pt-head pt-head--f' }, label),
-      gap(), gap(), list.map(cell), gap());
-  };
-  rows.push(fRow('Ln', 'lanthanide'), fRow('An', 'actinide'));
+  const fRow = (from, to, first) => h('tr', { class: ['pt-frow', first && 'pt-frow--first'] },
+    h('th', { scope: 'row', class: 'pt-head pt-head--row' }, h('span', { class: 'sr-only' }, from === 58 ? 'Lanthanides' : 'Actinides')),
+    gap(), gap(), gap(), ELEMENTS.filter((e) => e.number >= from && e.number <= to).map(cell), gap());
+  rows.push(h('tr', { class: 'pt-spacer', 'aria-hidden': 'true' }, h('td', { colspan: '19' })), fRow(58, 71, true), fRow(90, 103, false));
 
-  const legend = h('ul', { class: 'pt-legend', 'aria-label': 'Element categories' },
-    CATEGORIES.map(([id, label]) => h('li', {}, h('i', { class: 'pt-key', dataset: { category: id }, 'aria-hidden': 'true' }), label)));
+  const key = h('div', { class: 'pt-key-box', 'aria-hidden': 'true' },
+    h('strong', {}, 'Key'),
+    h('div', { class: 'pt-key-row' },
+      h('span', { class: 'pt-el pt-el--key' },
+        h('span', { class: 'pt-el__n' }, '11'), h('span', { class: 'pt-el__s' }, 'Na'),
+        h('span', { class: 'pt-el__name' }, 'Sodium'), h('span', { class: 'pt-el__m' }, '22.99')),
+      h('ul', {}, h('li', {}, 'Atomic number'), h('li', {}, 'Element symbol'), h('li', {}, 'Element name'), h('li', {}, 'Average atomic mass*'))));
 
   return h('div', { class: 'pt' },
     h('div', { class: 'pt-scroll', tabindex: '-1' },
       h('table', { class: 'pt-table' },
-        h('caption', { class: 'sr-only' }, 'Periodic table of the elements'),
+        h('caption', { class: 'pt-caption' }, 'Periodic Table of the Elements'),
         h('thead', {}, head), h('tbody', {}, rows))),
-    detail, legend);
+    detail,
+    h('div', { class: 'pt-foot' }, key,
+      h('p', { class: 'pt-note' }, '* If this number is in parentheses, then it refers to the atomic mass of the most stable isotope.')));
 }
 
 /* ------------------------------------------------------------------ panels */
@@ -92,6 +107,15 @@ export function periodicTable() {
 function panelContent(ref) {
   if (ref.type === 'periodic-table') return periodicTable();
   if (ref.type === 'text') return richText(ref.content, 'div', 'ref-text');
+  if (ref.type === 'constants') {
+    return h('table', { class: 'ref-consts', dataset: { testid: 'ref-constants' } },
+      h('caption', { class: 'sr-only' }, referenceTitle(ref)),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Constant'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Unit'))),
+      h('tbody', {}, (ref.items || []).map((it) => h('tr', {},
+        h('th', { scope: 'row' }, richText(it.name, 'span')),
+        h('td', { class: 'ref-consts__v' }, richText(it.value, 'span')),
+        h('td', {}, richText(it.unit || '', 'span'))))));
+  }
   if (ref.type === 'image') {
     const src = safeImageUrl(ref.url);
     if (!src) return h('p', { class: 'muted' }, 'This image is not available.');

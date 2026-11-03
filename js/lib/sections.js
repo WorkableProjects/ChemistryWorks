@@ -75,8 +75,20 @@ export function nextSectionId(sections) {
 // Reference = { id, type: 'periodic-table', title? }
 //           | { id, type: 'text',  title, content }          content: richText (KaTeX allowed), e.g. constants
 //           | { id, type: 'image', title, url, alt }         url: https:// or a site-relative path
-export const REFERENCE_TYPES = ['periodic-table', 'text', 'image'];
-export const REFERENCE_LABELS = { 'periodic-table': 'Periodic table', text: 'Text / constants', image: 'Image' };
+//           | { id, type: 'constants', title, items: [{ name, value, unit }] }   per-test values (V2 patch 1)
+//             value / unit are richText (KaTeX allowed), e.g. value "$6.02 \times 10^{23}$", unit "mol$^{-1}$"
+export const REFERENCE_TYPES = ['periodic-table', 'constants', 'text', 'image'];
+export const REFERENCE_LABELS = { 'periodic-table': 'Periodic table', constants: 'Constants', text: 'Text', image: 'Image' };
+
+/** Starting rows for a new constants reference (classroom values; teachers edit them per test). */
+export const DEFAULT_CONSTANTS = [
+  { name: "Avogadro's number", value: '$6.02 \\times 10^{23}$', unit: 'mol$^{-1}$' },
+  { name: 'Molar volume of a gas at STP', value: '22.4', unit: 'L/mol' },
+  { name: 'STP', value: '0 °C (273 K), 1 atm', unit: '' },
+  { name: 'Ideal gas constant, R', value: '0.0821', unit: 'L·atm/(mol·K)' },
+  { name: 'Ideal gas constant, R', value: '8.31', unit: 'J/(mol·K)' },
+  { name: 'Specific heat of water', value: '4.18', unit: 'J/(g·°C)' },
+];
 
 /** Title shown on the pane tab. */
 export function referenceTitle(ref) {
