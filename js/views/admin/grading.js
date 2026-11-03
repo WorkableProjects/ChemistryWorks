@@ -340,6 +340,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       if (!alive) return;
       for (const b of [saveBtn, saveNextBtn]) { b.disabled = false; b.classList.remove('is-loading'); }
       if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
+      if (res.warning) toast(res.warning, { type: 'warning', timeout: 12000 });
       const raw = G.rawRows.find((r) => r.submission_id === row.submission_id);
       if (raw) {
         const gr = res.grade || {};
