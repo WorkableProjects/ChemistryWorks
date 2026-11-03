@@ -61,6 +61,9 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 | `allowModeToggle` | no | boolean | `true` | Student may switch between one-at-a-time and all-on-one-page. |
 | `defaultMode` | no | `"focus"`, `"scroll"` or `null` | `null` (site default) | Starting layout. |
 | `passingPercent` | no | number 0–100 or `null` | `null` | Shows a Passed / Not yet badge. |
+| `gameMode` | no | boolean | `false` | Offers a practice **Game mode** (never submitted) next to the normal test. |
+| `games` | no | array of game ids | all playable | Limits the game picker: `classic`, `survival`, `lightning`, `elementhunt`, `matchup`, `flashcards`. |
+| `singleSubmission` | no | boolean | `false` | **One submission per student** (v3): a student who already submitted (same Google email) cannot start it again. Use **Grading → Allow retake** for exceptions. |
 | `sections` | no | array of `{ id, title, instructions? }` | `[]` | Named groups of questions. See [Sections and references](#sections-and-references-v2). |
 | `references` | no | array of reference items | `[]` | Resources shown in a split-screen pane beside the questions. See [Sections and references](#sections-and-references-v2). |
 | `questions` | yes | array, at least 1 | — | See below. |
@@ -1311,6 +1314,14 @@ After students submit, open the admin **Grading** tab (it needs the admin key in
 v2 additions to the grader: the **Full / Half / Zero** buttons set 100%, 50% or 0% of a question's points in one click, or type any score from 0 up to the question's points (negative, too-high or non-numeric entries are rejected with a message). Scores can be fractional (for example 1.5). Auto-graded questions keep their automatic score as the default; a different score is saved as an **override** and labelled with the automatic score. Orbital diagrams and `structure` questions with `studentCharges` are teacher graded like `short` and `open`.
 
 To give feedback, add a **comment** to any question (supports `**bold**`, `*italic*`, `- ` and `1. ` lists and `[text](https://…)` links; empty comments are not saved). Comments are private until you tick **Release grade & comments to student** and save. After release, students see their score and your comments under **Your submitted tests > View feedback**. **Export PDF** (in an open submission) prints one student's reviewed submission, including correct answers and your comments (released or not), with math typeset. Each question is kept whole on one page, and the PDF has no browser header or footer.
+
+### Released feedback, one submission per student and retakes (v3)
+
+- **Students see released feedback from the test link, on any device.** After you release a grade (tick **Release grade & comments to student**, or **Release all graded** for a whole test), the student opens the same test link, signs in with Google, and sees the full review: score, every question, their answer (with diagrams and images), the correct answer (if *Show correct answers* is on), points per question, your comments and "Graded by". **Download PDF** gives them the same document as your export. Un-release it and it disappears on their next visit.
+- **Before release**, the student sees "You submitted this test on … Your teacher hasn't released grades yet." For normal tests there is a **Take again** button; for one-submission tests there isn't.
+- **One submission per student:** turn on **One submission per student** in the builder settings (or `"singleSubmission": true`). The library shows a **1 attempt** tag. A blocked student can still practice in **Game mode** if it is on. If a student forces a second submission (for example two tabs), it is saved as **Extra attempt**: kept for your records, not counted, and not shown to the student. See it with the **Extra attempts** status filter.
+- **Allow retake:** open the student's submission in **Grading** and click **Allow retake**. That student can submit once more; their earlier feedback stays viewable.
+- These features need the v3 Apps Script with the `GOOGLE_CLIENT_ID` script property (see DEPLOYMENT.md, "Upgrading to v3"). Without it, the app keeps the v2.5 behavior.
 
 ---
 
