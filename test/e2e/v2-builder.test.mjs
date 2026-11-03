@@ -131,3 +131,21 @@ test('builder v2: sections, references, orbital question and Lewis charges round
   await page.locator(tid('question-card')).first().waitFor();
   assert.ok((await page.locator(tid('question-card')).count()) >= 1);
 }));
+
+test('builder: Copy guide pulls docs/guide.md from the repo, falling back to the site copy', () => withSession(env, {}, async ({ page, context, url }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(url).origin });
+  let ghHits = 0;
+  await page.route('https://raw.githubusercontent.com/**', (route) => { ghHits++; return route.fulfill({ status: 200, contentType: 'text/plain', body: '# Guide from repo' }); });
+  await unlockAdmin(page, url);
+  await page.locator(tid('new-test')).click();
+  await page.locator(tid('builder-copy-guide')).click();
+  await waitText(page.locator('.toast').last(), /Guide copied/);
+  assert.equal(ghHits, 1);
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '# Guide from repo');
+
+  await page.unroute('https://raw.githubusercontent.com/**');
+  await page.route('https://raw.githubusercontent.com/**', (route) => route.abort('failed'));
+  await page.locator(tid('builder-copy-guide')).click();
+  await waitText(page.locator('.toast').last(), /Guide copied/);
+  assert.match(await page.evaluate(() => navigator.clipboard.readText()), /^#/);
+}));

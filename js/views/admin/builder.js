@@ -22,6 +22,40 @@ import { publishTest } from '../../lib/api.js';
 import { testLink } from './library.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
+const GUIDE_SOURCES = [
+  'https://raw.githubusercontent.com/WorkableProjects/ChemistryWorks/main/docs/guide.md', // latest on main
+  'docs/guide.md', // the deployed copy, if GitHub is unreachable
+];
+
+/** Fetch docs/guide.md, trying the repo first, then the deployed site. */
+export async function fetchGuide() {
+  let lastErr = null;
+  for (const url of GUIDE_SOURCES) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      if (text.trim()) return text;
+      throw new Error('empty file');
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('unavailable');
+}
+
+/** Copy the guide. Uses a promised ClipboardItem where supported so Safari keeps the click's permission across the fetch. */
+async function copyGuideText() {
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    const text = fetchGuide();
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })]);
+      return true;
+    } catch {
+      return copyText(await text); // rethrows a fetch error
+    }
+  }
+  return copyText(await fetchGuide());
+}
+
 // ---------- module-level state (survives tab switches within the session) ----------
 const S = { test: null, mode: 'visual', open: new WeakSet(), uid: 0 };
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -259,6 +293,27 @@ export function renderBuilder(root, ctx) {
     modeBtn('visual', 'Visual', 'grid', 'builder-mode-visual'),
     modeBtn('json', 'JSON', 'list', 'builder-mode-json'));
   let jsonText = null, jsonErrEl = null;
+
+  // ----- copy the authoring guide (docs/guide.md) -----
+  const guideBtn = h('button', {
+    class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'builder-copy-guide' },
+    title: 'Copy docs/guide.md (latest from the repo) to the clipboard',
+    on: { click: () => copyGuide() },
+  }, icon('copy', { size: 16 }), 'Copy guide');
+  async function copyGuide() {
+    if (guideBtn.disabled) return;
+    guideBtn.disabled = true;
+    guideBtn.classList.add('is-loading');
+    try {
+      const ok = await copyGuideText();
+      toast(ok ? 'Guide copied to clipboard' : 'Could not copy the guide', { type: ok ? 'success' : 'error' });
+    } catch (e) {
+      toast('Could not load the guide: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error', timeout: 5000 });
+    } finally {
+      guideBtn.disabled = false;
+      guideBtn.classList.remove('is-loading');
+    }
+  }
 
   function updateSeg() {
     segEl.querySelectorAll('.adm-seg__btn').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === S.mode)));
@@ -767,7 +822,7 @@ export function renderBuilder(root, ctx) {
   }
 
   mount(root, h('div', { class: 'adm-builder', dataset: { testid: 'builder' } },
-    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl), mainEl),
+    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), guideBtn), mainEl),
     side));
   renderMain();
   refreshValidation();
