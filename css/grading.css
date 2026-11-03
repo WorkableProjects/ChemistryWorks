@@ -1,1 +1,15 @@
 /* grading.css — ChemistryWorks v2 (see docs/ARCHITECTURE.md) */
+
+.adm-grade__sections { display: flex; flex-direction: column; gap: 18px; }
+.adm-grade__sectionhead { margin: 0 0 8px; font-size: 16px; }
+.adm-grade__diagram { margin-bottom: 6px; overflow-x: auto; }
+.adm-points.is-invalid, .adm-points[aria-invalid="true"] { border-color: var(--danger); outline: 2px solid var(--danger-line); }
+.adm-points__error { display: block; color: var(--danger-ink); font-size: 14px; margin-top: 4px; }
+.adm-points__error:empty { display: none; }
+.adm-points__error:not(:empty)::before { content: "\26A0\FE0E "; }
+.adm-override { display: inline-flex; align-items: center; gap: 4px; }
+.adm-override[hidden] { display: none; }
+.adm-comment { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.adm-comment__preview { padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-sunken); font-size: 14px; }
+.adm-comment__preview[hidden] { display: none; }
+.adm-release { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }

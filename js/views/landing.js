@@ -4,6 +4,7 @@
 import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
 import { keys, load } from '../lib/storage.js';
+import { getLocalResults } from '../lib/submit.js';
 
 function signInCard(ctx, params) {
   const { config } = ctx;
@@ -47,6 +48,28 @@ function inProgress(user) {
     .map((k) => ({ code: k.slice(prefix.length), ...load(k, {}) }))
     .filter((p) => p.code)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function pastResults(user) {
+  const email = String(user.email || '').toLowerCase();
+  return getLocalResults()
+    .filter((r) => r && r.submission_id && String(r.student_email || '').toLowerCase() === email)
+    .sort((a, b) => String(b.submitted_at || '').localeCompare(String(a.submitted_at || '')))
+    .slice(0, 20);
+}
+
+function pastCard(ctx, user) {
+  const list = pastResults(user);
+  if (!list.length) return null;
+  const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'medium' }); };
+  return h('section', { class: 'card past-results', dataset: { testid: 'past-results' } },
+    h('h3', { class: 'past-results__title' }, 'Your submitted tests'),
+    list.map((p) => h('div', { class: 'past-results__item' },
+      h('div', { class: 'past-results__main' },
+        h('span', { class: 'past-results__name' }, p.test_title || p.test_code),
+        h('span', { class: 'past-results__meta' }, h('span', { class: 'past-results__code' }, p.test_code), p.submitted_at ? ` · Submitted ${when(p.submitted_at)}` : '')),
+      h('button', { class: 'btn btn--sm', type: 'button', dataset: { testid: `view-feedback-${p.submission_id}` },
+        'aria-label': `View feedback for ${p.test_title || p.test_code}`, on: { click: () => ctx.navigate('feedback', { payload: p }) } }, 'View feedback'))));
 }
 
 function codeCard(ctx, params) {
@@ -101,7 +124,7 @@ export function render(root, ctx, params = {}) {
         h('a', { href: '?admin=true', class: 'theme-ctl__btn', title: 'Teacher / admin', 'aria-label': 'Teacher / admin panel', dataset: { testid: 'admin-link' } }, icon('home')),
         themeControl()),
       h('div', { class: 'landing__inner' },
-        h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
+        h('div', { class: 'landing__panel' }, user ? [codeCard(ctx, params), pastCard(ctx, user)] : signInCard(ctx, params)),
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),

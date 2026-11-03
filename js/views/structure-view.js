@@ -8,7 +8,7 @@
 import { h } from '../ui.js';
 import {
   layoutAtoms, bondEnds, normalizeStructureAnswer, electronsDrawn, valenceTotal, isStructureAnswered,
-  MAX_BOND_ORDER, MAX_LONE_PAIRS,
+  MAX_BOND_ORDER, MAX_LONE_PAIRS, MAX_CHARGE, chargeLabel,
 } from '../lib/structure.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -41,7 +41,7 @@ function geometry(q) {
   const maxY = Math.max(...pts.map((p) => p.y), 0);
   const px = {};
   for (const [id, p] of Object.entries(grid)) px[id] = { x: PAD + (p.x - minX) * UNIT, y: PAD + (p.y - minY) * UNIT };
-  const bracket = Number(q.charge) ? 26 : 0;
+  const bracket = q.studentCharges || Number(q.charge) ? 26 : 0; // student-drawn brackets always get room
   for (const p of Object.values(px)) { p.x += bracket; }
   return {
     px,
@@ -111,18 +111,43 @@ function pairDots(p, angles) {
   return out;
 }
 
-function chargeMarks(q, geo) {
-  const c = Number(q.charge);
-  if (!c) return [];
+const bracketPaths = (geo, charge) => {
   const { width, height } = geo;
   const l = 10, r = width - 28, t = 12, b = height - 12;
+  return {
+    paths: [
+      s('path', { d: `M${l + 8} ${t} H${l} V${b} H${l + 8}`, class: 'st-bracket' }),
+      s('path', { d: `M${r - 8} ${t} H${r} V${b} H${r - 8}`, class: 'st-bracket' }),
+    ],
+    text: charge ? s('text', { x: r + 5, y: t + 12, class: 'st-charge', 'data-testid': 'structure-charge-mark', text: charge }) : null,
+  };
+};
+
+function chargeMarks(q, geo, marks) {
+  if (q.studentCharges) {
+    // The student draws the brackets; the skeleton charge is not pre-drawn. Charge without brackets sits beside the drawing.
+    if (!marks) return [];
+    const { paths, text } = bracketPaths(geo, chargeLabel(marks.charge));
+    return [...(marks.bracket ? paths : []), text].filter(Boolean);
+  }
+  const c = Number(q.charge);
+  if (!c) return [];
   const sign = c > 0 ? '+' : '−';
   const mag = Math.abs(c) === 1 ? '' : String(Math.abs(c));
-  return [
-    s('path', { d: `M${l + 8} ${t} H${l} V${b} H${l + 8}`, class: 'st-bracket' }),
-    s('path', { d: `M${r - 8} ${t} H${r} V${b} H${r - 8}`, class: 'st-bracket' }),
-    s('text', { x: r + 5, y: t + 12, class: 'st-charge', text: `${mag}${sign}` }),
-  ];
+  const { paths, text } = bracketPaths(geo, `${mag}${sign}`);
+  return [...paths, text];
+}
+
+/** Formal charge badges: a small circled text label at the upper right of each atom symbol. */
+function formalChargeMarks(q, geo, marks) {
+  if (!q.studentCharges || !marks) return [];
+  return (q.atoms || []).filter((a) => marks.formalCharges[a.id] && geo.px[a.id]).map((a) => {
+    const p = geo.px[a.id];
+    const cx = p.x + 17, cy = p.y - 16;
+    return s('g', { class: 'st-fc', 'data-testid': `structure-fcmark-${a.id}` },
+      s('circle', { cx, cy, r: 9, class: 'st-fc__ring' }),
+      s('text', { x: cx, y: cy, class: 'st-fc__text', 'dominant-baseline': 'central', 'text-anchor': 'middle', text: chargeLabel(marks.formalCharges[a.id]) || '' }));
+  });
 }
 
 const atomLabel = (q, a) => {
@@ -130,7 +155,7 @@ const atomLabel = (q, a) => {
   return same.length > 1 ? `${a.symbol} ${same.indexOf(a) + 1}` : a.symbol;
 };
 
-/** Static diagram. `answer` = { bonds, lonePairs } (missing parts are 0). */
+/** Static diagram. `answer` = { bonds, lonePairs } (missing parts are 0); with q.studentCharges also { bracket, charge, formalCharges }. */
 export function structureDiagram(q, answer, { size = 'md', label } = {}) {
   const geo = geometry(q);
   const n = normalizeStructureAnswer(q, answer);
@@ -148,7 +173,7 @@ export function structureDiagram(q, answer, { size = 'md', label } = {}) {
       pairDots(p, pairSlots(a.id, q, geo.px, n.lonePairs[a.id])),
       s('text', { x: p.x, y: p.y, class: 'st-sym', 'dominant-baseline': 'central', 'text-anchor': 'middle', text: a.symbol }));
   }),
-  chargeMarks(q, geo));
+  chargeMarks(q, geo, n), formalChargeMarks(q, geo, n));
   return h('span', { class: 'st-wrap' }, svg);
 }
 
@@ -205,14 +230,67 @@ export function structureWidget(q, api) {
     return { g, pairs, atom, p };
   });
 
+  const marksG = s('g', { class: 'st-marks' });
   const svg = s('svg', {
     class: 'st st--lg st--edit', viewBox: `0 0 ${geo.width} ${geo.height}`, width: geo.width, height: geo.height,
     role: 'group', 'aria-labelledby': `qt-${q.id}`,
   },
-  bondEls.map((b) => b && b.g), atomEls.map((a) => a.g), chargeMarks(q, geo));
+  bondEls.map((b) => b && b.g), atomEls.map((a) => a.g), q.studentCharges ? marksG : chargeMarks(q, geo));
 
   const total = valenceTotal(q);
   const count = h('p', { class: 'q-hint q-structure__count', 'aria-live': 'polite', dataset: { testid: 'structure-count' } });
+
+  /* ---- V2-06 controls (only when q.studentCharges) */
+  let syncControls = () => {};
+  let controls = null;
+  if (q.studentCharges) {
+    const signed = (n) => chargeLabel(n, { explicit: true }) || '0';
+    const stepBtn = (testid, text, label, onClick) => h('button', {
+      type: 'button', class: 'btn btn--ghost btn--sm st-step', 'aria-label': label, dataset: { testid }, on: { click: onClick },
+    }, text);
+    const setMarks = (fn) => { const next = current(); fn(next); store(next); };
+
+    const bracketBtn = h('button', {
+      type: 'button', class: 'btn btn--ghost btn--sm st-toggle', 'aria-pressed': 'false', dataset: { testid: 'structure-bracket' },
+      on: { click: () => setMarks((n) => { n.bracket = !n.bracket; }) },
+    }, 'Brackets');
+    const chargeVal = h('span', { class: 'st-step__value', 'aria-live': 'polite', dataset: { testid: 'structure-charge-value' } }, '0');
+    const chargeDown = stepBtn('structure-charge-down', '−', 'Decrease overall charge', () => setMarks((n) => { n.charge = Math.max(-MAX_CHARGE, n.charge - 1); }));
+    const chargeUp = stepBtn('structure-charge-up', '+', 'Increase overall charge', () => setMarks((n) => { n.charge = Math.min(MAX_CHARGE, n.charge + 1); }));
+    const toolbar = h('div', { class: 'st-toolbar', role: 'group', 'aria-label': 'Brackets and overall charge' },
+      bracketBtn, h('span', { class: 'st-step__group' }, h('span', { class: 'st-step__label' }, 'Overall charge'), chargeDown, chargeVal, chargeUp));
+
+    const fcRows = (q.atoms || []).map((atom) => {
+      const val = h('span', { class: 'st-step__value', dataset: { testid: `structure-fc-${atom.id}` } }, '0');
+      const down = stepBtn(`structure-fc-${atom.id}-down`, '−', '', () => setMarks((n) => { n.formalCharges[atom.id] = Math.max(-MAX_CHARGE, n.formalCharges[atom.id] - 1); }));
+      const up = stepBtn(`structure-fc-${atom.id}-up`, '+', '', () => setMarks((n) => { n.formalCharges[atom.id] = Math.min(MAX_CHARGE, n.formalCharges[atom.id] + 1); }));
+      const row = h('li', { class: 'st-fc-row' }, h('span', { class: 'st-fc-row__name' }, atomLabel(q, atom)), down, val, up);
+      return { atom, val, down, up, row };
+    });
+    const fcList = h('div', { class: 'st-fc-list' },
+      h('h4', { class: 'st-fc-list__title' }, 'Formal charges'),
+      h('ul', { class: 'st-fc-list__rows' }, fcRows.map((r) => r.row)));
+
+    syncControls = (n) => {
+      bracketBtn.setAttribute('aria-pressed', String(n.bracket));
+      bracketBtn.classList.toggle('is-on', n.bracket);
+      chargeVal.textContent = signed(n.charge);
+      chargeVal.setAttribute('aria-label', `Overall charge: ${signed(n.charge)}`);
+      chargeDown.disabled = n.charge <= -MAX_CHARGE;
+      chargeUp.disabled = n.charge >= MAX_CHARGE;
+      for (const r of fcRows) {
+        const v = n.formalCharges[r.atom.id];
+        const name = atomLabel(q, r.atom);
+        r.val.textContent = signed(v);
+        r.val.setAttribute('aria-label', `Formal charge on ${name}: ${signed(v)}`);
+        r.down.setAttribute('aria-label', `Decrease formal charge on ${name}`);
+        r.up.setAttribute('aria-label', `Increase formal charge on ${name}`);
+        r.down.disabled = v <= -MAX_CHARGE;
+        r.up.disabled = v >= MAX_CHARGE;
+      }
+    };
+    controls = [toolbar, fcList];
+  }
 
   function refresh(answer) {
     const n = normalizeStructureAnswer(q, answer);
@@ -230,6 +308,10 @@ export function structureWidget(q, api) {
       g.classList.toggle('is-set', k > 0);
       g.setAttribute('aria-label', `${atomLabel(q, atom)}: ${k} lone ${k === 1 ? 'pair' : 'pairs'}. Press to add a lone pair.`);
     });
+    if (q.studentCharges) {
+      marksG.replaceChildren(...[chargeMarks(q, geo, n), formalChargeMarks(q, geo, n)].flat(2).filter(Boolean));
+      syncControls(n);
+    }
     const drawn = electronsDrawn(q, n);
     count.textContent = q.showElectronCount && total !== null
       ? `${drawn} of ${total} valence electrons drawn`
@@ -242,7 +324,7 @@ export function structureWidget(q, api) {
     'Click a bond line to cycle single → double → triple → none. Click an atom to add a lone pair (up to 4). ',
     'Shift-click or right-click to go back. Keyboard: Tab to a bond or atom, then Enter / ↑ to add and ↓ to remove.');
   return {
-    el: h('div', { class: 'q-structure' }, h('div', { class: 'q-structure__board' }, svg), count, help),
+    el: h('div', { class: 'q-structure' }, h('div', { class: 'q-structure__board' }, svg), controls, count, help),
     refresh,
     focus: () => (bondEls.find(Boolean)?.g || atomEls[0]?.g)?.focus?.(),
   };

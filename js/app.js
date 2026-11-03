@@ -5,6 +5,7 @@
 //   landing  params: { code?: string, error?: string }
 //   runner   params: { test, source, preview?: boolean }
 //   results  params: { test, grade, payload, submission, preview?: boolean }
+//   feedback params: { payload }  (a past submission from getLocalResults())
 //   admin    params: {}
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
@@ -18,9 +19,10 @@ import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
 import * as runner from './views/runner.js';
 import * as results from './views/results.js';
+import * as feedback from './views/feedback.js';
 import * as admin from './views/admin.js';
 
-const VIEWS = { landing, runner, results, admin };
+const VIEWS = { landing, runner, results, feedback, admin };
 const root = document.getElementById('app');
 let cleanup = null;
 let currentView = null;

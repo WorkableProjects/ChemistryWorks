@@ -1,1 +1,44 @@
-/* print.css — ChemistryWorks v2 (see docs/ARCHITECTURE.md) */
+/* print.css — ChemistryWorks v2 export (see docs/ARCHITECTURE.md, "Export (V2-08)") */
+
+#print-root { display: none; }
+
+.export-doc { font-family: Georgia, 'Times New Roman', serif; line-height: 1.4; }
+.export-doc .rich { opacity: 1; }
+.export-brand { font-family: var(--font); font-size: 0.8em; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.export-title { margin: 4px 0 6px; font-size: 1.6em; }
+.export-student { margin: 0 0 4px; }
+.export-score { margin: 0; font-family: var(--mono); font-weight: 700; }
+.export-rule { border: 0; border-top: 1px solid currentColor; margin: 12px 0 16px; }
+.export-section { margin: 20px 0 4px; font-size: 1.2em; }
+.export-instructions { margin: 0 0 10px; font-style: italic; }
+.export-item { margin: 0 0 14px; padding: 8px 0; border-top: 1px solid var(--border); break-inside: avoid; page-break-inside: avoid; }
+.export-item__head { display: flex; justify-content: space-between; gap: 12px; font-weight: 700; }
+.export-item__pts { font-family: var(--mono); font-weight: 400; }
+.export-prompt { display: block; margin: 4px 0 8px; }
+.export-label { display: block; font-family: var(--font); font-size: 0.75em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.export-answer, .export-comment { margin-top: 6px; }
+.export-comment { padding-left: 10px; border-left: 3px solid currentColor; }
+.export-comment .comment-body p { margin: 2px 0; }
+.export-pre { white-space: pre-wrap; }
+.export-empty { margin: 2px 0; font-style: italic; }
+.export-diagram { margin: 4px 0; }
+
+@media print {
+  @page { margin: 16mm; }
+
+  body.is-printing > *:not(#print-root) { display: none !important; }
+  body.is-printing { background: #fff !important; }
+  body.is-printing #print-root { display: block; }
+
+  #print-root, #print-root .export-doc {
+    color: #000; background: #fff; font-size: 11pt;
+    /* diagrams stay black on white */
+    --text: #000; --text-muted: #000; --text-faint: #000; --bg: #fff; --bg-elev: #fff; --bg-sunken: #fff;
+    --border: #000; --border-strong: #000; --primary: #000; --primary-ink: #000; --primary-soft: #fff; --primary-line: #000;
+  }
+  .export-doc .orb-box, .export-doc .st-atom, .export-doc .lewis { background: #fff; }
+  .export-doc .orb-box { border-color: #000; color: #000; }
+  .export-doc svg * { stroke-opacity: 1; }
+  .export-doc a { color: #000; text-decoration: underline; }
+  .export-item { border-top-color: #000; }
+}

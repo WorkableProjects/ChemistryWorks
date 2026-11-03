@@ -1,1 +1,57 @@
-/* diagrams.css — ChemistryWorks v2 (see docs/ARCHITECTURE.md) */
+/* V2 diagrams: orbital energy diagram (widget + static) and Lewis structure charge controls / marks. */
+
+/* ---- Orbital diagram */
+.orb { display: inline-flex; align-items: stretch; gap: 10px; max-width: 100%; }
+.orb-axis {
+  writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--text-muted); letter-spacing: 0.04em; border-left: 2px solid var(--border-strong); padding-left: 6px; user-select: none;
+}
+.orb-rows { display: flex; flex-direction: column; gap: 8px; }
+.orb-row { display: flex; align-items: center; gap: 10px; }
+.orb-sub { font-family: var(--mono); font-weight: 700; font-size: 14px; min-width: 2.2em; color: var(--text); }
+.orb-boxes { display: inline-flex; gap: 4px; }
+.orb-box {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-width: 44px; width: 44px; height: 44px; padding: 0; font-family: var(--mono); font-size: 20px; font-weight: 700; line-height: 1;
+  color: var(--text); background: var(--bg-elev); border: 2px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+button.orb-box { cursor: pointer; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+button.orb-box:hover { background: var(--primary-soft); }
+button.orb-box:focus-visible { outline: 3px solid var(--primary-ring); outline-offset: 1px; border-color: var(--primary); }
+button.orb-box.is-set { border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); }
+.orb--edit { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elev); overflow-x: auto; }
+.orb-count { margin: 10px 0 4px; font-weight: 600; color: var(--text-muted); }
+.q-orbital { max-width: 100%; }
+.orb--md .orb-box { width: 32px; min-width: 32px; height: 32px; font-size: 16px; }
+.orb--sm { gap: 6px; }
+.orb--sm .orb-rows { gap: 4px; }
+.orb--sm .orb-box { width: 24px; min-width: 24px; height: 24px; font-size: 12px; border-width: 1.5px; }
+.orb--sm .orb-sub { font-size: 11px; }
+.orb--sm .orb-axis { font-size: 10px; }
+.orb-box--static[data-state="empty"] { background: transparent; }
+
+/* ---- Lewis structure: charge controls (student-drawn brackets, overall charge, formal charges) */
+.st-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; }
+.st-toggle.is-on { background: var(--primary-soft); border-color: var(--primary-line); color: var(--primary-ink); font-weight: 700; }
+.st-step__group { display: inline-flex; align-items: center; gap: 6px; }
+.st-step__label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.st-step { min-width: 44px; min-height: 44px; font-size: 18px; font-weight: 700; }
+.st-toggle { min-height: 44px; }
+.st-step__value { min-width: 2.4em; text-align: center; font-family: var(--mono); font-weight: 700; color: var(--text); }
+.st-fc-list { margin-top: 10px; }
+.st-fc-list__title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.st-fc-list__rows { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.st-fc-row { display: inline-flex; align-items: center; gap: 4px; }
+.st-fc-row__name { min-width: 2.6em; font-family: var(--mono); font-weight: 700; }
+
+/* Formal-charge badge: circled text near the upper right of the atom symbol (never colour-only). */
+.st-fc__ring { fill: var(--bg-elev); stroke: var(--text); stroke-width: 1.5; }
+.st-fc__text { font-family: var(--font); font-weight: 800; font-size: 10px; fill: var(--text); user-select: none; }
+
+/* ---- Results: section headings and diagram blocks */
+.results-section {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 14px 0 2px; padding-bottom: 4px;
+  font-size: 15px; font-weight: 700; color: var(--text); border-bottom: 2px solid var(--border);
+}
+.results-section__pts { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.results-orbital { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }

@@ -4,7 +4,7 @@ import { CONFIG } from '../../config.js';
 import { load } from '../../lib/storage.js';
 import { loadCatalog, loadTest, getDrafts, deleteDraft } from '../../lib/tests.js';
 import { normalizeTest } from '../../lib/schema.js';
-import { listPublishedTests, deletePublishedTest, fetchPublishedTest } from '../../lib/api.js';
+import { listPublishedTests, deletePublishedTest, fetchPublishedTest, fetchSubmissionCounts } from '../../lib/api.js';
 import { skeleton, emptyState, copyText, fmtDate, round2, iconButton } from './common.js';
 
 const points = (t) => round2((t.questions || []).reduce((s, q) => s + (Number(q.points) || 0), 0));
@@ -15,10 +15,16 @@ export function testLink(code) {
 
 export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
   let alive = true;
+  let counts = null; // { CODE: n } once loaded with the admin key; null = unavailable (no counts shown)
   const body = h('div', { class: 'stack adm-library' }, skeleton(4));
   mount(root, body);
 
   const stat = (iconName, text) => h('span', { class: 'adm-stat' }, icon(iconName, { size: 14 }), text);
+
+  const countStat = (code) => {
+    const n = Number(counts[String(code).toUpperCase()]) || 0;
+    return h('span', { class: 'adm-stat', dataset: { testid: `submission-count-${code}` } }, icon('sheet', { size: 14 }), `${n} submission${n === 1 ? '' : 's'}`);
+  };
 
   function itemEl({ code, title, test, source, note }) {
     const actions = h('div', { class: 'adm-item__actions' });
@@ -45,6 +51,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
         h('div', { class: 'adm-item__stats' },
           test ? [stat('list', `${test.questions.length} question${test.questions.length === 1 ? '' : 's'}`), stat('check', `${points(test)} pts`),
             stat('clock', test.timeLimitMinutes ? `${test.timeLimitMinutes} min` : 'Untimed')] : null,
+          counts ? countStat(code) : null,
           note ? h('span', { class: 'faint' }, note) : null)),
       actions);
   }
@@ -76,6 +83,8 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
     const gasUrl = CONFIG.GAS_WEB_APP_URL;
     const adminKey = load('adminKey', '', 'session');
     const settle = (p) => p.then((v) => v, () => null);
+    // Counts load in parallel with everything else; without a backend + key (or on error) no counts are shown.
+    const countsP = gasUrl && adminKey ? settle(fetchSubmissionCounts({ gasUrl, adminKey })) : Promise.resolve(null);
 
     // Bundled
     const catalog = (await settle(loadCatalog())) || [];
@@ -83,6 +92,8 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
       const r = await settle(loadTest(c.code, { config: {} }));
       return { code: c.code, title: c.title, test: r?.test || null, note: r ? '' : 'Could not load' };
     }));
+    const countsRes = await countsP;
+    counts = countsRes && countsRes.ok ? countsRes.counts : null;
     // Drafts
     const drafts = Object.values(getDrafts()).map((d) => {
       let test = null;

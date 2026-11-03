@@ -11,6 +11,8 @@ import { canonicalDots } from '../lib/lewis.js';
 import { lewisDiagram } from './lewis-view.js';
 import { structureDiagram } from './structure-view.js';
 import { acceptedStructures } from '../lib/structure.js';
+import { groupQuestions } from '../lib/sections.js';
+import { orbitalDiagram } from './orbital-view.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -94,9 +96,14 @@ function reviewItem(r, i, test, stagger) {
     : r.type === 'formula' ? formulaHtml(r.givenAnswerText)
       : r.type === 'lewis' ? h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, r.givenAnswer), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'structure' && q ? h('span', { class: 'results-structure' }, structureDiagram(q, r.givenAnswer, { label: 'Your Lewis structure' }), h('span', { class: 'muted' }, r.givenAnswerText))
+      : r.type === 'orbital' && q ? h('span', { class: 'results-orbital' }, orbitalDiagram(q, r.givenAnswer, { label: 'Your orbital diagram' }), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'short' || r.type === 'open' ? h('span', { class: 'results-pre' }, r.givenAnswerText) : richText(r.givenAnswerText, 'span');
   let correct;
-  if (r.type === 'structure' && q) {
+  if (r.type === 'orbital' && q) {
+    correct = q.sampleAnswer && typeof q.sampleAnswer === 'object'
+      ? h('span', { class: 'results-orbital' }, orbitalDiagram(q, q.sampleAnswer, { label: 'Sample orbital diagram' }), h('span', { class: 'muted' }, r.correctAnswerText))
+      : null;
+  } else if (r.type === 'structure' && q) {
     correct = h('span', { class: 'results-structure' },
       acceptedStructures(q).map((k, n, all) => h('span', { class: 'results-structure__form' },
         all.length > 1 ? h('span', { class: 'faint' }, `Resonance form ${n + 1}`) : null,
@@ -111,7 +118,9 @@ function reviewItem(r, i, test, stagger) {
     correct = h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, canonicalDots(r.correctAnswer, q?.element)), h('span', { class: 'muted' }, r.correctAnswerText));
   } else correct = richText(r.correctAnswerText, 'span');
   const isShort = r.type === 'short' || r.type === 'open';
-  const showCorrect = !isShort || (q?.sampleAnswer ?? '') !== '' || (r.type === 'open' && (q?.rubric || []).length > 0);
+  const showCorrect = r.type === 'orbital' ? correct !== null
+    : !isShort || (q?.sampleAnswer ?? '') !== '' || (r.type === 'open' && (q?.rubric || []).length > 0);
+  const correctLabel = r.type === 'open' ? 'Sample answer & rubric' : r.manual && r.type === 'structure' ? 'Reference answer' : r.manual ? 'Sample answer' : 'Correct answer';
 
   const bodyId = `review-body-${r.questionId}`;
   const toggle = h('button', {
@@ -138,7 +147,7 @@ function reviewItem(r, i, test, stagger) {
     h('div', { class: 'results-item__body', id: bodyId },
       h('div', { class: 'results-item__inner' },
         h('div', { class: 'results-answer' }, h('span', { class: 'results-answer__label' }, 'Your answer'), given),
-        showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, r.type === 'open' ? 'Sample answer & rubric' : isShort ? 'Sample answer' : 'Correct answer'), correct) : null,
+        showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, correctLabel), correct) : null,
         r.needsGrading ? h('p', { class: 'muted' }, 'Your teacher will grade this answer.') : null,
         explanation)),
   );
@@ -248,10 +257,31 @@ export function render(root, ctx, params = {}) {
   if (test.showCorrectAnswers && showScore) {
     const items = grade.results.map((r, i) => reviewItem(r, i, test, Math.min(i, 12)));
     const counts = { all: items.length, incorrect: grade.results.filter((r) => !r.isCorrect).length, correct: grade.results.filter((r) => r.isCorrect).length };
+    // Section headings (V2-04): unsectioned questions first without a heading, then each section in order.
+    const rowIndex = new Map(grade.results.map((r, i) => [r.questionId, i]));
+    const listNodes = [];
+    const sectionBlocks = []; // { heading, idx: number[] }
+    const placed = new Set();
+    for (const g of groupQuestions(test)) {
+      const idx = g.questions.map((q) => rowIndex.get(q.id)).filter((i) => i !== undefined);
+      idx.forEach((i) => placed.add(i));
+      if (!g.section) { listNodes.push(...idx.map((i) => items[i])); continue; }
+      if (!idx.length) continue;
+      const rows = idx.map((i) => grade.results[i]);
+      const anyPending = rows.some((r) => r.needsGrading);
+      const earned = Math.round(rows.reduce((s, r) => s + (Number(r.pointsEarned) || 0), 0) * 100) / 100;
+      const heading = h('h3', { class: 'results-section', dataset: { testid: 'results-section' } },
+        h('span', { class: 'results-section__title' }, g.section.title || 'Untitled section'),
+        h('span', { class: 'results-section__pts' }, anyPending ? `${g.points} pts` : `${earned} / ${g.points} pts`));
+      listNodes.push(heading, ...idx.map((i) => items[i]));
+      sectionBlocks.push({ heading, idx });
+    }
+    items.forEach((el, i) => { if (!placed.has(i)) listNodes.push(el); });
     let filter = 'all';
     const chips = {};
     const apply = () => {
       grade.results.forEach((r, i) => { items[i].hidden = !(filter === 'all' || (filter === 'correct' ? r.isCorrect : !r.isCorrect)); });
+      for (const b of sectionBlocks) b.heading.hidden = b.idx.every((i) => items[i].hidden);
       for (const [k, b] of Object.entries(chips)) { b.setAttribute('aria-pressed', String(k === filter)); b.classList.toggle('is-on', k === filter); }
     };
     const mkChip = (key, label) => {
@@ -263,7 +293,7 @@ export function render(root, ctx, params = {}) {
       h('div', { class: 'results-review__head' },
         h('h2', {}, 'Review your answers'),
         h('div', { class: 'results-chips', role: 'group', 'aria-label': 'Filter questions' }, mkChip('all', 'All'), mkChip('incorrect', 'Incorrect'), mkChip('correct', 'Correct'))),
-      h('div', { class: 'results-list', dataset: { testid: 'review-list' } }, items));
+      h('div', { class: 'results-list', dataset: { testid: 'review-list' } }, listNodes));
     apply();
   }
 

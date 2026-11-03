@@ -18,5 +18,10 @@
     "code": "CHEM201",
     "title": "Acids, Bases & Equilibrium",
     "description": "pH calculations, Brønsted–Lowry theory, buffers, Ka, Kc and Le Chatelier’s principle (all at 25 °C)."
+  },
+  {
+    "code": "CHEMV2",
+    "title": "Electrons & Bonding (v2 sample)",
+    "description": "Sections, references, orbital diagrams and Lewis structures with charges."
   }
 ]

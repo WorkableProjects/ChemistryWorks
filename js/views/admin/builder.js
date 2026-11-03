@@ -11,7 +11,10 @@ import { formulaToHTML } from '../../lib/formula.js';
 import { normalizeSymbol, valenceOf, canonicalDots } from '../../lib/lewis.js';
 import { lewisDiagram } from '../lewis-view.js';
 import { structureDiagram } from '../structure-view.js';
-import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds } from '../../lib/structure.js';
+import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds, MAX_CHARGE } from '../../lib/structure.js';
+import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextReferenceId, REFERENCE_TYPES, REFERENCE_LABELS, safeImageUrl } from '../../lib/sections.js';
+import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered } from '../../lib/orbital.js';
+import { orbitalWidget } from '../orbital-view.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
 import { publishTest } from '../../lib/api.js';
@@ -173,7 +176,7 @@ export function renderBuilder(root, ctx) {
     buttons.publish.title = why || 'Publish to the Google Sheet';
     publishNote.textContent = why && valid ? why : '';
   }
-  const changed = () => { persistSoon(); refreshValidation(); };
+  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); };
 
   const normalizedOrNull = () => { try { return normalizeTest(S.test); } catch { return null; } };
 
@@ -355,6 +358,9 @@ export function renderBuilder(root, ctx) {
     );
   }
 
+  S.test.sections = Array.isArray(S.test.sections) ? S.test.sections : [];
+  S.test.references = Array.isArray(S.test.references) ? S.test.references : [];
+
   function renumber() {
     const total = S.test.questions.length;
     editors().forEach((el, k) => el._setIndex(k, total));
@@ -370,16 +376,184 @@ export function renderBuilder(root, ctx) {
     setTimeout(() => { if (!el.contains(document.activeElement)) el.querySelector('[data-testid="q-text"]')?.focus({ preventScroll: true }); }, 120);
   }
 
+  // ----- sections (V2-04) -----
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const sectionSummary = (id) => {
+    const n = S.test.questions.filter((q) => q.section === id).length;
+    return `${plural(sectionPoints(S.test, id), 'pt', 'pts')} · ${plural(n, 'question', 'questions')}`;
+  };
+  const sectionTitleOf = (s, i) => (String(s.title || '').trim() || `Section ${i + 1}`);
+  const sectionKey = (q) => (q && q.section && (S.test.sections || []).some((s) => s.id === q.section) ? q.section : '');
+
+  /** Cheap in-place refresh of everything that shows a section title or total (no re-render, keeps focus). */
+  function updateSectionLabels() {
+    const secs = S.test.sections || [];
+    secs.forEach((s, i) => {
+      const pts = root.querySelector(`[data-testid="section-points-${i}"]`);
+      if (pts) pts.textContent = sectionSummary(s.id);
+    });
+    if (!listEl) return;
+    listEl.querySelectorAll('.adm-qgroup').forEach((g) => {
+      const id = g.dataset.section;
+      const i = secs.findIndex((s) => s.id === id);
+      if (i < 0) return;
+      g.querySelector('.adm-qgroup__title').textContent = sectionTitleOf(secs[i], i);
+      g.querySelector('.adm-qgroup__pts').textContent = sectionSummary(id);
+    });
+    listEl.querySelectorAll('[data-testid="q-section"]').forEach((sel) => fillSectionSelect(sel, sel.value));
+  }
+  function fillSectionSelect(sel, value) {
+    const secs = S.test.sections || [];
+    mount(sel, h('option', { value: '' }, 'No section'), secs.map((s, i) => h('option', { value: s.id }, sectionTitleOf(s, i))));
+    sel.value = secs.some((s) => s.id === value) ? value : '';
+  }
+
   function renderList() {
-    mount(listEl, S.test.questions.map((q, i) => buildEditor(q, i)));
+    S.test.questions = orderQuestions(S.test);
+    const secs = S.test.sections || [];
+    const nodes = [];
+    if (secs.length) {
+      for (const g of groupQuestions(S.test)) {
+        const id = g.section ? g.section.id : '';
+        const i = g.section ? secs.findIndex((s) => s.id === id) : -1;
+        const head = h('div', { class: 'adm-qgroup', dataset: { testid: `builder-section-${id || 'none'}`, section: id } },
+          h('strong', { class: 'adm-qgroup__title' }, g.section ? sectionTitleOf(g.section, i) : 'No section'),
+          g.section ? h('span', { class: 'adm-qgroup__pts muted' }, sectionSummary(id)) : null);
+        nodes.push(head);
+        g.questions.forEach((q) => nodes.push(buildEditor(q, S.test.questions.indexOf(q))));
+      }
+    } else {
+      S.test.questions.forEach((q, i) => nodes.push(buildEditor(q, i)));
+    }
+    mount(listEl, nodes);
     renumber();
     renderMath(listEl);
+  }
+
+  function sectionsCard() {
+    const body = h('div', { class: 'stack adm-secrows' });
+    const redrawAll = () => { S.test.questions = orderQuestions(S.test); draw(); if (listEl) renderList(); changed(); };
+    function draw() {
+      const secs = S.test.sections;
+      mount(body, secs.length ? secs.map((s, i) => {
+        const title = h('input', { class: 'input', value: s.title || '', placeholder: `Section ${i + 1}`, 'aria-label': `Section ${i + 1} title`, dataset: { testid: `section-title-${i}` },
+          on: { input: () => { s.title = title.value; changed(); } } });
+        const ins = h('textarea', { class: 'textarea', rows: 2, placeholder: 'Instructions shown above this section (optional). $…$ math is allowed.', 'aria-label': `Section ${i + 1} instructions`, dataset: { testid: `section-instructions-${i}` },
+          on: { input: () => { s.instructions = ins.value; changed(); } } });
+        ins.value = s.instructions || '';
+        const mv = (d) => {
+          const j = i + d;
+          if (j < 0 || j >= secs.length) return;
+          [secs[i], secs[j]] = [secs[j], secs[i]];
+          redrawAll();
+          body.querySelector(`[data-testid="section-${d < 0 ? 'up' : 'down'}-${j}"]`)?.focus({ preventScroll: true });
+        };
+        return h('div', { class: 'adm-sec', dataset: { testid: 'section-row', section: s.id } },
+          h('div', { class: 'adm-sec__top' },
+            field(`Section ${i + 1} title`, title),
+            h('span', { class: 'pill adm-sec__pts', dataset: { testid: `section-points-${i}` } }, sectionSummary(s.id)),
+            h('div', { class: 'adm-q__actions' },
+              iconButton('up', 'Move section up', () => mv(-1), { testid: `section-up-${i}`, disabled: i === 0 }),
+              iconButton('down', 'Move section down', () => mv(1), { testid: `section-down-${i}`, disabled: i === secs.length - 1 }),
+              iconButton('trash', 'Delete section', () => confirmDialog({
+                title: `Delete “${sectionTitleOf(s, i)}”?`, body: 'Its questions are kept and become unsectioned.', testid: 'confirm-delete-section',
+                onConfirm: () => {
+                  secs.splice(i, 1);
+                  for (const q of S.test.questions) if (q.section === s.id) delete q.section;
+                  redrawAll();
+                },
+              }), { testid: `section-delete-${i}`, className: 'icon-btn--danger' }))),
+          field(`Section ${i + 1} instructions`, ins));
+      }) : h('p', { class: 'muted adm-sec__empty' }, 'No sections. Questions are shown in one list.'));
+    }
+    draw();
+    return h('section', { class: 'card adm-settings', 'aria-label': 'Sections', dataset: { testid: 'sections-editor' } },
+      h('div', { class: 'row row--wrap' }, h('h3', { class: 'adm-h3' }, 'Sections'), h('span', { class: 'spacer' }),
+        h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-section' }, on: { click: () => {
+          const secs = S.test.sections;
+          secs.push({ id: nextSectionId(secs), title: `Section ${secs.length + 1}`, instructions: '' });
+          redrawAll();
+          body.querySelector(`[data-testid="section-title-${secs.length - 1}"]`)?.focus();
+        } } }, icon('plus', { size: 16 }), 'Add section')),
+      h('p', { class: 'field__hint' }, 'Group questions under named headings with instructions. Section totals are calculated from their questions.'),
+      body);
+  }
+
+  // ----- references (V2-02) -----
+  function referencesCard() {
+    const body = h('div', { class: 'stack adm-secrows' });
+    const addBtns = {};
+    function draw() {
+      const refs = S.test.references;
+      addBtns['periodic-table'].disabled = refs.some((r) => r.type === 'periodic-table');
+      mount(body, refs.length ? refs.map((r, i) => {
+        const title = h('input', { class: 'input', value: r.title || '', placeholder: r.type === 'periodic-table' ? 'Periodic table' : 'Title', 'aria-label': `Reference ${i + 1} title`, dataset: { testid: `ref-title-${i}` },
+          on: { input: () => { r.title = title.value; changed(); } } });
+        let extra = null;
+        if (r.type === 'text') {
+          const ta = h('textarea', { class: 'textarea', rows: 3, placeholder: 'e.g. $R = 8.314$ J/(mol·K)', 'aria-label': `Reference ${i + 1} content`, dataset: { testid: `ref-content-${i}` },
+            on: { input: () => { r.content = ta.value; changed(); } } });
+          ta.value = r.content || '';
+          extra = field('Content', ta, 'Math with $…$ is supported.');
+        } else if (r.type === 'image') {
+          const prev = h('div', { class: 'adm-refprev' });
+          const drawPrev = () => {
+            const u = safeImageUrl(r.url);
+            mount(prev, u ? h('img', { src: u, alt: r.alt || '', class: 'adm-refprev__img' }) : h('span', { class: 'faint' }, 'Preview appears for https:// or site-relative image URLs'));
+          };
+          const url = h('input', { class: 'input', value: r.url || '', placeholder: 'https://…/chart.png', 'aria-label': `Reference ${i + 1} image URL`, dataset: { testid: `ref-url-${i}` },
+            on: { input: () => { r.url = url.value; drawPrev(); changed(); } } });
+          const alt = h('input', { class: 'input', value: r.alt || '', placeholder: 'Describe the image for screen readers', 'aria-label': `Reference ${i + 1} alt text`, dataset: { testid: `ref-alt-${i}` },
+            on: { input: () => { r.alt = alt.value; drawPrev(); changed(); } } });
+          drawPrev();
+          extra = h('div', { class: 'stack' }, h('div', { class: 'adm-grid' }, field('Image URL', url, 'https:// or a path on this site'), field('Alt text', alt, 'Required')), prev);
+        }
+        const mv = (d) => {
+          const j = i + d;
+          if (j < 0 || j >= refs.length) return;
+          [refs[i], refs[j]] = [refs[j], refs[i]];
+          draw(); changed();
+          body.querySelector(`[data-testid="ref-${d < 0 ? 'up' : 'down'}-${j}"]`)?.focus({ preventScroll: true });
+        };
+        return h('div', { class: 'adm-sec', dataset: { testid: 'reference-row', type: r.type } },
+          h('div', { class: 'adm-sec__top' },
+            field(`${REFERENCE_LABELS[r.type] || r.type} title`, title, r.type === 'periodic-table' ? 'Optional' : null),
+            h('span', { class: 'pill' }, REFERENCE_LABELS[r.type] || r.type),
+            h('div', { class: 'adm-q__actions' },
+              iconButton('up', 'Move reference up', () => mv(-1), { testid: `ref-up-${i}`, disabled: i === 0 }),
+              iconButton('down', 'Move reference down', () => mv(1), { testid: `ref-down-${i}`, disabled: i === refs.length - 1 }),
+              iconButton('trash', 'Delete reference', () => { refs.splice(i, 1); draw(); changed(); }, { testid: `ref-delete-${i}`, className: 'icon-btn--danger' }))),
+          extra);
+      }) : h('p', { class: 'muted adm-sec__empty' }, 'No reference resources.'));
+    }
+    const add = (type) => {
+      const refs = S.test.references;
+      const ref = { id: nextReferenceId(refs), type, title: '' };
+      if (type === 'text') ref.content = '';
+      if (type === 'image') { ref.url = ''; ref.alt = ''; }
+      refs.push(ref);
+      draw(); changed();
+      body.querySelector(`[data-testid="ref-title-${refs.length - 1}"]`)?.focus();
+    };
+    const addBtn = (type, label) => {
+      const b = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `add-reference-${type}` }, on: { click: () => add(type) } }, icon('plus', { size: 16 }), label);
+      addBtns[type] = b;
+      return b;
+    };
+    const buttons = REFERENCE_TYPES.map((t) => addBtn(t, { 'periodic-table': 'Periodic table', text: 'Text / constants', image: 'Image' }[t]));
+    S.test.references = Array.isArray(S.test.references) ? S.test.references : [];
+    const card = h('section', { class: 'card adm-settings', 'aria-label': 'References', dataset: { testid: 'references-editor' } },
+      h('div', { class: 'row row--wrap' }, h('h3', { class: 'adm-h3' }, 'References'), h('span', { class: 'spacer' }), h('div', { class: 'row row--wrap' }, buttons)),
+      h('p', { class: 'field__hint' }, 'Shown to students in a side pane while they take the test.'),
+      body);
+    draw();
+    return card;
   }
 
   function moveQuestion(i, dir) {
     const j = i + dir;
     const qs = S.test.questions;
-    if (j < 0 || j >= qs.length) return;
+    if (j < 0 || j >= qs.length || sectionKey(qs[i]) !== sectionKey(qs[j])) return;
     const els = editors();
     const a = els[i], b = els[j];
     const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
@@ -419,12 +593,13 @@ export function renderBuilder(root, ctx) {
   }
   function addQuestion(type) {
     const q = blankQuestion(type, nextQuestionId(S.test.questions));
+    const last = S.test.questions[S.test.questions.length - 1];
+    if (last && sectionKey(last)) q.section = last.section;
     S.test.questions.push(q);
+    S.test.questions = orderQuestions(S.test);
     S.open.add(q);
-    const el = buildEditor(q, S.test.questions.length - 1);
-    listEl.appendChild(el);
-    renumber();
-    renderMath(el);
+    renderList();
+    const el = editors()[S.test.questions.indexOf(q)];
     changed();
     el.classList.add('is-new');
     setTimeout(() => el.classList.remove('is-new'), 600);
@@ -459,6 +634,15 @@ export function renderBuilder(root, ctx) {
     const idInput = h('input', { class: 'input', value: q.id || '', spellcheck: 'false', dataset: { testid: 'q-id' }, on: { input: () => { q.id = idInput.value.trim(); changed(); } } });
     const pts = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: q.points ?? 1, dataset: { testid: 'q-points' },
       on: { input: () => { q.points = pts.value.trim() === '' ? '' : Number(pts.value); updateHead(); changed(); } } });
+    const secSel = h('select', { class: 'select', dataset: { testid: 'q-section' }, on: { change: () => {
+      if (secSel.value) q.section = secSel.value; else delete q.section;
+      S.test.questions = orderQuestions(S.test);
+      S.open.add(q);
+      renderList();
+      changed();
+      editors()[S.test.questions.indexOf(q)]?.querySelector('[data-testid="q-section"]')?.focus({ preventScroll: true });
+    } } });
+    fillSectionSelect(secSel, q.section || '');
     const text = h('textarea', { class: 'textarea', rows: 3, placeholder: 'Question text. Use $…$ for math, e.g. $\\ce{H2SO4}$', dataset: { testid: 'q-text' } });
     text.value = q.text || '';
     const richPrev = h('div', { class: 'adm-richprev', 'aria-label': 'Question preview' });
@@ -478,7 +662,7 @@ export function renderBuilder(root, ctx) {
     const drawType = () => { mount(typeSection, typeEditor(q, drawType, changed, uid)); renderMath(typeSection); };
 
     const inner = h('div', { class: 'adm-q__inner' },
-      h('div', { class: 'adm-grid adm-grid--id' }, field('ID', idInput), field('Points', pts)),
+      h('div', { class: 'adm-grid adm-grid--idsec' }, field('ID', idInput), field('Points', pts), field('Section', secSel)),
       field('Question text', text), richPrev,
       typeSection,
       field('Explanation', expl));
@@ -495,8 +679,9 @@ export function renderBuilder(root, ctx) {
     el._setIndex = (k, total) => {
       el.dataset.index = String(k);
       num.textContent = `Q${k + 1}`;
-      upBtn.disabled = k === 0;
-      downBtn.disabled = k === total - 1;
+      const qs = S.test.questions;
+      upBtn.disabled = k === 0 || sectionKey(qs[k - 1]) !== sectionKey(q);
+      downBtn.disabled = k === total - 1 || sectionKey(qs[k + 1]) !== sectionKey(q);
     };
     updateHead();
     drawPreview();
@@ -535,6 +720,8 @@ export function renderBuilder(root, ctx) {
       icon('flask', { size: 24 }), h('p', {}, 'No questions yet. Add your first question below.'));
     const wrap = h('div', { class: 'stack adm-visual' },
       settingsCard(),
+      sectionsCard(),
+      referencesCard(),
       h('section', { class: 'adm-questions', 'aria-label': 'Questions' },
         h('div', { class: 'row' }, h('h3', { class: 'adm-h3' }, 'Questions'),
           h('span', { class: 'spacer' }),
@@ -577,6 +764,7 @@ function typeEditor(q, redraw, changed, uid) {
     case 'fillblank': return fillBlankEditor(q, redraw, changed);
     case 'structure': return structureEditor(q, redraw, changed);
     case 'open': return openEditor(q, redraw, changed);
+    case 'orbital': return orbitalEditor(q, redraw, changed);
     default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
   }
 }
@@ -912,7 +1100,10 @@ function structureEditor(q, redraw, changed) {
       if (!next || next === old) { id.value = old; return; }
       a.id = next;
       q.bonds = q.bonds.map((b) => b.map((x) => (x === old ? next : x)));
-      for (const f of forms()) if (old in f.lonePairs) { f.lonePairs[next] = f.lonePairs[old]; delete f.lonePairs[old]; }
+      for (const f of forms()) {
+        if (old in f.lonePairs) { f.lonePairs[next] = f.lonePairs[old]; delete f.lonePairs[old]; }
+        if (f.formalCharges && old in f.formalCharges) { f.formalCharges[next] = f.formalCharges[old]; delete f.formalCharges[old]; }
+      }
       redraw(); changed();
     } } });
     const sym = h('input', { class: 'input', value: a.symbol || '', maxlength: '3', 'aria-label': `Atom ${i + 1} element`, spellcheck: 'false', dataset: { testid: `atom-symbol-${i}` },
@@ -929,7 +1120,7 @@ function structureEditor(q, redraw, changed) {
       q.atoms.splice(i, 1);
       const keepIdx = q.bonds.map((b, j) => (b.includes(a.id) ? -1 : j)).filter((j) => j >= 0);
       q.bonds = keepIdx.map((j) => q.bonds[j]);
-      for (const f of forms()) { f.bonds = keepIdx.map((j) => f.bonds[j] ?? 1); delete f.lonePairs[a.id]; }
+      for (const f of forms()) { f.bonds = keepIdx.map((j) => f.bonds[j] ?? 1); delete f.lonePairs[a.id]; if (f.formalCharges) delete f.formalCharges[a.id]; }
       redraw(); changed();
     }, { testid: `atom-remove-${i}` });
     return h('div', { class: 'adm-atom' }, id, sym, num('x', 'column (x)'), num('y', 'row (y)'), lp, rm);
@@ -958,6 +1149,34 @@ function structureEditor(q, redraw, changed) {
   const charge = h('input', { class: 'input', type: 'number', step: '1', value: q.charge ?? 0, dataset: { testid: 'structure-charge' },
     on: { input: () => { q.charge = charge.value.trim() === '' ? 0 : Number(charge.value); update(); } } });
   drawPreview();
+
+  // Student-drawn brackets & charges (V2-06): the key lives in forms()[0]; zero values are omitted.
+  const chargeInput = (value, label, testid, onValue) => {
+    const inp = h('input', { class: 'input', type: 'number', min: String(-MAX_CHARGE), max: String(MAX_CHARGE), step: '1', value: String(value || 0), 'aria-label': label, dataset: { testid },
+      on: { input: () => {
+        const n = Math.max(-MAX_CHARGE, Math.min(MAX_CHARGE, Math.trunc(Number(inp.value)) || 0));
+        onValue(n);
+        update();
+      } } });
+    return inp;
+  };
+  const chargeEditor = () => {
+    if (!q.studentCharges) return null;
+    const k = key();
+    const bracket = h('input', { type: 'checkbox', checked: k.bracket === true, dataset: { testid: 'structure-key-bracket' },
+      on: { change: () => { if (bracket.checked) k.bracket = true; else delete k.bracket; update(); } } });
+    const keyCharge = chargeInput(k.charge, 'Key overall charge', 'structure-key-charge', (n) => { if (n) k.charge = n; else delete k.charge; });
+    const fcRows = q.atoms.map((a, i) => field(`${a.symbol || '?'} (${a.id})`, chargeInput(k.formalCharges?.[a.id], `Atom ${i + 1} formal charge (correct)`, `atom-fc-${i}`, (n) => {
+      if (n) { k.formalCharges = k.formalCharges && typeof k.formalCharges === 'object' ? k.formalCharges : {}; k.formalCharges[a.id] = n; }
+      else if (k.formalCharges) { delete k.formalCharges[a.id]; if (!Object.keys(k.formalCharges).length) delete k.formalCharges; }
+    })));
+    return h('div', { class: 'stack adm-chargekey', dataset: { testid: 'structure-charge-key' } },
+      h('div', { class: 'field__label' }, 'Correct brackets and charges (the key)'),
+      h('label', { class: 'adm-check' }, bracket, h('span', {}, 'Structure is drawn in brackets')),
+      h('div', { class: 'adm-grid adm-grid--4' }, field(`Overall charge on the bracket (−${MAX_CHARGE} to ${MAX_CHARGE})`, keyCharge, 'Leave 0 for none')),
+      h('div', { class: 'field__label' }, `Formal charge on each atom (−${MAX_CHARGE} to ${MAX_CHARGE}, 0 = none)`),
+      h('div', { class: 'adm-fcgrid' }, fcRows));
+  };
   return h('div', { class: 'stack' },
     h('p', { class: 'notice notice--info' }, icon('info'), h('span', {},
       'Give the skeleton (atoms and which atoms are bonded) and the correct bond order and lone pairs. Students set bond orders and lone pairs themselves. ',
@@ -985,8 +1204,57 @@ function structureEditor(q, redraw, changed) {
     h('div', { class: 'adm-switches' },
       switchEl({ label: 'Partial credit', hint: 'Credit for each correct bond and lone-pair count', checked: !!q.partialCredit, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }),
       switchEl({ label: 'Show electron total to students', hint: 'Counter shows “14 of 16 valence electrons drawn”', checked: !!q.showElectronCount, testid: 'structure-show-count', onChange: (v) => { q.showElectronCount = v; changed(); } })),
+    switchEl({ label: 'Student draws brackets & charges (teacher graded)', hint: 'Students add brackets, an overall charge and formal charges themselves. The question then moves to the Grading tab.', checked: !!q.studentCharges, testid: 'structure-student-charges',
+      onChange: (v) => { q.studentCharges = v; redraw(); changed(); } }),
+    chargeEditor(),
     check,
     preview);
+}
+
+function orbitalEditor(q, redraw, changed) {
+  q.orbitalTypes = Array.isArray(q.orbitalTypes) ? q.orbitalTypes : ['s', 'p'];
+  const note = h('p', { class: 'field__hint', dataset: { testid: 'orbital-sublevels' } });
+  const sampleBox = h('div', { class: 'adm-orbsample' });
+  const drawSample = () => {
+    const w = orbitalWidget(q, { get: () => q.sampleAnswer, set: (_, v) => { q.sampleAnswer = v ?? null; changed(); } });
+    mount(sampleBox, w.el);
+    w.refresh?.(q.sampleAnswer ?? undefined);
+  };
+  const update = () => {
+    const subs = sublevelsFor(q);
+    note.textContent = subs.length ? `Sublevels shown: ${subs.join(' ')}` : 'No sublevels shown. Tick a type that appears at or below the highest sublevel.';
+    note.classList.toggle('field-error', !subs.length);
+  };
+  // After the range changes keep only boxes that still exist; drop the sample when nothing is left.
+  const renormalize = () => {
+    if (q.sampleAnswer && typeof q.sampleAnswer === 'object') {
+      const next = normalizeOrbitalAnswer(q, q.sampleAnswer);
+      q.sampleAnswer = isOrbitalAnswered(q, next) ? next : null;
+    }
+    update();
+    drawSample();
+    changed();
+  };
+  const max = h('select', { class: 'select', dataset: { testid: 'orbital-max' }, on: { change: () => { q.maxSublevel = max.value; renormalize(); } } },
+    AUFBAU.map((s) => h('option', { value: s }, `Up to ${s}`)));
+  max.value = AUFBAU.includes(q.maxSublevel) ? q.maxSublevel : '2p';
+  const typeBoxes = ORBITAL_TYPES.map((t) => {
+    const cb = h('input', { type: 'checkbox', checked: q.orbitalTypes.includes(t), dataset: { testid: `orbital-type-${t}` },
+      on: { change: () => { q.orbitalTypes = ORBITAL_TYPES.filter((x) => (x === t ? cb.checked : q.orbitalTypes.includes(x))); renormalize(); } } });
+    return h('label', { class: 'adm-check' }, cb, h('span', {}, `${t} sublevels`));
+  });
+  const clear = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'orbital-sample-clear' }, on: { click: () => { q.sampleAnswer = null; drawSample(); changed(); } } }, 'Clear sample');
+  update();
+  drawSample();
+  return h('div', { class: 'stack' },
+    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Orbital diagrams are graded by the teacher.')),
+    h('div', { class: 'adm-grid adm-grid--4' }, field('Highest sublevel', max, 'In filling (Aufbau) order')),
+    h('div', { class: 'field__label' }, 'Sublevel types included'),
+    h('div', { class: 'row row--wrap' }, typeBoxes),
+    note,
+    h('div', { class: 'field__label' }, 'Sample answer (optional, for graders)'),
+    sampleBox,
+    h('div', { class: 'row' }, clear));
 }
 
 function openEditor(q, redraw, changed) {
