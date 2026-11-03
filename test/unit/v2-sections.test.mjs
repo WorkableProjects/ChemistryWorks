@@ -105,6 +105,6 @@ test('referenceTitle fallback', () => {
   assert.equal(referenceTitle({ type: 'image' }), 'Image');
   assert.equal(referenceTitle({ type: 'weird' }), 'Reference');
   assert.equal(referenceTitle(null), 'Reference');
-  assert.deepEqual(REFERENCE_TYPES, ['periodic-table', 'constants', 'text', 'image']);
-  assert.equal(referenceTitle({ type: 'constants', title: '' }), 'Constants');
+  assert.deepEqual(REFERENCE_TYPES, ['periodic-table', 'resources', 'text', 'image']);
+  assert.equal(referenceTitle({ type: 'resources', title: '' }), 'Resources');
 });

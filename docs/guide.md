@@ -2,7 +2,13 @@
 
 This guide is for an AI assistant (or a person) writing a test for ChemistryWorks. Follow it exactly and the output will import into the app without errors.
 
-**Your job:** produce **one JSON object** describing a test. Output only the JSON: no comments, no trailing commas, no Markdown outside a single ```json code block. The teacher then imports it as described in [Importing into ChemistryWorks](#importing-into-chemistryworks).
+**Your job** is one of three things. In every case you output **one complete JSON object** for the whole test in a single ```json code block (no comments, no trailing commas):
+
+1. **Write a new test** from the teacher's request (everything below).
+2. **Update only the Resources tab** of an existing test (the constants and values students see beside the questions): see [Updating the Resources tab](#a-update-only-the-resources-tab).
+3. **Update the whole test** (questions, answers, points, sections, settings, references): see [Updating the whole test](#b-update-the-whole-test).
+
+For updates the teacher gives you the test's current JSON; after the JSON block add a short bullet list of what you changed. The teacher then imports it as described in [Importing into ChemistryWorks](#importing-into-chemistryworks).
 
 **When you're done:** always tell the user to save the JSON as `<CODE>.json` and add it to `~/data/tests` (the `data/tests/` folder of the ChemistryWorks repository), along with an entry in `data/tests/index.json`. See [Option B](#option-b-bundle-it-with-the-site-for-repository-maintainers).
 
@@ -19,7 +25,7 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
 8. In JSON, a backslash must be written as `\\`. So the math `$\ce{H2O}$` is written `"$\\ce{H2O}$"`.
 9. Pick the type that fits the skill being tested (see [Choosing a question type](#choosing-a-question-type)). For bonding, use `structure` (full Lewis structure) rather than describing a structure in words.
-10. Optional v2 features: group questions into `sections`, give students a `references` pane (periodic table, text, image), use `orbital` for orbital diagrams and `studentCharges` on `structure` for brackets and charges. See [Sections and references](#sections-and-references-v2), [13. `orbital`](#13-orbital-energy-orbital-diagram-teacher-graded) and [Brackets and charges](#brackets-and-charges-studentcharges-teacher-graded).
+10. Optional v2 features: group questions into `sections`, give students a `references` pane (periodic table, **Resources** table of constants/values, text, image), use `orbital` for orbital diagrams and `studentCharges` on `structure` for brackets and charges. See [Sections and references](#sections-and-references-v2), [13. `orbital`](#13-orbital-energy-orbital-diagram-teacher-graded) and [Brackets and charges](#brackets-and-charges-studentcharges-teacher-graded).
 
 ---
 
@@ -88,15 +94,20 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 ```json
 "references": [
   { "id": "pt", "type": "periodic-table", "title": "" },
-  { "id": "consts", "type": "text", "title": "Constants", "content": "$R = 8.314$ J/(mol·K)" },
+  { "id": "res", "type": "resources", "title": "Resources", "items": [
+    { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+    { "name": "Ideal gas constant, R", "value": "0.0821", "unit": "L·atm/(mol·K)" },
+    { "name": "Molar volume of a gas at STP", "value": "22.4", "unit": "L/mol" }
+  ] },
   { "id": "sol", "type": "image", "title": "Solubility chart", "url": "https://example.org/solubility.png", "alt": "Table of solubility rules for common ionic compounds" }
 ]
 ```
 
 | `type` | Extra fields | Notes |
 |---|---|---|
-| `periodic-table` | none | Built-in periodic table. **At most one per test.** `title` may be `""` (it then shows "Periodic table"). |
-| `text` | `content` (required) | Formulas, constants or notes. Supports math between `$…$` like question text. Use `\n\n` for a new paragraph. |
+| `periodic-table` | none | Built-in periodic table, identical to the California Standards Test *Chemistry Reference Sheet* (e.g. O 16.00, Fe 55.85, Tc (98)). **At most one per test.** `title` may be `""` (it then shows "Periodic table"). |
+| `resources` | `items` (required, ≥ 1): `[{ "name", "value", "unit" }]` | The **Resources** tab: a table of the constants and values students may use, **per test**. Shown exactly as written, so use the values the class uses (e.g. `6.02 × 10²³`, not `6.02214076 × 10²³`). `name` and `value` are required, `unit` may be `""`. `value` and `unit` support math between `$…$`. Use one `resources` reference per test, titled `"Resources"`. |
+| `text` | `content` (required) | Free-form notes or formulas. Supports math between `$…$` like question text. Use `\n\n` for a new paragraph. |
 | `image` | `url` (required), `alt` (required) | The URL must be **https** (or a site-relative path such as `data/img/chart.png`); other schemes are rejected. **`alt` is required**: describe the image for screen readers. |
 
 - Each reference needs a unique `id` (`ref1`, `pt`, …). References are per test, not per section.
@@ -776,10 +787,13 @@ A shorter test using the v2 features. Note the canonical order: the unsectioned 
       "title": ""
     },
     {
-      "id": "consts",
-      "type": "text",
-      "title": "Constants",
-      "content": "Avogadro's number: $6.022 \\times 10^{23}$ mol$^{-1}$\n\n$R = 8.314$ J/(mol·K)"
+      "id": "res",
+      "type": "resources",
+      "title": "Resources",
+      "items": [
+        { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+        { "name": "Ideal gas constant, R", "value": "8.31", "unit": "J/(mol·K)" }
+      ]
     }
   ],
   "questions": [
@@ -965,6 +979,46 @@ A shorter test using the v2 features. Note the canonical order: the unsectioned 
 
 ---
 
+## Updating an existing test
+
+**Get the current JSON first.** Ask the teacher for it if you don't have it. In the app: admin **Library** → **Edit in builder** on the test → switch the builder to **JSON** mode → copy everything (or click **Download JSON**). For a bundled test it is the file `data/tests/<CODE>.json`.
+
+**Apply the update.** Builder → **JSON** mode → replace everything with your JSON → **Apply JSON** → check **Ready to publish ✓** → **Publish to Sheet**. Publishing with the **same `code` replaces** the published test; students who open it afterwards get the new version. For a bundled test, overwrite `data/tests/<CODE>.json` and run `npm run validate:tests`.
+
+The app always imports a **whole test**, so every update outputs the complete JSON, never a fragment.
+
+### A. Update only the Resources tab
+
+Use this when the teacher asks to add, change or remove constants/values (e.g. "use 6.02 × 10²³ for Avogadro's number", "add the specific heat of water", "remove R in J/(mol·K)").
+
+1. Find the entry in `references` whose `type` is `"resources"`. (Older tests may say `"constants"`: change it to `"resources"`. If the values are in a `"text"` reference titled Constants, convert them to a `resources` entry with one row per value and remove the text entry.) If there is none, add `{ "id": "res", "type": "resources", "title": "Resources", "items": [] }` after the periodic table (or first).
+2. Edit only its `items` (and `title` if asked). Each row: `{ "name": "…", "value": "…", "unit": "…" }`. Write the value **exactly** as the teacher wants students to see it; keep their rounding. Use math for powers: `"$6.02 \\times 10^{23}$"`, units like `"mol$^{-1}$"` or plain `"L·atm/(mol·K)"`. Keep the order the teacher gives (otherwise: most-used first). At least one row must remain.
+3. **Change nothing else.** Copy every other field (`code`, questions, ids, answers, points, sections, settings, other references) unchanged. The periodic table cannot be edited (it is built in); only add or remove it.
+4. Output the whole test JSON, then list the rows you added, changed or removed.
+
+Before/after example (only the `resources` entry changes):
+
+```json
+{ "id": "res", "type": "resources", "title": "Resources", "items": [
+  { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+  { "name": "Specific heat of water", "value": "4.18", "unit": "J/(g·°C)" }
+] }
+```
+
+### B. Update the whole test
+
+Use this for any other change: rewrite or add questions, fix answer keys, change points, add sections, change settings, or add resources at the same time.
+
+1. **Keep the `code`** unless the teacher asks for a new test. (A new code creates a separate test; the old one stays.)
+2. **Keep the `id` of every question you keep**, even if you rewrite its text. Submitted answers and grades are stored by question id; changing an id makes past submissions lose their link to that question. Give new questions new ids that were never used in this test (`q11`, `q12`, …), and never reuse a deleted question's id.
+3. Keep option / item / blank / atom ids stable when only wording changes; if you change which option is correct, update `correctAnswer` to match.
+4. Keep everything the teacher did not ask to change (settings, sections, references, explanations). When you move questions between sections, change only each question's `"section"`; the app orders questions automatically (unsectioned first, then by section order).
+5. Re-check every rule in [Quick rules](#quick-rules) and the [Quality checklist](#quality-checklist-for-the-ai), including that `open` rubric points add up to the question's `points`, `structure` keys use the right number of electrons, and every `section` id exists.
+6. Changes apply to new attempts only. Tell the teacher if a change affects students who already submitted (for example a corrected answer key: those submissions keep their old auto score, which the teacher can override in **Grading**).
+7. Output the whole test JSON, then a bullet list of changes grouped by question id (`q3: fixed answer key`, `q12: new`, `q5: deleted`, `Resources: …`).
+
+---
+
 ## Importing into ChemistryWorks
 
 This section is for the teacher (or an AI with access to the repository).
@@ -1011,16 +1065,3 @@ To give feedback, add a **comment** to any question (supports `**bold**`, `*ital
 ---
 
 Full technical reference (schema, scoring rules, module contracts): [ARCHITECTURE.md](ARCHITECTURE.md).
-
-### Constants reference (V2 patch 1)
-
-Use a `constants` reference for the values your class uses (they are shown exactly as written, so give the classroom value, e.g. 6.02 × 10²³ rather than 6.02214076 × 10²³):
-
-```json
-{ "id": "consts", "type": "constants", "title": "Constants", "items": [
-  { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
-  { "name": "Ideal gas constant, R", "value": "0.0821", "unit": "L·atm/(mol·K)" }
-] }
-```
-
-Every row needs a `name` and a `value`; `unit` is optional. The periodic-table reference always shows the California Standards Test reference-sheet values (e.g. O 16.00, Fe 55.85).

@@ -184,10 +184,11 @@ export function normalizeTest(raw) {
   }) : [];
   t.references = Array.isArray(t.references) ? t.references.map((x) => {
     const src = isObj(x) ? x : {};
-    const out = { ...src, id: str(src.id).trim(), type: str(src.type).trim(), title: str(src.title) };
+    const type = str(src.type).trim();
+    const out = { ...src, id: str(src.id).trim(), type: type === 'constants' ? 'resources' : type, title: str(src.title) };
     if (out.type === 'text') out.content = str(src.content);
     if (out.type === 'image') { out.url = str(src.url).trim(); out.alt = str(src.alt); }
-    if (out.type === 'constants') {
+    if (out.type === 'resources') {
       out.items = (Array.isArray(src.items) ? src.items : []).map((it) => {
         const c = isObj(it) ? it : {};
         return { name: str(c.name), value: str(c.value), unit: str(c.unit) };
@@ -396,10 +397,10 @@ export function validateTest(test) {
     else refIds.add(ref.id);
     if (!REFERENCE_TYPES.includes(ref.type)) { errors.push(`${where}: type must be one of ${REFERENCE_TYPES.map((x) => `"${x}"`).join(', ')}.`); return; }
     if (ref.type === 'text' && !nonEmptyStr(ref.content)) errors.push(`${where}: text references need content.`);
-    if (ref.type === 'constants') {
-      if (!Array.isArray(ref.items) || !ref.items.length) errors.push(`${where}: constants need at least one row.`);
+    if (ref.type === 'resources') {
+      if (!Array.isArray(ref.items) || !ref.items.length) errors.push(`${where}: resources need at least one row.`);
       else ref.items.forEach((it, k) => {
-        if (!isObj(it) || !nonEmptyStr(it.name) || !nonEmptyStr(it.value)) errors.push(`${where}: constant ${k + 1} needs a name and a value.`);
+        if (!isObj(it) || !nonEmptyStr(it.name) || !nonEmptyStr(it.value)) errors.push(`${where}: resource ${k + 1} needs a name and a value.`);
       });
     }
     if (ref.type === 'image') {

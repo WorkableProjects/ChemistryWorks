@@ -1,5 +1,5 @@
 // Reference pane for the student runner (V2-02): a resizable, collapsible panel beside the questions with the
-// test's reference materials (periodic table, text / constants, image). It is a sibling of the question stage,
+// test's reference materials (periodic table, resources, text, image). It is a sibling of the question stage,
 // built once, and never touches answers, timing or navigation.
 //
 //   referencePane(test, { storageKey }) -> { el, toggle(), destroy() } | null   (null when the test has no references)
@@ -107,10 +107,10 @@ export function periodicTable() {
 function panelContent(ref) {
   if (ref.type === 'periodic-table') return periodicTable();
   if (ref.type === 'text') return richText(ref.content, 'div', 'ref-text');
-  if (ref.type === 'constants') {
-    return h('table', { class: 'ref-consts', dataset: { testid: 'ref-constants' } },
+  if (ref.type === 'resources') {
+    return h('table', { class: 'ref-consts', dataset: { testid: 'ref-resources' } },
       h('caption', { class: 'sr-only' }, referenceTitle(ref)),
-      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Constant'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Unit'))),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Resource'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Unit'))),
       h('tbody', {}, (ref.items || []).map((it) => h('tr', {},
         h('th', { scope: 'row' }, richText(it.name, 'span')),
         h('td', { class: 'ref-consts__v' }, richText(it.value, 'span')),

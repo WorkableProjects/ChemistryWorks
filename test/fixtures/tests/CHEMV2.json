@@ -24,8 +24,8 @@
     },
     {
       "id": "consts",
-      "type": "constants",
-      "title": "Constants",
+      "type": "resources",
+      "title": "Resources",
       "items": [
         {
           "name": "Avogadro's number",

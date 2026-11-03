@@ -75,13 +75,14 @@ export function nextSectionId(sections) {
 // Reference = { id, type: 'periodic-table', title? }
 //           | { id, type: 'text',  title, content }          content: richText (KaTeX allowed), e.g. constants
 //           | { id, type: 'image', title, url, alt }         url: https:// or a site-relative path
-//           | { id, type: 'constants', title, items: [{ name, value, unit }] }   per-test values (V2 patch 1)
+//           | { id, type: 'resources', title, items: [{ name, value, unit }] }   per-test values: constants, conversions… (V2 patch 1;
+//             the legacy type name 'constants' is accepted and normalized to 'resources')
 //             value / unit are richText (KaTeX allowed), e.g. value "$6.02 \times 10^{23}$", unit "mol$^{-1}$"
-export const REFERENCE_TYPES = ['periodic-table', 'constants', 'text', 'image'];
-export const REFERENCE_LABELS = { 'periodic-table': 'Periodic table', constants: 'Constants', text: 'Text', image: 'Image' };
+export const REFERENCE_TYPES = ['periodic-table', 'resources', 'text', 'image'];
+export const REFERENCE_LABELS = { 'periodic-table': 'Periodic table', resources: 'Resources', text: 'Text', image: 'Image' };
 
-/** Starting rows for a new constants reference (classroom values; teachers edit them per test). */
-export const DEFAULT_CONSTANTS = [
+/** Starting rows for a new Resources reference (classroom values; teachers edit them per test). */
+export const DEFAULT_RESOURCES = [
   { name: "Avogadro's number", value: '$6.02 \\times 10^{23}$', unit: 'mol$^{-1}$' },
   { name: 'Molar volume of a gas at STP', value: '22.4', unit: 'L/mol' },
   { name: 'STP', value: '0 °C (273 K), 1 atm', unit: '' },

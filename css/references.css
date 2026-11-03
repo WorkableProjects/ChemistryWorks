@@ -86,7 +86,7 @@
 
 @media (prefers-reduced-motion: reduce) { .runner-split:not(.is-resizing) { transition: none; } }
 
-/* Constants table (per-test values) */
+/* Resources table (per-test values) */
 .ref-consts { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--bg-elev); }
 .ref-consts th, .ref-consts td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .ref-consts thead th { font-size: 12px; color: var(--text-muted); font-weight: 600; }

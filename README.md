@@ -12,7 +12,7 @@ Turn off **Show score to students** on a test and students only see "Submission 
 ## What's new in v2
 
 - **Submission counts** in the teacher's test library (completed submissions per test, shown once the Apps Script URL and admin key are set).
-- **Split-screen reference pane**: tests can attach a periodic table, text notes (constants, formulas) and images that students view beside the questions, resize and collapse without losing answers.
+- **Split-screen reference pane**: tests can attach a periodic table (CST Chemistry Reference Sheet values), a per-test **Resources** table of the constants your class uses (e.g. 6.02 × 10²³), text notes and images that students view beside the questions, resize and collapse without losing answers.
 - **Partial credit and overrides**: Full / Half / Zero buttons or any score from 0 to the question's points; changing an auto-graded score is saved as an override.
 - **Sections**: named groups of questions with instructions and automatically calculated point totals; unsectioned questions still work.
 - **Orbital diagrams**: a new teacher-graded question type where students place up / down electron arrows.
