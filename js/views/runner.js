@@ -14,6 +14,7 @@ import { buildPayload, submitResults } from '../lib/submit.js';
 import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
 import { structureWidget } from './structure-view.js';
+import { orbitalWidget } from './orbital-view.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
 
@@ -434,6 +435,7 @@ function buildWidget(q, api) {
     case 'fillblank': return fillBlankWidget(q, api);
     case 'open': return openWidget(q, api);
     case 'structure': return structureWidget(q, api);
+    case 'orbital': return orbitalWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }

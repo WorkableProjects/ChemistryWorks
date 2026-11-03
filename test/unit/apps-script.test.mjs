@@ -114,8 +114,9 @@ test('first submission creates both sheets with formatted headers', () => {
     'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)',
     'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
+    'Comments (JSON)', 'Released At',
   ]);
-  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 20));
+  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 22));
   assert.ok(s.formats.some((f) => f.bg === '#E2E8F0'));
 });
 
@@ -346,7 +347,61 @@ test('older 14-column sheets get the new grading headers added', () => {
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)']);
   sheets.set('Submissions', s);
   post(sample());
-  assert.equal(s.rows[0].length, 20);
+  assert.equal(s.rows[0].length, 22);
   assert.equal(s.rows[0][14], 'Status');
   assert.equal(s.rows[0][19], 'Teacher Note');
+  assert.equal(s.rows[0][21], 'Released At');
+});
+
+/* ---------------------------------------------------------------- v2: comments, release, counts, feedback */
+
+test('saveGrade stores non-empty comments and keeps them when comments are omitted', () => {
+  post(sample({ responses: shortResponses, score_achieved: 1, score_total: 5 }));
+  const r = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, comments: { q1: '  **Nice** work  ', q2: '   ' } });
+  assert.equal(r.result, 'success');
+  assert.deepEqual(r.grade.comments, { q1: '**Nice** work' });
+  assert.equal(r.grade.released_at, '');
+  // Comments omitted -> unchanged; grades still update.
+  const r2 = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 2 } });
+  assert.deepEqual(r2.grade.comments, { q1: '**Nice** work' });
+  const row = post({ action: 'getResults', adminKey: 'secret' }).rows[0];
+  assert.deepEqual(row.comments, { q1: '**Nice** work' });
+  assert.equal(row.released_at, '');
+  assert.equal(row.final_score, 3);
+});
+
+test('release sets Released At once; release:false clears it', () => {
+  post(sample());
+  const a = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: {}, release: true });
+  assert.ok(a.grade.released_at);
+  const b = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: {} });
+  assert.equal(b.grade.released_at, a.grade.released_at, 'omitting release keeps it');
+  const c = post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: {}, release: false });
+  assert.equal(c.grade.released_at, '');
+});
+
+test('getFeedback: needs matching id + email, hides everything until released', () => {
+  post(sample({ responses: shortResponses, score_achieved: 1, score_total: 5 }));
+  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'eve@x.org' }).error, 'not_found');
+  assert.equal(post({ action: 'getFeedback', submissionId: 'nope', studentEmail: 'ada@x.org' }).error, 'not_found');
+  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1' }).error, 'not_found');
+  post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, comments: { q2: 'Good' } });
+  const hidden = post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'ADA@x.org' });
+  assert.deepEqual(hidden, { result: 'success', released: false });
+  post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, release: true });
+  const fb = post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'ada@x.org' });
+  assert.equal(fb.released, true);
+  assert.equal(fb.final_score, 4);
+  assert.deepEqual(fb.comments, { q2: 'Good' });
+  assert.deepEqual(fb.grades, { q2: 3 });
+  assert.equal(fb.teacher_note, undefined, 'private teacher note is never sent to students');
+});
+
+test('getSubmissionCounts requires the admin key and counts per test code', () => {
+  post(sample());
+  post(sample({ submission_id: 'sub-2' }));
+  post(sample({ submission_id: 'sub-3', test_code: 'chem102' }));
+  assert.equal(post({ action: 'getSubmissionCounts', adminKey: 'nope' }).error, 'unauthorized');
+  const r = post({ action: 'getSubmissionCounts', adminKey: 'secret' });
+  assert.deepEqual(r.counts, { CHEM101: 2, CHEM102: 1 });
 });

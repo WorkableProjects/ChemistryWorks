@@ -264,3 +264,63 @@ Admin: `admin`, `tab-library`, `tab-builder`, `tab-grading`, `tab-settings`, `lo
 - `css/base.css` defines every colour as a custom property on `:root`. Accent palettes: `:root[data-accent="blue|violet|teal|green|orange|rose"]`. Dark mode: `:root[data-theme="dark"]` (neutral tokens) plus `:root[data-theme="dark"][data-accent=…]` (lighter accent). Never hard-code colours in view CSS: use tokens (`--primary`, `--primary-soft`, `--primary-ink`, `--on-primary`, `--success-ink`, `--warning-line`, `--glass`, …).
 - `js/lib/theme.js`: `applyRole('student'|'admin')` is called by `navigate()` in js/app.js (admin view and admin previews use the teacher accent). `themeControl()` in js/ui.js renders the header menu; `appHeader()` includes it automatically and the landing page shows it floating.
 - index.html has a tiny inline script that applies the saved theme/accent before first paint.
+
+## V2 contracts (docs/v2plan.md)
+
+### Test JSON additions
+
+```jsonc
+{
+  "sections": [ { "id": "sec1", "title": "Part A: Bonding", "instructions": "Show your work." } ],  // default []
+  "references": [                                                                                     // default [] (V2-02, per test)
+    { "id": "ref1", "type": "periodic-table", "title": "" },
+    { "id": "ref2", "type": "text", "title": "Constants", "content": "$R = 8.314$ J/(mol·K)" },   // richText, KaTeX allowed
+    { "id": "ref3", "type": "image", "title": "Solubility chart", "url": "https://…/chart.png", "alt": "Solubility rules table" }
+  ],
+  "questions": [ { "id": "q1", "section": "sec1", ... } ]   // question.section optional (absent = unsectioned)
+}
+```
+
+- **Section order (V2-04)** — `js/lib/sections.js`: unsectioned questions first, then sections in `sections` order; inside a group questions keep their `questions` order. `normalizeTest()` stores `questions` in this canonical order, so array index == display order everywhere. `groupQuestions(test)` → `[{ section|null, questions, points }]`. Section point totals are **calculated** (`sectionPoints`), never stored. With `shuffleQuestions`, questions shuffle *within* their group only; groups never move. Results rows carry `sectionId` when the question has a section.
+- **References (V2-02)**: `REFERENCE_TYPES = ['periodic-table','text','image']`; `referenceTitle(ref)`; `safeImageUrl(url)` (https or site-relative only). At most one periodic table. Image refs need `alt`.
+
+### New question type: `orbital` (V2-05, teacher graded) — `js/lib/orbital.js`
+
+| field | default | meaning |
+|---|---|---|
+| `maxSublevel` | `"2p"` | highest sublevel shown, in Aufbau order `AUFBAU = 1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p 7s 5f 6d 7p` |
+| `orbitalTypes` | `["s","p"]` | sublevel types included (subset of s, p, d, f) |
+| `sampleAnswer` | `null` | optional reference answer for the teacher, same shape as the answer |
+
+Shown sublevels = `sublevelsFor(q)` (lowest energy first). Answer: `{ "1s": ["ud"], "2s": ["ud"], "2p": ["u","u","u"] }`, one entry per orbital box, each `''` (empty) | `'u'` (↑) | `'d'` (↓) | `'ud'` (↑↓). Helpers: `normalizeOrbitalAnswer`, `isOrbitalAnswered`, `orbitalElectronCount`, `describeOrbital` (text form), `boxLabel(sub, i, box)` (aria text — spin is never shown by colour alone), `BOX_STATES = ['', 'u', 'ud', 'd']` (widget cycle order). Views: `js/views/orbital-view.js` exports `orbitalWidget(q, api)` (runner widget contract) and `orbitalDiagram(q, answer, { label })` (static). testids: `orbital-box-<sublevel>-<i>` (e.g. `orbital-box-2p-0`, attr `data-state`), `orbital-count`.
+
+### Lewis structure brackets & charges (V2-06) — `js/lib/structure.js`
+
+`structure` questions take `studentCharges: boolean` (default `false` = v1 behaviour, auto graded). When `true` the student also draws brackets, an overall bracket charge and per-atom formal charges, and the question is **teacher graded**. The answer (and the reference `correctAnswer`) then also has `bracket: boolean`, `charge: int −4..4`, `formalCharges: { atomId: int −4..4 }` (`normalizeChargeMarks`, `MAX_CHARGE`, `chargeLabel(n, { explicit })`). When `studentCharges` is true the skeleton's `charge` is NOT pre-drawn as brackets (the student draws them); it still sets the valence-electron total. testids in the widget: `structure-bracket` (toggle, aria-pressed), `structure-charge-up` / `structure-charge-down` / `structure-charge-value`, `structure-fc-<atomId>` (formal-charge control on an atom).
+
+### Manual (teacher) grading
+
+`isManualQuestion(q)` (schema.js) = `MANUAL_TYPES` (`short`, `open`, `orbital`) or a `structure` with `studentCharges`. Use it instead of `MANUAL_TYPES.includes(type)`. `gradeTest` result rows add `manual: boolean` (and `sectionId?`). Grading UIs must use `res.manual`, not the type.
+
+### Partial credit (V2-03)
+
+Scores stay numeric in `Grades (JSON)` `{ questionId: points }` — any number 0..max (2-decimal precision). Grader UI: Full / Half / Zero buttons + a number box; negative, above-max or non-numeric entries are **rejected with a message** (not silently clamped) and block saving. A grade on an auto-graded question that differs from its auto score is an *override* and is shown as such ("Override · auto 1.5"). The backend still clamps defensively.
+
+### Comments & release (V2-07)
+
+- Formatting (`js/lib/comments.js`): `**bold**`, `*italic*`/`_italic_`, `- ` / `1. ` lists, `[text](https://…)` and bare http(s) URLs; schemes https/http/mailto only. `parseComment(text)` → block tree; `commentBody(text)` (`js/views/comment-view.js`) renders it with textContent only, links `target=_blank rel="noopener noreferrer nofollow"`. `cleanComment`/`cleanComments` trim, cap at 2000 chars and drop empty comments. `commentToText` = plain text.
+- Storage: Submissions columns 21 `Comments (JSON)` `{ questionId: text }` and 22 `Released At` (ISO, empty = not released). Older sheets get the headers appended; empty cells = no comments / not released.
+- `saveGrade({ …, comments?, release? })`: comments omitted → kept; `release: true` sets Released At (kept if already set), `false` clears it. Response `grade` adds `comments`, `released_at`. `fetchResults` rows (after `normalizeRow`) add `comments` (`{}` default) and `released_at` (`''`).
+- Students: `fetchFeedback({ gasUrl, submissionId, studentEmail })` (backend `getFeedback`, no admin key; id + matching email required). Before release → `{ ok:true, released:false }` only. After → `{ ok:true, released:true, released_at, status, final_score, score_total, final_percentage, grades, comments }`. The private teacher note is never returned.
+
+### Submission counts (V2-01)
+
+`fetchSubmissionCounts({ gasUrl, adminKey })` → `{ ok, counts: { CODE: n } }` (admin key; backend `getSubmissionCounts`). Every Submissions row is a completed submission (in-progress answers only exist in the student's browser), so counts = rows per test code.
+
+### Export (V2-08)
+
+`js/lib/export.js` (pure): `exportFilename(row)` and `buildExportModel({ row, test, includeComments })`; `js/views/admin/export-view.js`: `printSubmission({ row, test, includeComments })` renders the document into `#print-root` and calls `window.print()` (`css/print.css`). Comments are included only when the grade has been released (the same rule students see).
+
+### CSS files (v2)
+
+`css/references.css` (reference pane, periodic table), `css/diagrams.css` (orbital + structure charge widgets/diagrams), `css/grading.css` (grader additions), `css/feedback.css` (student feedback view, landing results list), `css/print.css` (export). Design tokens for the Lab notebook look are documented in `docs/DESIGN.md` (V2-09).

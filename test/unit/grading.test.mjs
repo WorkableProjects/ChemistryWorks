@@ -324,7 +324,7 @@ test('gradeTest result rows carry the contract fields', () => {
   const r1 = g.results[0];
   assert.deepEqual(Object.keys(r1).sort(), [
     'answered', 'correctAnswer', 'correctAnswerText', 'givenAnswer', 'givenAnswerText', 'isCorrect',
-    'needsGrading', 'pointsEarned', 'pointsPossible', 'questionId', 'questionText', 'type',
+    'manual', 'needsGrading', 'pointsEarned', 'pointsPossible', 'questionId', 'questionText', 'type',
   ]);
   assert.equal(r1.questionId, 'q1');
   assert.equal(r1.questionText, t.questions[0].text);

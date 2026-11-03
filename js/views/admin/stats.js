@@ -95,6 +95,8 @@ export function normalizeRow(raw) {
     grades: isObj(grades) ? grades : null,
     graded_at: r.graded_at || '',
     teacher_note: r.teacher_note || '',
+    comments: isObj(r.comments) ? r.comments : {},   // v2: { questionId: comment text }
+    released_at: r.released_at || '',                // v2: ISO time grades/comments were released to the student, '' = not released
   };
 }
 

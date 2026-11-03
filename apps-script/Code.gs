@@ -6,7 +6,7 @@
  * (Execute as: Me, Who has access: Anyone). See DEPLOYMENT.md.
  */
 
-var VERSION = '1.1.0';
+var VERSION = '2.0.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
@@ -15,10 +15,14 @@ var SUBMISSION_HEADERS = [
   'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title',
   'Score Achieved', 'Total Score', 'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted',
   'Detailed Responses (JSON)', 'Flags (JSON)',
-  'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note'
+  'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
+  'Comments (JSON)', 'Released At'
 ];
-// 1-based columns of the grading fields (appended after the original 14 columns).
-var COL = { RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20 };
+// 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
+// Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
+// no comments, not released).
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22 };
+var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
 var STATUS_GRADED = 'Graded';
@@ -59,7 +63,10 @@ function doPost(e) {
       case 'deleteTest':
       case 'getResults':
       case 'saveGrade':
+      case 'getSubmissionCounts':
         return json_(handleAdmin_(body));
+      case 'getFeedback':
+        return json_(getFeedback_(body));
       case undefined:
       case null:
       case '':
@@ -266,6 +273,8 @@ function handleSubmission_(body) {
       pending ? '' : s.percentage,
       '',
       '',
+      '',
+      '',
       ''
     ]);
     return { result: 'success' };
@@ -306,6 +315,7 @@ function handleAdmin_(body) {
     case 'deleteTest': return deleteTest_(body.code);
     case 'getResults': return getResults_(body.testCode);
     case 'saveGrade': return saveGrade_(body);
+    case 'getSubmissionCounts': return getSubmissionCounts_();
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -384,14 +394,78 @@ function getResults_(testCode) {
         final_percentage: finalPct === '' || finalPct === null ? null : num_(finalPct),
         grades: parseJson_(v[COL.GRADES - 1], null),
         graded_at: iso_(v[COL.GRADED_AT - 1]),
-        teacher_note: String(v[COL.NOTE - 1] || '')
+        teacher_note: String(v[COL.NOTE - 1] || ''),
+        comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
+        released_at: iso_(v[COL.RELEASED_AT - 1])
       });
     }
   }
   return { result: 'success', rows: rows };
 }
 
-// body: { submissionId, grades: { [questionId]: points }, note }
+// Non-empty comments only, each trimmed and capped. Formatting is a safe Markdown subset rendered client-side
+// with textContent (js/lib/comments.js); the backend stores plain text.
+function cleanComments_(map) {
+  var out = {};
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return out;
+  for (var k in map) {
+    if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+    var c = String(map[k] == null ? '' : map[k]).replace(/\r\n?/g, '\n').replace(/^\s+|\s+$/g, '').slice(0, MAX_COMMENT_CHARS);
+    if (c) out[k] = c;
+  }
+  return out;
+}
+
+// Completed submissions per test code. Every row in Submissions is a completed submission (in-progress
+// answers only live in the student's browser; there are no drafts or soft-deleted rows in the sheet).
+function getSubmissionCounts_() {
+  var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+  var last = sheet.getLastRow();
+  var counts = {};
+  if (last >= 2) {
+    var values = sheet.getRange(2, 1, last - 1, 5).getValues();
+    for (var i = 0; i < values.length; i++) {
+      if (values[i][1] === '' || values[i][1] === null) continue; // no submission id
+      var code = normalizeCode_(values[i][4]);
+      if (!code) continue;
+      counts[code] = (counts[code] || 0) + 1;
+    }
+  }
+  return { result: 'success', counts: counts };
+}
+
+// Student-facing (no admin key). The caller must know the submission id (a random UUID that only the
+// student's device received) AND the email it was submitted with. Returns grades and comments only after
+// the teacher released them; otherwise { released: false }. Unknown id / wrong email -> not_found.
+function getFeedback_(body) {
+  var id = body && body.submissionId ? String(body.submissionId) : '';
+  var email = body && body.studentEmail ? String(body.studentEmail).trim().toLowerCase() : '';
+  if (!id || !email) return { result: 'error', error: 'not_found' };
+  var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+  var row = findRow_(sheet, 2, id);
+  if (!row) return { result: 'error', error: 'not_found' };
+  var v = sheet.getRange(row, 1, 1, SUBMISSION_HEADERS.length).getValues()[0];
+  if (String(v[COL.EMAIL - 1]).trim().toLowerCase() !== email) return { result: 'error', error: 'not_found' };
+  var releasedAt = iso_(v[COL.RELEASED_AT - 1]);
+  if (!releasedAt) return { result: 'success', released: false };
+  var finalScore = v[COL.FINAL_SCORE - 1];
+  var finalPct = v[COL.FINAL_PCT - 1];
+  return {
+    result: 'success',
+    released: true,
+    released_at: releasedAt,
+    status: String(v[COL.STATUS - 1] || ''),
+    final_score: finalScore === '' || finalScore === null ? num_(v[6]) : num_(finalScore),
+    score_total: num_(v[7]),
+    final_percentage: finalPct === '' || finalPct === null ? num_(v[8]) : num_(finalPct),
+    grades: parseJson_(v[COL.GRADES - 1], {}) || {},
+    comments: parseJson_(v[COL.COMMENTS - 1], {}) || {}
+  };
+}
+
+// body: { submissionId, grades: { [questionId]: points }, note, comments?: { [questionId]: text }, release?: boolean }
+// comments omitted -> existing comments kept. release: true -> set Released At (kept if already set),
+// false -> clear it, omitted -> unchanged.
 function saveGrade_(body) {
   var id = body && body.submissionId ? String(body.submissionId) : '';
   if (!id) return { result: 'error', error: 'missing_submission_id' };
@@ -401,6 +475,8 @@ function saveGrade_(body) {
     if (Object.prototype.hasOwnProperty.call(grades, k) && grades[k] !== '' && grades[k] !== null && isFinite(parseFloat(grades[k]))) clean[k] = num_(grades[k]);
   }
   var note = String(body.note == null ? '' : body.note).slice(0, 5000);
+  var hasComments = body.comments !== undefined && body.comments !== null;
+  var comments = cleanComments_(body.comments);
 
   return withLock_(function () {
     var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
@@ -409,12 +485,19 @@ function saveGrade_(body) {
     var responses = parseJson_(sheet.getRange(row, COL.RESPONSES).getValue(), []);
     var final = applyGrades_(responses, clean);
     var gradedAt = new Date();
-    sheet.getRange(row, COL.STATUS, 1, 6).setValues([[
-      STATUS_GRADED, final.score, final.percentage, JSON.stringify(clean), gradedAt, text_(note)
+    var existing = sheet.getRange(row, COL.COMMENTS, 1, 2).getValues()[0];
+    if (!hasComments) comments = parseJson_(existing[0], {}) || {};
+    var commentsJson = JSON.stringify(comments);
+    if (commentsJson.length > MAX_CELL_CHARS) return { result: 'error', error: 'comments_too_large' };
+    var releasedAt = existing[1] instanceof Date || (existing[1] !== '' && existing[1] !== null) ? existing[1] : '';
+    if (body.release === true && !releasedAt) releasedAt = gradedAt;
+    if (body.release === false) releasedAt = '';
+    sheet.getRange(row, COL.STATUS, 1, 8).setValues([[
+      STATUS_GRADED, final.score, final.percentage, JSON.stringify(clean), gradedAt, text_(note), commentsJson, releasedAt
     ]]);
     return {
       result: 'success',
-      grade: { status: STATUS_GRADED, final_score: final.score, score_total: final.total, final_percentage: final.percentage, grades: clean, graded_at: gradedAt.toISOString(), teacher_note: note }
+      grade: { status: STATUS_GRADED, final_score: final.score, score_total: final.total, final_percentage: final.percentage, grades: clean, graded_at: gradedAt.toISOString(), teacher_note: note, comments: comments, released_at: iso_(releasedAt) }
     };
   });
 }
