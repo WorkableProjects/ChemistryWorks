@@ -356,7 +356,10 @@ export function renderGrading(root, ctx, { goSettings }) {
       if (isDirty()) { toast('Save the grade first', { type: 'warning' }); return; }
       try {
         const { printSubmission } = await import('./export-view.js');
-        await printSubmission({ row, test, includeComments: true });
+        // Use the comments on screen: `row` is captured when the grader opens and goes stale after a save.
+        const latest = G.rawRows.find((r) => r.submission_id === row.submission_id);
+        const comments = { ...(latest && typeof latest.comments === 'object' ? latest.comments : {}), ...row.comments, ...currentComments() };
+        await printSubmission({ row: { ...row, comments }, test, includeComments: true });
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 

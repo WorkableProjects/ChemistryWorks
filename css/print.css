@@ -26,8 +26,10 @@
 .export-answer-text { overflow-wrap: anywhere; }
 .export-correct, [data-testid="export-correct"] { margin-top: 6px; }
 /* Nothing in a question may be wider than the page. */
-.export-item, .export-item * { max-width: 100%; box-sizing: border-box; }
-.export-item svg, .export-item img { height: auto; }
+.export-item, .export-diagram, .export-diagram-row, .export-answer-text { max-width: 100%; }
+.export-item img { max-width: 100%; height: auto; }
+.export-doc .st-wrap { max-width: 100%; }
+.export-doc .st { max-width: 100%; height: auto; overflow: visible; }
 
 @media print {
   /* Zero page margin removes the browser's header/footer (date, page title, URL, page numbers). */
@@ -50,6 +52,13 @@
     --border: #000; --border-strong: #000; --primary: #000; --primary-ink: #000; --primary-soft: #fff; --primary-line: #000;
   }
   .export-doc .orb-box, .export-doc .st-atom, .export-doc .lewis { background: #fff; }
+  /* Browsers drop backgrounds when printing ("Background graphics" off); force them, and draw Lewis dots
+     with a border so they print either way. */
+  #print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .export-doc .lewis__dot { background: #000; border: calc(var(--dot, 6px) / 2) solid #000; box-sizing: border-box; }
+  .export-doc .st-dot { fill: #000; }
+  .export-doc .st-fc__ring { fill: #fff; stroke: #000; }
+  .export-doc .st-fc__text, .export-doc .st-sym { fill: #000; }
   .export-doc .orb-box { border-color: #000; color: #000; }
   .export-doc svg * { stroke-opacity: 1; }
   .export-doc a { color: #000; text-decoration: underline; }
