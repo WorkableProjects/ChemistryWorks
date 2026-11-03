@@ -465,7 +465,7 @@ export function blankQuestion(type, id = 'q1') {
     case 'orbital':
       return {
         ...base, points: 2, text: 'Draw the orbital diagram for a ground-state nitrogen atom.',
-        maxSublevel: '2p', orbitalTypes: ['s', 'p'],
+        element: 'N', maxSublevel: '2p', orbitalTypes: ['s', 'p'],
         sampleAnswer: { '1s': ['ud'], '2s': ['ud'], '2p': ['u', 'u', 'u'] },
       };
     case 'open':

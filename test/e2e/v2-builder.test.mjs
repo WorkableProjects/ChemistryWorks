@@ -149,3 +149,30 @@ test('builder: Copy guide pulls docs/guide.md from the repo, falling back to the
   await waitText(page.locator('.toast').last(), /Guide copied/);
   assert.match(await page.evaluate(() => navigator.clipboard.readText()), /^#/);
 }));
+
+test('builder: orbital sample boxes respond to clicks; symbol or configuration draws the diagram', () => withSession(env, {}, async ({ page, url }) => {
+  await unlockAdmin(page, url);
+  await page.locator(tid('new-test')).click();
+  await addQuestion(page, 'orbital');
+  await page.locator(tid('orbital-sample-clear')).click();
+  const box = page.locator(tid('orbital-box-1s-0')).first();
+  await waitAttr(box, 'data-state', 'empty');
+  await box.click();
+  await waitAttr(box, 'data-state', 'u');
+  await box.click();
+  await waitAttr(box, 'data-state', 'ud');
+  await box.click({ button: 'right' });
+  await waitAttr(box, 'data-state', 'u');
+
+  await page.locator(tid('orbital-source')).fill('O');
+  await waitText(page.locator(tid('orbital-source-hint')), /O: 1s2 2s2 2p4/);
+  await waitAttr(page.locator(tid('orbital-box-2p-0')).first(), 'data-state', 'ud');
+  await waitAttr(page.locator(tid('orbital-box-2p-2')).first(), 'data-state', 'u');
+
+  await page.locator(tid('orbital-source')).fill('[Ne] 3s1');
+  await waitAttr(page.locator(tid('orbital-box-3s-0')).first(), 'data-state', 'u');
+  assert.equal(await page.locator(tid('orbital-max')).inputValue(), '3s');
+
+  await page.locator(tid('orbital-source')).fill('2p9');
+  await waitText(page.locator(tid('orbital-source-hint')), /at most 6/);
+}));

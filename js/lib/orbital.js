@@ -96,3 +96,93 @@ export function validateOrbital(q, where, errors) {
     }
   }
 }
+
+/* ------------------------------------------------------------------ auto-fill from a symbol or configuration */
+// Like Lewis questions, the teacher can type an element symbol ("N") or an electron configuration
+// ("1s2 2s2 2p3", "[Ne] 3s1", "1s² 2s² 2p⁶") and the reference diagram is drawn from it (Hund's rule:
+// one ↑ in each box of a sublevel before any pairing).
+
+const CAPACITY = { s: 2, p: 6, d: 10, f: 14 };
+const NOBLE_CORE = { He: 2, Ne: 10, Ar: 18, Kr: 36, Xe: 54, Rn: 86 };
+const SUPERSCRIPT = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+
+/** Ground-state electron counts by Aufbau order for `z` electrons: { '1s': 2, '2s': 2, '2p': 3 }. */
+export function aufbauCounts(z) {
+  const out = {};
+  let left = Math.max(0, Math.floor(Number(z) || 0));
+  for (const sub of AUFBAU) {
+    if (left <= 0) break;
+    const n = Math.min(left, CAPACITY[sublevelType(sub)]);
+    out[sub] = n;
+    left -= n;
+  }
+  return out;
+}
+
+/** Parse "1s2 2s2 2p3", "1s^2 2s^2", "[Ar] 4s2 3d6", superscripts allowed. Returns { counts } or { error }. */
+export function parseConfiguration(text) {
+  let s = String(text ?? '').replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (c) => SUPERSCRIPT[c]).replace(/\^/g, '').trim();
+  if (!s) return { error: 'empty' };
+  const counts = {};
+  const core = /^\[\s*([A-Za-z]{2})\s*\]/.exec(s);
+  if (core) {
+    const sym = core[1][0].toUpperCase() + core[1][1].toLowerCase();
+    if (!(sym in NOBLE_CORE)) return { error: `[${core[1]}] is not a noble-gas core` };
+    Object.assign(counts, aufbauCounts(NOBLE_CORE[sym]));
+    s = s.slice(core[0].length);
+  }
+  const parts = s.split(/[\s,·.]+/).filter(Boolean);
+  for (const p of parts) {
+    const m = /^([1-7])([spdf])(\d{1,2})$/i.exec(p);
+    if (!m) return { error: `"${p}" is not a sublevel like 2p3` };
+    const sub = `${m[1]}${m[2].toLowerCase()}`;
+    if (!AUFBAU.includes(sub)) return { error: `${sub} is not a real sublevel` };
+    const n = Number(m[3]);
+    if (n < 1 || n > CAPACITY[sublevelType(sub)]) return { error: `${sub} holds at most ${CAPACITY[sublevelType(sub)]} electrons` };
+    counts[sub] = n;
+  }
+  if (!Object.keys(counts).length) return { error: 'no sublevels found' };
+  return { counts };
+}
+
+/**
+ * Element symbol or configuration -> { counts, label } or { error }.
+ * `elements` is the periodic table list ({ symbol, number }), passed in so this module stays data-free.
+ */
+export function resolveOrbitalSource(text, elements = []) {
+  const t = String(text ?? '').trim();
+  if (!t) return { error: 'empty' };
+  if (/^[A-Za-z]{1,2}$/.test(t)) {
+    const sym = t[0].toUpperCase() + t.slice(1).toLowerCase();
+    const el = elements.find((e) => e.symbol === sym);
+    if (!el) return { error: `${t} is not an element symbol` };
+    return { counts: aufbauCounts(el.number), label: sym };
+  }
+  return parseConfiguration(t);
+}
+
+/** Hund's-rule diagram for counts: { '2p': ['u','u','u'], ... } (spin-up across the boxes, then pair). */
+export function diagramFromCounts(counts) {
+  const out = {};
+  for (const [sub, n] of Object.entries(counts || {})) {
+    const boxes = Array(boxCount(sub)).fill('');
+    for (let e = 0; e < n; e++) {
+      const i = e % boxes.length;
+      boxes[i] = e < boxes.length ? 'u' : 'ud';
+    }
+    out[sub] = boxes;
+  }
+  return out;
+}
+
+/** Configuration text for counts in Aufbau order: "1s2 2s2 2p3". */
+export function configurationText(counts) {
+  return AUFBAU.filter((s) => counts?.[s]).map((s) => `${s}${counts[s]}`).join(' ');
+}
+
+/** The diagram range needed to show every occupied sublevel: { maxSublevel, orbitalTypes }. */
+export function rangeForCounts(counts) {
+  const subs = AUFBAU.filter((s) => counts?.[s]);
+  const last = subs[subs.length - 1] || DEFAULT_MAX_SUBLEVEL;
+  return { maxSublevel: last, orbitalTypes: ORBITAL_TYPES.filter((t) => subs.some((s) => sublevelType(s) === t)) };
+}
