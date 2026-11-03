@@ -39,9 +39,32 @@ export function getAccent(r = role) {
 
 export function getRole() { return role; }
 
+/** Manual "Reduce motion" switch (saved on this device). */
+export function getReduceMotionPref() { return load('reduceMotion', '0') === '1'; }
+
+/** True if the OS asks for reduced motion or the app switch is on. Use for JS-driven animations. */
+export function prefersReducedMotion() {
+  if (getReduceMotionPref()) return true;
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+export function setReduceMotion(on) {
+  save('reduceMotion', on ? '1' : '0');
+  applyMotion();
+  listeners.forEach((fn) => fn());
+}
+
+export function applyMotion() {
+  const el = root();
+  if (!el) return;
+  if (getReduceMotionPref()) el.dataset.motion = 'reduce';
+  else delete el.dataset.motion;
+}
+
 export function applyTheme() {
   const el = root();
   if (!el) return;
+  applyMotion();
   el.dataset.theme = resolvedTheme();
   el.dataset.accent = getAccent(role);
   el.dataset.role = role;

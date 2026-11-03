@@ -1,7 +1,7 @@
 // Landing: a single centered panel, like a testing-platform login screen.
 // Signed out: "Sign in with Google to Begin". Signed in: test-code entry and resumable attempts.
 
-import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl } from '../ui.js';
+import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl, stagger } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
 import { keys, load } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
@@ -62,14 +62,16 @@ function pastCard(ctx, user) {
   const list = pastResults(user);
   if (!list.length) return null;
   const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'medium' }); };
-  return h('section', { class: 'card past-results', dataset: { testid: 'past-results' } },
+  const card = h('section', { class: 'card past-results', dataset: { testid: 'past-results' } },
     h('h3', { class: 'past-results__title' }, 'Your submitted tests'),
-    list.map((p) => h('div', { class: 'past-results__item' },
+    list.map((p) => h('div', { class: 'past-results__item stagger-item' },
       h('div', { class: 'past-results__main' },
         h('span', { class: 'past-results__name' }, p.test_title || p.test_code),
         h('span', { class: 'past-results__meta' }, h('span', { class: 'past-results__code' }, p.test_code), p.submitted_at ? ` · Submitted ${when(p.submitted_at)}` : '')),
       h('button', { class: 'btn btn--sm', type: 'button', dataset: { testid: `view-feedback-${p.submission_id}` },
         'aria-label': `View feedback for ${p.test_title || p.test_code}`, on: { click: () => ctx.navigate('feedback', { payload: p }) } }, 'View feedback'))));
+  stagger(card);
+  return card;
 }
 
 function codeCard(ctx, params) {
@@ -83,13 +85,35 @@ function codeCard(ctx, params) {
   const btn = h('button', { class: 'btn btn--primary btn--lg', type: 'submit', dataset: { testid: 'code-submit' } }, 'Start test', icon('right'));
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (!input.value.trim()) { err.textContent = 'Enter the test code from your teacher.'; return; }
+    if (!input.value.trim()) {
+      err.textContent = 'Enter the test code from your teacher.';
+      input.classList.remove('shake');
+      void input.offsetWidth;
+      input.classList.add('shake');
+      setTimeout(() => input.classList.remove('shake'), 400);
+      return;
+    }
     btn.disabled = true;
     btn.classList.add('is-loading');
     await ctx.openTest(input.value);
   };
 
   const resumable = inProgress(user);
+  const resumeBox = resumable.length
+    ? h('div', { class: 'resume', dataset: { testid: 'resume-list' } },
+        h('h3', { class: 'resume__title' }, 'Continue where you left off'),
+        resumable.map((p) => h('button', {
+          class: 'resume__item stagger-item', type: 'button', dataset: { testid: `resume-${p.code}` },
+          on: { click: () => ctx.openTest(p.code) },
+        },
+          h('span', { class: 'resume__code' }, p.code),
+          h('span', { class: 'resume__title-text' }, p.title || 'Test in progress'),
+          h('span', { class: 'resume__meta' }, `${Object.keys(p.answers || {}).length} answered · ${p.updatedAt ? formatDurationLong((Date.now() - p.updatedAt) / 1000) + ' ago' : ''}`),
+          icon('right'),
+        )),
+      )
+    : null;
+  stagger(resumeBox);
   return h('section', { class: 'card code-card', dataset: { testid: 'code-card' } },
     h('div', { class: 'code-card__top' },
       h('h2', { class: 'card__title' }, `Welcome, ${user.name.split(' ')[0]}`),
@@ -98,20 +122,7 @@ function codeCard(ctx, params) {
     h('p', { class: 'muted' }, 'Enter your test code to begin.'),
     h('form', { class: 'code-form', on: { submit: onSubmit } }, input, btn),
     err,
-    resumable.length
-      ? h('div', { class: 'resume', dataset: { testid: 'resume-list' } },
-          h('h3', { class: 'resume__title' }, 'Continue where you left off'),
-          resumable.map((p) => h('button', {
-            class: 'resume__item', type: 'button', dataset: { testid: `resume-${p.code}` },
-            on: { click: () => ctx.openTest(p.code) },
-          },
-            h('span', { class: 'resume__code' }, p.code),
-            h('span', { class: 'resume__title-text' }, p.title || 'Test in progress'),
-            h('span', { class: 'resume__meta' }, `${Object.keys(p.answers || {}).length} answered · ${p.updatedAt ? formatDurationLong((Date.now() - p.updatedAt) / 1000) + ' ago' : ''}`),
-            icon('right'),
-          )),
-        )
-      : null,
+    resumeBox,
   );
 }
 

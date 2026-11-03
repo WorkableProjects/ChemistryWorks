@@ -1,7 +1,8 @@
 // Shared DOM helpers used by every view. No framework: views build DOM with `h()` and
 // return a cleanup function from their render function.
 
-import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange } from './lib/theme.js';
+import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange,
+  prefersReducedMotion, getReduceMotionPref, setReduceMotion } from './lib/theme.js';
 
 /**
  * Create an element.
@@ -275,9 +276,47 @@ export function formatDurationLong(totalSeconds) {
   return hr ? `${hr}h ${m % 60}m` : `${m}m ${r}s`;
 }
 
-/** Respect the user's reduced-motion setting in JS-driven animations. */
-export function prefersReducedMotion() {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Respect the user's reduced-motion setting (OS or app switch) in JS-driven animations. Defined in js/lib/theme.js. */
+export { prefersReducedMotion };
+
+/** Run a DOM update inside a View Transition when supported and motion is not reduced; otherwise just run it. */
+export function viewTransition(fn) {
+  if (typeof document !== 'undefined' && typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
+    try { return document.startViewTransition(fn); } catch { /* fall through */ }
+  }
+  return fn();
+}
+
+/** Animate a number in el from 0 to `to` (instant under reduced motion). */
+export function countUp(el, to, { duration = 600, decimals = 0, suffix = '' } = {}) {
+  const target = Number(to);
+  const fmt = (v) => `${v.toFixed(decimals)}${suffix}`;
+  if (!el) return;
+  if (!Number.isFinite(target) || prefersReducedMotion() || typeof requestAnimationFrame !== 'function' || duration <= 0) {
+    el.textContent = fmt(Number.isFinite(target) ? target : 0);
+    return;
+  }
+  const t0 = performance.now();
+  const tick = (now) => {
+    const p = Math.min(1, (now - t0) / duration);
+    const eased = 1 - (1 - p) ** 3;
+    el.textContent = fmt(target * eased);
+    if (p < 1 && el.isConnected !== false) requestAnimationFrame(tick);
+    else el.textContent = fmt(target);
+  };
+  requestAnimationFrame(tick);
+}
+
+/** Stagger the entrance of `.stagger-item` children (CSS `rise` keyframe) by `step` ms each. */
+export function stagger(listEl, { step = 40 } = {}) {
+  if (!listEl) return;
+  const reduced = prefersReducedMotion();
+  let i = 0;
+  for (const child of listEl.children) {
+    if (!child.classList?.contains('stagger-item')) continue;
+    child.style.animationDelay = reduced ? '0ms' : `${Math.min(i, 12) * step}ms`;
+    i += 1;
+  }
 }
 
 /**
@@ -295,8 +334,11 @@ export function themeControl({ floating = false } = {}) {
     'aria-label': `${name} accent`, dataset: { testid: `accent-${name}` }, on: { click: () => setAccent(name) },
   }));
   const roleNote = h('p', { class: 'theme-ctl__note' });
+  const motionBox = h('input', { type: 'checkbox', dataset: { testid: 'reduce-motion' }, 'aria-label': 'Reduce motion',
+    on: { change: () => setReduceMotion(motionBox.checked) } });
   const sync = () => {
     drawIcon();
+    motionBox.checked = getReduceMotionPref();
     const pref = getThemePref();
     segBtns.forEach((b, i) => b.setAttribute('aria-checked', String(THEMES[i] === pref)));
     const acc = getAccent();
@@ -306,6 +348,7 @@ export function themeControl({ floating = false } = {}) {
   const pop = h('div', { class: 'theme-ctl__pop', role: 'dialog', 'aria-label': 'Appearance', hidden: true, dataset: { testid: 'theme-menu' } },
     h('span', { class: 'theme-ctl__label' }, 'Theme'),
     h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Theme' }, segBtns),
+    h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Reduce motion'), motionBox),
     h('span', { class: 'theme-ctl__label' }, 'Accent colour'),
     h('div', { class: 'theme-swatches', role: 'radiogroup', 'aria-label': 'Accent colour' }, swatches),
     roleNote);
