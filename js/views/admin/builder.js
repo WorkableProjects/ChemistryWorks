@@ -409,7 +409,7 @@ export function renderBuilder(root, ctx) {
         field('Default layout', mode)),
       h('div', { class: 'adm-switches' },
         sw('shuffleQuestions', 'Shuffle questions', null, false),
-        sw('shuffleOptions', 'Shuffle options', 'Multiple choice / select', false),
+        sw('shuffleOptions', 'Shuffle options', 'Multiple choice / select / matching', false),
         sw('showResults', 'Show score to students', 'Off: students only see “Submission received”. Grade in the Grading tab.', true),
         sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations (only when the score is shown)', true),
         sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true),

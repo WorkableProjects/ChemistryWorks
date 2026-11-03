@@ -430,3 +430,21 @@ test('shuffled options (CHEM110) keep grading correct by option id', () => withS
   await waitText(page.locator(tid('score-percentage')), '100.00%');
   await waitText(page.locator(tid('score-points')), '18 / 18');
 }));
+
+test('shuffleOptions shuffles matching rows and columns, stable across reloads (CHEM110)', () => withSession(env, {}, async (s) => {
+  const { page } = s;
+  await startTest(s, 'CHEM110');
+  for (let i = 0; i < 4; i++) await goNext(page);
+  const order = () => activeCard(page).locator('.q-match').evaluate((el) => ({
+    left: [...el.querySelectorAll('tbody tr')].map((tr) => tr.querySelector('input').dataset.testid.split('-')[1]),
+    right: [...el.querySelectorAll('tbody tr:first-child input')].map((i) => i.dataset.testid.split('-')[2]),
+  }));
+  const first = await order();
+  assert.deepEqual([...first.left].sort(), ['ch4', 'co2', 'h2o', 'nh3']);
+  assert.deepEqual([...first.right].sort(), ['bent', 'lin', 'pla', 'pyr', 'tet']);
+  const canonicalLeft = ['ch4', 'nh3', 'h2o', 'co2'];
+  assert.ok(first.left.join() !== canonicalLeft.join() || first.right.join() !== ['tet', 'pyr', 'bent', 'lin', 'pla'].join(), 'matching was not shuffled');
+  await page.reload();
+  await poll(async () => (await activeCard(page).locator('.q-match').count()) > 0);
+  assert.deepEqual(await order(), first);
+}));
