@@ -11,7 +11,7 @@ import {
 import { gradeTest, isAnswered, parseNumber } from '../lib/grading.js';
 import { formulaToHTML } from '../lib/formula.js';
 import { TYPE_LABELS } from '../lib/schema.js';
-import { groupQuestions } from '../lib/sections.js';
+import { groupQuestions, safeImageUrl } from '../lib/sections.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
 import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
@@ -45,9 +45,36 @@ function sectionPillText(title) {
 const letter = (i) => String.fromCharCode(65 + i);
 const pointsLabel = (p) => `${p} ${Number(p) === 1 ? 'pt' : 'pts'}`;
 
+/** Optional picture on a choice / item (option.image = { url, alt }); null when there is none or the url is unsafe. */
+export function optionImageEl(o, className = '') {
+  const url = o && o.image && safeImageUrl(o.image.url);
+  if (!url) return null;
+  return h('img', { class: ['opt-img', className].filter(Boolean).join(' '), src: url, alt: String(o.image.alt || ''), loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', dataset: { testid: 'opt-img' } });
+}
+/**
+ * Pictures of the choices named by `answer` (an option id, a list of ids, or an ordering), for results and exports.
+ * Returns a row element, or null when none of the chosen options has an image.
+ */
+export function choiceImagesEl(q, answer, className = 'opt-imgs') {
+  if (!q || !(q.type === 'mcq' || q.type === 'multi' || q.type === 'ordering')) return null;
+  const list = q.type === 'ordering' ? q.items : q.options;
+  const ids = Array.isArray(answer) ? answer : answer == null ? [] : [answer];
+  const imgs = ids.map((id) => (Array.isArray(list) ? list.find((o) => o && String(o.id) === String(id)) : null))
+    .map((o) => optionImageEl(o, 'opt-img--sm')).filter(Boolean);
+  return imgs.length ? h('span', { class: className }, imgs) : null;
+}
+/** Plain-text name of a choice, for aria-labels: its text, else its image description. */
+const optLabel = (o) => (o && String(o.text || '').trim()) || (o && o.image && o.image.alt) || (o && o.id) || '';
+
 /* ------------------------------------------------------------------ widgets */
 // Every widget returns { el, refresh(answer), focus?(), shortcut?(key) }. Widgets never own state: they call
 // api.set(questionId, value, { debounce }) and the runner calls refresh() with the stored answer.
+
+function choiceBody(o) {
+  const img = optionImageEl(o);
+  if (!img) return richText(o.text, 'span', 'opt__text');
+  return h('span', { class: 'opt__body' }, img, String(o.text).trim() ? richText(o.text, 'span', 'opt__text') : null);
+}
 
 function choiceWidget(q, api, multi) {
   const n = q.options.length;
@@ -71,7 +98,7 @@ function choiceWidget(q, api, multi) {
       },
     },
       h('span', { class: 'opt__badge', 'aria-hidden': 'true' }, letter(idx)),
-      richText(o.text, 'span', 'opt__text'),
+      choiceBody(o),
       h('span', { class: 'opt__check' }, icon('check', { size: 15 })),
     );
     return b;
@@ -245,13 +272,13 @@ function trueFalseWidget(q, api) {
 function matchingWidget(q, api) {
   const inputs = {}; // `${l}|${r}` -> input
   const head = h('tr', {}, h('td', { class: 'q-match__corner' }),
-    q.right.map((r) => h('th', { scope: 'col', class: 'q-match__col' }, richText(r.text))));
+    q.right.map((r) => h('th', { scope: 'col', class: 'q-match__col' }, optionImageEl(r, 'opt-img--sm'), r.text ? richText(r.text) : null)));
   const rows = q.left.map((l) => h('tr', {},
-    h('th', { scope: 'row', class: 'q-match__row' }, richText(l.text)),
+    h('th', { scope: 'row', class: 'q-match__row' }, optionImageEl(l, 'opt-img--sm'), l.text ? richText(l.text) : null),
     q.right.map((r) => {
       const input = h('input', {
         type: 'radio', class: 'q-dot__input', name: `m-${q.id}-${l.id}`, value: r.id,
-        'aria-label': `${l.text} matches ${r.text}`,
+        'aria-label': `${optLabel(l)} matches ${optLabel(r)}`,
         dataset: { testid: `match-${l.id}-${r.id}` },
         on: { change: () => api.set(q.id, { ...(api.get(q.id) || {}), [l.id]: r.id }) },
       });
@@ -297,7 +324,8 @@ function shortWidget(q, api) {
 function orderingWidget(q, api) {
   // q.items is already in this student's shuffled display order (see render()).
   const startOrder = q.items.map((it) => it.id);
-  const textOf = new Map(q.items.map((it) => [it.id, it.text]));
+  const itemOf = new Map(q.items.map((it) => [it.id, it]));
+  const textOf = { get: (id) => optLabel(itemOf.get(id)) };
   const list = h('ol', { class: 'q-order__list', 'aria-labelledby': `qt-${q.id}` });
   const status = h('p', { class: 'sr-only', 'aria-live': 'polite' });
   const current = () => {
@@ -315,13 +343,45 @@ function orderingWidget(q, api) {
       || list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__handle`)?.focus());
   };
   let dragFrom = -1;
+  let firstPaint = true; // only the first render animates; later re-renders (after a move) must not flash
+  // Touch / pen: HTML5 drag and drop never fires on touch screens, so the handle also supports pointer dragging.
+  function touchDrag(e, from, li) {
+    if (e.pointerType === 'mouse' || e.button > 0) return; // mouse uses native drag and drop on the row
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture?.(e.pointerId);
+    let over = from;
+    li.classList.add('is-dragging');
+    const rowAt = (x, y) => document.elementFromPoint(x, y)?.closest?.('.q-order__item');
+    const mark = (row) => {
+      list.querySelectorAll('.is-over').forEach((n) => n.classList.remove('is-over'));
+      if (row && list.contains(row) && row !== li) row.classList.add('is-over');
+    };
+    const onMove = (ev) => {
+      const row = rowAt(ev.clientX, ev.clientY);
+      if (row && list.contains(row)) over = [...list.children].indexOf(row);
+      mark(row);
+    };
+    const end = (ev) => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      li.classList.remove('is-dragging');
+      mark(null);
+      if (ev.type === 'pointerup' && over !== from) move(from, over);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
   const keepBtn = h('button', { type: 'button', class: 'btn btn--subtle btn--sm q-order__keep', dataset: { testid: 'ordering-keep' },
     on: { click: () => api.set(q.id, current()) } }, icon('check', { size: 14 }), 'Use this order');
 
   function refresh(answer) {
     const order = Array.isArray(answer) && answer.length ? current() : startOrder;
     list.replaceChildren(...order.map((id, i) => {
-      const li = h('li', { class: 'q-order__item', draggable: 'true', dataset: { item: id, testid: `ordering-item-${id}` },
+      const it = itemOf.get(id);
+      const li = h('li', { class: ['q-order__item', firstPaint && 'is-new'], draggable: 'true', dataset: { item: id, testid: `ordering-item-${id}` },
         on: {
           dragstart: (e) => { dragFrom = i; li.classList.add('is-dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); },
           dragend: () => li.classList.remove('is-dragging'),
@@ -330,14 +390,15 @@ function orderingWidget(q, api) {
           drop: (e) => { e.preventDefault(); li.classList.remove('is-over'); if (dragFrom >= 0 && dragFrom !== i) move(dragFrom, i); dragFrom = -1; },
         } },
       h('span', { class: 'q-order__pos', 'aria-hidden': 'true' }, String(i + 1)),
-      h('span', { class: 'q-order__handle', tabindex: '-1', 'aria-hidden': 'true' }, icon('grid', { size: 14 })),
-      richText(textOf.get(id), 'span', 'q-order__text'),
+      h('span', { class: 'q-order__handle', tabindex: '-1', 'aria-hidden': 'true', on: { pointerdown: (e) => touchDrag(e, i, li) } }, icon('grid', { size: 16 })),
+      h('span', { class: 'q-order__content' }, optionImageEl(it, 'opt-img--sm'), String(it.text).trim() || !it.image ? richText(it.text, 'span', 'q-order__text') : null),
       h('span', { class: 'q-order__btns' },
         h('button', { type: 'button', class: 'icon-btn q-order__btn q-order__btn--up', disabled: i === 0, 'aria-label': `Move ${textOf.get(id)} up`, dataset: { testid: `ordering-up-${id}` }, on: { click: () => move(i, i - 1) } }, icon('up', { size: 16 })),
         h('button', { type: 'button', class: 'icon-btn q-order__btn q-order__btn--down', disabled: i === order.length - 1, 'aria-label': `Move ${textOf.get(id)} down`, dataset: { testid: `ordering-down-${id}` }, on: { click: () => move(i, i + 1) } }, icon('down', { size: 16 }))));
       return li;
     }));
     renderMath(list);
+    firstPaint = false;
     keepBtn.hidden = Array.isArray(answer) && answer.length > 0;
   }
   refresh(api.get(q.id));

@@ -190,7 +190,11 @@ export function gradeQuestion(question, answer) {
 
 function optionText(list, id) {
   const o = Array.isArray(list) ? list.find((x) => x && String(x.id) === String(id)) : null;
-  return o ? String(o.text) : String(id);
+  if (!o) return String(id);
+  // Image-only choices have no text: fall back to the picture's description so results/exports are never blank.
+  const text = String(o.text ?? '');
+  if (text.trim() === '' && o.image && typeof o.image === 'object') return `[image: ${String(o.image.alt || 'picture')}]`;
+  return text;
 }
 
 export function formatAnswer(question, answer) {
@@ -239,7 +243,7 @@ export function formatAnswer(question, answer) {
           .map((l) => {
             const r = answer[l.id];
             const has = r !== undefined && r !== null && String(r).trim() !== '';
-            return `${l.text} → ${has ? optionText(q.right, r) : DASH}`;
+            return `${optionText(q.left, l.id)} → ${has ? optionText(q.right, r) : DASH}`;
           })
           .join('; ');
       default:

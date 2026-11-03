@@ -106,7 +106,12 @@ export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note =
     if (release !== undefined) body.release = !!release;
     if (gradedBy !== undefined) body.gradedBy = String(gradedBy);
     const d = await post(gasUrl, body, fetchImpl);
-    return d && d.result === 'success' ? { ok: true, grade: d.grade || null } : { ok: false, error: failure(d) };
+    if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
+    // A pre-2.0 backend saves grades but silently drops comments/release/gradedBy: its reply has no `comments`.
+    if (comments !== undefined && !(d.grade && d.grade.comments && typeof d.grade.comments === 'object')) {
+      return { ok: true, grade: d.grade || null, warning: 'Grade saved, but comments were NOT saved: the deployed Apps Script is out of date. Paste the latest apps-script/Code.gs, then Deploy > Manage deployments > Edit > New version > Deploy.' };
+    }
+    return { ok: true, grade: d.grade || null };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

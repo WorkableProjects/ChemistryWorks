@@ -114,9 +114,9 @@ test('first submission creates both sheets with formatted headers', () => {
     'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)',
     'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-    'Comments (JSON)', 'Released At',
+    'Comments (JSON)', 'Released At', 'Graded By',
   ]);
-  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 22));
+  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 23));
   assert.ok(s.formats.some((f) => f.bg === '#E2E8F0'));
 });
 
@@ -347,7 +347,7 @@ test('older 14-column sheets get the new grading headers added', () => {
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)']);
   sheets.set('Submissions', s);
   post(sample());
-  assert.equal(s.rows[0].length, 22);
+  assert.equal(s.rows[0].length, 23);
   assert.equal(s.rows[0][14], 'Status');
   assert.equal(s.rows[0][19], 'Teacher Note');
   assert.equal(s.rows[0][21], 'Released At');

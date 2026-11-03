@@ -54,7 +54,11 @@ function normOptions(list) {
   if (!Array.isArray(list)) return [];
   return list.map((o) => {
     const src = isObj(o) ? o : { id: o, text: o };
-    return { ...src, id: str(src.id).trim(), text: str(src.text) };
+    const out = { ...src, id: str(src.id).trim(), text: str(src.text) };
+    // Optional picture for this choice / item (V2.5): kept only with a url, so existing tests normalize unchanged.
+    if (isObj(src.image) && str(src.image.url).trim()) out.image = { url: str(src.image.url).trim(), alt: str(src.image.alt) };
+    else delete out.image;
+    return out;
   });
 }
 
@@ -221,7 +225,12 @@ function validateList(list, label, where, errors) {
     if (!nonEmptyStr(o.id) || !ID_RE.test(o.id)) errors.push(`${where}: ${label} ${n} has an invalid id (use letters, digits, "_" or "-").`);
     else if (ids.has(o.id)) errors.push(`${where}: duplicate ${label} id "${o.id}".`);
     else ids.add(o.id);
-    if (!nonEmptyStr(o.text)) errors.push(`${where}: ${label} ${n} has empty text.`);
+    const hasImage = isObj(o.image);
+    if (hasImage) {
+      if (!safeImageUrl(o.image.url)) errors.push(`${where}: ${label} ${n} image url must start with https:// or be a path on this site.`);
+      if (!nonEmptyStr(o.image.alt)) errors.push(`${where}: ${label} ${n} image needs alt text describing the image.`);
+    }
+    if (!nonEmptyStr(o.text) && !(hasImage && safeImageUrl(o.image.url))) errors.push(`${where}: ${label} ${n} has empty text.`);
   });
   return ids;
 }

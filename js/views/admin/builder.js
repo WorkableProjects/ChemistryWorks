@@ -412,7 +412,8 @@ export function renderBuilder(root, ctx) {
         sw('shuffleOptions', 'Shuffle options', 'Multiple choice / select', false),
         sw('showResults', 'Show score to students', 'Off: students only see “Submission received”. Grade in the Grading tab.', true),
         sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations (only when the score is shown)', true),
-        sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true)),
+        sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true),
+        sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false)),
     );
   }
 
@@ -874,6 +875,36 @@ function typeEditor(q, redraw, changed, uid) {
   }
 }
 
+/**
+ * Optional picture for one choice / item: a small "Add image" toggle revealing URL + alt text inputs.
+ * Writes o.image = { url, alt } (removed again when the URL is cleared). `tag` names the test ids, e.g. "option-0".
+ */
+function optionImageControl(o, changed, tag) {
+  const url = h('input', { class: 'input', value: o.image?.url || '', placeholder: 'https://… or images/pic.png', 'aria-label': `${tag} image URL`, autocomplete: 'off', spellcheck: 'false', dataset: { testid: `${tag}-image-url` } });
+  const alt = h('input', { class: 'input', value: o.image?.alt || '', placeholder: 'Describe the image for screen readers', 'aria-label': `${tag} image description`, dataset: { testid: `${tag}-image-alt` } });
+  const prev = h('div', { class: 'adm-optimg__prev' });
+  const sync = () => {
+    const u = url.value.trim();
+    if (u) o.image = { url: u, alt: alt.value }; else delete o.image;
+    const safe = safeImageUrl(u);
+    mount(prev, safe ? h('img', { src: safe, alt: alt.value, class: 'adm-optimg__img', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null);
+    changed();
+  };
+  url.addEventListener('input', sync);
+  alt.addEventListener('input', sync);
+  const body = h('div', { class: 'adm-optimg__body' }, url, alt, prev);
+  const toggle = h('button', { type: 'button', class: 'btn btn--ghost btn--sm adm-optimg__toggle', 'aria-expanded': 'false', dataset: { testid: `${tag}-image-toggle` } });
+  const setOpen = (open) => {
+    body.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    mount(toggle, icon('plus', { size: 14 }), o.image?.url ? 'Image' : 'Add image');
+  };
+  toggle.addEventListener('click', () => setOpen(body.hidden));
+  setOpen(!!o.image?.url);
+  if (o.image?.url) { const safe = safeImageUrl(o.image.url); if (safe) mount(prev, h('img', { src: safe, alt: o.image.alt || '', class: 'adm-optimg__img', loading: 'lazy', referrerpolicy: 'no-referrer' })); }
+  return h('div', { class: 'adm-optimg' }, toggle, body);
+}
+
 function choiceEditor(q, redraw, changed, uid) {
   const multi = q.type === 'multi';
   q.options = Array.isArray(q.options) ? q.options : [];
@@ -900,7 +931,7 @@ function choiceEditor(q, redraw, changed, uid) {
       redraw();
       changed();
     }, { testid: `option-remove-${i}` });
-    return h('div', { class: 'adm-opt' }, mark, txt, rm);
+    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt' }, mark, txt, rm), optionImageControl(o, changed, `option-${i}`));
   });
   return h('div', { class: 'stack' },
     h('div', { class: 'field__label' }, multi ? 'Options (tick every correct one)' : 'Options (select the correct one)'),
@@ -1031,7 +1062,7 @@ function matchingEditor(q, redraw, changed) {
     selects.push({ sel, id: l.id });
     fillSelect(sel, l.id);
     const rm = iconButton('x', 'Remove left item', () => { q.left.splice(i, 1); delete q.correctAnswer[l.id]; redraw(); changed(); }, { testid: `match-left-remove-${i}` });
-    return h('div', { class: 'adm-match-row' }, txt, h('span', { class: 'adm-match-arrow', 'aria-hidden': 'true' }, icon('right', { size: 16 })), sel, rm);
+    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-match-row' }, txt, h('span', { class: 'adm-match-arrow', 'aria-hidden': 'true' }, icon('right', { size: 16 })), sel, rm), optionImageControl(l, changed, `match-left-${i}`));
   });
   const rightRows = q.right.map((r, i) => {
     const txt = h('input', { class: 'input', value: r.text || '', placeholder: `Right item ${i + 1}`, 'aria-label': `Right item ${i + 1}`, dataset: { testid: `match-right-${i}` },
@@ -1042,7 +1073,7 @@ function matchingEditor(q, redraw, changed) {
       redraw();
       changed();
     }, { testid: `match-right-remove-${i}` });
-    return h('div', { class: 'adm-opt adm-opt--plain' }, txt, rm);
+    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt adm-opt--plain' }, txt, rm), optionImageControl(r, changed, `match-right-${i}`));
   });
   return h('div', { class: 'stack' },
     h('div', { class: 'field__label' }, 'Left items and their correct match'),
@@ -1099,11 +1130,12 @@ function orderingEditor(q, redraw, changed) {
     const txt = h('input', { class: 'input', value: it.text || '', placeholder: `Item ${i + 1}`, 'aria-label': `Item ${i + 1} (correct position ${i + 1})`, dataset: { testid: `order-item-${i}` },
       on: { input: () => { it.text = txt.value; changed(); } } });
     const mv = (d) => { const j = i + d; if (j < 0 || j >= q.items.length) return; [q.items[i], q.items[j]] = [q.items[j], q.items[i]]; sync(); redraw(); changed(); };
-    return h('div', { class: 'adm-opt adm-opt--plain' },
+    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt adm-opt--order' },
       h('span', { class: 'adm-blank__num' }, String(i + 1)), txt,
       iconButton('up', 'Move up', () => mv(-1), { testid: `order-up-${i}` }),
       iconButton('down', 'Move down', () => mv(1), { testid: `order-down-${i}` }),
-      iconButton('x', 'Remove item', () => { q.items.splice(i, 1); sync(); redraw(); changed(); }, { testid: `order-remove-${i}` }));
+      iconButton('x', 'Remove item', () => { q.items.splice(i, 1); sync(); redraw(); changed(); }, { testid: `order-remove-${i}` })),
+    optionImageControl(it, changed, `order-item-${i}`));
   });
   const top = h('input', { class: 'input', value: q.topLabel || '', placeholder: 'e.g. Lowest', dataset: { testid: 'order-top-label' }, on: { input: () => { q.topLabel = top.value; changed(); } } });
   const bottom = h('input', { class: 'input', value: q.bottomLabel || '', placeholder: 'e.g. Highest', dataset: { testid: 'order-bottom-label' }, on: { input: () => { q.bottomLabel = bottom.value; changed(); } } });

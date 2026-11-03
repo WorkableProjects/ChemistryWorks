@@ -106,3 +106,13 @@ test('fetchFeedback: errors and network failure never throw', async () => {
   assert.equal((await fetchFeedback({ gasUrl: '' })).ok, false);
   assert.equal((await fetchFeedback()).ok, false);
 });
+
+test('saveGrade: warns when an outdated backend drops comments', async () => {
+  const old = fakeFetch(okJson({ result: 'success', grade: { final_score: 3 } }));
+  const r = await saveGrade({ gasUrl: GAS, adminKey: 'k', submissionId: 's1', grades: {}, comments: { q1: 'Nice' }, fetchImpl: old });
+  assert.equal(r.ok, true);
+  assert.match(r.warning, /comments were NOT saved/);
+  const cur = fakeFetch(okJson({ result: 'success', grade: { final_score: 3, comments: { q1: 'Nice' } } }));
+  const r2 = await saveGrade({ gasUrl: GAS, adminKey: 'k', submissionId: 's1', grades: {}, comments: { q1: 'Nice' }, fetchImpl: cur });
+  assert.equal(r2.warning, undefined);
+});
