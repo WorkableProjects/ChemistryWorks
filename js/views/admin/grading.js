@@ -354,10 +354,9 @@ export function renderGrading(root, ctx, { goSettings }) {
 
     const exportBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'export-pdf' }, on: { click: async () => {
       if (isDirty()) { toast('Save the grade first', { type: 'warning' }); return; }
-      if (!row.released_at) toast('Comments are left out until you release the grade.', { type: 'info' });
       try {
         const { printSubmission } = await import('./export-view.js');
-        printSubmission({ row, test, includeComments: !!row.released_at });
+        printSubmission({ row, test, includeComments: true });
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 

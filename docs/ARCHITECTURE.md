@@ -319,7 +319,7 @@ Scores stay numeric in `Grades (JSON)` `{ questionId: points }` — any number 0
 
 ### Export (V2-08)
 
-`js/lib/export.js` (pure): `exportFilename(row)` and `buildExportModel({ row, test, includeComments })`; `js/views/admin/export-view.js`: `printSubmission({ row, test, includeComments })` renders the document into `#print-root` and calls `window.print()` (`css/print.css`). Comments are included only when the grade has been released (the same rule students see).
+`js/lib/export.js` (pure): `exportFilename(row)` and `buildExportModel({ row, test, includeComments })`; `js/views/admin/export-view.js`: `printSubmission({ row, test, includeComments })` renders the document into `#print-root` and calls `window.print()` (`css/print.css`). Teacher comments are always included (release only controls what students see). Printing uses `@page { margin: 0 }` so browsers add no date/title/URL header or footer; repeating `thead`/`tfoot` spacers in `.print-frame` supply each page's top/bottom margin.
 
 ### CSS files (v2)
 

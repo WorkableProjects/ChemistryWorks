@@ -64,12 +64,12 @@ test('exports a released submission with diagrams and comments', () => withSessi
   assert.equal(await page.locator('#print-root').isVisible(), true);
 }));
 
-test('unreleased submission leaves comments out', () => withSession(env, {}, async (s) => {
+test('unreleased submission still includes teacher comments', () => withSession(env, {}, async (s) => {
   const { page } = s;
   await openGrader(s, row({ released_at: '' }));
   await exportNow(page);
   const text = await page.locator('#print-root [data-testid="export-doc"]').textContent();
   assert.match(text, /Ada Lovelace/);
-  assert.doesNotMatch(text, /Hund rule/);
-  assert.equal(await page.locator('#print-root .export-comment').count(), 0);
+  assert.match(text, /Nice work on Hund rule/);
+  assert.equal(await page.locator('#print-root .export-comment').count(), 1);
 }));

@@ -24,11 +24,18 @@
 .export-diagram { margin: 4px 0; }
 
 @media print {
-  @page { margin: 16mm; }
+  /* Zero page margin removes the browser's header/footer (date, page title, URL, page numbers). */
+  @page { margin: 0; }
+  html, body.is-printing { margin: 0 !important; padding: 0 !important; }
 
   body.is-printing > *:not(#print-root) { display: none !important; }
   body.is-printing { background: #fff !important; }
   body.is-printing #print-root { display: block; }
+  .print-frame { width: 100%; border-collapse: collapse; }
+  .print-frame td { padding: 0 16mm; vertical-align: top; }
+  .print-frame thead { display: table-header-group; }
+  .print-frame tfoot { display: table-footer-group; }
+  .print-frame__space { height: 16mm; }
 
   #print-root, #print-root .export-doc {
     color: #000; background: #fff; font-size: 11pt;

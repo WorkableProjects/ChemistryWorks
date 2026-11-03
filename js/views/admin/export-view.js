@@ -70,7 +70,12 @@ export function printSubmission({ row, test, includeComments }) {
     root = h('div', { id: 'print-root' });
     document.body.appendChild(root);
   }
-  root.replaceChildren(exportDocument(model));
+  // @page margin is 0 so the browser has no room for its date/title/URL header and footer; the repeating
+  // thead/tfoot spacers give every printed page its top and bottom margin instead.
+  root.replaceChildren(h('table', { class: 'print-frame', role: 'presentation' },
+    h('thead', {}, h('tr', {}, h('td', {}, h('div', { class: 'print-frame__space' })))),
+    h('tfoot', {}, h('tr', {}, h('td', {}, h('div', { class: 'print-frame__space' })))),
+    h('tbody', {}, h('tr', {}, h('td', {}, exportDocument(model))))));
   renderMath(root);
 
   const oldTitle = document.title;
