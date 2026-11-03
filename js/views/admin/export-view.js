@@ -6,6 +6,7 @@ import { commentBody } from '../comment-view.js';
 import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
+import { withQuestionImage } from '../question-image.js';
 import { formulaToHTML } from '../../lib/formula.js';
 import { canonicalDots } from '../../lib/lewis.js';
 import { acceptedStructures } from '../../lib/structure.js';
@@ -72,7 +73,7 @@ function itemEl(item) {
     h('div', { class: 'export-item__head' },
       h('span', { class: 'export-item__num' }, `Q${item.number}`),
       h('span', { class: 'export-item__pts' }, pts)),
-    richText(item.prompt, 'div', 'export-prompt'),
+    withQuestionImage(item.question, richText(item.prompt, 'div', 'export-prompt')),
     answer,
     showCorrect ? block(correctLabel(item), cDiagram, item.correctAnswerText, item.type, 'export-correct') : null,
     item.comment ? h('div', { class: 'export-comment' }, h('span', { class: 'export-label' }, 'Teacher comment'), commentBody(item.comment)) : null);

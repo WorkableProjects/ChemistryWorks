@@ -146,6 +146,7 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 | `points` | no | Number > 0. Default `1`. |
 | `explanation` | no | Shown in the student review after submitting (if `showCorrectAnswers` is on). Strongly recommended. |
 | `section` | no | Id of a section in the test's `sections`. Omit for an unsectioned question. |
+| `image` | no | Image shown alongside the question: `{ "url": "https://…" or "images/x.png", "alt": "what it shows", "position": "right" \| "left" \| "below" }`. `alt` is required; `position` defaults to `right`. Phones stack it under the text. Also appears in the review, grading and PDF export. |
 
 ---
 

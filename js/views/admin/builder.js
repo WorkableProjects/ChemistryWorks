@@ -17,6 +17,7 @@ import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextRefer
 import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../lib/orbital.js';
 import { ELEMENTS } from '../../lib/elements.js';
 import { orbitalWidget } from '../orbital-view.js';
+import { withQuestionImage } from '../question-image.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
 import { publishTest } from '../../lib/api.js';
@@ -734,7 +735,7 @@ export function renderBuilder(root, ctx) {
     const richPrev = h('div', { class: 'adm-richprev', 'aria-label': 'Question preview' });
     const drawPreview = () => {
       richPrev.classList.toggle('is-empty', !q.text);
-      mount(richPrev, q.text ? richText(q.text, 'div') : h('span', { class: 'faint' }, 'Preview appears here'));
+      mount(richPrev, withQuestionImage(q, q.text ? richText(q.text, 'div') : h('span', { class: 'faint' }, 'Preview appears here')));
       renderMath(richPrev);
     };
     const drawPreviewSoon = debounce(drawPreview, 200);
@@ -744,12 +745,30 @@ export function renderBuilder(root, ctx) {
     expl.value = q.explanation || '';
     expl.addEventListener('input', () => { q.explanation = expl.value; changed(); });
 
+    // Optional image shown alongside the question text.
+    const imgUrl = h('input', { class: 'input', value: q.image?.url || '', placeholder: 'https://… or images/diagram.png', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'q-image-url' } });
+    const imgAlt = h('input', { class: 'input', type: 'text', value: q.image?.alt || '', placeholder: 'Describe the image for screen readers', dataset: { testid: 'q-image-alt' } });
+    const imgPos = h('select', { class: 'select', dataset: { testid: 'q-image-position' } },
+      h('option', { value: 'right' }, 'Right of the text'), h('option', { value: 'left' }, 'Left of the text'), h('option', { value: 'below' }, 'Below the text'));
+    imgPos.value = q.image?.position || 'right';
+    const syncImage = () => {
+      const url = imgUrl.value.trim();
+      if (url) q.image = { url, alt: imgAlt.value, position: imgPos.value };
+      else delete q.image;
+      drawPreviewSoon();
+      changed();
+    };
+    for (const el of [imgUrl, imgAlt]) el.addEventListener('input', syncImage);
+    imgPos.addEventListener('change', syncImage);
+
     const typeSection = h('div', { class: 'adm-typesec' });
     const drawType = () => { mount(typeSection, typeEditor(q, drawType, changed, uid)); renderMath(typeSection); };
 
     const inner = h('div', { class: 'adm-q__inner' },
       h('div', { class: 'adm-grid adm-grid--idsec' }, field('ID', idInput), field('Points', pts), field('Section', secSel)),
-      field('Question text', text), richPrev,
+      field('Question text', text),
+      h('div', { class: 'adm-grid adm-grid--idsec' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos)),
+      richPrev,
       typeSection,
       field('Explanation', expl));
     const collapse = h('div', { class: 'adm-q__collapse' }, inner);

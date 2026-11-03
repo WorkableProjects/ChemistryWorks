@@ -9,6 +9,7 @@ import { loadTest } from '../../lib/tests.js';
 import { groupQuestions } from '../../lib/sections.js';
 import { cleanComments, MAX_COMMENT_CHARS } from '../../lib/comments.js';
 import { commentBody } from '../comment-view.js';
+import { withQuestionImage } from '../question-image.js';
 import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
@@ -255,7 +256,7 @@ export function renderGrading(root, ctx, { goSettings }) {
           h('strong', {}, `Q${i + 1}`),
           h('span', { class: 'faint' }, TYPE_LABELS[res.type] || res.type || ''),
           h('span', { class: ['pill', tone] }, label)),
-        richText(res.questionText, 'div', 'adm-resp__q'),
+        withQuestionImage(qById.get(res.questionId), richText(res.questionText, 'div', 'adm-resp__q')),
         h('dl', { class: 'adm-resp__ans' },
           h('dt', {}, 'Student'), h('dd', {}, answerCell),
           (res.correctAnswerText && res.correctAnswerText !== '—' && !(rubric && /^Rubric:/.test(res.correctAnswerText))) ? [h('dt', {}, manual ? 'Sample' : 'Correct'), h('dd', { class: manual ? 'adm-pre' : '' }, rubric ? res.correctAnswerText.replace(/\n*Rubric:[\s\S]*$/, '') : res.correctAnswerText)] : null),

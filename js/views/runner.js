@@ -3,6 +3,7 @@
 //
 // render(root, ctx, { test, source, preview }) -> cleanup()
 
+import { withQuestionImage } from './question-image.js';
 import {
   h, mount, icon, richText, renderMath, toast, openModal,
   formatDuration, formatDurationLong, appHeader, userBadge, seededShuffle, prefersReducedMotion,
@@ -597,7 +598,7 @@ export function render(root, ctx, params = {}) {
         sectionOfQ(q) ? h('span', { class: 'pill q-section-pill', title: sectionOfQ(q).section.title, dataset: { testid: 'section-pill' } }, sectionPillText(sectionOfQ(q).section.title)) : null,
         h('span', { class: 'spacer' }),
         flagBtn),
-      widget.textEl || richText(q.text, 'div', 'q-text'),
+      withQuestionImage(q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
       clearSlot,
     );

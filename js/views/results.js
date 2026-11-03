@@ -2,6 +2,7 @@
 //
 // render(root, ctx, { test, grade, payload, submission, preview }) -> cleanup()
 
+import { questionImageEl } from './question-image.js';
 import {
   h, mount, icon, richText, renderMath, toast, formatDurationLong, appHeader, userBadge, prefersReducedMotion,
 } from '../ui.js';
@@ -146,6 +147,7 @@ function reviewItem(r, i, test, stagger) {
     toggle,
     h('div', { class: 'results-item__body', id: bodyId },
       h('div', { class: 'results-item__inner' },
+        questionImageEl(q),
         h('div', { class: 'results-answer' }, h('span', { class: 'results-answer__label' }, 'Your answer'), given),
         showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, correctLabel), correct) : null,
         r.needsGrading ? h('p', { class: 'muted' }, 'Your teacher will grade this answer.') : null,

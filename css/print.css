@@ -76,3 +76,10 @@
   .export-doc .katex-display > .katex { white-space: normal; }
   .print-frame tr, .print-frame td { break-inside: auto; page-break-inside: auto; }
 }
+.export-doc .q-media { display: flex; gap: 12px; align-items: flex-start; }
+.export-doc .q-media > :first-child { flex: 1 1 0; min-width: 0; }
+.export-doc .q-media--left { flex-direction: row-reverse; }
+.export-doc .q-media--below { flex-direction: column; }
+.export-doc .q-image { margin: 0; flex: 0 1 35%; max-width: 35%; }
+.export-doc .q-media--below .q-image { max-width: 60%; }
+.export-doc .q-image img { display: block; max-width: 100%; max-height: 220px; height: auto; }
