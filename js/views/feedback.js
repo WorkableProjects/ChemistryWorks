@@ -74,7 +74,7 @@ function reviewView(fb, test, { onDownload } = {}) {
       fb.released_at ? h('span', { class: 'muted' }, `Released ${fmtWhen(fb.released_at)}`) : null,
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'feedback-download-pdf' },
         on: { click: () => onDownload?.(row, t) } }, icon('download', { size: 16 }), 'Download PDF')),
-    h('section', { class: 'card feedback-doc', dataset: { testid: 'feedback-score' } }, exportDocument(model)));
+    h('section', { class: 'card feedback-doc', 'aria-label': 'Your reviewed test' }, exportDocument(model)));
 }
 
 function otherAttempts(others) {

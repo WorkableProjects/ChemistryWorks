@@ -1,7 +1,7 @@
 // Lightning Round board: 60 seconds in total, answer as many as you can. Skipping costs 2 seconds.
 
 import { h, renderMath, seededShuffle } from '../../ui.js';
-import { gradeQuestion, formatAnswer } from '../../lib/grading.js';
+import { gradeQuestion, correctAnswerText } from '../../lib/grading.js';
 import { TOTAL_SECONDS, SKIP_PENALTY_SECONDS, LIGHTNING_TYPES, lightningPoints, secondsLeft } from '../../lib/games/lightning.js';
 import { makeRng, questionsOfTypes, shuffle } from '../../lib/games/common.js';
 import { questionBoard, numberKeys, shuffleOptions } from './question-ui.js';
@@ -78,7 +78,7 @@ export function play(shell) {
       board.lock(a);
       shell.flash(ok);
       shell.sound(ok ? 'correct' : 'wrong');
-      const msg = ok ? 'Correct' : `Not quite. Answer: ${formatAnswer(q, q.correctAnswer)}`;
+      const msg = ok ? 'Correct' : `Not quite. Answer: ${correctAnswerText(q)}`;
       flashMsg.textContent = ok ? '' : msg;
       shell.announce(`${msg}. Score ${g.score}.`);
       shell.later(nextQuestion, shell.reduced() ? 250 : (ok ? ADVANCE_MS : ADVANCE_MS * 2));

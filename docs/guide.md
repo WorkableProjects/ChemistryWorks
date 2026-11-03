@@ -19,7 +19,7 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 1. Output strict JSON: double-quoted keys and strings, no `//` comments, no trailing commas.
 2. `code`: 2–32 characters, uppercase letters, digits, `-` or `_` (e.g. `CHEM-U3-QUIZ`). Must be unique among the teacher's tests.
 3. Every question needs a unique `id` (letters, digits, `-`, `_`). Use `q1`, `q2`, `q3`, …
-4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`, `balance`, `econfig`, `ptable`, `sigfigs`.
+4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`, `balance`, `econfig`, `ptable`, `sigfigs`, `categorize`, `hotspot`, `graph`.
 5. `points` must be a number greater than 0.
 6. Option ids (`mcq`, `multi`), item ids (`matching`, `ordering`), blank ids (`fillblank`) and atom ids (`structure`) must be unique **within that question**. Use `a`, `b`, `c`, `d` for options.
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
@@ -135,6 +135,9 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 | write an electron configuration (`1s2 2s2 2p6` or `[Ne] 3s1`) | `econfig` |
 | click one or more elements on the periodic table | `ptable` |
 | give a number with the right number of significant figures | `sigfigs` |
+| sort items into labeled groups (ionic / covalent / metallic) | `categorize` |
+| place labels on a picture (lab equipment, a diagram) | `hotspot` |
+| read a value off a chart, or plot points on a grid (heating curve, titration) | `graph` |
 | write a sentence or two (teacher graded) | `short` |
 | write an extended explanation graded with a rubric (teacher graded) | `open` |
 
@@ -638,6 +641,100 @@ Students type a number (scientific notation such as `4.50e-3` or `4.50 × 10^-3`
 - `partialCredit` (default `true`): half the points for the right value, half for the right number of significant figures.
 - Counting rules: leading zeros never count; zeros after a decimal point count (`0.00450` has 3); trailing zeros of a whole number with no decimal point are **not** significant (`1500` has 2, `1500.` has 4). Use scientific notation to be exact: `1.50e3` has 3.
 - The student's raw text is kept as the answer.
+
+### 18. `categorize`: sort into groups
+
+Students put every item into one of the groups. Each item card has a menu (so it works with keyboard, touch and screen readers); mouse users can also drag a card onto a group.
+
+```json
+{
+  "id": "cat1",
+  "type": "categorize",
+  "text": "Sort each substance by the type of bonding it has.",
+  "points": 3,
+  "categories": [
+    { "id": "ionic", "label": "Ionic" },
+    { "id": "covalent", "label": "Covalent" },
+    { "id": "metallic", "label": "Metallic" }
+  ],
+  "items": [
+    { "id": "i1", "text": "NaCl", "category": "ionic" },
+    { "id": "i2", "text": "H2O", "category": "covalent" },
+    { "id": "i3", "text": "Cu", "category": "metallic" }
+  ],
+  "partialCredit": true
+}
+```
+
+- At least 2 `categories` and 1 `items`; each item's `category` must be one of the category ids. Ids must be unique within the question.
+- All items correct = full points. `partialCredit` (default `true`) gives the fraction of items in the right group.
+- With the test option `shuffleOptions` the item order is shuffled per student.
+
+### 19. `hotspot`: label the diagram
+
+The student selects a label, then clicks or taps where it belongs on the picture. Keyboard: select a label, use the arrow keys to move a crosshair (Shift = bigger steps) and press Enter to place it.
+
+```json
+{
+  "id": "hot1",
+  "type": "hotspot",
+  "text": "Place each label on the lab equipment.",
+  "points": 3,
+  "image": { "url": "data/tests/lab-bench.svg", "alt": "A lab bench with a beaker, a flask and a burner" },
+  "labels": [
+    { "id": "a", "text": "Beaker", "x": 0.25, "y": 0.58 },
+    { "id": "b", "text": "Flask", "x": 0.6, "y": 0.63 }
+  ],
+  "radius": 0.1,
+  "partialCredit": true
+}
+```
+
+- `image` (required) is the diagram; it must have `alt` text. In the builder this is the question's **Image** field.
+- `x` and `y` are fractions of the picture (0 to 1; `x` of the width, `y` of the height). `radius` (default `0.06`) is how far from the target a label may be, as a fraction of the image width; on a non-square picture the accepted area is slightly oval.
+- A label is correct when it is within `radius` of its target. `partialCredit` (default `true`) gives the fraction of labels placed correctly.
+- Builder: select a label in the list, then click the preview picture to set its spot, or type `x` / `y`.
+
+### 20. `graph`: read or plot a graph
+
+`mode: "read"` draws a chart (inline SVG) and the student types a number. `mode: "plot"` shows an empty grid; the student clicks to add points and clicks a point to remove it. Keyboard: arrow keys move a crosshair, Enter adds or removes a point.
+
+```json
+{
+  "id": "gr1",
+  "type": "graph",
+  "mode": "read",
+  "text": "What is the temperature after 4 minutes?",
+  "points": 2,
+  "chart": {
+    "xLabel": "Time (min)", "yLabel": "Temperature (°C)",
+    "xMin": 0, "xMax": 10, "yMin": 0, "yMax": 100,
+    "series": [{ "points": [[0, 20], [2, 40], [4, 60], [6, 80], [8, 100]] }]
+  },
+  "answer": 60,
+  "tolerance": 3,
+  "unit": "°C"
+}
+```
+
+```json
+{
+  "id": "gr2",
+  "type": "graph",
+  "mode": "plot",
+  "text": "Plot the points (1, 20), (3, 50) and (5, 80).",
+  "points": 3,
+  "chart": { "xLabel": "Time (min)", "yLabel": "Temperature (°C)", "xMin": 0, "xMax": 6, "yMin": 0, "yMax": 100, "series": [] },
+  "targets": [[1, 20], [3, 50], [5, 80]],
+  "toleranceX": 0.3,
+  "toleranceY": 5,
+  "partialCredit": true
+}
+```
+
+- `chart` needs `xMin < xMax` and `yMin < yMax`. In `read` mode at least one series with points is required; in `plot` mode `series` is not shown to students (use `[]`).
+- `read`: `answer` and `tolerance` (absolute, default `0`) are graded like `numeric`; `unit` is optional.
+- `plot`: correct when every target has a placed point within the `toleranceX` / `toleranceY` box and the student placed no more points than there are targets. `partialCredit` gives the fraction of targets hit.
 
 ---
 

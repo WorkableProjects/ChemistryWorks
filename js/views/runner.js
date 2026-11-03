@@ -22,6 +22,9 @@ import { balanceWidget } from './widgets/balance.js';
 import { econfigWidget } from './widgets/econfig.js';
 import { ptableWidget } from './widgets/ptable.js';
 import { sigfigsWidget } from './widgets/sigfigs.js';
+import { categorizeWidget } from './widgets/categorize.js';
+import { hotspotWidget } from './widgets/hotspot.js';
+import { graphWidget } from './widgets/graph.js';
 import { referencePane } from './reference-pane.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
@@ -516,6 +519,9 @@ function buildWidget(q, api) {
     case 'econfig': return econfigWidget(q, api);
     case 'ptable': return ptableWidget(q, api);
     case 'sigfigs': return sigfigsWidget(q, api);
+    case 'categorize': return categorizeWidget(q, api);
+    case 'hotspot': return hotspotWidget(q, api);
+    case 'graph': return graphWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }
@@ -541,6 +547,7 @@ export function render(root, ctx, params = {}) {
     if (q.type === 'matching') {
       return { ...q, left: seededShuffle(q.left, `${seed}${q.id}left`), right: seededShuffle(q.right, `${seed}${q.id}right`) };
     }
+    if (q.type === 'categorize') return { ...q, items: seededShuffle(q.items, `${seed}${q.id}items`) };
     return q;
   });
   // Ordering items always start scrambled (never already in the correct order).
@@ -675,7 +682,8 @@ export function render(root, ctx, params = {}) {
         sectionOfQ(q) ? h('span', { class: 'pill q-section-pill', title: sectionOfQ(q).section.title, dataset: { testid: 'section-pill' } }, sectionPillText(sectionOfQ(q).section.title)) : null,
         h('span', { class: 'spacer' }),
         flagBtn),
-      withQuestionImage(q, widget.textEl || richText(q.text, 'div', 'q-text')),
+      // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
+      withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
       clearSlot,
     );

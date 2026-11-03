@@ -5,13 +5,26 @@
 
 import { h, richText } from '../../ui.js';
 import { withQuestionImage } from '../question-image.js';
+import { isAnswered } from '../../lib/grading.js';
+import { balanceWidget } from '../widgets/balance.js';
+import { econfigWidget } from '../widgets/econfig.js';
+import { ptableWidget } from '../widgets/ptable.js';
+import { sigfigsWidget } from '../widgets/sigfigs.js';
+import { categorizeWidget } from '../widgets/categorize.js';
+import { hotspotWidget } from '../widgets/hotspot.js';
+import { graphWidget } from '../widgets/graph.js';
+
+// V3-05 types played with the same widgets as the test runner (plus a Submit button).
+const WIDGETS = { balance: balanceWidget, econfig: econfigWidget, ptable: ptableWidget, sigfigs: sigfigsWidget, categorize: categorizeWidget, hotspot: hotspotWidget, graph: graphWidget };
+export const isWidgetType = (type) => Object.prototype.hasOwnProperty.call(WIDGETS, type);
 
 const SHAPES = ['▲', '◆', '●', '■'];
 
 export function questionBoard(q, { onAnswer }) {
   const hidden = new Set();
   const heading = h('div', { class: 'game-q', tabindex: '-1', dataset: { testid: 'game-question', questionId: q.id } },
-    withQuestionImage(q, richText(q.text, 'p', 'game-q__text')));
+    withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, richText(q.text, 'p', 'game-q__text')));
+  heading.id = `qt-${q.id}`; // the widgets label themselves with this
   const answerArea = h('div', { class: 'game-answers' });
   const submitRow = h('div', { class: 'game-submit' });
   const picked = new Set();
@@ -22,6 +35,7 @@ export function questionBoard(q, { onAnswer }) {
   richText(label, 'span', 'game-tile__text'));
 
   let activate = () => {};
+  let widgetEl = null;
   let focusFirst = () => {};
   if (q.type === 'mcq' || q.type === 'truefalse') {
     const opts = q.type === 'mcq' ? q.options.map((o) => ({ id: String(o.id), text: o.text })) : [{ id: 'true', text: 'True' }, { id: 'false', text: 'False' }];
@@ -48,6 +62,20 @@ export function questionBoard(q, { onAnswer }) {
     answerArea.classList.add('game-answers--grid');
     activate = (n) => { const o = q.options[n]; if (o) answerArea.querySelector(`[data-opt="${CSS.escape(String(o.id))}"]`)?.click(); };
     focusFirst = () => answerArea.querySelector('button')?.focus();
+  } else if (isWidgetType(q.type)) {
+    let value;
+    const submit = h('button', { class: 'btn btn--primary btn--lg', type: 'button', disabled: true, dataset: { testid: 'game-submit' }, on: { click: () => { if (isAnswered(q, value)) onAnswer(value); } } }, 'Submit answer');
+    const api = { get: () => value, set: (_id, v) => { value = v; widget.refresh(v); submit.disabled = !isAnswered(q, v); } };
+    const widget = WIDGETS[q.type](q, api);
+    widget.refresh(undefined);
+    answerArea.append(widget.el);
+    answerArea.classList.add('game-answers--widget');
+    submitRow.append(submit);
+    answerArea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target instanceof HTMLInputElement && !submit.disabled) { e.preventDefault(); submit.click(); }
+    });
+    focusFirst = () => (widget.focus ? widget.focus() : answerArea.querySelector('button, input, select')?.focus());
+    widgetEl = widget.el;
   } else {
     const numeric = q.type === 'numeric';
     const input = h('input', {
@@ -62,7 +90,8 @@ export function questionBoard(q, { onAnswer }) {
 
   /** Disable inputs and colour the tiles: correct / wrong pick / dimmed. */
   function lock(answer) {
-    answerArea.querySelectorAll('button, input').forEach((el) => { el.disabled = true; });
+    answerArea.querySelectorAll('button, input, select').forEach((el) => { el.disabled = true; });
+    if (widgetEl) widgetEl.inert = true;
     submitRow.replaceChildren();
     const chosen = new Set(Array.isArray(answer) ? answer.map(String) : answer == null ? [] : [String(answer)]);
     const key = Array.isArray(q.correctAnswer) ? q.correctAnswer.map(String) : [String(q.correctAnswer)];
@@ -95,5 +124,6 @@ export function numberKeys(board, isLocked) {
 
 /** Options with a stable shuffle for mcq / multi. */
 export function shuffleOptions(q, shuffleFn, seed) {
+  if (q.type === 'categorize') return { ...q, items: shuffleFn(q.items, `${seed}${q.id}items`) };
   return q.type === 'mcq' || q.type === 'multi' ? { ...q, options: shuffleFn(q.options, seed + q.id) } : q;
 }

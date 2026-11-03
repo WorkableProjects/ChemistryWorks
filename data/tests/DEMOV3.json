@@ -1,7 +1,7 @@
 {
   "code": "DEMOV3",
   "title": "V3 Question Types Demo",
-  "description": "One question of each new V3 type: balancing, electron configuration, periodic-table pick and significant figures.",
+  "description": "One question of each V3 type: balancing, electron configuration, periodic-table pick, significant figures, sorting into groups, labelling a diagram, and reading and plotting a graph.",
   "timeLimitMinutes": null,
   "shuffleQuestions": false,
   "shuffleOptions": false,
@@ -11,24 +11,216 @@
   "passingPercent": 70,
   "questions": [
     {
-      "id": "q1", "type": "balance", "text": "Balance the equation for the formation of water.", "points": 2,
-      "reactants": ["H2", "O2"], "products": ["H2O"], "coefficients": [2, 1, 2], "allowMultiples": false, "partialCredit": true,
+      "id": "q1",
+      "type": "balance",
+      "text": "Balance the equation for the formation of water.",
+      "points": 2,
+      "reactants": [
+        "H2",
+        "O2"
+      ],
+      "products": [
+        "H2O"
+      ],
+      "coefficients": [
+        2,
+        1,
+        2
+      ],
+      "allowMultiples": false,
+      "partialCredit": true,
       "explanation": "Two H2 molecules react with one O2 molecule to give two H2O molecules."
     },
     {
-      "id": "q2", "type": "econfig", "text": "Write the ground-state electron configuration of sodium.", "points": 2,
-      "answers": ["1s2 2s2 2p6 3s1", "[Ne] 3s1"],
+      "id": "q2",
+      "type": "econfig",
+      "text": "Write the ground-state electron configuration of sodium.",
+      "points": 2,
+      "answers": [
+        "1s2 2s2 2p6 3s1",
+        "[Ne] 3s1"
+      ],
       "explanation": "Sodium has 11 electrons: the neon core plus one 3s electron."
     },
     {
-      "id": "q3", "type": "ptable", "text": "Click the two alkali metals that are in periods 3 and 4.", "points": 2,
-      "answers": ["Na", "K"], "multiple": true, "partialCredit": true,
+      "id": "q3",
+      "type": "ptable",
+      "text": "Click the two alkali metals that are in periods 3 and 4.",
+      "points": 2,
+      "answers": [
+        "Na",
+        "K"
+      ],
+      "multiple": true,
+      "partialCredit": true,
       "explanation": "Alkali metals are in group 1: sodium is in period 3 and potassium is in period 4."
     },
     {
-      "id": "q4", "type": "sigfigs", "text": "Write 0.00450 g in scientific notation using the correct number of significant figures (in grams).", "points": 2,
-      "answer": 0.0045, "sigFigs": 3, "tolerance": 0.000001, "partialCredit": true,
+      "id": "q4",
+      "type": "sigfigs",
+      "text": "Write 0.00450 g in scientific notation using the correct number of significant figures (in grams).",
+      "points": 2,
+      "answer": 0.0045,
+      "sigFigs": 3,
+      "tolerance": 1e-06,
+      "partialCredit": true,
       "explanation": "0.00450 has three significant figures, so it is 4.50 x 10^-3."
+    },
+    {
+      "id": "q5",
+      "type": "categorize",
+      "text": "Sort each substance by the type of bonding it has.",
+      "points": 3,
+      "categories": [
+        {
+          "id": "ionic",
+          "label": "Ionic"
+        },
+        {
+          "id": "covalent",
+          "label": "Covalent"
+        },
+        {
+          "id": "metallic",
+          "label": "Metallic"
+        }
+      ],
+      "items": [
+        {
+          "id": "i1",
+          "text": "NaCl",
+          "category": "ionic"
+        },
+        {
+          "id": "i2",
+          "text": "H2O",
+          "category": "covalent"
+        },
+        {
+          "id": "i3",
+          "text": "Cu",
+          "category": "metallic"
+        },
+        {
+          "id": "i4",
+          "text": "MgO",
+          "category": "ionic"
+        }
+      ],
+      "partialCredit": true,
+      "explanation": "Metal + nonmetal gives ionic, two nonmetals give covalent, and a metal on its own is metallic."
+    },
+    {
+      "id": "q6",
+      "type": "hotspot",
+      "text": "Place each label on the lab equipment.",
+      "points": 3,
+      "image": {
+        "url": "data/tests/lab-bench.svg",
+        "alt": "A lab bench with a beaker on the left, a flask in the middle and a burner on the right"
+      },
+      "labels": [
+        {
+          "id": "a",
+          "text": "Beaker",
+          "x": 0.25,
+          "y": 0.58
+        },
+        {
+          "id": "b",
+          "text": "Flask",
+          "x": 0.6,
+          "y": 0.63
+        },
+        {
+          "id": "c",
+          "text": "Burner",
+          "x": 0.86,
+          "y": 0.72
+        }
+      ],
+      "radius": 0.1,
+      "partialCredit": true,
+      "explanation": "The beaker is the straight-sided vessel, the flask has the narrow neck."
+    },
+    {
+      "id": "q7",
+      "type": "graph",
+      "mode": "read",
+      "text": "Read the graph: what is the temperature after 4 minutes?",
+      "points": 2,
+      "chart": {
+        "xLabel": "Time (min)",
+        "yLabel": "Temperature (°C)",
+        "xMin": 0,
+        "xMax": 10,
+        "yMin": 0,
+        "yMax": 100,
+        "series": [
+          {
+            "points": [
+              [
+                0,
+                20
+              ],
+              [
+                2,
+                40
+              ],
+              [
+                4,
+                60
+              ],
+              [
+                6,
+                80
+              ],
+              [
+                8,
+                100
+              ]
+            ]
+          }
+        ]
+      },
+      "answer": 60,
+      "tolerance": 3,
+      "unit": "°C",
+      "explanation": "At 4 minutes the line is at 60 °C."
+    },
+    {
+      "id": "q8",
+      "type": "graph",
+      "mode": "plot",
+      "text": "Plot the points (1, 20), (3, 50) and (5, 80) on the grid.",
+      "points": 3,
+      "chart": {
+        "xLabel": "Time (min)",
+        "yLabel": "Temperature (°C)",
+        "xMin": 0,
+        "xMax": 6,
+        "yMin": 0,
+        "yMax": 100,
+        "series": []
+      },
+      "targets": [
+        [
+          1,
+          20
+        ],
+        [
+          3,
+          50
+        ],
+        [
+          5,
+          80
+        ]
+      ],
+      "toleranceX": 0.3,
+      "toleranceY": 5,
+      "partialCredit": true,
+      "explanation": "Each point must land within 0.3 min and 5 °C of its target."
     }
   ]
 }

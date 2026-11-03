@@ -6,7 +6,7 @@ import { questionAvailability } from './common.js';
 export const TOTAL_SECONDS = 60;
 export const SKIP_PENALTY_SECONDS = 2;
 export const POINTS_PER_CORRECT = 100;
-export const LIGHTNING_TYPES = ['mcq', 'truefalse', 'numeric'];
+export const LIGHTNING_TYPES = ['mcq', 'truefalse', 'numeric', 'ptable', 'econfig'];
 
 /** Points for a correct answer; `streak` is the streak BEFORE it. Reuses the classic streak multiplier. */
 export function lightningPoints(streak) {
@@ -27,5 +27,5 @@ export const lightning = {
   playableTypes: LIGHTNING_TYPES,
   minQuestions: 3,
   scored: true,
-  availability: (test) => questionAvailability(test, LIGHTNING_TYPES, 3, 'multiple-choice, true/false or numeric'),
+  availability: (test) => questionAvailability(test, LIGHTNING_TYPES, 3, 'multiple-choice, true/false, numeric, periodic-table or electron-configuration'),
 };

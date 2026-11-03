@@ -9,7 +9,7 @@ import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { ELEMENTS } from './elements.js';
 import { parseConfig } from './qtypes/econfig.js';
 
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
 // Types a teacher always grades by hand in the admin Grading tab.
 export const MANUAL_TYPES = ['short', 'open', 'orbital'];
 
@@ -38,6 +38,9 @@ export const TYPE_LABELS = {
   econfig: 'Electron configuration',
   ptable: 'Periodic-table pick',
   sigfigs: 'Significant figures',
+  categorize: 'Sort into groups',
+  hotspot: 'Label the diagram',
+  graph: 'Read or plot a graph',
 };
 
 const CODE_RE = /^[A-Z0-9_-]{2,32}$/;
@@ -195,6 +198,48 @@ function normalizeQuestion(raw) {
       q.tolerance = q.tolerance === undefined || q.tolerance === null || q.tolerance === '' ? 0 : Number(q.tolerance);
       q.partialCredit = bool(q.partialCredit, true);
       break;
+    case 'categorize':
+      q.categories = (Array.isArray(q.categories) ? q.categories : []).map((c) => {
+        const src = isObj(c) ? c : { id: c, label: c };
+        return { ...src, id: str(src.id).trim(), label: str(src.label !== undefined ? src.label : src.text) };
+      });
+      q.items = (Array.isArray(q.items) ? q.items : []).map((it) => {
+        const src = isObj(it) ? it : { id: it, text: it };
+        return { ...src, id: str(src.id).trim(), text: str(src.text), category: str(src.category).trim() };
+      });
+      q.partialCredit = bool(q.partialCredit, true);
+      break;
+    case 'hotspot': {
+      q.labels = (Array.isArray(q.labels) ? q.labels : []).map((l) => {
+        const src = isObj(l) ? l : { id: l, text: l };
+        const num = (v) => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v);
+        return { ...src, id: str(src.id).trim(), text: str(src.text), x: num(src.x), y: num(src.y) };
+      });
+      q.radius = q.radius === undefined || q.radius === null || q.radius === '' ? 0.06 : Number(q.radius);
+      q.partialCredit = bool(q.partialCredit, true);
+      break;
+    }
+    case 'graph': {
+      q.mode = str(q.mode).trim() === 'plot' ? 'plot' : 'read';
+      const src = isObj(q.chart) ? q.chart : {};
+      const num = (v) => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v);
+      const pair = (p) => (Array.isArray(p) ? p.map(num) : p);
+      q.chart = {
+        ...src, xLabel: str(src.xLabel), yLabel: str(src.yLabel), xMin: num(src.xMin), xMax: num(src.xMax), yMin: num(src.yMin), yMax: num(src.yMax),
+        series: (Array.isArray(src.series) ? src.series : []).map((s) => ({ ...(isObj(s) ? s : {}), points: (isObj(s) && Array.isArray(s.points) ? s.points : []).map(pair) })),
+      };
+      if (q.mode === 'read') {
+        q.answer = num(q.answer);
+        q.tolerance = q.tolerance === undefined || q.tolerance === null || q.tolerance === '' ? 0 : Number(q.tolerance);
+        q.unit = str(q.unit);
+      } else {
+        q.targets = (Array.isArray(q.targets) ? q.targets : []).map(pair);
+        q.toleranceX = q.toleranceX === undefined || q.toleranceX === null || q.toleranceX === '' ? 0 : Number(q.toleranceX);
+        q.toleranceY = q.toleranceY === undefined || q.toleranceY === null || q.toleranceY === '' ? 0 : Number(q.toleranceY);
+        q.partialCredit = bool(q.partialCredit, true);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -418,6 +463,62 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
       if (!Number.isInteger(q.sigFigs) || q.sigFigs < 1 || q.sigFigs > 15) errors.push(`${where}: sigFigs must be a whole number from 1 to 15.`);
       if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
       break;
+    case 'categorize': {
+      const cats = Array.isArray(q.categories) ? q.categories : [];
+      const catIds = new Set();
+      if (cats.length < 2) errors.push(`${where}: categorize needs at least 2 categories.`);
+      cats.forEach((c, i) => {
+        if (!isObj(c) || !nonEmptyStr(c.id)) { errors.push(`${where}: category ${i + 1} needs an id.`); return; }
+        if (!nonEmptyStr(c.label)) errors.push(`${where}: category ${i + 1} needs a label.`);
+        if (catIds.has(c.id)) errors.push(`${where}: duplicate category id "${c.id}".`);
+        catIds.add(c.id);
+      });
+      const items = Array.isArray(q.items) ? q.items : [];
+      if (items.length < 1) errors.push(`${where}: categorize needs at least 1 item.`);
+      const itemIds = new Set();
+      items.forEach((it, i) => {
+        if (!isObj(it) || !nonEmptyStr(it.id)) { errors.push(`${where}: item ${i + 1} needs an id.`); return; }
+        if (!nonEmptyStr(it.text)) errors.push(`${where}: item ${i + 1} has empty text.`);
+        if (itemIds.has(it.id)) errors.push(`${where}: duplicate item id "${it.id}".`);
+        itemIds.add(it.id);
+        if (!catIds.has(it.category)) errors.push(`${where}: item ${i + 1} ("${it.id}") category "${it.category}" is not one of the categories.`);
+      });
+      break;
+    }
+    case 'hotspot': {
+      if (!isObj(q.image) || !nonEmptyStr(q.image.url)) errors.push(`${where}: hotspot needs image: { "url": "...", "alt": "..." }.`);
+      const labels = Array.isArray(q.labels) ? q.labels : [];
+      if (labels.length < 1) errors.push(`${where}: hotspot needs at least 1 label.`);
+      const seen = new Set();
+      labels.forEach((l, i) => {
+        if (!isObj(l) || !nonEmptyStr(l.id)) { errors.push(`${where}: label ${i + 1} needs an id.`); return; }
+        if (!nonEmptyStr(l.text)) errors.push(`${where}: label ${i + 1} has empty text.`);
+        if (seen.has(l.id)) errors.push(`${where}: duplicate label id "${l.id}".`);
+        seen.add(l.id);
+        if (!isNum(l.x) || l.x < 0 || l.x > 1 || !isNum(l.y) || l.y < 0 || l.y > 1) errors.push(`${where}: label ${i + 1} ("${l.id}") x and y must be numbers from 0 to 1 (fractions of the image).`);
+      });
+      if (!isNum(q.radius) || q.radius <= 0 || q.radius > 1) errors.push(`${where}: radius must be a number above 0 and at most 1 (a fraction of the image width).`);
+      break;
+    }
+    case 'graph': {
+      if (q.mode !== 'read' && q.mode !== 'plot') errors.push(`${where}: mode must be "read" or "plot".`);
+      const c = q.chart;
+      if (!isObj(c)) { errors.push(`${where}: chart is required.`); break; }
+      for (const k of ['xMin', 'xMax', 'yMin', 'yMax']) if (!isNum(c[k])) errors.push(`${where}: chart.${k} must be a number.`);
+      if (isNum(c.xMin) && isNum(c.xMax) && c.xMax <= c.xMin) errors.push(`${where}: chart.xMax must be larger than chart.xMin.`);
+      if (isNum(c.yMin) && isNum(c.yMax) && c.yMax <= c.yMin) errors.push(`${where}: chart.yMax must be larger than chart.yMin.`);
+      const isPair = (p) => Array.isArray(p) && p.length === 2 && isNum(p[0]) && isNum(p[1]);
+      if (!Array.isArray(c.series) || c.series.some((s) => !isObj(s) || !Array.isArray(s.points) || s.points.some((p) => !isPair(p)))) errors.push(`${where}: chart.series must be a list of { "points": [[x, y], …] }.`);
+      else if (q.mode === 'read' && !c.series.some((s) => s.points.length)) errors.push(`${where}: a read-the-graph question needs at least one series with points.`);
+      if (q.mode === 'read') {
+        if (!isNum(q.answer)) errors.push(`${where}: answer must be a number.`);
+        if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
+      } else if (q.mode === 'plot') {
+        if (!Array.isArray(q.targets) || q.targets.length < 1 || q.targets.some((p) => !isPair(p))) errors.push(`${where}: targets must be a list of [x, y] pairs, e.g. [[0, 0], [5, 10]].`);
+        for (const k of ['toleranceX', 'toleranceY']) if (q[k] !== undefined && (!isNum(q[k]) || q[k] < 0)) errors.push(`${where}: ${k} must be a number that is 0 or greater.`);
+      }
+      break;
+    }
     case 'open': {
       const rubric = q.rubric === undefined ? [] : q.rubric;
       if (!Array.isArray(rubric)) { errors.push(`${where}: rubric must be a list of { text, points }.`); break; }
@@ -564,6 +665,22 @@ export function blankQuestion(type, id = 'q1') {
       return { ...base, text: 'Click the alkali metal in period 3.', answers: ['Na'], multiple: true, partialCredit: false };
     case 'sigfigs':
       return { ...base, text: 'Write 0.00450 g in scientific notation with the correct number of significant figures.', answer: 0.0045, sigFigs: 3, tolerance: 0.000001, partialCredit: true };
+    case 'categorize':
+      return {
+        ...base, text: 'Sort each compound into the type of bonding it has.', partialCredit: true,
+        categories: [{ id: 'ionic', label: 'Ionic' }, { id: 'covalent', label: 'Covalent' }],
+        items: [{ id: 'i1', text: 'NaCl', category: 'ionic' }, { id: 'i2', text: 'H2O', category: 'covalent' }],
+      };
+    case 'hotspot':
+      return {
+        ...base, text: 'Place each label on the diagram.', partialCredit: true, radius: 0.06,
+        image: { url: 'data/tests/lab-bench.svg', alt: 'A lab bench with a beaker, a flask and a burner', position: 'right' }, labels: [{ id: 'a', text: 'Beaker', x: 0.25, y: 0.6 }],
+      };
+    case 'graph':
+      return {
+        ...base, text: 'Read the value from the graph.', mode: 'read', answer: 0, tolerance: 0, unit: '',
+        chart: { xLabel: 'x', yLabel: 'y', xMin: 0, xMax: 10, yMin: 0, yMax: 10, series: [{ points: [[0, 0], [10, 10]] }] },
+      };
     default:
       throw new RangeError(`Unknown question type: ${type}`);
   }

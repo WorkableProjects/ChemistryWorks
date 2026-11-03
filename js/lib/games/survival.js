@@ -4,6 +4,9 @@
 import { GAME_TYPES } from '../game.js';
 import { questionAvailability, shuffle } from './common.js';
 
+// Every auto-graded type can be played here, including the V3 widget types (the board renders the runner's widgets).
+export const SURVIVAL_TYPES = [...GAME_TYPES, 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
+
 export const START_LIVES = 3;
 export const MAX_LIVES = 3;
 export const STREAK_FOR_LIFE = 5;
@@ -43,8 +46,8 @@ export const survival = {
   title: 'Survival',
   blurb: 'No clock, three lives. Five right in a row wins a life back. Questions get harder.',
   icon: 'alert',
-  playableTypes: GAME_TYPES,
+  playableTypes: SURVIVAL_TYPES,
   minQuestions: 3,
   scored: true,
-  availability: (test) => questionAvailability(test, GAME_TYPES, 3, 'auto-graded'),
+  availability: (test) => questionAvailability(test, SURVIVAL_TYPES, 3, 'auto-graded'),
 };

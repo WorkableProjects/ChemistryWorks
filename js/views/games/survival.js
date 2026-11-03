@@ -1,15 +1,14 @@
 // Survival board: no timer, 3 lives, questions get harder.
 
 import { h, icon, richText, renderMath, seededShuffle } from '../../ui.js';
-import { gradeQuestion, formatAnswer } from '../../lib/grading.js';
-import { splitGameQuestions } from '../../lib/game.js';
-import { START_LIVES, STREAK_FOR_LIFE, applySurvivalAnswer, sortSurvival } from '../../lib/games/survival.js';
-import { makeRng } from '../../lib/games/common.js';
+import { gradeQuestion, correctAnswerText } from '../../lib/grading.js';
+import { START_LIVES, STREAK_FOR_LIFE, SURVIVAL_TYPES, applySurvivalAnswer, sortSurvival } from '../../lib/games/survival.js';
+import { makeRng, questionsOfTypes } from '../../lib/games/common.js';
 import { questionBoard, numberKeys, shuffleOptions } from './question-ui.js';
 
 export function play(shell) {
   const { test, user } = shell;
-  const { playable } = splitGameQuestions(test);
+  const playable = questionsOfTypes(test, SURVIVAL_TYPES);
   let round = 0;
   let g = null;
 
@@ -19,7 +18,7 @@ export function play(shell) {
         `No clock. You have ${START_LIVES} lives; a wrong answer costs one.`,
         `Every ${STREAK_FOR_LIFE} correct answers in a row earns a life back (never more than ${START_LIVES}).`,
         'Questions get harder as you go. How far can you get?',
-        'Keyboard: press 1–4 to pick an answer.',
+        'Keyboard: press 1–4 to pick an answer. Other question types have their own Submit button.',
       ],
       onStart: begin,
     });
@@ -63,12 +62,12 @@ export function play(shell) {
       const card = h('div', { class: ['game-feedback', ok ? 'is-correct' : 'is-wrong', shell.reduced() ? '' : 'pop'], dataset: { testid: 'game-feedback', correct: String(ok) } },
         h('h2', { class: 'game-feedback__title' }, icon(ok ? 'check' : 'x', { size: 22 }), ' ', title),
         h('p', { class: 'game-feedback__points', dataset: { testid: 'game-points' } }, ok ? `+${r.points} points${extra}` : `0 points.${extra}`),
-        ok ? null : h('p', { class: 'game-feedback__answer' }, 'Correct answer: ', richText(formatAnswer(q, q.correctAnswer), 'strong')),
+        ok ? null : h('p', { class: 'game-feedback__answer' }, 'Correct answer: ', richText(correctAnswerText(q), 'strong')),
         q.explanation ? richText(q.explanation, 'p', 'game-feedback__why') : null,
         next);
       feedbackSlot.replaceChildren(card);
       renderMath(card);
-      shell.announce(`${title}${extra} ${ok ? '' : `Correct answer: ${formatAnswer(q, q.correctAnswer)}.`}`);
+      shell.announce(`${title}${extra} ${ok ? '' : `Correct answer: ${correctAnswerText(q)}.`}`);
       shell.later(() => next.focus());
     }
 

@@ -239,3 +239,7 @@
 :root[data-motion="reduce"] .match-card__back, :root[data-motion="reduce"] .flash-back { transform: none; }
 :root[data-motion="reduce"] .match-card:not(.is-up) .match-card__back, :root[data-motion="reduce"] .match-card.is-up .match-card__front,
 :root[data-motion="reduce"] .flash-card:not(.is-flipped) .flash-back, :root[data-motion="reduce"] .flash-card.is-flipped .flash-front { display: none; }
+
+/* V3-05: runner widgets (balance, ptable, categorize, ...) shown on a game board */
+.game-answers--widget { display: block; padding: 14px; border-radius: var(--radius); background: var(--bg-elev); border: 1px solid var(--border); }
+.game-answers--widget[inert] { opacity: 0.75; }

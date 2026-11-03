@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" fill="#f4f6f8"/>
+  <rect x="0" y="240" width="400" height="60" fill="#c9d1d9"/>
+  <!-- beaker -->
+  <path d="M60 110 L60 235 Q60 242 67 242 L133 242 Q140 242 140 235 L140 110" fill="#dbeafe" stroke="#1f3a5f" stroke-width="4"/>
+  <path d="M60 170 L140 170 L140 235 Q140 242 133 242 L67 242 Q60 242 60 235 Z" fill="#93c5fd" opacity="0.7"/>
+  <!-- flask -->
+  <path d="M230 90 L230 150 L190 230 Q185 242 198 242 L282 242 Q295 242 290 230 L250 150 L250 90" fill="#fef3c7" stroke="#1f3a5f" stroke-width="4"/>
+  <rect x="224" y="82" width="32" height="10" fill="#1f3a5f"/>
+  <!-- burner -->
+  <rect x="330" y="190" width="30" height="52" fill="#6b7280" stroke="#1f3a5f" stroke-width="4"/>
+  <path d="M345 188 Q330 165 345 140 Q360 165 345 188 Z" fill="#fb923c"/>
+</svg>

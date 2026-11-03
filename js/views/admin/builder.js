@@ -21,6 +21,9 @@ import { balanceEditor } from './editors/balance.js';
 import { econfigEditor } from './editors/econfig.js';
 import { ptableEditor } from './editors/ptable.js';
 import { sigfigsEditor } from './editors/sigfigs.js';
+import { categorizeEditor } from './editors/categorize.js';
+import { hotspotEditor } from './editors/hotspot.js';
+import { graphEditor } from './editors/graph.js';
 import { withQuestionImage } from '../question-image.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
@@ -880,6 +883,9 @@ function typeEditor(q, redraw, changed, uid) {
     case 'econfig': return econfigEditor(q, changed);
     case 'ptable': return ptableEditor(q, changed, redraw);
     case 'sigfigs': return sigfigsEditor(q, changed);
+    case 'categorize': return categorizeEditor(q, redraw, changed);
+    case 'hotspot': return hotspotEditor(q, redraw, changed);
+    case 'graph': return graphEditor(q, redraw, changed);
     default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
   }
 }

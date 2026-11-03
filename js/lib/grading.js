@@ -10,6 +10,9 @@ import { ELEMENTS } from './elements.js';
 import { isBalanceAnswered, scoreBalance, equationText } from './qtypes/balance.js';
 import { matchesAny, configToText } from './qtypes/econfig.js';
 import { countSigFigs, formatWithSigFigs } from './qtypes/sigfigs.js';
+import { isCategorizeAnswered, scoreCategorize, categorizeText, categorizeKeyText } from './qtypes/categorize.js';
+import { isHotspotAnswered, scoreHotspot, hotspotText, hotspotKeyText } from './qtypes/hotspot.js';
+import { isPlotAnswered, scorePlot, pointsText } from './qtypes/graph.js';
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
@@ -88,6 +91,12 @@ export function isAnswered(question, answer) {
       return Array.isArray(answer) && answer.length > 0;
     case 'sigfigs':
       return (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
+    case 'categorize':
+      return isCategorizeAnswered(answer);
+    case 'hotspot':
+      return isHotspotAnswered(answer);
+    case 'graph':
+      return question.mode === 'plot' ? isPlotAnswered(answer) : (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
     default:
       if (typeof answer === 'string') return answer.trim() !== '';
       if (Array.isArray(answer)) return answer.length > 0;
@@ -201,6 +210,13 @@ function score(q, answer) {
       if (q.partialCredit !== false && (valueOk || sfOk)) return { fraction: 0.5, full: false };
       return { fraction: 0, full: false };
     }
+    case 'categorize':
+      return scoreCategorize(q, answer);
+    case 'hotspot':
+      return scoreHotspot(q, answer);
+    case 'graph':
+      // read mode reuses the numeric grading above
+      return q.mode === 'plot' ? scorePlot(q, answer) : score({ type: 'numeric', correctAnswer: q.answer, tolerance: q.tolerance, toleranceType: 'absolute', unit: q.unit }, answer);
     default:
       return { fraction: 0, full: false };
   }
@@ -290,6 +306,12 @@ export function formatAnswer(question, answer) {
       }
       case 'sigfigs':
         return String(answer).trim();
+      case 'categorize':
+        return categorizeText(q, answer);
+      case 'hotspot':
+        return hotspotText(q, answer);
+      case 'graph':
+        return q.mode === 'plot' ? pointsText(answer) : String(answer).trim();
       case 'lewis':
         return describeDots(answer, q.element);
       case 'matching':
@@ -318,6 +340,11 @@ export function displayQuestionText(q) {
   return q && q.type === 'fillblank' ? blankedText(q.text) : String(q?.text ?? '');
 }
 
+/** The answer key as display text (used by the games to show "Correct answer"). */
+export function correctAnswerText(q) {
+  return formatCorrect(q);
+}
+
 function formatCorrect(q) {
   if (q.type === 'short') return q.sampleAnswer ? String(q.sampleAnswer) : DASH;
   if (q.type === 'open') {
@@ -336,6 +363,12 @@ function formatCorrect(q) {
   if (q.type === 'sigfigs') {
     const n = Number(q.sigFigs);
     return Number.isFinite(Number(q.answer)) && q.answer !== null && q.answer !== '' ? `${formatWithSigFigs(q.answer, n)} (${n} significant ${n === 1 ? 'figure' : 'figures'})` : DASH;
+  }
+  if (q.type === 'categorize') return categorizeKeyText(q);
+  if (q.type === 'hotspot') return hotspotKeyText(q);
+  if (q.type === 'graph') {
+    if (q.mode === 'plot') return pointsText(q.targets) || DASH;
+    return q.answer === null || q.answer === undefined || q.answer === '' ? DASH : `${q.answer}${q.unit ? ` ${q.unit}` : ''}`;
   }
   if (q.type === 'orbital') return q.sampleAnswer ? `Sample: ${describeOrbital(q, q.sampleAnswer)}` : DASH;
   if (q.type === 'structure') {
@@ -379,7 +412,7 @@ export function gradeTest(test, answers) {
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: q.type === 'balance' ? q.coefficients : q.type === 'econfig' || q.type === 'ptable' ? q.answers : q.type === 'sigfigs' ? q.answer : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
+      correctAnswer: q.type === 'balance' ? q.coefficients : q.type === 'categorize' ? Object.fromEntries((q.items || []).map((it) => [it.id, it.category])) : q.type === 'hotspot' ? Object.fromEntries((q.labels || []).map((l) => [l.id, { x: l.x, y: l.y }])) : q.type === 'graph' ? (q.mode === 'plot' ? q.targets : q.answer) : q.type === 'econfig' || q.type === 'ptable' ? q.answers : q.type === 'sigfigs' ? q.answer : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,
