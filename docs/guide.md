@@ -551,23 +551,84 @@ Students get an empty orbital diagram (one box per orbital, grouped by sublevel,
 
 ## Writing chemistry and math
 
-Question `text`, option `text`, `explanation` and `sampleAnswer` are plain text with optional math between `$…$` (inline) or `$$…$$` (display), rendered with KaTeX and the mhchem extension.
+All formatting is **LaTeX rendered with KaTeX** (plus the mhchem extension for chemistry). Questions and the Resources tab use exactly the same rules. There is no Markdown or HTML: `**bold**`, `<b>` and `<br>` show up as literal characters.
+
+### Where formatting works
+
+| Formatted (math between `$…$` is rendered) | Plain text only (math is **not** rendered) |
+|---|---|
+| Question `text` (including `fillblank` text around the `{{blanks}}`) | `title`, `description` of the test |
+| `options[].text` (`mcq`, `multi`) | Section `title` and reference `title` |
+| `left[].text` and `right[].text` (`matching`) | `correctAnswer` of `formula`, `numeric`, `truefalse` |
+| `items[].text` (`ordering`) | `blanks[].answers` and `distractors` (`fillblank`) |
+| `explanation` | `sampleAnswer` of `short` / `open` (shown as written) |
+| `rubric[].text` (`open`) | `element`, atom `symbol`s, `unit` of a `numeric` question |
+| Section `instructions` | Image `alt` text |
+| Resources `items[].name`, `items[].value`, `items[].unit` | |
+| `text` reference `content` | |
+
+Line breaks (`\n`) are kept in section `instructions` and `text` reference `content` (`\n\n` = new paragraph). In question text, options and Resources cells a `\n` becomes a space; use `$$…$$` for a displayed equation on its own line.
+
+### Delimiters
+
+| Delimiter | Use |
+|---|---|
+| `$…$` or `\\(…\\)` | Inline math inside a sentence or table cell |
+| `$$…$$` or `\\[…\\]` | Displayed (centered, own line) equation |
+
+### Cookbook
 
 | You want | Write in JSON |
 |---|---|
 | H₂SO₄ | `"$\\ce{H2SO4}$"` |
+| Hydrate CuSO₄·5H₂O | `"$\\ce{CuSO4*5H2O}$"` or `"$\\ce{CuSO4·5H2O}$"` |
+| Ion SO₄²⁻ / Na⁺ | `"$\\ce{SO4^2-}$"`, `"$\\ce{Na+}$"` |
+| States | `"$\\ce{NaCl(aq)}$"`, `"$\\ce{H2O(l)}$"` |
 | Reaction arrow | `"$\\ce{2H2 + O2 -> 2H2O}$"` |
 | Equilibrium | `"$\\ce{N2 + 3H2 <=> 2NH3}$"` |
-| Ion | `"$\\ce{SO4^2-}$"` |
-| Scientific notation | `"$6.022 \\times 10^{23}$"` |
+| Arrow with condition | `"$\\ce{A ->[\\Delta] B}$"` |
+| Isotope | `"$\\ce{^{14}_{6}C}$"` |
+| Scientific notation | `"$6.02 \\times 10^{23}$"` |
+| Superscript / subscript | `"$10^{-3}$"`, `"$K_a$"`, `"$K_{sp}$"` |
 | Fraction | `"$\\frac{n}{V}$"` |
-| Units | `"$\\pu{25 ^\\circ C}$"` or just `"25 °C"` |
+| Units in math | `"$\\text{J/(mol·K)}$"`, `"$\\frac{\\text{L·atm}}{\\text{mol·K}}$"`, `"mol$^{-1}$"` |
+| Physical quantity (mhchem) | `"$\\pu{25 ^\\circ C}$"`, `"$\\pu{8.31 J mol-1 K-1}$"` or just `"25 °C"` |
+| Greek / symbols | `"$\\Delta H$"`, `"$\\lambda$"`, `"$\\pm$"`, `"$\\approx$"`, `"$\\rightarrow$"` |
+| Square root / log | `"$\\sqrt{K_a C}$"`, `"$\\text{pH} = -\\log[\\ce{H+}]$"` |
+| Bold or italic word | `"$\\textbf{not}$"`, `"$\\textit{exactly}$"` (inside math) |
+| Displayed equation | `"$$PV = nRT$$"` |
 
-Rules:
-- Every backslash in JSON is doubled: `\\ce`, `\\times`, `\\frac`.
-- Text is never treated as HTML. Don't use `<b>`, `<br>` or other tags.
-- Avoid a literal `$` in text (it starts math); write "dollars" instead.
-- Formula answers (`formula` type `correctAnswer`) are plain text like `H2SO4`, **not** `$\\ce{…}$`.
+### Rules
+
+- **Every backslash in JSON is doubled:** `\\ce`, `\\times`, `\\frac`, `\\text`. A single `\` breaks the JSON or the math.
+- Typed Unicode is fine: `°`, `·`, `×`, `−`, `→`, `²`, Greek letters, both in plain text and inside `$…$` (including inside `\\text{…}`).
+- Use `\\text{…}` for words or units inside math (otherwise letters render in italics and spaces are dropped).
+- Don't put a literal `$` in text (it starts math); write "dollars" instead.
+- Every `$` must be closed; an unclosed `$` shows as raw text. Unknown commands show in red: test in **Preview** before publishing.
+- Answers students type are plain text: `formula` keys are `"H2SO4"` (not `"$\\ce{H2SO4}$"`), `numeric` keys are numbers, and `fillblank` answers are plain strings.
+
+### Formatting the Resources tab
+
+Each row of a `resources` reference is one line in the student's table, and **all three cells use the formatting above**:
+
+```json
+{ "id": "res", "type": "resources", "title": "Resources", "items": [
+  { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+  { "name": "Ideal gas constant, $R$", "value": "$0.0821$", "unit": "$\\frac{\\text{L·atm}}{\\text{mol·K}}$" },
+  { "name": "Molar mass of $\\ce{H2O}$", "value": "18.02", "unit": "g/mol" },
+  { "name": "Ion product of water, $K_w$", "value": "$1.0 \\times 10^{-14}$", "unit": "" },
+  { "name": "Specific heat of water", "value": "4.18", "unit": "J/(g·°C)" }
+] }
+```
+
+- `name`: what the value is; may include a symbol (`$R$`, `$K_w$`) or a formula (`$\\ce{H2O}$`).
+- `value`: the number exactly as the class uses it. Plain numbers (`"22.4"`) show in a monospace font; powers of ten need math (`"$6.02 \\times 10^{23}$"`).
+- `unit`: plain text (`"L/mol"`, `"J/(g·°C)"`) or math for superscripts and fractions (`"mol$^{-1}$"`). Use `""` when there is no unit.
+- For a formula sheet (several equations), use a `text` reference instead: `{ "id": "eq", "type": "text", "title": "Equations", "content": "$$PV = nRT$$\n\n$$M_1V_1 = M_2V_2$$" }`.
+
+### Instructor comments (not written in test JSON)
+
+Comments a teacher adds while grading use a different, small Markdown subset (`**bold**`, `*italic*`, `- ` / `1. ` lists, `[text](https://…)` links) and no math. They are not part of the test JSON.
 
 ---
 
