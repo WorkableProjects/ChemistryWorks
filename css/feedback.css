@@ -1,0 +1,33 @@
+/* feedback.css — ChemistryWorks v2 (see docs/ARCHITECTURE.md) */
+.feedback { width: min(820px, 100%); margin: 0 auto; padding: 24px 16px 64px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.feedback > * { max-width: 100%; }
+.feedback > .stack, .feedback > .notice { align-self: stretch; }
+.feedback__title { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -0.01em; margin: 0; overflow-wrap: anywhere; }
+.feedback-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); font-weight: 600; }
+.feedback-score-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; padding: 18px 20px; }
+.feedback-score { font-family: var(--mono); font-size: 26px; font-weight: 700; margin-top: 4px; }
+.feedback-list { display: flex; flex-direction: column; gap: 12px; }
+.feedback-section { font-size: 15px; font-weight: 700; margin: 10px 0 0; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.feedback-item { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.feedback-item__head { display: flex; align-items: baseline; gap: 10px; }
+.feedback-item__num { font-family: var(--mono); font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+.feedback-item__text { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.feedback-item__pts { font-family: var(--mono); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.feedback-item__answer { display: flex; flex-direction: column; gap: 3px; }
+.feedback-pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-comment { border-left: 3px solid var(--primary-line); background: var(--primary-soft); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.feedback-comment .comment-body p { margin: 0 0 6px; }
+.feedback-comment .comment-body p:last-child { margin-bottom: 0; }
+.feedback-comment .comment-body ul, .feedback-comment .comment-body ol { margin: 0 0 6px; padding-left: 20px; }
+.feedback .notice { align-items: center; flex-wrap: wrap; }
+.feedback-skeleton { display: flex; flex-direction: column; gap: 10px; }
+.feedback-skeleton__row { height: 56px; border-radius: var(--radius); background: var(--bg-sunken); }
+
+/* Landing: past submissions */
+.past-results { margin-top: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.past-results__title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin: 0; }
+.past-results__item { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); }
+.past-results__main { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
+.past-results__name { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.past-results__meta { font-size: 12px; color: var(--text-faint); }
+.past-results__code { font-family: var(--mono); font-weight: 700; }

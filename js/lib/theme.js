@@ -8,12 +8,12 @@ import { load, save } from './storage.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 export const ACCENTS = {
-  blue: '#2563EB',
-  violet: '#7C3AED',
-  teal: '#0D9488',
-  green: '#16A34A',
-  orange: '#EA580C',
-  rose: '#E11D48',
+  blue: '#2348A4',
+  violet: '#6D28D9',
+  teal: '#0D6B64',
+  green: '#166534',
+  orange: '#B03A0A',
+  rose: '#BE123C',
 };
 export const DEFAULT_ACCENT = { student: 'blue', admin: 'violet' };
 
@@ -46,7 +46,7 @@ export function applyTheme() {
   el.dataset.accent = getAccent(role);
   el.dataset.role = role;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', el.dataset.theme === 'dark' ? '#0B1120' : '#F8FAFC');
+  if (meta) meta.setAttribute('content', el.dataset.theme === 'dark' ? '#1A1713' : '#F6F2E8');
   listeners.forEach((fn) => fn());
 }
 

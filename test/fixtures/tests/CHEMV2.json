@@ -1,0 +1,266 @@
+{
+  "code": "CHEMV2",
+  "title": "Electrons & Bonding (v2 sample)",
+  "description": "Sections, references, orbital diagrams and Lewis structures with charges.",
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "sections": [
+    {
+      "id": "secA",
+      "title": "Part A: Electron configuration",
+      "instructions": "Use the periodic table in the reference pane."
+    },
+    {
+      "id": "secB",
+      "title": "Part B: Bonding",
+      "instructions": "Draw complete Lewis structures, including **brackets** and charges for ions."
+    }
+  ],
+  "references": [
+    {
+      "id": "pt",
+      "type": "periodic-table",
+      "title": ""
+    },
+    {
+      "id": "consts",
+      "type": "resources",
+      "title": "Resources",
+      "items": [
+        {
+          "name": "Avogadro's number",
+          "value": "$6.02 \\times 10^{23}$",
+          "unit": "mol$^{-1}$"
+        },
+        {
+          "name": "Ideal gas constant, R",
+          "value": "8.31",
+          "unit": "J/(mol·K)"
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "warm",
+      "type": "mcq",
+      "text": "Which particle has a negative charge?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Proton"
+        },
+        {
+          "id": "b",
+          "text": "Electron"
+        },
+        {
+          "id": "c",
+          "text": "Neutron"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": "Electrons carry a negative charge; protons are positive and neutrons are neutral."
+    },
+    {
+      "id": "orbN",
+      "section": "secA",
+      "type": "orbital",
+      "text": "Draw the orbital diagram for a ground-state nitrogen atom.",
+      "points": 3,
+      "maxSublevel": "2p",
+      "orbitalTypes": [
+        "s",
+        "p"
+      ],
+      "sampleAnswer": {
+        "1s": [
+          "ud"
+        ],
+        "2s": [
+          "ud"
+        ],
+        "2p": [
+          "u",
+          "u",
+          "u"
+        ]
+      },
+      "explanation": "Nitrogen has 7 electrons: 1s² 2s² 2p³. By Hund’s rule the three 2p electrons occupy separate orbitals with parallel spins."
+    },
+    {
+      "id": "orbFe",
+      "section": "secA",
+      "type": "orbital",
+      "text": "Draw the orbital diagram for iron, Fe.",
+      "points": 4,
+      "maxSublevel": "3d",
+      "orbitalTypes": [
+        "s",
+        "p",
+        "d"
+      ],
+      "explanation": "Iron has 26 electrons: [Ar] 4s² 3d⁶. The 4s fills before 3d; one 3d orbital is paired and four hold a single electron.",
+      "sampleAnswer": {
+        "1s": [
+          "ud"
+        ],
+        "2s": [
+          "ud"
+        ],
+        "2p": [
+          "ud",
+          "ud",
+          "ud"
+        ],
+        "3s": [
+          "ud"
+        ],
+        "3p": [
+          "ud",
+          "ud",
+          "ud"
+        ],
+        "4s": [
+          "ud"
+        ],
+        "3d": [
+          "ud",
+          "u",
+          "u",
+          "u",
+          "u"
+        ]
+      }
+    },
+    {
+      "id": "config",
+      "section": "secA",
+      "type": "short",
+      "text": "Write the electron configuration of sodium.",
+      "points": 1,
+      "sampleAnswer": "1s2 2s2 2p6 3s1",
+      "explanation": "Sodium has 11 electrons: 1s² 2s² 2p⁶ 3s¹."
+    },
+    {
+      "id": "no3",
+      "section": "secB",
+      "type": "structure",
+      "points": 4,
+      "studentCharges": true,
+      "text": "Draw the Lewis structure of the nitrate ion, $\\ce{NO3-}$, with brackets, the overall charge and formal charges.",
+      "atoms": [
+        {
+          "id": "n",
+          "symbol": "N",
+          "x": 1,
+          "y": 1
+        },
+        {
+          "id": "o1",
+          "symbol": "O",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "o2",
+          "symbol": "O",
+          "x": 0,
+          "y": 2
+        },
+        {
+          "id": "o3",
+          "symbol": "O",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "bonds": [
+        [
+          "n",
+          "o1"
+        ],
+        [
+          "n",
+          "o2"
+        ],
+        [
+          "n",
+          "o3"
+        ]
+      ],
+      "charge": -1,
+      "correctAnswer": {
+        "bonds": [
+          2,
+          1,
+          1
+        ],
+        "lonePairs": {
+          "n": 0,
+          "o1": 2,
+          "o2": 3,
+          "o3": 3
+        },
+        "bracket": true,
+        "charge": -1,
+        "formalCharges": {
+          "n": 1,
+          "o2": -1,
+          "o3": -1
+        }
+      },
+      "explanation": "Nitrate has 24 valence electrons. One N=O double bond and two N–O single bonds give N a formal charge of +1 and each single-bonded O −1; the ion carries an overall 1− charge shown outside brackets. Three resonance forms exist."
+    },
+    {
+      "id": "co2",
+      "section": "secB",
+      "type": "structure",
+      "points": 2,
+      "text": "Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.",
+      "atoms": [
+        {
+          "id": "o1",
+          "symbol": "O",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "c",
+          "symbol": "C",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "o2",
+          "symbol": "O",
+          "x": 2,
+          "y": 0
+        }
+      ],
+      "bonds": [
+        [
+          "o1",
+          "c"
+        ],
+        [
+          "c",
+          "o2"
+        ]
+      ],
+      "correctAnswer": {
+        "bonds": [
+          2,
+          2
+        ],
+        "lonePairs": {
+          "o1": 2,
+          "c": 0,
+          "o2": 2
+        }
+      },
+      "explanation": "CO₂ has 16 valence electrons: two C=O double bonds and two lone pairs on each oxygen give every atom an octet and zero formal charge."
+    }
+  ]
+}

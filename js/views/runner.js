@@ -10,10 +10,13 @@ import {
 import { gradeTest, isAnswered, parseNumber } from '../lib/grading.js';
 import { formulaToHTML } from '../lib/formula.js';
 import { TYPE_LABELS } from '../lib/schema.js';
+import { groupQuestions } from '../lib/sections.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
 import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
 import { structureWidget } from './structure-view.js';
+import { orbitalWidget } from './orbital-view.js';
+import { referencePane } from './reference-pane.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
 
@@ -29,6 +32,13 @@ export function formatInterpreted(x) {
     return `${mant} × 10${[...e].map((c) => SUP[c] ?? c).join('')}`;
   }
   return String(Number(x.toPrecision(12)));
+}
+
+/** "Part A: Bonding" -> "Part A"; titles without a colon are shown whole (shortened when very long). */
+function sectionPillText(title) {
+  const t = String(title || '').trim();
+  const head = t.includes(':') ? t.slice(0, t.indexOf(':')).trim() : t;
+  return head.length > 24 ? `${head.slice(0, 23)}…` : head;
 }
 
 const letter = (i) => String.fromCharCode(65 + i);
@@ -434,6 +444,7 @@ function buildWidget(q, api) {
     case 'fillblank': return fillBlankWidget(q, api);
     case 'open': return openWidget(q, api);
     case 'structure': return structureWidget(q, api);
+    case 'orbital': return orbitalWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }
@@ -449,7 +460,9 @@ export function render(root, ctx, params = {}) {
   const seed = `${user.email}${test.code}`;
 
   // Stable per-student order (seeded); the original `test` is what gets graded.
-  let ordered = test.shuffleQuestions ? seededShuffle(test.questions, seed) : test.questions.slice();
+  // Canonical order = unsectioned questions, then each section in order. Shuffling happens inside a group only.
+  const groups = groupQuestions(test);
+  let ordered = groups.flatMap((g) => (test.shuffleQuestions ? seededShuffle(g.questions, seed + (g.section ? g.section.id : '')) : g.questions.slice()));
   ordered = ordered.map((q) => (test.shuffleOptions && (q.type === 'mcq' || q.type === 'multi')
     ? { ...q, options: seededShuffle(q.options, seed + q.id) } : q));
   // Ordering items always start scrambled (never already in the correct order).
@@ -461,6 +474,11 @@ export function render(root, ctx, params = {}) {
     return { ...q, items };
   });
   const total = ordered.length;
+  // Section of each question (by id) and the sections' calculated point totals; a header goes on the first
+  // card of each section as displayed.
+  const sectionById = new Map(groups.filter((g) => g.section).map((g) => [g.section.id, g]));
+  const sectionOfQ = (q) => (q.section && sectionById.has(q.section) ? sectionById.get(q.section) : null);
+  const headerFor = new Set(ordered.filter((q, i) => sectionOfQ(q) && (i === 0 || sectionOfQ(ordered[i - 1]) !== sectionOfQ(q))).map((q) => q.id));
   const byId = new Map(ordered.map((q) => [q.id, q]));
   const limitSec = test.timeLimitMinutes ? Number(test.timeLimitMinutes) * 60 : 0;
 
@@ -549,6 +567,13 @@ export function render(root, ctx, params = {}) {
   const cards = ordered.map((q, i) => buildCard(q, i));
   const cardById = new Map(cards.map((c) => [c.q.id, c]));
 
+  function sectionHeader({ section, points }) {
+    return h('header', { class: 'q-section', dataset: { testid: 'section-header', sectionId: section.id } },
+      h('p', { class: 'q-section__title' }, section.title),
+      section.instructions ? richText(section.instructions, 'div', 'q-section__instr') : null,
+      h('span', { class: 'q-section__pts' }, `${points} pts`));
+  }
+
   function buildCard(q, i) {
     const widget = buildWidget(q, api);
     const flagBtn = h('button', {
@@ -564,10 +589,12 @@ export function render(root, ctx, params = {}) {
       class: 'q-card', tabindex: '-1', 'aria-label': `Question ${i + 1} of ${total}`,
       dataset: { testid: 'question-card', questionId: q.id },
     },
+      headerFor.has(q.id) ? sectionHeader(sectionOfQ(q)) : null,
       h('div', { class: 'q-card__head' },
         h('h2', { class: 'q-card__num' }, `Question ${i + 1} of ${total}`),
         h('span', { class: 'pill pill--primary' }, TYPE_LABELS[q.type] || q.type),
         h('span', { class: 'pill' }, pointsLabel(q.points ?? 1)),
+        sectionOfQ(q) ? h('span', { class: 'pill q-section-pill', title: sectionOfQ(q).section.title, dataset: { testid: 'section-pill' } }, sectionPillText(sectionOfQ(q).section.title)) : null,
         h('span', { class: 'spacer' }),
         flagBtn),
       widget.textEl || richText(q.text, 'div', 'q-text'),
@@ -617,7 +644,7 @@ export function render(root, ctx, params = {}) {
   let drawerOpen = false;
   const tiles = new Map();
   const cntAnswered = h('b', {}), cntFlagged = h('b', {}), cntUnanswered = h('b', {});
-  const tileGrid = h('div', { class: 'nav-grid' }, ordered.map((q, i) => {
+  const makeTile = (q, i) => {
     const t = h('button', {
       type: 'button', class: 'nav-tile', dataset: { testid: `nav-item-${q.id}` },
       on: { click: () => {
@@ -627,7 +654,23 @@ export function render(root, ctx, params = {}) {
     }, String(i + 1));
     tiles.set(q.id, t);
     return t;
-  }));
+  };
+  // Tiles are grouped under section titles when the test has sections (numbers stay global).
+  const tileGrid = (() => {
+    if (!groups.some((g) => g.section)) return h('div', { class: 'nav-grid' }, ordered.map(makeTile));
+    const wrap = h('div', { class: 'nav-groups' });
+    let offset = 0;
+    for (const g of groups) {
+      const n = g.questions.length;
+      if (!n) continue;
+      const items = ordered.slice(offset, offset + n).map((q, k) => makeTile(q, offset + k));
+      offset += n;
+      wrap.appendChild(h('section', { class: 'nav-group', dataset: { sectionId: g.section ? g.section.id : '' }, 'aria-label': g.section ? g.section.title : 'General questions' },
+        h('h3', { class: 'nav-group__title' }, g.section ? g.section.title : 'General'),
+        h('div', { class: 'nav-grid' }, items)));
+    }
+    return wrap;
+  })();
   const drawerClose = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close navigator', on: { click: () => closeDrawer() } }, icon('x'));
   const drawer = h('aside', { class: 'nav-drawer', id: 'runner-navigator', 'aria-label': 'Question navigator', dataset: { testid: 'navigator' } },
     h('div', { class: 'nav-drawer__head' }, h('h2', {}, 'Questions'), drawerClose),
@@ -947,6 +990,7 @@ export function render(root, ctx, params = {}) {
         row(['T', 'F'], 'True / False'),
         row(['G'], 'Flag or unflag the current question'),
         row(['N'], 'Open the question navigator'),
+        refPane ? row(['R'], 'Show or hide the reference pane') : null,
         row(['Enter'], 'In an answer box: go to the next question'),
         row(['?'], 'Show this help')),
       actions: [{ label: 'Got it', variant: 'primary', onClick: (close) => close() }],
@@ -975,6 +1019,7 @@ export function render(root, ctx, params = {}) {
     const lower = key.length === 1 ? key.toLowerCase() : '';
     if (lower === 'g') { e.preventDefault(); toggleFlag(ordered[state.index].id); return; }
     if (lower === 'n') { e.preventDefault(); drawerOpen ? closeDrawer() : openDrawer(); return; }
+    if (lower === 'r' && refPane) { e.preventDefault(); refPane.toggle(); return; }
     if (lower && cards[state.index].widget.shortcut?.(lower)) e.preventDefault();
   }
   // A reload/navigation also fires visibilitychange; beforeunload runs first, so skip those.
@@ -992,9 +1037,12 @@ export function render(root, ctx, params = {}) {
   window.addEventListener('beforeunload', onBeforeUnload);
 
   /* ---- mount */
+  // Built once: the pane is a sibling of the questions, so stage rerenders never rebuild or reset it.
+  const refPane = referencePane(test, { storageKey: `refpane:${test.code}` });
+  const mainEl = h('main', { class: 'runner-main' }, stage, actions, announcer);
   const runnerEl = h('div', { class: ['runner', preview && 'runner--preview'], dataset: { testid: 'runner' } },
     h('div', { class: 'runner-top' }, header, progressBar, previewBanner),
-    h('main', { class: 'runner-main' }, stage, actions, announcer),
+    refPane ? h('div', { class: 'runner-split', dataset: { testid: 'runner-split' } }, mainEl, refPane.el) : mainEl,
     footer,
     h('div', { class: 'nav-host' }, overlay, drawer),
   );
@@ -1020,5 +1068,6 @@ export function render(root, ctx, params = {}) {
     closeDrawer();
     submitModal?.close();
     shortcutsModal?.close();
+    refPane?.destroy();
   };
 }

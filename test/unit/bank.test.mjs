@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { normalizeTest, validateTest, QUESTION_TYPES, MANUAL_TYPES } from '../../js/lib/schema.js';
+import { normalizeTest, validateTest, QUESTION_TYPES, MANUAL_TYPES, isManualQuestion } from '../../js/lib/schema.js';
 import { gradeTest } from '../../js/lib/grading.js';
 import { validateBank } from '../../scripts/validate-tests.mjs';
 
@@ -16,6 +16,7 @@ function keyAnswer(q) {
   switch (q.type) {
     case 'numeric': return String(q.correctAnswer);
     case 'formula': return Array.isArray(q.correctAnswer) ? q.correctAnswer[0] : q.correctAnswer;
+    case 'orbital': case 'short': case 'open': return q.sampleAnswer || 'x';
     default: return q.correctAnswer;
   }
 }
@@ -37,11 +38,15 @@ for (const f of files) {
     assert.equal(new Set(ids).size, ids.length);
     for (const q of t.questions) assert.ok(q.explanation.trim().length > 10, `${q.id} needs an explanation`);
   });
-  test(`${f}: answering every question with its key scores 100.00`, () => {
+  test(`${f}: answering every question with its key scores 100.00 (teacher-graded ones pending)`, () => {
     const answers = Object.fromEntries(t.questions.map((q) => [q.id, keyAnswer(q)]));
     const g = gradeTest(t, answers);
-    assert.equal(g.percentage, '100.00');
-    assert.equal(g.correctCount, t.questions.length);
+    const manual = t.questions.filter(isManualQuestion);
+    const autoPts = t.questions.filter((q) => !isManualQuestion(q)).reduce((n, q) => n + q.points, 0);
+    assert.equal(g.percentage, ((autoPts / g.scoreTotal) * 100).toFixed(2));
+    if (!manual.length) assert.equal(g.percentage, '100.00');
+    assert.equal(g.correctCount, t.questions.length - manual.length);
+    assert.equal(g.pendingCount, manual.length);
     assert.equal(g.answeredCount, t.questions.length);
   });
   test(`${f}: blank submission scores 0.00`, () => {

@@ -97,10 +97,41 @@ export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {
 
 // Saves a teacher's grade for one submission. grades: { [questionId]: points }. The backend recomputes
 // the final score from the stored responses and returns { final_score, score_total, final_percentage, graded_at }.
-export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', fetchImpl } = {}) {
+// v2: comments ({ [questionId]: text }, omitted = keep existing) and release (true = release grade + comments
+// to the student, false = un-release, omitted = unchanged). grade also carries { comments, released_at }.
+export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', comments, release, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'saveGrade', adminKey, submissionId, grades, note }, fetchImpl);
+    const body = { action: 'saveGrade', adminKey, submissionId, grades, note };
+    if (comments !== undefined) body.comments = comments;
+    if (release !== undefined) body.release = !!release;
+    const d = await post(gasUrl, body, fetchImpl);
     return d && d.result === 'success' ? { ok: true, grade: d.grade || null } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+// Completed submissions per test code (admin). { ok, counts: { CODE: n }, error? }
+export async function fetchSubmissionCounts({ gasUrl, adminKey, fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action: 'getSubmissionCounts', adminKey }, fetchImpl);
+    return d && d.result === 'success' && d.counts && typeof d.counts === 'object'
+      ? { ok: true, counts: d.counts }
+      : { ok: false, counts: {}, error: failure(d) };
+  } catch (e) {
+    return { ok: false, counts: {}, error: msg(e) };
+  }
+}
+
+// Student feedback for one of their own submissions (no admin key; needs the submission id + email).
+// -> { ok: true, released: false } | { ok: true, released: true, released_at, status, final_score, score_total,
+//      final_percentage, grades: { qid: points }, comments: { qid: text } } | { ok: false, error }
+export async function fetchFeedback({ gasUrl, submissionId, studentEmail, fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action: 'getFeedback', submissionId, studentEmail }, fetchImpl);
+    if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
+    const { result, ...rest } = d;
+    return { ok: true, ...rest, released: d.released === true };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

@@ -1,0 +1,11 @@
+{
+  "project": "chemistryworks-v2", "mode": "delegate-multi", "base_dir": ".claude/delegation/v2",
+  "tasks": [
+    {"id": "T00", "title": "Shared contracts", "agent": "opus", "depends_on": [], "owns": ["js/lib/**", "apps-script/Code.gs", "docs/ARCHITECTURE.md"], "verify_cmd": "npm test"},
+    {"id": "T01", "title": "Runner references + sections", "agent": "executor-sonnet", "depends_on": ["T00"], "owns": ["js/views/runner.js", "js/views/reference-pane.js", "js/lib/elements.js", "css/references.css", "css/runner.css", "test/e2e/v2-runner.test.mjs", "test/unit/elements.test.mjs"], "spec": "tasks/T01.md", "verify_cmd": "node --test test/e2e/v2-runner.test.mjs"},
+    {"id": "T02", "title": "Diagrams + results", "agent": "executor-sonnet", "depends_on": ["T00"], "owns": ["js/views/orbital-view.js", "js/views/structure-view.js", "js/views/results.js", "css/diagrams.css", "test/e2e/v2-diagrams.test.mjs"], "spec": "tasks/T02.md", "verify_cmd": "node --test test/e2e/v2-diagrams.test.mjs"},
+    {"id": "T03", "title": "Builder", "agent": "executor-sonnet", "depends_on": ["T00"], "owns": ["js/views/admin/builder.js", "css/admin.css", "test/e2e/v2-builder.test.mjs"], "spec": "tasks/T03.md", "verify_cmd": "node --test test/e2e/v2-builder.test.mjs"},
+    {"id": "T04", "title": "Grader", "agent": "executor-sonnet", "depends_on": ["T00"], "owns": ["js/views/admin/grading.js", "js/views/admin/stats.js", "css/grading.css", "test/e2e/v2-grading.test.mjs", "test/unit/v2-grading-helpers.test.mjs"], "spec": "tasks/T04.md", "verify_cmd": "node --test test/e2e/v2-grading.test.mjs"},
+    {"id": "T06", "title": "Library counts + feedback", "agent": "executor-sonnet", "depends_on": ["T00"], "owns": ["js/views/admin/library.js", "js/views/landing.js", "js/views/feedback.js", "js/app.js", "css/feedback.css", "test/e2e/v2-feedback.test.mjs", "test/e2e/v2-library.test.mjs"], "spec": "tasks/T06.md", "verify_cmd": "node --test test/e2e/v2-feedback.test.mjs"}
+  ]
+}

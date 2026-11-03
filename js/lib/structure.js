@@ -8,11 +8,19 @@
 //   question.charge  integer, default 0                 overall charge of an ion (e.g. -1 for NO3^-)
 //   answer           { bonds: [order per skeleton bond], lonePairs: { atomId: count } }
 //   correctAnswer    one answer object, or an array of them (resonance structures: any one is accepted)
+//
+// V2-06: question.studentCharges = true lets the student also draw brackets, an overall bracket charge and
+// per-atom formal charges. Such questions are teacher graded (see isManualQuestion in schema.js). The answer
+// (and the reference key) then also carries:
+//   bracket        boolean                    brackets drawn around the whole structure
+//   charge         integer −4..4              overall charge written on the bracket (0 = none)
+//   formalCharges  { atomId: integer −4..4 }  formal charge written next to an atom (0 = none)
 
 import { normalizeSymbol, valenceOf } from './lewis.js';
 
 export const MAX_BOND_ORDER = 3;
 export const MAX_LONE_PAIRS = 4;
+export const MAX_CHARGE = 4; // |overall bracket charge| and |formal charge| limit for student-drawn charges
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const int = (v) => (Number.isInteger(Number(v)) ? Number(v) : NaN);
@@ -31,7 +39,32 @@ export function acceptedStructures(q) {
   return isObj(a) ? [a] : [];
 }
 
-/** Bring any answer-ish value into { bonds: number[], lonePairs: { id: number } } for this question. */
+const clampCharge = (v) => {
+  const n = int(v);
+  return Number.isFinite(n) ? Math.max(-MAX_CHARGE, Math.min(MAX_CHARGE, n)) : 0;
+};
+
+/** Student-drawn bracket / charges: { bracket, charge, formalCharges: { atomId: n } } (all atoms present). */
+export function normalizeChargeMarks(q, ans) {
+  const src = isObj(ans) ? ans : {};
+  const formalCharges = {};
+  for (const a of Array.isArray(q?.atoms) ? q.atoms : []) {
+    formalCharges[a.id] = isObj(src.formalCharges) ? clampCharge(src.formalCharges[a.id]) : 0;
+  }
+  return { bracket: src.bracket === true, charge: clampCharge(src.charge), formalCharges };
+}
+
+/** Superscript-style label: "2−", "−", "+", "3+" (unicode minus, 1 omitted); "" for 0. { explicit: true } keeps the 1: "1−". */
+export function chargeLabel(n, { explicit = false } = {}) {
+  const c = Number(n) || 0;
+  if (!c) return '';
+  return `${Math.abs(c) === 1 && !explicit ? '' : Math.abs(c)}${c > 0 ? '+' : '−'}`;
+}
+
+/**
+ * Bring any answer-ish value into { bonds: number[], lonePairs: { id: number } } for this question.
+ * When q.studentCharges is true the result also has { bracket, charge, formalCharges } (see normalizeChargeMarks).
+ */
 export function normalizeStructureAnswer(q, ans) {
   const atoms = Array.isArray(q?.atoms) ? q.atoms : [];
   const nb = Array.isArray(q?.bonds) ? q.bonds.length : 0;
@@ -45,7 +78,7 @@ export function normalizeStructureAnswer(q, ans) {
     const v = isObj(src.lonePairs) ? int(src.lonePairs[a.id]) : NaN;
     lonePairs[a.id] = Number.isFinite(v) ? Math.max(0, Math.min(MAX_LONE_PAIRS, v)) : 0;
   }
-  return { bonds, lonePairs };
+  return q?.studentCharges ? { bonds, lonePairs, ...normalizeChargeMarks(q, src) } : { bonds, lonePairs };
 }
 
 /** Electrons drawn in an answer: 2 per bond order + 2 per lone pair. */
@@ -70,7 +103,9 @@ export function isStructureAnswered(ans) {
   if (!isObj(ans)) return false;
   const b = Array.isArray(ans.bonds) && ans.bonds.some((x) => Number(x) > 0);
   const l = isObj(ans.lonePairs) && Object.values(ans.lonePairs).some((x) => Number(x) > 0);
-  return b || l;
+  const c = ans.bracket === true || (Number(ans.charge) || 0) !== 0
+    || (isObj(ans.formalCharges) && Object.values(ans.formalCharges).some((x) => (Number(x) || 0) !== 0));
+  return b || l || c;
 }
 
 /** { fraction, full } against the best-matching accepted structure. */
@@ -121,7 +156,13 @@ export function describeStructure(q, ans) {
     return `${label.get(e[0]) ?? e[0]}–${label.get(e[1]) ?? e[1]} ${BOND_WORD[n.bonds[i]] ?? n.bonds[i]}`;
   });
   const lp = (q.atoms || []).map((a) => `${label.get(a.id)} ${n.lonePairs[a.id]}`);
-  return `Bonds: ${bonds.join(', ')} · Lone pairs: ${lp.join(', ')} · ${electronsDrawn(q, ans)} electrons`;
+  let out = `Bonds: ${bonds.join(', ')} · Lone pairs: ${lp.join(', ')} · ${electronsDrawn(q, ans)} electrons`;
+  if (q.studentCharges) {
+    const fc = (q.atoms || []).filter((a) => n.formalCharges[a.id]).map((a) => `${label.get(a.id)} ${chargeLabel(n.formalCharges[a.id], { explicit: true })}`);
+    out += ` · Brackets: ${n.bracket ? `yes${n.charge ? `, charge ${chargeLabel(n.charge, { explicit: true })}` : ', no charge'}` : n.charge ? `no (charge ${chargeLabel(n.charge, { explicit: true })})` : 'no'}`;
+    out += ` · Formal charges: ${fc.length ? fc.join(', ') : 'none'}`;
+  }
+  return out;
 }
 
 function countSymbol(q, sym) {
@@ -219,6 +260,15 @@ export function validateStructure(q, where, errors) {
     for (const [id, v] of Object.entries(k.lonePairs || {})) {
       if (!ids.has(id)) errors.push(`${label} lonePairs refers to unknown atom "${id}".`);
       else if (!Number.isInteger(v) || v < 0 || v > MAX_LONE_PAIRS) errors.push(`${label} lone pairs on "${id}" must be a whole number 0-4.`);
+    }
+    if (q.studentCharges) {
+      if (k.bracket !== undefined && typeof k.bracket !== 'boolean') errors.push(`${label} bracket must be true or false.`);
+      if (k.charge !== undefined && (!Number.isInteger(k.charge) || Math.abs(k.charge) > MAX_CHARGE)) errors.push(`${label} charge must be a whole number from −${MAX_CHARGE} to ${MAX_CHARGE}.`);
+      if (k.formalCharges !== undefined && !isObj(k.formalCharges)) errors.push(`${label} formalCharges must be an object { atomId: charge }.`);
+      for (const [id, v] of Object.entries(isObj(k.formalCharges) ? k.formalCharges : {})) {
+        if (!ids.has(id)) errors.push(`${label} formalCharges refers to unknown atom "${id}".`);
+        else if (!Number.isInteger(v) || Math.abs(v) > MAX_CHARGE) errors.push(`${label} formal charge on "${id}" must be a whole number from −${MAX_CHARGE} to ${MAX_CHARGE}.`);
+      }
     }
     if (total !== null) {
       const drawn = electronsDrawn(q, k);

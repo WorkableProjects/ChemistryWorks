@@ -2,7 +2,13 @@
 
 This guide is for an AI assistant (or a person) writing a test for ChemistryWorks. Follow it exactly and the output will import into the app without errors.
 
-**Your job:** produce **one JSON object** describing a test. Output only the JSON: no comments, no trailing commas, no Markdown outside a single ```json code block. The teacher then imports it as described in [Importing into ChemistryWorks](#importing-into-chemistryworks).
+**Your job** is one of three things. In every case you output **one complete JSON object** for the whole test in a single ```json code block (no comments, no trailing commas):
+
+1. **Write a new test** from the teacher's request (everything below).
+2. **Update only the Resources tab** of an existing test (the constants and values students see beside the questions): see [Updating the Resources tab](#a-update-only-the-resources-tab).
+3. **Update the whole test** (questions, answers, points, sections, settings, references): see [Updating the whole test](#b-update-the-whole-test).
+
+For updates the teacher gives you the test's current JSON; after the JSON block add a short bullet list of what you changed. The teacher then imports it as described in [Importing into ChemistryWorks](#importing-into-chemistryworks).
 
 **When you're done:** always tell the user to save the JSON as `<CODE>.json` and add it to `~/data/tests` (the `data/tests/` folder of the ChemistryWorks repository), along with an entry in `data/tests/index.json`. See [Option B](#option-b-bundle-it-with-the-site-for-repository-maintainers).
 
@@ -13,12 +19,13 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 1. Output strict JSON: double-quoted keys and strings, no `//` comments, no trailing commas.
 2. `code`: 2–32 characters, uppercase letters, digits, `-` or `_` (e.g. `CHEM-U3-QUIZ`). Must be unique among the teacher's tests.
 3. Every question needs a unique `id` (letters, digits, `-`, `_`). Use `q1`, `q2`, `q3`, …
-4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`.
+4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`.
 5. `points` must be a number greater than 0.
 6. Option ids (`mcq`, `multi`), item ids (`matching`, `ordering`), blank ids (`fillblank`) and atom ids (`structure`) must be unique **within that question**. Use `a`, `b`, `c`, `d` for options.
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
 8. In JSON, a backslash must be written as `\\`. So the math `$\ce{H2O}$` is written `"$\\ce{H2O}$"`.
 9. Pick the type that fits the skill being tested (see [Choosing a question type](#choosing-a-question-type)). For bonding, use `structure` (full Lewis structure) rather than describing a structure in words.
+10. Optional v2 features: group questions into `sections`, give students a `references` pane (periodic table, **Resources** table of constants/values, text, image), use `orbital` for orbital diagrams and `studentCharges` on `structure` for brackets and charges. See [Sections and references](#sections-and-references-v2), [13. `orbital`](#13-orbital-energy-orbital-diagram-teacher-graded) and [Brackets and charges](#brackets-and-charges-studentcharges-teacher-graded).
 
 ---
 
@@ -54,9 +61,57 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | `allowModeToggle` | no | boolean | `true` | Student may switch between one-at-a-time and all-on-one-page. |
 | `defaultMode` | no | `"focus"`, `"scroll"` or `null` | `null` (site default) | Starting layout. |
 | `passingPercent` | no | number 0–100 or `null` | `null` | Shows a Passed / Not yet badge. |
+| `sections` | no | array of `{ id, title, instructions? }` | `[]` | Named groups of questions. See [Sections and references](#sections-and-references-v2). |
+| `references` | no | array of reference items | `[]` | Resources shown in a split-screen pane beside the questions. See [Sections and references](#sections-and-references-v2). |
 | `questions` | yes | array, at least 1 | — | See below. |
 
 **Hidden-score tests:** if the teacher wants students *not* to see their score (for example, to grade privately and enter grades into Aeries or Google Classroom), set `"showResults": false`.
+
+---
+
+## Sections and references (v2)
+
+Both are optional. A test without them behaves exactly as before.
+
+### `sections`
+
+```json
+"sections": [
+  { "id": "secA", "title": "Part A: Electron configuration", "instructions": "Use the periodic table in the reference pane." },
+  { "id": "secB", "title": "Part B: Bonding", "instructions": "Draw complete Lewis structures, including **brackets** and charges for ions." }
+]
+```
+
+- `id`: unique among sections (letters, digits, `-`, `_`). `title`: required, non-empty. `instructions`: optional text shown under the section heading.
+- Put a question in a section with `"section": "secA"` on the question. A question without `section` is **unsectioned**. Every `section` value must match a section `id`.
+- **Canonical ordering rule:** the app always orders questions as *unsectioned questions first, then each section in the order of the `sections` array; inside each group, questions keep their order in the `questions` array*. Write the `questions` array in that order (the app re-sorts it on import, so the order you see after importing is the order students see). With `shuffleQuestions`, questions shuffle only inside their own group; the groups never move.
+- **Section point totals are calculated** from the questions' `points` and shown automatically. Do not write a total anywhere.
+
+### `references`
+
+A reference pane appears beside the questions on wide screens (stacked or collapsible on small screens). Students can switch between items, resize the pane and collapse it; answers are kept.
+
+```json
+"references": [
+  { "id": "pt", "type": "periodic-table", "title": "" },
+  { "id": "res", "type": "resources", "title": "Resources", "items": [
+    { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+    { "name": "Ideal gas constant, R", "value": "0.0821", "unit": "L·atm/(mol·K)" },
+    { "name": "Molar volume of a gas at STP", "value": "22.4", "unit": "L/mol" }
+  ] },
+  { "id": "sol", "type": "image", "title": "Solubility chart", "url": "https://example.org/solubility.png", "alt": "Table of solubility rules for common ionic compounds" }
+]
+```
+
+| `type` | Extra fields | Notes |
+|---|---|---|
+| `periodic-table` | none | Built-in periodic table, identical to the California Standards Test *Chemistry Reference Sheet* (e.g. O 16.00, Fe 55.85, Tc (98)). **At most one per test.** `title` may be `""` (it then shows "Periodic table"). |
+| `resources` | `items` (required, ≥ 1): `[{ "name", "value", "unit" }]` | The **Resources** tab: a table of the constants and values students may use, **per test**. Shown exactly as written, so use the values the class uses (e.g. `6.02 × 10²³`, not `6.02214076 × 10²³`). `name` and `value` are required, `unit` may be `""`. **All three columns use the same LaTeX formatting as question text** (see [Writing chemistry and math](#writing-chemistry-and-math)): `$…$` for math, `$\\ce{…}$` for formulas, e.g. `"name": "Molar mass of $\\ce{H2O}$"`, `"unit": "$\\frac{\\text{L atm}}{\\text{mol K}}$"`. A typed `·` works everywhere, including inside `\\text{…}` (e.g. `$\\frac{\\text{L·atm}}{\\text{mol·K}}$`). Use one `resources` reference per test, titled `"Resources"`. |
+| `text` | `content` (required) | Free-form notes or formulas. Supports math between `$…$` like question text. Use `\n\n` for a new paragraph. |
+| `image` | `url` (required), `alt` (required) | The URL must be **https** (or a site-relative path such as `data/img/chart.png`); other schemes are rejected. **`alt` is required**: describe the image for screen readers. |
+
+- Each reference needs a unique `id` (`ref1`, `pt`, …). References are per test, not per section.
+- Only include what students may use during the test: everything in the pane is visible to them.
 
 ---
 
@@ -74,6 +129,8 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | complete a sentence (vocabulary, formulas or numbers in context) | `fillblank` |
 | draw valence dots around one element | `lewis` |
 | draw the full Lewis structure of a molecule or polyatomic ion (bonds + lone pairs) | `structure` |
+| draw a structure with brackets, an overall charge and formal charges (teacher graded) | `structure` with `"studentCharges": true` |
+| fill in an energy orbital diagram with up/down arrows (teacher graded) | `orbital` |
 | write a sentence or two (teacher graded) | `short` |
 | write an extended explanation graded with a rubric (teacher graded) | `open` |
 
@@ -84,10 +141,11 @@ This guide is for an AI assistant (or a person) writing a test for ChemistryWork
 | Field | Required | Notes |
 |---|---|---|
 | `id` | yes | Unique in the test. `q1`, `q2`, … |
-| `type` | yes | One of the twelve types below. |
+| `type` | yes | One of the thirteen types below. |
 | `text` | yes | The question. Supports math, see [Writing chemistry and math](#writing-chemistry-and-math). |
 | `points` | no | Number > 0. Default `1`. |
 | `explanation` | no | Shown in the student review after submitting (if `showCorrectAnswers` is on). Strongly recommended. |
+| `section` | no | Id of a section in the test's `sections`. Omit for an unsectioned question. |
 
 ---
 
@@ -342,7 +400,7 @@ The student sees the atoms of a molecule placed on a grid with the skeleton conn
 - **Electron check:** for main-group atoms the app verifies `2 × (sum of bond orders) + 2 × (sum of lone pairs) = total valence electrons − charge`. If it doesn't match, the test will not import. Count before you write. CO₂: valence 4 + 6 + 6 = 16; drawn = 2 × (2 + 2) for the bonds + 2 × (2 + 0 + 2) for the lone pairs = 8 + 8 = 16 ✓.
 - `partialCredit` (default `false`): credit = (correct bond orders + atoms with the correct lone-pair count) ÷ (bonds + atoms), using the closest resonance form.
 - `showElectronCount` (default `false`): when `true`, the counter says "14 of 16 valence electrons drawn", which gives the total away. Leave `false` when counting valence electrons is part of the skill.
-- Do not draw formal charges; they are not asked for. Expanded octets (SF₆, PCl₅, XeF₄) work: up to 4 lone pairs per atom and triple bonds are allowed.
+- By default formal charges are not asked for (see [Brackets and charges](#brackets-and-charges-studentcharges-teacher-graded) to require them). Expanded octets (SF₆, PCl₅, XeF₄) work: up to 4 lone pairs per atom and triple bonds are allowed.
 
 **Water (bent; give coordinates):**
 ```json
@@ -389,6 +447,39 @@ The student sees the atoms of a molecule placed on a grid with the skeleton conn
 
 Electron counts for these: H₂O = 1 + 6 + 1 = 8; NH₄⁺ = 5 + 4 − 1 = 8; NO₃⁻ = 5 + 18 + 1 = 24.
 
+#### Brackets and charges (`studentCharges`, teacher graded)
+
+Add `"studentCharges": true` to a `structure` question when students must also draw **brackets**, the **overall charge** and **per-atom formal charges**. Such a question is **teacher graded**: it scores 0 until the teacher grades it, and `correctAnswer` becomes the reference answer the teacher sees. Without `studentCharges` (the default `false`) the question behaves exactly as before and is auto graded.
+
+- With `studentCharges` on, the skeleton's `charge` is not pre-drawn as brackets (the student draws them), but it still sets the valence-electron total, so keep it correct. The electron check above still applies.
+- `correctAnswer` gains three fields (single object only, no resonance array):
+  - `bracket`: `true` if the structure should be enclosed in brackets (polyatomic ions).
+  - `charge`: overall charge, whole number from −4 to 4 (`-1` for NO₃⁻). Use `0` when there is none.
+  - `formalCharges`: `{ atomId: charge }` for atoms with a non-zero formal charge, each −4 to 4. Atoms you leave out count as 0.
+- Because grading is by the teacher, the answer is not compared automatically; make `explanation` say how formal charges were found.
+
+```json
+{
+  "id": "no3", "type": "structure", "points": 4, "studentCharges": true, "charge": -1,
+  "text": "Draw the Lewis structure of the nitrate ion, $\\ce{NO3-}$, with brackets, the overall charge and formal charges.",
+  "atoms": [
+    { "id": "n", "symbol": "N", "x": 1, "y": 1 },
+    { "id": "o1", "symbol": "O", "x": 1, "y": 0 },
+    { "id": "o2", "symbol": "O", "x": 0, "y": 2 },
+    { "id": "o3", "symbol": "O", "x": 2, "y": 2 }
+  ],
+  "bonds": [["n", "o1"], ["n", "o2"], ["n", "o3"]],
+  "correctAnswer": {
+    "bonds": [2, 1, 1],
+    "lonePairs": { "n": 0, "o1": 2, "o2": 3, "o3": 3 },
+    "bracket": true,
+    "charge": -1,
+    "formalCharges": { "n": 1, "o2": -1, "o3": -1 }
+  },
+  "explanation": "24 valence electrons. N is +1, each single-bonded O is -1; overall 1-."
+}
+```
+
 ### 11. `short`: short answer / open-ended (teacher graded)
 
 ```json
@@ -433,27 +524,111 @@ Electron counts for these: H₂O = 1 + 6 + 1 = 8; NH₄⁺ = 5 + 4 − 1 = 8; NO
 - `minWords` / `maxWords` (optional whole numbers): shown as a target ("aim for 60–200 words"); not enforced.
 - `sampleAnswer` (optional): model answer for the teacher; shown to students in the review only if `showCorrectAnswers` is on.
 
+### 13. `orbital`: energy orbital diagram (teacher graded)
+
+Students get an empty orbital diagram (one box per orbital, grouped by sublevel, lowest energy first) and click or tap each box to place spin-up, spin-down or paired arrows. Spin is shown by arrow direction and the box label, never by colour alone.
+
+```json
+{
+  "id": "orbN",
+  "type": "orbital",
+  "text": "Draw the orbital diagram for a ground-state nitrogen atom.",
+  "points": 3,
+  "maxSublevel": "2p",
+  "orbitalTypes": ["s", "p"],
+  "sampleAnswer": { "1s": ["ud"], "2s": ["ud"], "2p": ["u", "u", "u"] },
+  "explanation": "Nitrogen has 7 electrons: 1s2 2s2 2p3. By Hund's rule the three 2p electrons sit in separate orbitals with parallel spins."
+}
+```
+
+- **Teacher graded**: no `correctAnswer`; it scores 0 until the teacher grades it in the **Grading** tab.
+- `maxSublevel` (default `"2p"`): the highest sublevel shown. Sublevels are listed in **Aufbau order**: `1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p 7s 5f 6d 7p`. Everything up to and including `maxSublevel` (in that order) is shown, filtered by `orbitalTypes`.
+- `orbitalTypes` (default `["s","p"]`): which sublevel types to include, any subset of `s`, `p`, `d`, `f`. Include every type up to the highest one you need (for iron, `3d` needs `["s","p","d"]`).
+- `sampleAnswer` (optional, recommended): the reference diagram the teacher sees while grading. An object keyed by sublevel, each value an array with **one entry per orbital box** (s = 1, p = 3, d = 5, f = 7): `""` empty, `"u"` one up arrow, `"d"` one down arrow, `"ud"` a pair. Example iron 3d: `["ud","u","u","u","u"]`. It is shown to students in the review only if `showCorrectAnswers` is on.
+- Set `points` to reflect the work (for example 1 point per correctly filled sublevel).
+
 ---
 
 ## Writing chemistry and math
 
-Question `text`, option `text`, `explanation` and `sampleAnswer` are plain text with optional math between `$…$` (inline) or `$$…$$` (display), rendered with KaTeX and the mhchem extension.
+All formatting is **LaTeX rendered with KaTeX** (plus the mhchem extension for chemistry). Questions and the Resources tab use exactly the same rules. There is no Markdown or HTML: `**bold**`, `<b>` and `<br>` show up as literal characters.
+
+### Where formatting works
+
+| Formatted (math between `$…$` is rendered) | Plain text only (math is **not** rendered) |
+|---|---|
+| Question `text` (including `fillblank` text around the `{{blanks}}`) | `title`, `description` of the test |
+| `options[].text` (`mcq`, `multi`) | Section `title` and reference `title` |
+| `left[].text` and `right[].text` (`matching`) | `correctAnswer` of `formula`, `numeric`, `truefalse` |
+| `items[].text` (`ordering`) | `blanks[].answers` and `distractors` (`fillblank`) |
+| `explanation` | `sampleAnswer` of `short` / `open` (shown as written) |
+| `rubric[].text` (`open`) | `element`, atom `symbol`s, `unit` of a `numeric` question |
+| Section `instructions` | Image `alt` text |
+| Resources `items[].name`, `items[].value`, `items[].unit` | |
+| `text` reference `content` | |
+
+Line breaks (`\n`) are kept in section `instructions` and `text` reference `content` (`\n\n` = new paragraph). In question text, options and Resources cells a `\n` becomes a space; use `$$…$$` for a displayed equation on its own line.
+
+### Delimiters
+
+| Delimiter | Use |
+|---|---|
+| `$…$` or `\\(…\\)` | Inline math inside a sentence or table cell |
+| `$$…$$` or `\\[…\\]` | Displayed (centered, own line) equation |
+
+### Cookbook
 
 | You want | Write in JSON |
 |---|---|
 | H₂SO₄ | `"$\\ce{H2SO4}$"` |
+| Hydrate CuSO₄·5H₂O | `"$\\ce{CuSO4*5H2O}$"` or `"$\\ce{CuSO4·5H2O}$"` |
+| Ion SO₄²⁻ / Na⁺ | `"$\\ce{SO4^2-}$"`, `"$\\ce{Na+}$"` |
+| States | `"$\\ce{NaCl(aq)}$"`, `"$\\ce{H2O(l)}$"` |
 | Reaction arrow | `"$\\ce{2H2 + O2 -> 2H2O}$"` |
 | Equilibrium | `"$\\ce{N2 + 3H2 <=> 2NH3}$"` |
-| Ion | `"$\\ce{SO4^2-}$"` |
-| Scientific notation | `"$6.022 \\times 10^{23}$"` |
+| Arrow with condition | `"$\\ce{A ->[\\Delta] B}$"` |
+| Isotope | `"$\\ce{^{14}_{6}C}$"` |
+| Scientific notation | `"$6.02 \\times 10^{23}$"` |
+| Superscript / subscript | `"$10^{-3}$"`, `"$K_a$"`, `"$K_{sp}$"` |
 | Fraction | `"$\\frac{n}{V}$"` |
-| Units | `"$\\pu{25 ^\\circ C}$"` or just `"25 °C"` |
+| Units in math | `"$\\text{J/(mol·K)}$"`, `"$\\frac{\\text{L·atm}}{\\text{mol·K}}$"`, `"mol$^{-1}$"` |
+| Physical quantity (mhchem) | `"$\\pu{25 ^\\circ C}$"`, `"$\\pu{8.31 J mol-1 K-1}$"` or just `"25 °C"` |
+| Greek / symbols | `"$\\Delta H$"`, `"$\\lambda$"`, `"$\\pm$"`, `"$\\approx$"`, `"$\\rightarrow$"` |
+| Square root / log | `"$\\sqrt{K_a C}$"`, `"$\\text{pH} = -\\log[\\ce{H+}]$"` |
+| Bold or italic word | `"$\\textbf{not}$"`, `"$\\textit{exactly}$"` (inside math) |
+| Displayed equation | `"$$PV = nRT$$"` |
 
-Rules:
-- Every backslash in JSON is doubled: `\\ce`, `\\times`, `\\frac`.
-- Text is never treated as HTML. Don't use `<b>`, `<br>` or other tags.
-- Avoid a literal `$` in text (it starts math); write "dollars" instead.
-- Formula answers (`formula` type `correctAnswer`) are plain text like `H2SO4`, **not** `$\\ce{…}$`.
+### Rules
+
+- **Every backslash in JSON is doubled:** `\\ce`, `\\times`, `\\frac`, `\\text`. A single `\` breaks the JSON or the math.
+- Typed Unicode is fine: `°`, `·`, `×`, `−`, `→`, `²`, Greek letters, both in plain text and inside `$…$` (including inside `\\text{…}`).
+- Use `\\text{…}` for words or units inside math (otherwise letters render in italics and spaces are dropped).
+- Don't put a literal `$` in text (it starts math); write "dollars" instead.
+- Every `$` must be closed; an unclosed `$` shows as raw text. Unknown commands show in red: test in **Preview** before publishing.
+- Answers students type are plain text: `formula` keys are `"H2SO4"` (not `"$\\ce{H2SO4}$"`), `numeric` keys are numbers, and `fillblank` answers are plain strings.
+
+### Formatting the Resources tab
+
+Each row of a `resources` reference is one line in the student's table, and **all three cells use the formatting above**:
+
+```json
+{ "id": "res", "type": "resources", "title": "Resources", "items": [
+  { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+  { "name": "Ideal gas constant, $R$", "value": "$0.0821$", "unit": "$\\frac{\\text{L·atm}}{\\text{mol·K}}$" },
+  { "name": "Molar mass of $\\ce{H2O}$", "value": "18.02", "unit": "g/mol" },
+  { "name": "Ion product of water, $K_w$", "value": "$1.0 \\times 10^{-14}$", "unit": "" },
+  { "name": "Specific heat of water", "value": "4.18", "unit": "J/(g·°C)" }
+] }
+```
+
+- `name`: what the value is; may include a symbol (`$R$`, `$K_w$`) or a formula (`$\\ce{H2O}$`).
+- `value`: the number exactly as the class uses it. Plain numbers (`"22.4"`) show in a monospace font; powers of ten need math (`"$6.02 \\times 10^{23}$"`).
+- `unit`: plain text (`"L/mol"`, `"J/(g·°C)"`) or math for superscripts and fractions (`"mol$^{-1}$"`). Use `""` when there is no unit.
+- For a formula sheet (several equations), use a `text` reference instead: `{ "id": "eq", "type": "text", "title": "Equations", "content": "$$PV = nRT$$\n\n$$M_1V_1 = M_2V_2$$" }`.
+
+### Instructor comments (not written in test JSON)
+
+Comments a teacher adds while grading use a different, small Markdown subset (`**bold**`, `*italic*`, `- ` / `1. ` lists, `[text](https://…)` links) and no math. They are not part of the test JSON.
 
 ---
 
@@ -643,6 +818,268 @@ A complete, valid test using every type (copy this as a template):
 
 ---
 
+## Complete v2 example (sections, references, orbital, charges)
+
+A shorter test using the v2 features. Note the canonical order: the unsectioned question first, then Part A, then Part B.
+
+```json
+{
+  "code": "CHEM-V2-DEMO",
+  "title": "Electrons & Bonding (v2 sample)",
+  "description": "Sections, references, orbital diagrams and Lewis structures with charges.",
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "sections": [
+    {
+      "id": "secA",
+      "title": "Part A: Electron configuration",
+      "instructions": "Use the periodic table in the reference pane."
+    },
+    {
+      "id": "secB",
+      "title": "Part B: Bonding",
+      "instructions": "Draw complete Lewis structures, including **brackets** and charges for ions."
+    }
+  ],
+  "references": [
+    {
+      "id": "pt",
+      "type": "periodic-table",
+      "title": ""
+    },
+    {
+      "id": "res",
+      "type": "resources",
+      "title": "Resources",
+      "items": [
+        { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+        { "name": "Ideal gas constant, R", "value": "8.31", "unit": "J/(mol·K)" }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "warm",
+      "type": "mcq",
+      "text": "Which particle has a negative charge?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Proton"
+        },
+        {
+          "id": "b",
+          "text": "Electron"
+        },
+        {
+          "id": "c",
+          "text": "Neutron"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": "Electrons carry a negative charge; protons are positive and neutrons are neutral."
+    },
+    {
+      "id": "orbN",
+      "section": "secA",
+      "type": "orbital",
+      "text": "Draw the orbital diagram for a ground-state nitrogen atom.",
+      "points": 3,
+      "maxSublevel": "2p",
+      "orbitalTypes": [
+        "s",
+        "p"
+      ],
+      "sampleAnswer": {
+        "1s": [
+          "ud"
+        ],
+        "2s": [
+          "ud"
+        ],
+        "2p": [
+          "u",
+          "u",
+          "u"
+        ]
+      },
+      "explanation": "Nitrogen has 7 electrons: 1s² 2s² 2p³. By Hund’s rule the three 2p electrons occupy separate orbitals with parallel spins."
+    },
+    {
+      "id": "config",
+      "section": "secA",
+      "type": "short",
+      "text": "Write the electron configuration of sodium.",
+      "points": 1,
+      "sampleAnswer": "1s2 2s2 2p6 3s1",
+      "explanation": "Sodium has 11 electrons: 1s² 2s² 2p⁶ 3s¹."
+    },
+    {
+      "id": "no3",
+      "section": "secB",
+      "type": "structure",
+      "points": 4,
+      "studentCharges": true,
+      "text": "Draw the Lewis structure of the nitrate ion, $\\ce{NO3-}$, with brackets, the overall charge and formal charges.",
+      "atoms": [
+        {
+          "id": "n",
+          "symbol": "N",
+          "x": 1,
+          "y": 1
+        },
+        {
+          "id": "o1",
+          "symbol": "O",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "o2",
+          "symbol": "O",
+          "x": 0,
+          "y": 2
+        },
+        {
+          "id": "o3",
+          "symbol": "O",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "bonds": [
+        [
+          "n",
+          "o1"
+        ],
+        [
+          "n",
+          "o2"
+        ],
+        [
+          "n",
+          "o3"
+        ]
+      ],
+      "charge": -1,
+      "correctAnswer": {
+        "bonds": [
+          2,
+          1,
+          1
+        ],
+        "lonePairs": {
+          "n": 0,
+          "o1": 2,
+          "o2": 3,
+          "o3": 3
+        },
+        "bracket": true,
+        "charge": -1,
+        "formalCharges": {
+          "n": 1,
+          "o2": -1,
+          "o3": -1
+        }
+      },
+      "explanation": "Nitrate has 24 valence electrons. One N=O double bond and two N–O single bonds give N a formal charge of +1 and each single-bonded O −1; the ion carries an overall 1− charge shown outside brackets. Three resonance forms exist."
+    },
+    {
+      "id": "co2",
+      "section": "secB",
+      "type": "structure",
+      "points": 2,
+      "text": "Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.",
+      "atoms": [
+        {
+          "id": "o1",
+          "symbol": "O",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "c",
+          "symbol": "C",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "o2",
+          "symbol": "O",
+          "x": 2,
+          "y": 0
+        }
+      ],
+      "bonds": [
+        [
+          "o1",
+          "c"
+        ],
+        [
+          "c",
+          "o2"
+        ]
+      ],
+      "correctAnswer": {
+        "bonds": [
+          2,
+          2
+        ],
+        "lonePairs": {
+          "o1": 2,
+          "c": 0,
+          "o2": 2
+        }
+      },
+      "explanation": "CO₂ has 16 valence electrons: two C=O double bonds and two lone pairs on each oxygen give every atom an octet and zero formal charge."
+    }
+  ]
+}
+```
+
+---
+
+## Updating an existing test
+
+**Get the current JSON first.** Ask the teacher for it if you don't have it. In the app: admin **Library** → **Edit in builder** on the test → switch the builder to **JSON** mode → copy everything (or click **Download JSON**). For a bundled test it is the file `data/tests/<CODE>.json`.
+
+**Apply the update.** Builder → **JSON** mode → replace everything with your JSON → **Apply JSON** → check **Ready to publish ✓** → **Publish to Sheet**. Publishing with the **same `code` replaces** the published test; students who open it afterwards get the new version. For a bundled test, overwrite `data/tests/<CODE>.json` and run `npm run validate:tests`.
+
+The app always imports a **whole test**, so every update outputs the complete JSON, never a fragment.
+
+### A. Update only the Resources tab
+
+Use this when the teacher asks to add, change or remove constants/values (e.g. "use 6.02 × 10²³ for Avogadro's number", "add the specific heat of water", "remove R in J/(mol·K)").
+
+1. Find the entry in `references` whose `type` is `"resources"`. (Older tests may say `"constants"`: change it to `"resources"`. If the values are in a `"text"` reference titled Constants, convert them to a `resources` entry with one row per value and remove the text entry.) If there is none, add `{ "id": "res", "type": "resources", "title": "Resources", "items": [] }` after the periodic table (or first).
+2. Edit only its `items` (and `title` if asked). Each row: `{ "name": "…", "value": "…", "unit": "…" }`. Write the value **exactly** as the teacher wants students to see it; keep their rounding. Use math for powers: `"$6.02 \\times 10^{23}$"`, units like `"mol$^{-1}$"` or plain `"L·atm/(mol·K)"`. Keep the order the teacher gives (otherwise: most-used first). At least one row must remain.
+3. **Change nothing else.** Copy every other field (`code`, questions, ids, answers, points, sections, settings, other references) unchanged. The periodic table cannot be edited (it is built in); only add or remove it.
+4. Output the whole test JSON, then list the rows you added, changed or removed.
+
+Before/after example (only the `resources` entry changes):
+
+```json
+{ "id": "res", "type": "resources", "title": "Resources", "items": [
+  { "name": "Avogadro's number", "value": "$6.02 \\times 10^{23}$", "unit": "mol$^{-1}$" },
+  { "name": "Specific heat of water", "value": "4.18", "unit": "J/(g·°C)" }
+] }
+```
+
+### B. Update the whole test
+
+Use this for any other change: rewrite or add questions, fix answer keys, change points, add sections, change settings, or add resources at the same time.
+
+1. **Keep the `code`** unless the teacher asks for a new test. (A new code creates a separate test; the old one stays.)
+2. **Keep the `id` of every question you keep**, even if you rewrite its text. Submitted answers and grades are stored by question id; changing an id makes past submissions lose their link to that question. Give new questions new ids that were never used in this test (`q11`, `q12`, …), and never reuse a deleted question's id.
+3. Keep option / item / blank / atom ids stable when only wording changes; if you change which option is correct, update `correctAnswer` to match.
+4. Keep everything the teacher did not ask to change (settings, sections, references, explanations). When you move questions between sections, change only each question's `"section"`; the app orders questions automatically (unsectioned first, then by section order).
+5. Re-check every rule in [Quick rules](#quick-rules) and the [Quality checklist](#quality-checklist-for-the-ai), including that `open` rubric points add up to the question's `points`, `structure` keys use the right number of electrons, and every `section` id exists.
+6. Changes apply to new attempts only. Tell the teacher if a change affects students who already submitted (for example a corrected answer key: those submissions keep their old auto score, which the teacher can override in **Grading**).
+7. Output the whole test JSON, then a bullet list of changes grouped by question id (`q3: fixed answer key`, `q12: new`, `q5: deleted`, `Resources: …`).
+
+---
+
 ## Importing into ChemistryWorks
 
 This section is for the teacher (or an AI with access to the repository).
@@ -681,6 +1118,10 @@ If a bundled test and a published test share a code, the bundled one is used.
 ### Grading tests with `short` / `open` questions or hidden scores
 
 After students submit, open the admin **Grading** tab (it needs the admin key in **Settings**). Filter by **Needs grading**, open each submission, tick rubric criteria (for `open` questions) or enter points for open-ended answers (and override any auto-graded points if needed), and click **Save & next**. **Export grades** downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom.
+
+v2 additions to the grader: the **Full / Half / Zero** buttons set 100%, 50% or 0% of a question's points in one click, or type any score from 0 up to the question's points (negative, too-high or non-numeric entries are rejected with a message). Scores can be fractional (for example 1.5). Auto-graded questions keep their automatic score as the default; a different score is saved as an **override** and labelled with the automatic score. Orbital diagrams and `structure` questions with `studentCharges` are teacher graded like `short` and `open`.
+
+To give feedback, add a **comment** to any question (supports `**bold**`, `*italic*`, `- ` and `1. ` lists and `[text](https://…)` links; empty comments are not saved). Comments are private until you tick **Release grade & comments to student** and save. After release, students see their score and your comments under **Your submitted tests > View feedback**. **Export PDF** (in an open submission) prints one student's reviewed submission, with comments included only if the grade is released.
 
 ---
 

@@ -4,9 +4,8 @@ import { formulasEqual } from './formula.js';
 import { isDotArray, dotTotal, followsPlacementRule, canonicalDots, describeDots } from './lewis.js';
 import { isStructureAnswered, scoreStructure, describeStructure, acceptedStructures } from './structure.js';
 import { blankCorrect, blankedText } from './blanks.js';
-
-// Types a teacher grades by hand (kept in sync with MANUAL_TYPES in schema.js).
-const MANUAL = new Set(['short', 'open']);
+import { isOrbitalAnswered, describeOrbital } from './orbital.js';
+import { isManualQuestion } from './schema.js';
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
@@ -69,6 +68,8 @@ export function isAnswered(question, answer) {
       return isPlainObject(answer) && Object.values(answer).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
     case 'structure':
       return isStructureAnswered(answer);
+    case 'orbital':
+      return isOrbitalAnswered(question, answer);
     case 'truefalse':
       return typeof answer === 'boolean';
     case 'lewis':
@@ -170,7 +171,7 @@ export function gradeQuestion(question, answer) {
   const answered = isAnswered(q, answer);
   if (!answered) return { answered: false, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false };
   // Open-ended answers score 0 until a teacher grades them in the admin panel.
-  if (MANUAL.has(q.type)) return { answered: true, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false, needsGrading: true };
+  if (isManualQuestion(q)) return { answered: true, isCorrect: false, pointsEarned: 0, pointsPossible, partial: false, needsGrading: true };
   let res;
   try {
     res = score(q, answer);
@@ -229,6 +230,8 @@ export function formatAnswer(question, answer) {
         }).join('; ');
       case 'structure':
         return describeStructure(q, answer);
+      case 'orbital':
+        return describeOrbital(q, answer);
       case 'lewis':
         return describeDots(answer, q.element);
       case 'matching':
@@ -266,6 +269,7 @@ function formatCorrect(q) {
   if (q.type === 'fillblank') {
     return (q.blanks || []).map((b, i) => `(${i + 1}) ${(b.answers || []).map(String).join(' / ') || DASH}`).join('; ') || DASH;
   }
+  if (q.type === 'orbital') return q.sampleAnswer ? `Sample: ${describeOrbital(q, q.sampleAnswer)}` : DASH;
   if (q.type === 'structure') {
     const list = acceptedStructures(q);
     if (!list.length) return DASH;
@@ -307,13 +311,15 @@ export function gradeTest(test, answers) {
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: MANUAL.has(q.type) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
+      correctAnswer: q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,
       pointsEarned: g.pointsEarned,
       pointsPossible: g.pointsPossible,
       needsGrading: !!g.needsGrading,
+      manual: isManualQuestion(q),
+      ...(q.section ? { sectionId: q.section } : {}),
       ...(q.type === 'open' && Array.isArray(q.rubric) && q.rubric.length ? { rubric: q.rubric.map((r) => ({ text: r.text, points: r.points })) } : {}),
     };
   });

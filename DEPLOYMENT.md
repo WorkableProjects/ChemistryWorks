@@ -69,9 +69,18 @@ New origins can take a few minutes (occasionally longer) to start working.
    - **Execute as: Me**
    - **Who has access: Anyone** (required so students' browsers can post without a Google login prompt)
 7. Click **Deploy** and copy the **Web app URL** ending in `/exec`. (The `/dev` URL is a test URL that only works for you; do not use it.)
-8. Sanity check: open `YOUR_EXEC_URL?action=ping` in a browser. You should see `{"result":"success","version":"1.1.0"}`.
+8. Sanity check: open `YOUR_EXEC_URL?action=ping` in a browser. You should see `{"result":"success","version":"2.0.0"}`.
 
 **Upgrading from 1.0.0 (adds grading):** paste the new `apps-script/Code.gs`, then redeploy as below. The first submission or `getResults` after the upgrade adds the new columns (Status, Final Score, Final Percentage (%), Grades (JSON), Graded At, Teacher Note) to your existing Submissions tab; old rows are kept.
+
+### Upgrading to v2
+
+Paste the new `apps-script/Code.gs` over the old one, then redeploy it as a **new version of your existing Web App deployment** (**Deploy > Manage deployments > pencil > Version: New version > Deploy**). The `/exec` URL stays the same, so `js/config.js` needs no change. No manual sheet edits are needed: the headers `Comments (JSON)` and `Released At` are appended to the Submissions tab automatically the first time a submission, grade or result read happens after the upgrade, and existing rows and grades stay valid. Check `YOUR_EXEC_URL?action=ping` reports `"version":"2.0.0"`. Do not choose **New deployment**, which would create a different URL.
+
+v2 adds two backend actions:
+
+- `getSubmissionCounts` (admin key required) powers the submission counts in the test library.
+- `getFeedback` is the **student feedback endpoint**. It needs **no admin key**, but the request must carry the submission id and the matching student email, and it returns nothing but "not released" until the teacher releases the grade. It never returns the private teacher note. Because the submission id is stored on the device that submitted, released comments are visible to the student **on the device they submitted from** (the submission list under **Your submitted tests** is kept in that browser).
 
 **Updating the script later without changing the URL:** after editing `Code.gs`, choose **Deploy > Manage deployments**, click the pencil (**Edit**) on your existing deployment, set **Version: New version**, and **Deploy**. The `/exec` URL stays the same. If you instead choose **New deployment**, you get a different URL and must update `js/config.js`. Saving the file alone does not change what `/exec` serves.
 

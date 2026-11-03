@@ -95,6 +95,8 @@ export function normalizeRow(raw) {
     grades: isObj(grades) ? grades : null,
     graded_at: r.graded_at || '',
     teacher_note: r.teacher_note || '',
+    comments: isObj(r.comments) ? r.comments : {},   // v2: { questionId: comment text }
+    released_at: r.released_at || '',                // v2: ISO time grades/comments were released to the student, '' = not released
   };
 }
 
@@ -159,4 +161,25 @@ export function toGradebookCsv(rows) {
   const lines = [cols.map(([name]) => csvField(name)).join(',')];
   for (const r of rows) lines.push(cols.map(([, get]) => csvField(get(r))).join(','));
   return lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * Validate a points entry from the grader. '' / whitespace -> { ok:true, value:null } (empty).
+ * Decimal point is "." only ("1,5" is non-numeric). Values are rounded to 2 decimals.
+ */
+export function validatePoints(raw, max) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (s === '') return { ok: true, value: null };
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(s)) return { ok: false, error: 'Enter a number.' };
+  const n = Number(s);
+  if (!Number.isFinite(n)) return { ok: false, error: 'Enter a number.' };
+  if (n < 0) return { ok: false, error: 'Points can’t be negative.' };
+  if (n > Number(max)) return { ok: false, error: `Maximum is ${max} points.` };
+  return { ok: true, value: r2(n) };
+}
+
+/** True when a teacher's points differ from the auto score of an auto-graded answer. */
+export function isOverride(res, points) {
+  if (!res || res.manual || points == null) return false;
+  return r2(Number(points)) !== r2(Number(res.pointsEarned) || 0);
 }

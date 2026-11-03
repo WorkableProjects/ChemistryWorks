@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ChemistryWorks</title>
   <meta name="description" content="ChemistryWorks — a fluid, auto-graded chemistry testing platform." />
-  <meta name="theme-color" content="#F8FAFC" />
+  <meta name="theme-color" content="#F6F2E8" />
   <script>
     // Apply the saved theme before first paint (js/lib/theme.js takes over once the app loads).
     (function () {
@@ -16,6 +16,7 @@
         var a = JSON.parse(ls.getItem(admin ? 'cw:accent:admin' : 'cw:accent:student') || 'null') || (admin ? 'violet' : 'blue');
         d.dataset.theme = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
         d.dataset.accent = a;
+        d.dataset.role = admin ? 'admin' : 'student';
       } catch (e) { /* storage blocked: defaults apply */ }
     })();
   </script>
@@ -23,12 +24,17 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" />
 
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/runner.css" />
   <link rel="stylesheet" href="css/admin.css" />
+  <link rel="stylesheet" href="css/references.css" />
+  <link rel="stylesheet" href="css/diagrams.css" />
+  <link rel="stylesheet" href="css/grading.css" />
+  <link rel="stylesheet" href="css/feedback.css" />
+  <link rel="stylesheet" href="css/print.css" />
 
   <!-- KaTeX + mhchem (\ce{...}) for chemistry notation. Loaded deferred; the app re-renders math once ready. -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>

@@ -150,7 +150,7 @@ test('appearance: dark mode persists; student and admin have separate accents', 
   await page.locator(tid('accent-teal')).click();
   await waitAttr(html, 'data-accent', 'teal');
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  assert.equal(bg, 'rgb(11, 17, 32)');
+  assert.equal(bg, 'rgb(26, 23, 19)'); // Lab-notebook dark --bg #1A1713 (V2-09)
 
   await page.reload();
   await waitAttr(html, 'data-theme', 'dark');

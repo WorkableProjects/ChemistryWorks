@@ -4,10 +4,20 @@ import { normalizeSymbol, valenceOf } from './lewis.js';
 import { bondEnds, validateStructure } from './structure.js';
 import { BLANK_KINDS, markerIds } from './blanks.js';
 import { FORMAT_HELP_MODES } from './hints.js';
+import { AUFBAU, ORBITAL_TYPES, DEFAULT_MAX_SUBLEVEL, DEFAULT_ORBITAL_TYPES, validateOrbital } from './orbital.js';
+import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 
-export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'short', 'open'];
-// Types a teacher grades by hand in the admin Grading tab (everything else is auto-graded).
-export const MANUAL_TYPES = ['short', 'open'];
+export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open'];
+// Types a teacher always grades by hand in the admin Grading tab.
+export const MANUAL_TYPES = ['short', 'open', 'orbital'];
+
+/**
+ * True when a teacher grades this question by hand: MANUAL_TYPES, plus Lewis structures where the student
+ * also draws brackets and charges (`studentCharges: true`, V2-06). Use this instead of MANUAL_TYPES.includes().
+ */
+export function isManualQuestion(q) {
+  return !!q && (MANUAL_TYPES.includes(q.type) || (q.type === 'structure' && q.studentCharges === true));
+}
 export const TYPE_LABELS = {
   mcq: 'Multiple choice',
   multi: 'Multiple select',
@@ -19,6 +29,7 @@ export const TYPE_LABELS = {
   fillblank: 'Fill in the blanks',
   lewis: 'Lewis dot diagram',
   structure: 'Lewis structure (bonding)',
+  orbital: 'Orbital diagram (teacher graded)',
   short: 'Short answer (teacher graded)',
   open: 'Open response (teacher graded)',
 };
@@ -54,6 +65,8 @@ function normalizeQuestion(raw) {
   q.text = str(q.text);
   q.points = q.points === undefined || q.points === null ? 1 : Number(q.points);
   q.explanation = str(q.explanation);
+  if (q.section === undefined || q.section === null || str(q.section).trim() === '') delete q.section;
+  else q.section = str(q.section).trim();
   switch (q.type) {
     case 'mcq':
       q.options = normOptions(q.options);
@@ -106,6 +119,14 @@ function normalizeQuestion(raw) {
       q.charge = q.charge === undefined || q.charge === null || q.charge === '' ? 0 : Number(q.charge);
       q.partialCredit = bool(q.partialCredit, false);
       q.showElectronCount = bool(q.showElectronCount, false);
+      q.studentCharges = bool(q.studentCharges, false);
+      break;
+    case 'orbital':
+      q.maxSublevel = q.maxSublevel === undefined || q.maxSublevel === null || q.maxSublevel === '' ? DEFAULT_MAX_SUBLEVEL : str(q.maxSublevel).trim().toLowerCase();
+      q.orbitalTypes = Array.isArray(q.orbitalTypes)
+        ? ORBITAL_TYPES.filter((t) => q.orbitalTypes.map((x) => str(x).trim().toLowerCase()).includes(t))
+        : DEFAULT_ORBITAL_TYPES.slice();
+      if (q.sampleAnswer === undefined || q.sampleAnswer === '') q.sampleAnswer = null;
       break;
     case 'open':
       q.sampleAnswer = str(q.sampleAnswer);
@@ -157,7 +178,27 @@ export function normalizeTest(raw) {
   t.allowModeToggle = bool(t.allowModeToggle, true);
   t.defaultMode = t.defaultMode === undefined || t.defaultMode === null || t.defaultMode === '' ? null : t.defaultMode;
   t.passingPercent = nullableNum(t.passingPercent);
+  t.sections = Array.isArray(t.sections) ? t.sections.map((x) => {
+    const src = isObj(x) ? x : {};
+    return { ...src, id: str(src.id).trim(), title: str(src.title), instructions: str(src.instructions) };
+  }) : [];
+  t.references = Array.isArray(t.references) ? t.references.map((x) => {
+    const src = isObj(x) ? x : {};
+    const type = str(src.type).trim();
+    const out = { ...src, id: str(src.id).trim(), type: type === 'constants' ? 'resources' : type, title: str(src.title) };
+    if (out.type === 'text') out.content = str(src.content);
+    if (out.type === 'image') { out.url = str(src.url).trim(); out.alt = str(src.alt); }
+    if (out.type === 'resources') {
+      out.items = (Array.isArray(src.items) ? src.items : []).map((it) => {
+        const c = isObj(it) ? it : {};
+        return { name: str(c.name), value: str(c.value), unit: str(c.unit) };
+      });
+    }
+    return out;
+  }) : [];
   t.questions = Array.isArray(t.questions) ? t.questions.map(normalizeQuestion) : [];
+  // Canonical display order: unsectioned questions first, then each section in order (see sections.js).
+  t.questions = orderQuestions(t);
   return t;
 }
 
@@ -181,7 +222,7 @@ function validateList(list, label, where, errors) {
   return ids;
 }
 
-function validateQuestion(q, index, seenIds, errors) {
+function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   const idLabel = isObj(q) && q.id !== undefined && q.id !== '' ? String(q.id) : '?';
   const where = `Question ${index + 1} (${idLabel})`;
   if (!isObj(q)) { errors.push(`${where}: must be an object.`); return; }
@@ -193,6 +234,9 @@ function validateQuestion(q, index, seenIds, errors) {
 
   if (!nonEmptyStr(q.text)) errors.push(`${where}: text is required.`);
   if (!isNum(q.points) || q.points <= 0) errors.push(`${where}: points must be a number greater than 0.`);
+  if (q.section !== undefined && q.section !== null && q.section !== '' && !sectionIdSet.has(q.section)) {
+    errors.push(`${where}: section "${q.section}" does not exist. Add it under sections or remove the question's section.`);
+  }
 
   if (!QUESTION_TYPES.includes(q.type)) {
     errors.push(`${where}: unknown type "${q.type}".`);
@@ -288,6 +332,9 @@ function validateQuestion(q, index, seenIds, errors) {
     case 'structure':
       validateStructure(q, where, errors);
       break;
+    case 'orbital':
+      validateOrbital(q, where, errors);
+      break;
     case 'open': {
       const rubric = q.rubric === undefined ? [] : q.rubric;
       if (!Array.isArray(rubric)) { errors.push(`${where}: rubric must be a list of { text, points }.`); break; }
@@ -329,11 +376,47 @@ export function validateTest(test) {
   const dm = test.defaultMode;
   if (dm !== undefined && dm !== null && dm !== 'focus' && dm !== 'scroll') errors.push('Test: defaultMode must be "focus" or "scroll".');
 
+  const sectionIdSet = new Set();
+  if (test.sections !== undefined && !Array.isArray(test.sections)) errors.push('Test: sections must be a list of { id, title, instructions }.');
+  (Array.isArray(test.sections) ? test.sections : []).forEach((sec, i) => {
+    const where = `Section ${i + 1}`;
+    if (!isObj(sec)) { errors.push(`${where}: must be an object with id and title.`); return; }
+    if (!nonEmptyStr(sec.id) || !ID_RE.test(sec.id)) errors.push(`${where}: id is required (letters, digits, "_" or "-").`);
+    else if (sectionIdSet.has(sec.id)) errors.push(`${where}: duplicate section id "${sec.id}".`);
+    else sectionIdSet.add(sec.id);
+    if (!nonEmptyStr(sec.title)) errors.push(`${where}: title is required.`);
+    if (sec.instructions !== undefined && typeof sec.instructions !== 'string') errors.push(`${where}: instructions must be text.`);
+  });
+  if (test.references !== undefined && !Array.isArray(test.references)) errors.push('Test: references must be a list.');
+  const refIds = new Set();
+  (Array.isArray(test.references) ? test.references : []).forEach((ref, i) => {
+    const where = `Reference ${i + 1}`;
+    if (!isObj(ref)) { errors.push(`${where}: must be an object with id and type.`); return; }
+    if (!nonEmptyStr(ref.id) || !ID_RE.test(ref.id)) errors.push(`${where}: id is required (letters, digits, "_" or "-").`);
+    else if (refIds.has(ref.id)) errors.push(`${where}: duplicate reference id "${ref.id}".`);
+    else refIds.add(ref.id);
+    if (!REFERENCE_TYPES.includes(ref.type)) { errors.push(`${where}: type must be one of ${REFERENCE_TYPES.map((x) => `"${x}"`).join(', ')}.`); return; }
+    if (ref.type === 'text' && !nonEmptyStr(ref.content)) errors.push(`${where}: text references need content.`);
+    if (ref.type === 'resources') {
+      if (!Array.isArray(ref.items) || !ref.items.length) errors.push(`${where}: resources need at least one row.`);
+      else ref.items.forEach((it, k) => {
+        if (!isObj(it) || !nonEmptyStr(it.name) || !nonEmptyStr(it.value)) errors.push(`${where}: resource ${k + 1} needs a name and a value.`);
+      });
+    }
+    if (ref.type === 'image') {
+      if (!safeImageUrl(ref.url)) errors.push(`${where}: image url must start with https:// or be a path on this site.`);
+      if (!nonEmptyStr(ref.alt)) errors.push(`${where}: image references need alt text describing the image.`);
+    }
+  });
+  if ((Array.isArray(test.references) ? test.references : []).filter((r) => isObj(r) && r.type === 'periodic-table').length > 1) {
+    errors.push('Test: add the periodic table reference only once.');
+  }
+
   if (!Array.isArray(test.questions) || test.questions.length === 0) {
     errors.push('Test: add at least one question.');
   } else {
     const seen = new Set();
-    test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors));
+    test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet));
   }
   return { valid: errors.length === 0, errors };
 }
@@ -377,6 +460,13 @@ export function blankQuestion(type, id = 'q1') {
         atoms: [{ id: 'o1', symbol: 'O', x: 0, y: 0 }, { id: 'c', symbol: 'C', x: 1, y: 0 }, { id: 'o2', symbol: 'O', x: 2, y: 0 }],
         bonds: [['o1', 'c'], ['c', 'o2']], charge: 0, showElectronCount: false,
         correctAnswer: { bonds: [2, 2], lonePairs: { o1: 2, c: 0, o2: 2 } },
+        studentCharges: false,
+      };
+    case 'orbital':
+      return {
+        ...base, points: 2, text: 'Draw the orbital diagram for a ground-state nitrogen atom.',
+        maxSublevel: '2p', orbitalTypes: ['s', 'p'],
+        sampleAnswer: { '1s': ['ud'], '2s': ['ud'], '2p': ['u', 'u', 'u'] },
       };
     case 'open':
       return {
@@ -408,6 +498,8 @@ export function blankTest() {
     allowModeToggle: true,
     defaultMode: null,
     passingPercent: null,
+    sections: [],
+    references: [],
     questions: [],
   };
 }
