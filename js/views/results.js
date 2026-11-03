@@ -14,6 +14,7 @@ import { structureDiagram } from './structure-view.js';
 import { acceptedStructures } from '../lib/structure.js';
 import { groupQuestions } from '../lib/sections.js';
 import { orbitalDiagram } from './orbital-view.js';
+import { choiceImagesEl } from './runner.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -84,6 +85,11 @@ function confetti() {
   return { el, stop: () => { clearTimeout(t); el.remove(); } };
 }
 
+/** Answer text followed by the pictures of any image choices it names. */
+function withChoiceImages(textEl, imgs) {
+  return imgs ? h('span', { class: 'results-choice' }, textEl, imgs) : textEl;
+}
+
 function reviewItem(r, i, test, stagger) {
   const q = test.questions.find((x) => x.id === r.questionId);
   const status = r.needsGrading ? 'pending' : r.isCorrect ? 'correct' : !r.answered ? 'unanswered' : r.pointsEarned > 0 ? 'partial' : 'incorrect';
@@ -98,7 +104,8 @@ function reviewItem(r, i, test, stagger) {
       : r.type === 'lewis' ? h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, r.givenAnswer), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'structure' && q ? h('span', { class: 'results-structure' }, structureDiagram(q, r.givenAnswer, { label: 'Your Lewis structure' }), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'orbital' && q ? h('span', { class: 'results-orbital' }, orbitalDiagram(q, r.givenAnswer, { label: 'Your orbital diagram' }), h('span', { class: 'muted' }, r.givenAnswerText))
-      : r.type === 'short' || r.type === 'open' ? h('span', { class: 'results-pre' }, r.givenAnswerText) : richText(r.givenAnswerText, 'span');
+      : r.type === 'short' || r.type === 'open' ? h('span', { class: 'results-pre' }, r.givenAnswerText)
+      : withChoiceImages(richText(r.givenAnswerText, 'span'), choiceImagesEl(q, r.givenAnswer));
   let correct;
   if (r.type === 'orbital' && q) {
     correct = q.sampleAnswer && typeof q.sampleAnswer === 'object'
@@ -117,7 +124,7 @@ function reviewItem(r, i, test, stagger) {
     correct = h('span', {}, list.flatMap((a, k) => (k ? [' / ', formulaHtml(a)] : [formulaHtml(a)])));
   } else if (r.type === 'lewis') {
     correct = h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, canonicalDots(r.correctAnswer, q?.element)), h('span', { class: 'muted' }, r.correctAnswerText));
-  } else correct = richText(r.correctAnswerText, 'span');
+  } else correct = withChoiceImages(richText(r.correctAnswerText, 'span'), choiceImagesEl(q, r.correctAnswer));
   const isShort = r.type === 'short' || r.type === 'open';
   const showCorrect = r.type === 'orbital' ? correct !== null
     : !isShort || (q?.sampleAnswer ?? '') !== '' || (r.type === 'open' && (q?.rubric || []).length > 0);

@@ -137,6 +137,10 @@
 .runner.is-submitting .runner-main { opacity: 0.6; pointer-events: none; transition: opacity 200ms var(--ease); }
 
 /* ---------- Navigator drawer ---------- */
+/* The #app enter animation uses fill-mode "both", so its final `transform: none` keeps applying forever and makes #app the
+   containing block of every position:fixed descendant. The drawer then scrolled away with the page (or looked like an
+   empty box). Drop the forwards fill in the runner: the end state equals the natural state anyway. */
+body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 /* .nav-host clips the parked-off-screen drawer so it never creates horizontal page scroll. */
 .nav-host { position: fixed; inset: 0; z-index: 90; overflow: hidden; pointer-events: none; }
 .nav-overlay { display: none; }
@@ -344,16 +348,25 @@
 .q-order__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .q-order__item {
   display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; border-radius: var(--radius); border: 1.5px solid var(--border);
-  background: var(--bg-elev); cursor: grab; animation: q-help-in 260ms var(--ease) both;
+  background: var(--bg-elev); cursor: grab;
   transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
+.q-order__item.is-new { animation: q-help-in 260ms var(--ease) both; }
 .q-order__item:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
 .q-order__item.is-dragging { opacity: 0.5; }
 .q-order__item.is-over { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-ring); }
 .q-order__pos { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; font-weight: 700; font-size: 13px; background: var(--primary-soft); color: var(--primary-hover); }
-.q-order__handle { color: var(--text-faint); display: inline-flex; }
-.q-order__text { flex: 1; min-width: 0; font-size: 16px; font-weight: 500; }
-.q-order__btns { display: inline-flex; gap: 4px; }
+.q-order__handle { color: var(--text-faint); display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.q-order__handle:hover { background: var(--bg-sunken); color: var(--text-muted); }
+.q-order__content { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.q-order__text { min-width: 0; max-width: 100%; font-size: 16px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.q-order__btns { display: inline-flex; gap: 4px; flex-shrink: 0; }
+/* Narrow screens: the text gets its own full-width row so it is never squeezed between the handle and the arrows. */
+@media (max-width: 520px) {
+  .q-order__item { flex-wrap: wrap; gap: 8px 10px; }
+  .q-order__handle { margin-right: auto; }
+  .q-order__content { order: 3; flex: 1 1 100%; }
+}
 .q-order__btn:disabled { opacity: 0.35; cursor: default; }
 .q-order__label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin: 6px 0; }
 .q-order__keep { margin-top: 10px; }
@@ -426,3 +439,13 @@
   .q-media, .q-media--left { flex-direction: column; }
   .q-image { max-width: 100%; flex-basis: auto; }
 }
+
+/* ---------- Option images (mcq / multi / matching / ordering) ---------- */
+.opt-img { display: block; max-width: 100%; max-height: 140px; width: auto; height: auto; object-fit: contain; border-radius: 8px; background: var(--bg-elev); }
+.opt-img--sm { max-height: 100px; }
+.opt__body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.q-match__col .opt-img, .q-match__row .opt-img { margin: 0 auto 6px; }
+.q-match__row .opt-img { margin-left: 0; }
+.opt-imgs, .results-choice { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.results-choice { flex-direction: column; }
+.opt-imgs { margin-top: 6px; }

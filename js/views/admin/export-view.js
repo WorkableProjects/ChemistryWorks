@@ -7,6 +7,7 @@ import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
 import { withQuestionImage } from '../question-image.js';
+import { choiceImagesEl } from '../runner.js';
 import { formulaToHTML } from '../../lib/formula.js';
 import { canonicalDots } from '../../lib/lewis.js';
 import { acceptedStructures } from '../../lib/structure.js';
@@ -47,11 +48,12 @@ function textEl(text, type) {
   return richText(text, 'div', ['export-answer-text', (type === 'short' || type === 'open') && 'export-pre'].filter(Boolean).join(' '));
 }
 
-function block(label, diagramEl, text, type, testid) {
+function block(label, diagramEl, text, type, testid, imgs = null) {
   return h('div', { class: 'export-answer', dataset: { testid } },
     h('span', { class: 'export-label' }, label),
     diagramEl ? h('div', { class: 'export-diagram' }, diagramEl) : null,
-    text || !diagramEl ? textEl(text || '—', type) : null);
+    text || !diagramEl ? textEl(text || '—', type) : null,
+    imgs);
 }
 
 function correctLabel(item) {
@@ -65,7 +67,7 @@ function itemEl(item) {
     ? `— / ${fmt(item.pointsPossible)} pts (not graded)`
     : `${fmt(item.pointsEarned)} / ${fmt(item.pointsPossible)} pts`;
   const answer = item.answered
-    ? block('Answer', answerDiagram(item), item.answerText, item.type, 'export-answer')
+    ? block('Answer', answerDiagram(item), item.answerText, item.type, 'export-answer', choiceImagesEl(item.question, item.givenAnswer, 'opt-imgs export-opt-imgs'))
     : h('div', { class: 'export-answer' }, h('span', { class: 'export-label' }, 'Answer'), h('p', { class: 'export-empty' }, 'Not answered'));
   const cDiagram = correctDiagram(item);
   const showCorrect = item.correctAnswerText || cDiagram;
@@ -75,7 +77,7 @@ function itemEl(item) {
       h('span', { class: 'export-item__pts' }, pts)),
     withQuestionImage(item.question, richText(item.prompt, 'div', 'export-prompt')),
     answer,
-    showCorrect ? block(correctLabel(item), cDiagram, item.correctAnswerText, item.type, 'export-correct') : null,
+    showCorrect ? block(correctLabel(item), cDiagram, item.correctAnswerText, item.type, 'export-correct', choiceImagesEl(item.question, item.correctAnswer, 'opt-imgs export-opt-imgs')) : null,
     item.comment ? h('div', { class: 'export-comment' }, h('span', { class: 'export-label' }, 'Teacher comment'), commentBody(item.comment)) : null);
 }
 
