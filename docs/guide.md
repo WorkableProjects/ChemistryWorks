@@ -55,7 +55,7 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 | `description` | no | string | `""` | Shown to students before they start. |
 | `timeLimitMinutes` | no | positive number or `null` | `null` (untimed) | Auto-submits when time runs out. |
 | `shuffleQuestions` | no | boolean | `false` | Random question order per student. |
-| `shuffleOptions` | no | boolean | `false` | Random option order (`mcq` / `multi` only). |
+| `shuffleOptions` | no | boolean | `false` | Random option order (`mcq` / `multi`; for `matching`, both the rows and the columns). |
 | `showResults` | no | boolean | `true` | `false` = student sees only "Submission received" (no score). The teacher grades privately in the admin **Grading** tab. |
 | `showCorrectAnswers` | no | boolean | `true` | Per-question review with correct answers and explanations (only when the score is shown). |
 | `allowModeToggle` | no | boolean | `true` | Student may switch between one-at-a-time and all-on-one-page. |

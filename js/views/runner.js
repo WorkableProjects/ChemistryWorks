@@ -525,8 +525,15 @@ export function render(root, ctx, params = {}) {
   // Canonical order = unsectioned questions, then each section in order. Shuffling happens inside a group only.
   const groups = groupQuestions(test);
   let ordered = groups.flatMap((g) => (test.shuffleQuestions ? seededShuffle(g.questions, seed + (g.section ? g.section.id : '')) : g.questions.slice()));
-  ordered = ordered.map((q) => (test.shuffleOptions && (q.type === 'mcq' || q.type === 'multi')
-    ? { ...q, options: seededShuffle(q.options, seed + q.id) } : q));
+  ordered = ordered.map((q) => {
+    if (!test.shuffleOptions) return q;
+    if (q.type === 'mcq' || q.type === 'multi') return { ...q, options: seededShuffle(q.options, seed + q.id) };
+    // Matching: shuffle both the rows (left) and the columns (right). Grading is by id, so order is display-only.
+    if (q.type === 'matching') {
+      return { ...q, left: seededShuffle(q.left, `${seed}${q.id}left`), right: seededShuffle(q.right, `${seed}${q.id}right`) };
+    }
+    return q;
+  });
   // Ordering items always start scrambled (never already in the correct order).
   ordered = ordered.map((q) => {
     if (q.type !== 'ordering') return q;
