@@ -3,6 +3,7 @@
 // refresh the pieces that depend on the changed value, so typing never loses focus.
 
 import { h, mount, icon, richText, renderMath, toast, openModal, prefersReducedMotion } from '../../ui.js';
+import { resourcesTable } from '../reference-pane.js';
 import { CONFIG } from '../../config.js';
 import { load, save } from '../../lib/storage.js';
 import { saveDraft } from '../../lib/tests.js';
@@ -498,21 +499,31 @@ export function renderBuilder(root, ctx) {
         } else if (r.type === 'resources') {
           r.items = Array.isArray(r.items) ? r.items : [];
           const rows = h('div', { class: 'stack adm-consts' });
+          const prev = h('div', { class: 'adm-richprev adm-consts__prev', 'aria-label': 'Resources preview (as students see it)' });
+          const drawPrev = () => {
+            const shown = r.items.filter((it) => (it.name || '').trim() || (it.value || '').trim());
+            mount(prev, shown.length ? resourcesTable({ ...r, items: shown }, { testid: `resources-preview-${i}` }) : h('span', { class: 'faint' }, 'Preview appears here'));
+            renderMath(prev);
+          };
+          const drawPrevSoon = debounce(drawPrev, 200);
+          cleanups.push(() => drawPrevSoon.cancel());
           const drawRows = () => mount(rows, r.items.map((it, k) => {
             const inp = (key, ph, label) => {
               const el = h('input', { class: `input adm-consts__${key}`, value: it[key] || '', placeholder: ph, 'aria-label': `Resource ${k + 1} ${label}`, dataset: { testid: `const-${key}-${i}-${k}` },
-                on: { input: () => { it[key] = el.value; changed(); } } });
+                on: { input: () => { it[key] = el.value; drawPrevSoon(); changed(); } } });
               return el;
             };
             return h('div', { class: 'adm-consts__row' },
-              inp('name', 'Name', 'name'), inp('value', 'Value, e.g. $6.02 \\times 10^{23}$', 'value'), inp('unit', 'Unit', 'unit'),
-              iconButton('trash', 'Delete resource', () => { r.items.splice(k, 1); drawRows(); changed(); }, { testid: `const-delete-${i}-${k}`, className: 'icon-btn--danger' }));
+              inp('name', 'Name, e.g. Molar mass of $\\ce{H2O}$', 'name'), inp('value', 'Value, e.g. $6.02 \\times 10^{23}$', 'value'), inp('unit', 'Unit, e.g. mol$^{-1}$', 'unit'),
+              iconButton('trash', 'Delete resource', () => { r.items.splice(k, 1); drawRows(); drawPrev(); changed(); }, { testid: `const-delete-${i}-${k}`, className: 'icon-btn--danger' }));
           }));
           drawRows();
+          drawPrev();
           const addRow = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `const-add-${i}` },
             on: { click: () => { r.items.push({ name: '', value: '', unit: '' }); drawRows(); changed(); } } }, icon('plus', { size: 16 }), 'Add resource');
           extra = h('div', { class: 'stack' }, rows, h('div', { class: 'row row--wrap' }, addRow,
-            h('span', { class: 'field__hint' }, 'Use the exact values your class uses. Math with $…$ is supported.')));
+            h('span', { class: 'field__hint' }, 'Use the exact values your class uses. LaTeX works in every column, like question text: $…$ for math, $\\ce{…}$ for chemistry.')),
+            h('span', { class: 'field__label' }, 'Preview'), prev);
         } else if (r.type === 'image') {
           const prev = h('div', { class: 'adm-refprev' });
           const drawPrev = () => {

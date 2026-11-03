@@ -35,6 +35,9 @@ test('CHEMV2 shows the reference pane with tabs and a periodic table', () => wit
   assert.ok(await page.locator(tid('ref-panel-consts')).isVisible());
   assert.ok(!(await page.locator(tid('pt-Fe')).isVisible()));
   assert.match(await page.locator(tid('ref-panel-consts')).textContent(), /Avogadro/);
+  // Resources cells go through the same LaTeX pipeline as question text (.rich + renderMath; KaTeX itself is
+  // blocked offline in E2E, so assert the pipeline, not the KaTeX output).
+  assert.equal(await page.locator(`${tid('ref-panel-consts')} tbody .rich`).count(), 6);
   // Arrow keys move between tabs and do not navigate the questions.
   const before = await activeCard(page).first().getAttribute('data-question-id');
   await page.locator(tid('ref-tab-consts')).focus();

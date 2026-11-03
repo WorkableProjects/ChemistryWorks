@@ -137,6 +137,33 @@ if (typeof window !== 'undefined') {
  * `.math-ready` to trigger the fade-in transition. Safe to call repeatedly and before KaTeX loads
  * (the call is queued and replayed once it does).
  */
+// KaTeX maps a typed "·" (U+00B7) to \cdotp, which only exists in math mode, so "\text{L·atm}" renders as a
+// red error. Inside text-mode groups (\text{…}, \textbf{…}, \mbox{…}, …) replace it with {\char"B7}, which
+// renders the same dot in text mode. Math mode and \ce{…} already handle "·" and are left untouched.
+const TEXT_MODE_CMDS = /\\(?:text(?:rm|bf|it|sf|tt|normal|up|md|sl)?|mbox)\s*\{/g;
+export function fixTextModeUnicode(math) {
+  const src = String(math);
+  if (!src.includes('·')) return src;
+  let out = '';
+  let last = 0;
+  TEXT_MODE_CMDS.lastIndex = 0;
+  let m;
+  while ((m = TEXT_MODE_CMDS.exec(src))) {
+    const open = m.index + m[0].length; // just after "{"
+    let depth = 1;
+    let i = open;
+    for (; i < src.length && depth; i++) {
+      if (src[i] === '\\') { i++; continue; }
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') depth--;
+    }
+    out += src.slice(last, open) + src.slice(open, i).replace(/·/g, '{\\char"B7}');
+    last = i;
+    TEXT_MODE_CMDS.lastIndex = i;
+  }
+  return out + src.slice(last);
+}
+
 export function renderMath(root) {
   if (!root) return;
   const targets = root.matches?.('.rich') ? [root] : Array.from(root.querySelectorAll('.rich:not(.math-ready)'));
@@ -152,7 +179,7 @@ export function renderMath(root) {
       continue;
     }
     try {
-      window.renderMathInElement(t, { delimiters: MATH_DELIMITERS, throwOnError: false, strict: 'ignore' });
+      window.renderMathInElement(t, { delimiters: MATH_DELIMITERS, throwOnError: false, strict: 'ignore', preProcess: fixTextModeUnicode });
     } catch {
       /* leave raw text */
     }

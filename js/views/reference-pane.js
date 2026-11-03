@@ -104,18 +104,24 @@ export function periodicTable() {
 
 /* ------------------------------------------------------------------ panels */
 
+/**
+ * The Resources table (name / value / unit). Every cell is richText, so `$…$` math, `$\\ce{…}$` chemistry and
+ * **bold** render exactly like question text once renderMath() runs on the container. Shared with the builder preview.
+ */
+export function resourcesTable(ref, { testid = 'ref-resources' } = {}) {
+  return h('table', { class: 'ref-consts', dataset: { testid } },
+    h('caption', { class: 'sr-only' }, referenceTitle(ref)),
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Resource'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Unit'))),
+    h('tbody', {}, (ref.items || []).map((it) => h('tr', {},
+      h('th', { scope: 'row' }, richText(it.name || '', 'span')),
+      h('td', { class: 'ref-consts__v' }, richText(it.value || '', 'span')),
+      h('td', {}, richText(it.unit || '', 'span'))))));
+}
+
 function panelContent(ref) {
   if (ref.type === 'periodic-table') return periodicTable();
   if (ref.type === 'text') return richText(ref.content, 'div', 'ref-text');
-  if (ref.type === 'resources') {
-    return h('table', { class: 'ref-consts', dataset: { testid: 'ref-resources' } },
-      h('caption', { class: 'sr-only' }, referenceTitle(ref)),
-      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Resource'), h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Unit'))),
-      h('tbody', {}, (ref.items || []).map((it) => h('tr', {},
-        h('th', { scope: 'row' }, richText(it.name, 'span')),
-        h('td', { class: 'ref-consts__v' }, richText(it.value, 'span')),
-        h('td', {}, richText(it.unit || '', 'span'))))));
-  }
+  if (ref.type === 'resources') return resourcesTable(ref);
   if (ref.type === 'image') {
     const src = safeImageUrl(ref.url);
     if (!src) return h('p', { class: 'muted' }, 'This image is not available.');
