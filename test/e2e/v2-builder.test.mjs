@@ -131,3 +131,48 @@ test('builder v2: sections, references, orbital question and Lewis charges round
   await page.locator(tid('question-card')).first().waitFor();
   assert.ok((await page.locator(tid('question-card')).count()) >= 1);
 }));
+
+test('builder: Copy guide pulls docs/guide.md from the repo, falling back to the site copy', () => withSession(env, {}, async ({ page, context, url }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(url).origin });
+  let ghHits = 0;
+  await page.route('https://raw.githubusercontent.com/**', (route) => { ghHits++; return route.fulfill({ status: 200, contentType: 'text/plain', body: '# Guide from repo' }); });
+  await unlockAdmin(page, url);
+  await page.locator(tid('new-test')).click();
+  await page.locator(tid('builder-copy-guide')).click();
+  await waitText(page.locator('.toast').last(), /Guide copied/);
+  assert.equal(ghHits, 1);
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '# Guide from repo');
+
+  await page.unroute('https://raw.githubusercontent.com/**');
+  await page.route('https://raw.githubusercontent.com/**', (route) => route.abort('failed'));
+  await page.locator(tid('builder-copy-guide')).click();
+  await waitText(page.locator('.toast').last(), /Guide copied/);
+  assert.match(await page.evaluate(() => navigator.clipboard.readText()), /^#/);
+}));
+
+test('builder: orbital sample boxes respond to clicks; symbol or configuration draws the diagram', () => withSession(env, {}, async ({ page, url }) => {
+  await unlockAdmin(page, url);
+  await page.locator(tid('new-test')).click();
+  await addQuestion(page, 'orbital');
+  await page.locator(tid('orbital-sample-clear')).click();
+  const box = page.locator(tid('orbital-box-1s-0')).first();
+  await waitAttr(box, 'data-state', 'empty');
+  await box.click();
+  await waitAttr(box, 'data-state', 'u');
+  await box.click();
+  await waitAttr(box, 'data-state', 'ud');
+  await box.click({ button: 'right' });
+  await waitAttr(box, 'data-state', 'u');
+
+  await page.locator(tid('orbital-source')).fill('O');
+  await waitText(page.locator(tid('orbital-source-hint')), /O: 1s2 2s2 2p4/);
+  await waitAttr(page.locator(tid('orbital-box-2p-0')).first(), 'data-state', 'ud');
+  await waitAttr(page.locator(tid('orbital-box-2p-2')).first(), 'data-state', 'u');
+
+  await page.locator(tid('orbital-source')).fill('[Ne] 3s1');
+  await waitAttr(page.locator(tid('orbital-box-3s-0')).first(), 'data-state', 'u');
+  assert.equal(await page.locator(tid('orbital-max')).inputValue(), '3s');
+
+  await page.locator(tid('orbital-source')).fill('2p9');
+  await waitText(page.locator(tid('orbital-source-hint')), /at most 6/);
+}));

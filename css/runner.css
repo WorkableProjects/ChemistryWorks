@@ -413,3 +413,16 @@
 .nav-groups { display: flex; flex-direction: column; gap: 16px; }
 .nav-group { display: flex; flex-direction: column; gap: 8px; }
 .nav-group__title { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* ---------- question image alongside the text ---------- */
+.q-media { display: flex; gap: 16px; align-items: flex-start; }
+.q-media > :first-child { flex: 1 1 0; min-width: 0; }
+.q-media--left { flex-direction: row-reverse; }
+.q-media--below { flex-direction: column; }
+.q-image { margin: 0; flex: 0 1 40%; max-width: 40%; }
+.q-media--below .q-image { max-width: 100%; flex-basis: auto; }
+.q-image img { display: block; max-width: 100%; max-height: 360px; height: auto; border-radius: var(--radius); border: 1px solid var(--border); background: #fff; }
+@media (max-width: 640px) {
+  .q-media, .q-media--left { flex-direction: column; }
+  .q-image { max-width: 100%; flex-basis: auto; }
+}

@@ -7,6 +7,7 @@
 .export-brand { font-family: var(--font); font-size: 0.8em; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .export-title { margin: 4px 0 6px; font-size: 1.6em; }
 .export-student { margin: 0 0 4px; }
+.export-grader { margin: 4px 0 0; font-style: italic; }
 .export-score { margin: 0; font-family: var(--mono); font-weight: 700; }
 .export-rule { border: 0; border-top: 1px solid currentColor; margin: 12px 0 16px; }
 .export-section { margin: 20px 0 4px; font-size: 1.2em; }
@@ -21,14 +22,29 @@
 .export-comment .comment-body p { margin: 2px 0; }
 .export-pre { white-space: pre-wrap; }
 .export-empty { margin: 2px 0; font-style: italic; }
-.export-diagram { margin: 4px 0; }
+.export-diagram { margin: 4px 0; max-width: 100%; }
+.export-diagram-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.export-answer-text { overflow-wrap: anywhere; }
+.export-correct, [data-testid="export-correct"] { margin-top: 6px; }
+/* Nothing in a question may be wider than the page. */
+.export-item, .export-diagram, .export-diagram-row, .export-answer-text { max-width: 100%; }
+.export-item img { max-width: 100%; height: auto; }
+.export-doc .st-wrap { max-width: 100%; }
+.export-doc .st { max-width: 100%; height: auto; overflow: visible; }
 
 @media print {
-  @page { margin: 16mm; }
+  /* Zero page margin removes the browser's header/footer (date, page title, URL, page numbers). */
+  @page { margin: 0; }
+  html, body.is-printing { margin: 0 !important; padding: 0 !important; }
 
   body.is-printing > *:not(#print-root) { display: none !important; }
   body.is-printing { background: #fff !important; }
   body.is-printing #print-root { display: block; }
+  .print-frame { width: 100%; border-collapse: collapse; }
+  .print-frame td { padding: 0 16mm; vertical-align: top; }
+  .print-frame thead { display: table-header-group; }
+  .print-frame tfoot { display: table-footer-group; }
+  .print-frame__space { height: 16mm; }
 
   #print-root, #print-root .export-doc {
     color: #000; background: #fff; font-size: 11pt;
@@ -37,8 +53,33 @@
     --border: #000; --border-strong: #000; --primary: #000; --primary-ink: #000; --primary-soft: #fff; --primary-line: #000;
   }
   .export-doc .orb-box, .export-doc .st-atom, .export-doc .lewis { background: #fff; }
+  /* Browsers drop backgrounds when printing ("Background graphics" off); force them, and draw Lewis dots
+     with a border so they print either way. */
+  #print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .export-doc .lewis__dot { background: #000; border: calc(var(--dot, 6px) / 2) solid #000; box-sizing: border-box; }
+  .export-doc .st-dot { fill: #000; }
+  .export-doc .st-fc__ring { fill: #fff; stroke: #000; }
+  .export-doc .st-fc__text, .export-doc .st-sym { fill: #000; }
   .export-doc .orb-box { border-color: #000; color: #000; }
   .export-doc svg * { stroke-opacity: 1; }
   .export-doc a { color: #000; text-decoration: underline; }
   .export-item { border-top-color: #000; }
+
+  /* Keep every question whole on one page; only a question taller than a page may split, and then
+     never right after its header or prompt. */
+  .export-item { break-inside: avoid; page-break-inside: avoid; }
+  .export-item__head, .export-prompt, .export-label, .export-section, .export-instructions { break-after: avoid; page-break-after: avoid; }
+  .export-diagram, .export-diagram-row > *, .katex-display, .export-answer-text p { break-inside: avoid; page-break-inside: avoid; }
+  .export-group { break-inside: auto; }
+  /* Display math prints in full instead of clipping in a scroll box. */
+  .export-doc .katex-display { overflow: visible !important; }
+  .export-doc .katex-display > .katex { white-space: normal; }
+  .print-frame tr, .print-frame td { break-inside: auto; page-break-inside: auto; }
 }
+.export-doc .q-media { display: flex; gap: 12px; align-items: flex-start; }
+.export-doc .q-media > :first-child { flex: 1 1 0; min-width: 0; }
+.export-doc .q-media--left { flex-direction: row-reverse; }
+.export-doc .q-media--below { flex-direction: column; }
+.export-doc .q-image { margin: 0; flex: 0 1 35%; max-width: 35%; }
+.export-doc .q-media--below .q-image { max-width: 60%; }
+.export-doc .q-image img { display: block; max-width: 100%; max-height: 220px; height: auto; }

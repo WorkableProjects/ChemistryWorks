@@ -14,13 +14,49 @@ import { lewisDiagram } from '../lewis-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds, MAX_CHARGE } from '../../lib/structure.js';
 import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextReferenceId, REFERENCE_TYPES, REFERENCE_LABELS, DEFAULT_RESOURCES, safeImageUrl } from '../../lib/sections.js';
-import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered } from '../../lib/orbital.js';
+import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../lib/orbital.js';
+import { ELEMENTS } from '../../lib/elements.js';
 import { orbitalWidget } from '../orbital-view.js';
+import { withQuestionImage } from '../question-image.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
 import { publishTest } from '../../lib/api.js';
 import { testLink } from './library.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
+
+const GUIDE_SOURCES = [
+  'https://raw.githubusercontent.com/WorkableProjects/ChemistryWorks/main/docs/guide.md', // latest on main
+  'docs/guide.md', // the deployed copy, if GitHub is unreachable
+];
+
+/** Fetch docs/guide.md, trying the repo first, then the deployed site. */
+export async function fetchGuide() {
+  let lastErr = null;
+  for (const url of GUIDE_SOURCES) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      if (text.trim()) return text;
+      throw new Error('empty file');
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('unavailable');
+}
+
+/** Copy the guide. Uses a promised ClipboardItem where supported so Safari keeps the click's permission across the fetch. */
+async function copyGuideText() {
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    const text = fetchGuide();
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })]);
+      return true;
+    } catch {
+      return copyText(await text); // rethrows a fetch error
+    }
+  }
+  return copyText(await fetchGuide());
+}
 
 // ---------- module-level state (survives tab switches within the session) ----------
 const S = { test: null, mode: 'visual', open: new WeakSet(), uid: 0 };
@@ -259,6 +295,27 @@ export function renderBuilder(root, ctx) {
     modeBtn('visual', 'Visual', 'grid', 'builder-mode-visual'),
     modeBtn('json', 'JSON', 'list', 'builder-mode-json'));
   let jsonText = null, jsonErrEl = null;
+
+  // ----- copy the authoring guide (docs/guide.md) -----
+  const guideBtn = h('button', {
+    class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'builder-copy-guide' },
+    title: 'Copy docs/guide.md (latest from the repo) to the clipboard',
+    on: { click: () => copyGuide() },
+  }, icon('copy', { size: 16 }), 'Copy guide');
+  async function copyGuide() {
+    if (guideBtn.disabled) return;
+    guideBtn.disabled = true;
+    guideBtn.classList.add('is-loading');
+    try {
+      const ok = await copyGuideText();
+      toast(ok ? 'Guide copied to clipboard' : 'Could not copy the guide', { type: ok ? 'success' : 'error' });
+    } catch (e) {
+      toast('Could not load the guide: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error', timeout: 5000 });
+    } finally {
+      guideBtn.disabled = false;
+      guideBtn.classList.remove('is-loading');
+    }
+  }
 
   function updateSeg() {
     segEl.querySelectorAll('.adm-seg__btn').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === S.mode)));
@@ -678,7 +735,7 @@ export function renderBuilder(root, ctx) {
     const richPrev = h('div', { class: 'adm-richprev', 'aria-label': 'Question preview' });
     const drawPreview = () => {
       richPrev.classList.toggle('is-empty', !q.text);
-      mount(richPrev, q.text ? richText(q.text, 'div') : h('span', { class: 'faint' }, 'Preview appears here'));
+      mount(richPrev, withQuestionImage(q, q.text ? richText(q.text, 'div') : h('span', { class: 'faint' }, 'Preview appears here')));
       renderMath(richPrev);
     };
     const drawPreviewSoon = debounce(drawPreview, 200);
@@ -688,12 +745,30 @@ export function renderBuilder(root, ctx) {
     expl.value = q.explanation || '';
     expl.addEventListener('input', () => { q.explanation = expl.value; changed(); });
 
+    // Optional image shown alongside the question text.
+    const imgUrl = h('input', { class: 'input', value: q.image?.url || '', placeholder: 'https://… or images/diagram.png', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'q-image-url' } });
+    const imgAlt = h('input', { class: 'input', type: 'text', value: q.image?.alt || '', placeholder: 'Describe the image for screen readers', dataset: { testid: 'q-image-alt' } });
+    const imgPos = h('select', { class: 'select', dataset: { testid: 'q-image-position' } },
+      h('option', { value: 'right' }, 'Right of the text'), h('option', { value: 'left' }, 'Left of the text'), h('option', { value: 'below' }, 'Below the text'));
+    imgPos.value = q.image?.position || 'right';
+    const syncImage = () => {
+      const url = imgUrl.value.trim();
+      if (url) q.image = { url, alt: imgAlt.value, position: imgPos.value };
+      else delete q.image;
+      drawPreviewSoon();
+      changed();
+    };
+    for (const el of [imgUrl, imgAlt]) el.addEventListener('input', syncImage);
+    imgPos.addEventListener('change', syncImage);
+
     const typeSection = h('div', { class: 'adm-typesec' });
     const drawType = () => { mount(typeSection, typeEditor(q, drawType, changed, uid)); renderMath(typeSection); };
 
     const inner = h('div', { class: 'adm-q__inner' },
       h('div', { class: 'adm-grid adm-grid--idsec' }, field('ID', idInput), field('Points', pts), field('Section', secSel)),
-      field('Question text', text), richPrev,
+      field('Question text', text),
+      h('div', { class: 'adm-grid adm-grid--idsec' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos)),
+      richPrev,
       typeSection,
       field('Explanation', expl));
     const collapse = h('div', { class: 'adm-q__collapse' }, inner);
@@ -767,7 +842,7 @@ export function renderBuilder(root, ctx) {
   }
 
   mount(root, h('div', { class: 'adm-builder', dataset: { testid: 'builder' } },
-    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl), mainEl),
+    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), guideBtn), mainEl),
     side));
   renderMain();
   refreshValidation();
@@ -1246,9 +1321,11 @@ function orbitalEditor(q, redraw, changed) {
   const note = h('p', { class: 'field__hint', dataset: { testid: 'orbital-sublevels' } });
   const sampleBox = h('div', { class: 'adm-orbsample' });
   const drawSample = () => {
-    const w = orbitalWidget(q, { get: () => q.sampleAnswer, set: (_, v) => { q.sampleAnswer = v ?? null; changed(); } });
+    // The widget never redraws itself (the runner calls refresh after each set), so refresh here too.
+    let w = null;
+    w = orbitalWidget(q, { get: () => q.sampleAnswer, set: (_, v) => { q.sampleAnswer = v ?? null; w?.refresh(q.sampleAnswer ?? undefined); changed(); } });
     mount(sampleBox, w.el);
-    w.refresh?.(q.sampleAnswer ?? undefined);
+    w.refresh(q.sampleAnswer ?? undefined);
   };
   const update = () => {
     const subs = sublevelsFor(q);
@@ -1274,10 +1351,36 @@ function orbitalEditor(q, redraw, changed) {
     return h('label', { class: 'adm-check' }, cb, h('span', {}, `${t} sublevels`));
   });
   const clear = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'orbital-sample-clear' }, on: { click: () => { q.sampleAnswer = null; drawSample(); changed(); } } }, 'Clear sample');
+  // Element symbol or configuration -> range + reference diagram (like Lewis questions).
+  const srcHint = h('p', { class: 'field__hint', dataset: { testid: 'orbital-source-hint' } });
+  const applySource = () => {
+    const text = src.value.trim();
+    q.element = text;
+    if (!text) { srcHint.textContent = 'Type a symbol (N) or a configuration (1s2 2s2 2p3, [Ne] 3s1) to draw the reference diagram.'; srcHint.classList.remove('field-error'); changed(); return; }
+    const r = resolveOrbitalSource(text, ELEMENTS);
+    if (r.error) { srcHint.textContent = r.error; srcHint.classList.add('field-error'); changed(); return; }
+    srcHint.classList.remove('field-error');
+    const need = rangeForCounts(r.counts);
+    if (AUFBAU.indexOf(need.maxSublevel) > AUFBAU.indexOf(q.maxSublevel)) q.maxSublevel = need.maxSublevel;
+    max.value = AUFBAU.includes(q.maxSublevel) ? q.maxSublevel : '2p';
+    q.orbitalTypes = ORBITAL_TYPES.filter((t) => q.orbitalTypes.includes(t) || need.orbitalTypes.includes(t));
+    typeBoxes.forEach((l, k) => { l.querySelector('input').checked = q.orbitalTypes.includes(ORBITAL_TYPES[k]); });
+    const sample = normalizeOrbitalAnswer(q, diagramFromCounts(r.counts));
+    q.sampleAnswer = isOrbitalAnswered(q, sample) ? sample : null;
+    srcHint.textContent = `${r.label ? `${r.label}: ` : ''}${configurationText(r.counts)}. You can still click boxes below to adjust.`;
+    update();
+    drawSample();
+    changed();
+  };
+  const src = h('input', { class: 'input', value: q.element || '', placeholder: 'e.g. N or 1s2 2s2 2p3', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'orbital-source' },
+    on: { input: debounce(applySource, 250), change: applySource } });
+  srcHint.textContent = q.element ? '' : 'Type a symbol (N) or a configuration (1s2 2s2 2p3, [Ne] 3s1) to draw the reference diagram.';
+
   update();
   drawSample();
   return h('div', { class: 'stack' },
     h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Orbital diagrams are graded by the teacher.')),
+    h('div', { class: 'field' }, h('label', { class: 'field__label' }, 'Element or electron configuration'), src, srcHint),
     h('div', { class: 'adm-grid adm-grid--4' }, field('Highest sublevel', max, 'In filling (Aufbau) order')),
     h('div', { class: 'field__label' }, 'Sublevel types included'),
     h('div', { class: 'row row--wrap' }, typeBoxes),

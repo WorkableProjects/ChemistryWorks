@@ -65,6 +65,10 @@ function normalizeQuestion(raw) {
   q.text = str(q.text);
   q.points = q.points === undefined || q.points === null ? 1 : Number(q.points);
   q.explanation = str(q.explanation);
+  if (isObj(q.image) && str(q.image.url).trim()) {
+    const pos = str(q.image.position).trim().toLowerCase();
+    q.image = { url: str(q.image.url).trim(), alt: str(q.image.alt), position: ['right', 'left', 'below'].includes(pos) ? pos : 'right' };
+  } else delete q.image;
   if (q.section === undefined || q.section === null || str(q.section).trim() === '') delete q.section;
   else q.section = str(q.section).trim();
   switch (q.type) {
@@ -225,6 +229,10 @@ function validateList(list, label, where, errors) {
 function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   const idLabel = isObj(q) && q.id !== undefined && q.id !== '' ? String(q.id) : '?';
   const where = `Question ${index + 1} (${idLabel})`;
+  if (isObj(q) && isObj(q.image)) {
+    if (!safeImageUrl(q.image.url)) errors.push(`${where}: image url must start with https:// or be a path on this site.`);
+    if (!nonEmptyStr(q.image.alt)) errors.push(`${where}: question images need alt text describing the image.`);
+  }
   if (!isObj(q)) { errors.push(`${where}: must be an object.`); return; }
 
   if (!nonEmptyStr(q.id)) errors.push(`${where}: id is required.`);
@@ -465,7 +473,7 @@ export function blankQuestion(type, id = 'q1') {
     case 'orbital':
       return {
         ...base, points: 2, text: 'Draw the orbital diagram for a ground-state nitrogen atom.',
-        maxSublevel: '2p', orbitalTypes: ['s', 'p'],
+        element: 'N', maxSublevel: '2p', orbitalTypes: ['s', 'p'],
         sampleAnswer: { '1s': ['ud'], '2s': ['ud'], '2p': ['u', 'u', 'u'] },
       };
     case 'open':
