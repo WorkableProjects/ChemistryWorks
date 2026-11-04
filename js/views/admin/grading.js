@@ -2,7 +2,7 @@
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
 import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
 import { CONFIG } from '../../config.js';
-import { load, save } from '../../lib/storage.js';
+import { load, save as saveLocal } from '../../lib/storage.js';
 import { fetchResults, saveGrade, releaseAll, allowRetake } from '../../lib/api.js';
 import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
@@ -344,10 +344,10 @@ export function renderGrading(root, ctx, { goSettings }) {
     const neighbor = (d) => (pos >= 0 ? list[pos + d] : null);
     const go = (r) => { G.selectedId = r ? r.submission_id : null; draw(); window.scrollTo({ top: 0 }); };
 
-    const saveBtn = h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'save-grade' }, on: { click: () => save(false) } }, icon('check', { size: 16 }), 'Save grade');
-    const saveNextBtn = h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'save-grade-next' }, on: { click: () => save(true) } }, 'Save & next', icon('right', { size: 16 }));
+    const saveBtn = h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'save-grade' }, on: { click: () => saveGradeAndMaybeNext(false) } }, icon('check', { size: 16 }), 'Save grade');
+    const saveNextBtn = h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'save-grade-next' }, on: { click: () => saveGradeAndMaybeNext(true) } }, 'Save & next', icon('right', { size: 16 }));
 
-    async function save(next) {
+    async function saveGradeAndMaybeNext(next) {
       const bad = [...inputs.keys()].find((qid) => !check(qid).ok);
       if (bad) {
         toast('Fix the highlighted points first.', { type: 'warning' });
@@ -361,7 +361,8 @@ export function renderGrading(root, ctx, { goSettings }) {
       (next ? saveNextBtn : saveBtn).classList.add('is-loading');
       const grades = currentGrades();
       const res = await saveGrade({ gasUrl, adminKey: adminKey(), submissionId: row.submission_id, grades, note: note.value, comments: currentComments(), release: releaseBox.checked, gradedBy: gradedBy.value.trim() });
-      if (gradedBy.value.trim()) save('gradedBy', gradedBy.value.trim());
+      // Remember the grader's name on this device (storage save, not this function: calling that re-saved forever).
+      if (gradedBy.value.trim()) saveLocal('gradedBy', gradedBy.value.trim());
       if (!alive) return;
       for (const b of [saveBtn, saveNextBtn]) { b.disabled = false; b.classList.remove('is-loading'); }
       if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
