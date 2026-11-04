@@ -11,6 +11,7 @@ import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
 import { hotspotDiagram } from '../widgets/hotspot-stage.js';
+import { typeUI } from '../qtypes/registry.js';
 import { commentBankPicker } from '../comment-view.js';
 import { emptyState, fmtDate, round2 } from './common.js';
 import { sortRows, validatePoints, mergeGrade, mergeComment, pendingAfter, stepIndex, STATUS } from './stats.js';
@@ -23,6 +24,7 @@ export function answerDiagram(q, res, size = 'sm') {
     if (res.type === 'structure') return structureDiagram(q, res.givenAnswer, { size });
     if (res.type === 'lewis') return lewisDiagram(q.element, res.givenAnswer);
     if (res.type === 'hotspot') return hotspotDiagram(q, res.givenAnswer, { size, marks: true, showTargets: true });
+    if (typeUI(res.type)?.review) return typeUI(res.type).review(q, res.givenAnswer, { key: false, size });
   } catch { /* fall back to text */ }
   return null;
 }

@@ -13,6 +13,7 @@ import { countSigFigs, formatWithSigFigs } from './qtypes/sigfigs.js';
 import { isCategorizeAnswered, scoreCategorize, categorizeText, categorizeKeyText } from './qtypes/categorize.js';
 import { isHotspotAnswered, scoreHotspot, hotspotText, hotspotKeyText } from './qtypes/hotspot.js';
 import { isPlotAnswered, scorePlot, pointsText } from './qtypes/graph.js';
+import { typeDef } from './qtypes/registry.js';
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
@@ -98,6 +99,7 @@ export function isAnswered(question, answer) {
     case 'graph':
       return question.mode === 'plot' ? isPlotAnswered(answer) : (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
     default:
+      if (typeDef(type)?.isAnswered) return !!typeDef(type).isAnswered(question, answer);
       if (typeof answer === 'string') return answer.trim() !== '';
       if (Array.isArray(answer)) return answer.length > 0;
       if (isPlainObject(answer)) return Object.keys(answer).length > 0;
@@ -218,9 +220,19 @@ function score(q, answer) {
       // read mode reuses the numeric grading above
       return q.mode === 'plot' ? scorePlot(q, answer) : score({ type: 'numeric', correctAnswer: q.answer, tolerance: q.tolerance, toleranceType: 'absolute', unit: q.unit }, answer);
     default:
+      if (typeDef(q.type)?.score) return typeDef(q.type).score(q, answer, GRADING_HELPERS);
       return { fraction: 0, full: false };
   }
 }
+
+/** Helpers handed to v4 type definitions (js/lib/qtypes/registry.js), so they never import this module. */
+const GRADING_HELPERS = {
+  gradeQuestion: (q, a) => gradeQuestion(q, a),
+  isAnswered: (q, a) => isAnswered(q, a),
+  formatAnswer: (q, a) => formatAnswer(q, a),
+  correctAnswerText: (q) => correctAnswerText(q),
+  parseNumber: (s, o) => parseNumber(s, o),
+};
 
 export function gradeQuestion(question, answer) {
   const q = question || {};
@@ -323,6 +335,7 @@ export function formatAnswer(question, answer) {
           })
           .join('; ');
       default:
+        if (typeDef(q.type)?.answerText) return typeDef(q.type).answerText(q, answer, GRADING_HELPERS);
         return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
     }
   } catch {
@@ -346,6 +359,7 @@ export function correctAnswerText(q) {
 }
 
 function formatCorrect(q) {
+  if (typeDef(q.type)?.keyText) return typeDef(q.type).keyText(q, GRADING_HELPERS) || DASH;
   if (q.type === 'short') return q.sampleAnswer ? String(q.sampleAnswer) : DASH;
   if (q.type === 'open') {
     const parts = [q.sampleAnswer ? String(q.sampleAnswer) : '', q.rubric && q.rubric.length ? `Rubric:\n${rubricText(q.rubric)}` : ''].filter(Boolean);
@@ -412,7 +426,7 @@ export function gradeTest(test, answers) {
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: q.type === 'balance' ? q.coefficients : q.type === 'categorize' ? Object.fromEntries((q.items || []).map((it) => [it.id, it.category])) : q.type === 'hotspot' ? Object.fromEntries((q.labels || []).map((l) => [l.id, { x: l.x, y: l.y }])) : q.type === 'graph' ? (q.mode === 'plot' ? q.targets : q.answer) : q.type === 'econfig' || q.type === 'ptable' ? q.answers : q.type === 'sigfigs' ? q.answer : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
+      correctAnswer: typeDef(q.type)?.correctAnswer ? typeDef(q.type).correctAnswer(q) : q.type === 'balance' ? q.coefficients : q.type === 'categorize' ? Object.fromEntries((q.items || []).map((it) => [it.id, it.category])) : q.type === 'hotspot' ? Object.fromEntries((q.labels || []).map((l) => [l.id, { x: l.x, y: l.y }])) : q.type === 'graph' ? (q.mode === 'plot' ? q.targets : q.answer) : q.type === 'econfig' || q.type === 'ptable' ? q.answers : q.type === 'sigfigs' ? q.answer : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,

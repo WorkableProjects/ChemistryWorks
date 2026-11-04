@@ -18,6 +18,8 @@ import { hotspotWidget } from '../widgets/hotspot.js';
 import { graphWidget } from '../widgets/graph.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../../lib/blanks.js';
+import { typeUI } from '../qtypes/registry.js';
+import '../qtypes/index.js'; // V4-03: registers the v4 question-type widgets/editors
 
 const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻', '+': '⁺' };
 
@@ -505,7 +507,9 @@ export function buildWidget(q, api) {
     case 'categorize': return categorizeWidget(q, api);
     case 'hotspot': return hotspotWidget(q, api);
     case 'graph': return graphWidget(q, api);
-    default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
+    default:
+      if (typeUI(q.type)?.widget) return typeUI(q.type).widget(q, api);
+      return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }
 

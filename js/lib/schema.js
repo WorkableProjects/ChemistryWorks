@@ -8,6 +8,8 @@ import { AUFBAU, ORBITAL_TYPES, DEFAULT_MAX_SUBLEVEL, DEFAULT_ORBITAL_TYPES, val
 import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { ELEMENTS } from './elements.js';
 import { parseConfig } from './qtypes/econfig.js';
+import { typeDef, registeredTypes } from './qtypes/registry.js';
+import './qtypes/v4-types.js'; // V4-03: registers the v4 question types
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
 // Types a teacher always grades by hand in the admin Grading tab.
@@ -18,6 +20,7 @@ export const MANUAL_TYPES = ['short', 'open', 'orbital'];
  * also draws brackets and charges (`studentCharges: true`, V2-06). Use this instead of MANUAL_TYPES.includes().
  */
 export function isManualQuestion(q) {
+  if (q && typeDef(q.type)) return typeDef(q.type).manual === true;
   return !!q && (MANUAL_TYPES.includes(q.type) || (q.type === 'structure' && q.studentCharges === true));
 }
 export const TYPE_LABELS = {
@@ -41,6 +44,23 @@ export const TYPE_LABELS = {
   categorize: 'Sort into groups',
   hotspot: 'Label the diagram',
   graph: 'Read or plot a graph',
+};
+// V4-03: registered v4 types join the type list and labels (js/lib/qtypes/registry.js).
+for (const t of registeredTypes()) {
+  if (!QUESTION_TYPES.includes(t)) QUESTION_TYPES.push(t);
+  TYPE_LABELS[t] = typeDef(t).label || t;
+  if (typeDef(t).manual === true && !MANUAL_TYPES.includes(t)) MANUAL_TYPES.push(t);
+}
+
+/** Helpers handed to v4 type definitions (so they never import this module). */
+const SCHEMA_HELPERS = {
+  normalizeQuestion: (raw) => normalizeQuestion(raw),
+  /** Validate a nested question (e.g. a multipart part); messages are prefixed with `where`. */
+  validateQuestion: (q, where, errors) => {
+    const errs = [];
+    validateQuestion(q, 0, new Set(), errs);
+    for (const e of errs) errors.push(e.replace(/^Question 1 \([^)]*\)/, where));
+  },
 };
 
 const CODE_RE = /^[A-Z0-9_-]{2,32}$/;
@@ -242,6 +262,7 @@ function normalizeQuestion(raw) {
       break;
     }
     default:
+      if (typeDef(q.type)?.normalize) typeDef(q.type).normalize(q, SCHEMA_HELPERS);
       break;
   }
   if (['formula', 'numeric', 'fillblank'].includes(q.type)) {
@@ -546,6 +567,7 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
       break;
     }
     default:
+      if (typeDef(q.type)?.validate) typeDef(q.type).validate(q, where, errors, SCHEMA_HELPERS);
       break;
   }
   if (q.formatHelp !== undefined && ['formula', 'numeric', 'fillblank'].includes(q.type) && !FORMAT_HELP_MODES.includes(q.formatHelp)) {
@@ -689,6 +711,7 @@ export function blankQuestion(type, id = 'q1') {
         chart: { xLabel: 'x', yLabel: 'y', xMin: 0, xMax: 10, yMin: 0, yMax: 10, series: [{ points: [[0, 0], [10, 10]] }] },
       };
     default:
+      if (typeDef(type)?.blank) return typeDef(type).blank(base);
       throw new RangeError(`Unknown question type: ${type}`);
   }
 }

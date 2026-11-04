@@ -14,6 +14,7 @@ import { publishTest } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
 import { testLink } from './library.js';
 import { typeEditor } from './editors/core.js';
+import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
 const GUIDE_SOURCES = [
@@ -801,6 +802,13 @@ export function renderBuilder(root, ctx) {
     orbital: 'Orbital diagram', short: 'Short answer', open: 'Open response', lewis: 'Lewis dots',
     structure: 'Lewis structure', hotspot: 'Label diagram', graph: 'Graph',
   };
+  // V4-03: registered v4 types join their group and bring their own short label.
+  for (const t of registeredTypes()) {
+    const d = typeDef(t);
+    const g = TYPE_GROUPS.find((x) => x.title === d.group);
+    if (g && !g.types.includes(t)) g.types.push(t);
+    if (d.shortLabel) SHORT_LABELS[t] = d.shortLabel;
+  }
   function addMenu() {
     let open = false;
     const grouped = new Set(TYPE_GROUPS.flatMap((g) => g.types));

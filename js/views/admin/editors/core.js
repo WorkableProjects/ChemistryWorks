@@ -22,6 +22,8 @@ import { graphEditor } from './graph.js';
 import { formatHelpFor } from '../../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../../lib/blanks.js';
 import { field, switchEl, debounce, iconButton } from '../common.js';
+import { typeUI } from '../../qtypes/registry.js';
+import '../../qtypes/index.js'; // V4-03: registers the v4 question-type widgets/editors
 
 // ---------- helpers ----------
 function uniqueId(prefix, items) {
@@ -67,7 +69,9 @@ export function typeEditor(q, redraw, changed, uid) {
     case 'categorize': return categorizeEditor(q, redraw, changed);
     case 'hotspot': return hotspotEditor(q, redraw, changed);
     case 'graph': return graphEditor(q, redraw, changed);
-    default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
+    default:
+      if (typeUI(q.type)?.editor) return typeUI(q.type).editor(q, redraw, changed, uid);
+      return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
   }
 }
 

@@ -7,6 +7,7 @@ import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
 import { hotspotDiagram } from '../widgets/hotspot-stage.js';
+import { typeUI } from '../qtypes/registry.js';
 import { withQuestionImage } from '../question-image.js';
 import { choiceImagesEl } from '../runner.js';
 import { formulaToHTML } from '../../lib/formula.js';
@@ -27,6 +28,7 @@ function answerDiagram(item) {
   if (type === 'structure') return diagram(() => structureDiagram(q, a, { size: 'md', label: 'Student Lewis structure' }));
   if (type === 'lewis') return diagram(() => lewisDiagram(q.element, a, { size: 'md' }));
   if (type === 'hotspot') return diagram(() => hotspotDiagram(q, a, { size: 'md', marks: true }));
+  if (typeUI(type)?.review) return diagram(() => typeUI(type).review(q, a, { key: false, size: 'md' }));
   return null;
 }
 
@@ -42,6 +44,7 @@ function correctDiagram(item) {
   }
   if (type === 'lewis' && item.correctAnswer != null) return diagram(() => lewisDiagram(q.element, canonicalDots(item.correctAnswer, q.element), { size: 'md' }));
   if (type === 'hotspot') return diagram(() => hotspotDiagram(q, null, { size: 'md', showTargets: true }));
+  if (typeUI(type)?.review) return diagram(() => typeUI(type).review(q, null, { key: true, size: 'md' }));
   return null;
 }
 
