@@ -733,7 +733,8 @@ export function blankQuestion(type, id = 'q1') {
         chart: { xLabel: 'x', yLabel: 'y', xMin: 0, xMax: 10, yMin: 0, yMax: 10, series: [{ points: [[0, 0], [10, 10]] }] },
       };
     default:
-      if (typeDef(type)?.blank) return typeDef(type).blank(base);
+      // v4 templates come out already normalized, so normalizing them again is a no-op (like the built-ins).
+      if (typeDef(type)?.blank) return normalizeQuestion(typeDef(type).blank(base));
       throw new RangeError(`Unknown question type: ${type}`);
   }
 }

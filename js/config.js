@@ -39,7 +39,7 @@ const DEFAULTS = {
     adminAccounts: false,  // S06: Google sign-in for admins
     teacherTools: false,   // S07: insights, grade by question, comment bank
     studentTools: false,   // S16: calculator, scratchpad, read-aloud
-    v4Types: false,        // S08/S09: new question types (widgets/editors not finished yet)
+    v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
   },
 };
 

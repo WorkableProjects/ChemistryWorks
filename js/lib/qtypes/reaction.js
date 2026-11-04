@@ -56,7 +56,9 @@ function score(q, answer) {
     const i = got.findIndex((g, idx) => !used.has(idx) && speciesMatch(w, g, q));
     if (i >= 0) { used.add(i); right++; }
   }
-  const extras = got.length - right;
+  // An extra is a typed species that is not one of the expected products at all; a right formula with a wrong state or
+  // coefficient is only a missed product, not also an extra.
+  const extras = got.filter((g, idx) => !used.has(idx) && !want.some((w) => formulasEqual(g.formula, w.formula))).length;
   if (right === want.length && extras === 0) return { fraction: 1, full: true };
   return { fraction: Math.max(0, (right - extras) / want.length), full: false };
 }
