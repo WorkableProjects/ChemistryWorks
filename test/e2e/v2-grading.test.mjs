@@ -125,3 +125,17 @@ test('export button requires a saved grade', () => withSession(env, {}, async (s
   await page.locator(tid('export-pdf')).click();
   await page.locator(tid('toast')).filter({ hasText: 'Save the grade first' }).waitFor();
 }));
+
+test('Save & next with "Graded by" filled saves once (no repeat loop) on the last submission', () => withSession(env, {}, async (s) => {
+  const { page } = s;
+  await openGrader(s, row());
+  await page.locator(tid('grade-full-orbN')).click();
+  await page.locator(tid('grade-full-config')).click();
+  await page.locator(tid('graded-by')).fill('Ms. Rivera');
+  await page.locator(tid('save-grade-next')).click();
+  await poll(() => saves(s).length >= 1, { message: 'saveGrade POST' });
+  await page.locator(tid('grading-table')).waitFor();
+  await page.waitForTimeout(1500);
+  assert.equal(saves(s).length, 1, 'grade saved exactly once');
+  assert.equal(await page.evaluate(() => localStorage.getItem('cw:gradedBy')), JSON.stringify('Ms. Rivera'));
+}));
