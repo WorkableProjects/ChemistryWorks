@@ -60,7 +60,7 @@
 .q-hot__chip.is-placed { border-color: var(--primary-line); background: var(--primary-soft); }
 .q-hot__chip.is-active, .q-hot__chip[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .q-hot__num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--bg-sunken); color: var(--text); }
-.q-hot__stage { position: relative; display: inline-block; max-width: 100%; line-height: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); cursor: crosshair; touch-action: manipulation; }
+.q-hot__stage { position: relative; display: block; width: fit-content; max-width: 100%; align-self: flex-start; justify-self: start; line-height: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); cursor: crosshair; touch-action: manipulation; }
 .q-hot__img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-sm); user-select: none; -webkit-user-drag: none; }
 .q-hot__pin { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer;
   color: var(--on-primary); background: var(--primary); border: 2px solid var(--bg-elev); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
@@ -75,6 +75,37 @@
 .q-hot__cross[hidden] { display: none; }
 .q-hot__status { margin: 8px 0 0; }
 .q-hot__stage--edit { min-width: 200px; min-height: 80px; line-height: 1.4; }
+/* Teacher editor for "Label the diagram" */
+.adm-hot .q-hot__stage--edit.is-empty { width: 100%; cursor: default; border-style: dashed; }
+.adm-hot__empty { display: grid; justify-items: center; gap: 4px; padding: 28px 16px; text-align: center; color: var(--text-muted); }
+.adm-hot__empty p { margin: 0; }
+.adm-hot__layer .adm-hot__pin { pointer-events: auto; cursor: grab; touch-action: none; background: var(--text-muted); }
+.adm-hot__layer .adm-hot__pin.is-selected { background: var(--primary); box-shadow: 0 0 0 3px var(--bg-elev), 0 0 0 5px var(--primary); }
+.adm-hot__layer .adm-hot__pin.is-dragging { cursor: grabbing; transform: translate(-50%, -50%) scale(1.15); }
+.adm-hot__ring { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; border: 1.5px dashed var(--text-muted); background: rgb(var(--grid-ink) / 0.06); pointer-events: none; }
+.adm-hot__ring.is-selected, .adm-hot__pin.is-selected + .adm-hot__ring { border-color: var(--primary); }
+.adm-hot__ring[hidden] { display: none; }
+.adm-hot__status { margin: 0; min-height: 1.2em; }
+.adm-hot__rows { display: flex; flex-direction: column; gap: 8px; }
+.adm-hot__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 36px; align-items: center; gap: 8px; padding: 4px; border-radius: var(--radius-sm); border: 1.5px solid transparent; }
+.adm-hot__row.is-selected { border-color: var(--primary-line); background: var(--primary-soft); }
+.adm-hot__row .input { height: 40px; }
+.adm-hot__row .pill { white-space: nowrap; }
+.adm-hot__num { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border-control); background: var(--bg-elev); color: var(--text); font: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
+.adm-hot__num[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.adm-hot__exact summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text-muted); }
+.adm-hot__xylist { margin-top: 8px; gap: 6px; }
+.adm-hot__xyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.adm-hot__xyname { min-width: 9em; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.adm-hot__xy { width: 5.5em; height: 36px; font-family: var(--font-mono); text-align: right; }
+.adm-hot__size { display: flex; flex-direction: column; gap: 6px; }
+.adm-hot__sizectl { align-items: center; gap: 8px; }
+.adm-hot__sizectl .btn[aria-pressed="true"] { background: var(--primary-soft); color: var(--primary-ink); border-color: var(--primary-line); }
+.adm-hot__slider { flex: 1 1 140px; min-width: 120px; accent-color: var(--primary); }
+@media (max-width: 480px) {
+  .adm-hot__row { grid-template-columns: 32px minmax(0, 1fr) 36px; }
+  .adm-hot__row .pill { grid-column: 2; grid-row: 2; justify-self: start; }
+}
 .q-hotspot [hidden] { display: none; }
 
 /* graph */

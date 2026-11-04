@@ -766,8 +766,11 @@ export function renderBuilder(root, ctx) {
       if (url) q.image = { url, alt: imgAlt.value, position: imgPos.value };
       else delete q.image;
       drawPreviewSoon();
+      // "Label the diagram" places pins on this picture: redraw its editor when the image changes.
+      if (q.type === 'hotspot') { clearTimeout(hotTimer); hotTimer = setTimeout(() => drawType(), 400); }
       changed();
     };
+    let hotTimer = 0;
     for (const el of [imgUrl, imgAlt]) el.addEventListener('input', syncImage);
     imgPos.addEventListener('change', syncImage);
 
