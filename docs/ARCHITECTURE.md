@@ -363,3 +363,8 @@ excluded from counts, from `getStudentStatus`, and from the default grading list
 ### data-testids (v3)
 `submission-status-check`, `already-submitted`, `take-again`, `practice-game`, `feedback-download-pdf`, `test-single-submission-<CODE>`,
 `release-all`, `confirm-release-all`, `allow-retake`, `retake-allowed`, `already-submitted-modal`, `reduce-motion`.
+
+### Required questions (v3)
+`requireAllQuestions` (test, default false) and `required` (question, optional). `isRequired(test, q)` in `js/lib/schema.js`.
+The runner tags them (`required-pill`) and the submit modal lists unanswered required questions (`required-warning`) without a
+**Submit test** button. A timer auto-submit is never blocked. Builder: `opt-requireAllQuestions`, `q-required`.

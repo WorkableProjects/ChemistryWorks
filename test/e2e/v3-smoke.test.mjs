@@ -53,3 +53,21 @@ test('released feedback on a fresh device', async () => {
     assert.deepEqual(s.errors, []);
   } finally { await s.close(); }
 });
+
+test('required questions block submit until answered', async () => {
+  const s = await newSession(env, {});
+  s.onGas = (b) => (b.action === 'getStudentStatus' ? NOT : null);
+  const t = JSON.parse(fs.readFileSync('test/fixtures/tests/CHEM101.json', 'utf8'));
+  t.code = 'REQ1';
+  t.questions[0].required = true;
+  s.serveTest('REQ1', t);
+  try {
+    await startTest(s, 'REQ1');
+    assert.equal(await s.page.locator(tid('required-pill')).count(), 1);
+    await s.page.locator(tid('submit-btn')).first().click();
+    await s.page.locator(tid('required-warning')).waitFor();
+    assert.equal(await s.page.locator(tid('confirm-submit')).count(), 0, 'no submit button while a required question is unanswered');
+    assert.equal(s.gas.length, 0);
+    assert.deepEqual(s.errors, []);
+  } finally { await s.close(); }
+});

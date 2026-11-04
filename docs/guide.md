@@ -64,6 +64,7 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 | `gameMode` | no | boolean | `false` | Offers a practice **Game mode** (never submitted) next to the normal test. |
 | `games` | no | array of game ids | all playable | Limits the game picker: `classic`, `survival`, `lightning`, `elementhunt`, `matchup`, `flashcards`. |
 | `singleSubmission` | no | boolean | `false` | **One submission per student** (v3): a student who already submitted (same Google email) cannot start it again. Use **Grading → Allow retake** for exceptions. |
+| `requireAllQuestions` | no | boolean | `false` | Every question must be answered before the student can submit. To require only some questions, set `required: true` on those questions. A test that runs out of time still submits automatically. |
 | `sections` | no | array of `{ id, title, instructions? }` | `[]` | Named groups of questions. See [Sections and references](#sections-and-references-v2). |
 | `references` | no | array of reference items | `[]` | Resources shown in a split-screen pane beside the questions. See [Sections and references](#sections-and-references-v2). |
 | `questions` | yes | array, at least 1 | — | See below. |
@@ -155,6 +156,7 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 | `text` | yes | The question. Supports math, see [Writing chemistry and math](#writing-chemistry-and-math). |
 | `points` | no | Number > 0. Default `1`. |
 | `explanation` | no | Shown in the student review after submitting (if `showCorrectAnswers` is on). Strongly recommended. |
+| `required` | no | `true` = the student must answer this question before submitting (shown with a **Required** tag). Default `false`. |
 | `section` | no | Id of a section in the test's `sections`. Omit for an unsectioned question. |
 | `image` | no | Image shown alongside the question: `{ "url": "https://…" or "images/x.png", "alt": "what it shows", "position": "right" \| "left" \| "below" }`. `alt` is required; `position` defaults to `right`. Phones stack it under the text. Also appears in the review, grading and PDF export. |
 

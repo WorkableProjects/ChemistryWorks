@@ -78,6 +78,7 @@ function normalizeQuestion(raw) {
   q.text = str(q.text);
   q.points = q.points === undefined || q.points === null ? 1 : Number(q.points);
   q.explanation = str(q.explanation);
+  if (q.required !== undefined) q.required = bool(q.required, false);
   if (isObj(q.image) && str(q.image.url).trim()) {
     const pos = str(q.image.position).trim().toLowerCase();
     q.image = { url: str(q.image.url).trim(), alt: str(q.image.alt), position: ['right', 'left', 'below'].includes(pos) ? pos : 'right' };
@@ -250,6 +251,11 @@ function normalizeQuestion(raw) {
   return q;
 }
 
+/** A question must be answered before submitting: the test-wide switch or the question's own `required`. */
+export function isRequired(test, q) {
+  return !!(test && test.requireAllQuestions) || !!(q && q.required);
+}
+
 export function normalizeTest(raw) {
   const t = isObj(raw) ? clone(raw) : {};
   t.code = str(t.code).trim().toUpperCase();
@@ -262,6 +268,7 @@ export function normalizeTest(raw) {
   t.showCorrectAnswers = bool(t.showCorrectAnswers, true);
   t.allowModeToggle = bool(t.allowModeToggle, true);
   t.singleSubmission = bool(t.singleSubmission, false);
+  t.requireAllQuestions = bool(t.requireAllQuestions, false);
   if (t.games !== undefined) t.games = Array.isArray(t.games) ? t.games.map((g) => str(g).trim()).filter(Boolean) : undefined;
   t.defaultMode = t.defaultMode === undefined || t.defaultMode === null || t.defaultMode === '' ? null : t.defaultMode;
   t.passingPercent = nullableNum(t.passingPercent);
@@ -705,6 +712,7 @@ export function blankTest() {
     showCorrectAnswers: true,
     allowModeToggle: true,
     singleSubmission: false,
+    requireAllQuestions: false,
     defaultMode: null,
     passingPercent: null,
     sections: [],

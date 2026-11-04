@@ -421,7 +421,8 @@ export function renderBuilder(root, ctx) {
         sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations (only when the score is shown)', true),
         sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true),
         sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false),
-        sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false)),
+        sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false),
+        sw('requireAllQuestions', 'All questions required', 'Students must answer every question before they can submit. Or mark single questions Required below.', false)),
     );
   }
 
@@ -779,7 +780,10 @@ export function renderBuilder(root, ctx) {
       h('div', { class: 'adm-grid adm-grid--idsec' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos)),
       richPrev,
       typeSection,
-      field('Explanation', expl));
+      field('Explanation', expl),
+      switchEl({ label: 'Required', hint: 'The student must answer this question before submitting (all questions are required when “All questions required” is on).',
+        checked: !!q.required, testid: 'q-required',
+        onChange: (v) => { if (v) q.required = true; else delete q.required; updateHead(); changed(); } }));
     const collapse = h('div', { class: 'adm-q__collapse' }, inner);
 
     const el = h('article', { class: 'adm-q', dataset: { testid: 'question-editor', index } }, head, collapse);
