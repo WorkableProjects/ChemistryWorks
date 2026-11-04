@@ -14,6 +14,7 @@ import { structureDiagram } from './structure-view.js';
 import { acceptedStructures } from '../lib/structure.js';
 import { groupQuestions } from '../lib/sections.js';
 import { orbitalDiagram } from './orbital-view.js';
+import { hotspotDiagram } from './widgets/hotspot-stage.js';
 import { choiceImagesEl } from './runner.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -104,6 +105,7 @@ function reviewItem(r, i, test, stagger) {
       : r.type === 'lewis' ? h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, r.givenAnswer), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'structure' && q ? h('span', { class: 'results-structure' }, structureDiagram(q, r.givenAnswer, { label: 'Your Lewis structure' }), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'orbital' && q ? h('span', { class: 'results-orbital' }, orbitalDiagram(q, r.givenAnswer, { label: 'Your orbital diagram' }), h('span', { class: 'muted' }, r.givenAnswerText))
+      : r.type === 'hotspot' && q ? h('span', { class: 'results-hotspot' }, hotspotDiagram(q, r.givenAnswer, { size: 'md', marks: true }), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'short' || r.type === 'open' ? h('span', { class: 'results-pre' }, r.givenAnswerText)
       : withChoiceImages(richText(r.givenAnswerText, 'span'), choiceImagesEl(q, r.givenAnswer));
   let correct;
@@ -117,6 +119,8 @@ function reviewItem(r, i, test, stagger) {
         all.length > 1 ? h('span', { class: 'faint' }, `Resonance form ${n + 1}`) : null,
         structureDiagram(q, k, { label: 'Correct Lewis structure' }))),
       h('span', { class: 'muted' }, r.correctAnswerText));
+  } else if (r.type === 'hotspot' && q) {
+    correct = h('span', { class: 'results-hotspot' }, hotspotDiagram(q, null, { size: 'md', showTargets: true }), h('span', { class: 'muted' }, r.correctAnswerText));
   } else if (r.type === 'open') {
     correct = h('span', { class: 'results-pre' }, r.correctAnswerText);
   } else if (r.type === 'balance') {

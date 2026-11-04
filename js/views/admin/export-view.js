@@ -6,6 +6,7 @@ import { commentBody } from '../comment-view.js';
 import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
+import { hotspotDiagram } from '../widgets/hotspot-stage.js';
 import { withQuestionImage } from '../question-image.js';
 import { choiceImagesEl } from '../runner.js';
 import { formulaToHTML } from '../../lib/formula.js';
@@ -25,6 +26,7 @@ function answerDiagram(item) {
   if (type === 'orbital') return diagram(() => orbitalDiagram(q, a, { size: 'md' }));
   if (type === 'structure') return diagram(() => structureDiagram(q, a, { size: 'md', label: 'Student Lewis structure' }));
   if (type === 'lewis') return diagram(() => lewisDiagram(q.element, a, { size: 'md' }));
+  if (type === 'hotspot') return diagram(() => hotspotDiagram(q, a, { size: 'md', marks: true }));
   return null;
 }
 
@@ -39,6 +41,7 @@ function correctDiagram(item) {
     return els.length ? h('div', { class: 'export-diagram-row' }, els) : null;
   }
   if (type === 'lewis' && item.correctAnswer != null) return diagram(() => lewisDiagram(q.element, canonicalDots(item.correctAnswer, q.element), { size: 'md' }));
+  if (type === 'hotspot') return diagram(() => hotspotDiagram(q, null, { size: 'md', showTargets: true }));
   return null;
 }
 

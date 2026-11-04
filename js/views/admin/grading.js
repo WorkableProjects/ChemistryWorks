@@ -13,6 +13,7 @@ import { withQuestionImage } from '../question-image.js';
 import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
+import { hotspotDiagram } from '../widgets/hotspot-stage.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
 import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, STATUS, FILTER_RELEASED } from './stats.js';
 
@@ -253,6 +254,7 @@ export function renderGrading(root, ctx, { goSettings }) {
           if (res.type === 'orbital') diagram = orbitalDiagram(q, res.givenAnswer, { size: 'sm' });
           else if (res.type === 'structure') diagram = structureDiagram(q, res.givenAnswer, { size: 'sm' });
           else if (res.type === 'lewis') diagram = lewisDiagram(q.element, res.givenAnswer);
+          else if (res.type === 'hotspot') diagram = hotspotDiagram(q, res.givenAnswer, { size: 'sm', marks: true, showTargets: true });
         } catch { diagram = null; }
       }
       const answerCell = res.answered
