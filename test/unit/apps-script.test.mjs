@@ -405,3 +405,9 @@ test('getSubmissionCounts requires the admin key and counts per test code', () =
   const r = post({ action: 'getSubmissionCounts', adminKey: 'secret' });
   assert.deepEqual(r.counts, { CHEM101: 2, CHEM102: 1 });
 });
+
+test('v4: the admin key path works as before and does not need the Admins sheet', () => {
+  assert.equal(post({ action: 'listTests', adminKey: 'secret' }).result, 'success');
+  assert.equal(sheets.has('Admins'), false);
+  assert.equal(get({ action: 'ping' }).version, '4.0.0');
+});

@@ -11,6 +11,7 @@ import { QUESTION_TYPES, TYPE_LABELS, MANUAL_TYPES, normalizeTest, validateTest,
 import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextReferenceId, REFERENCE_TYPES, REFERENCE_LABELS, DEFAULT_RESOURCES, safeImageUrl } from '../../lib/sections.js';
 import { withQuestionImage } from '../question-image.js';
 import { publishTest } from '../../lib/api.js';
+import { hasAdminAuth } from '../../lib/admin-session.js';
 import { testLink } from './library.js';
 import { typeEditor } from './editors/core.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
@@ -177,11 +178,11 @@ export function renderBuilder(root, ctx) {
       buttons[k].disabled = !valid;
       buttons[k].title = reason || (k === 'save' ? 'Save a draft on this device' : 'Preview as a student');
     }
-    const adminKey = load('adminKey', '', 'session');
-    const canPublish = valid && !!gasUrl && !!adminKey;
+    const hasAuth = hasAdminAuth();
+    const canPublish = valid && !!gasUrl && hasAuth;
     buttons.publish.disabled = !canPublish;
     const why = !gasUrl ? 'Set GAS_WEB_APP_URL in js/config.js to publish to the Google Sheet.'
-      : !adminKey ? 'Enter your admin key in Settings to publish.' : !valid ? reason : '';
+      : !hasAuth ? 'Enter your admin key in Settings to publish.' : !valid ? reason : '';
     buttons.publish.title = why || 'Publish to the Google Sheet';
     publishNote.textContent = why && valid ? why : '';
   }
@@ -236,7 +237,7 @@ export function renderBuilder(root, ctx) {
       buttons.publish.classList.add('is-loading');
       buttons.publish.disabled = true;
       try {
-        const res = await publishTest(t, { gasUrl, adminKey: load('adminKey', '', 'session') });
+        const res = await publishTest(t, { gasUrl });
         toast(res.ok ? `Published ${t.code}` : `Publish failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error', timeout: res.ok ? 3200 : 6000 });
         if (res.ok) showLink(t.code);
       } catch (e) {

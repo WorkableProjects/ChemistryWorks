@@ -13,8 +13,11 @@
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
 
-import { CONFIG } from './config.js';
-import { getUser, signOut, onAuthChange } from './lib/auth.js';
+import { CONFIG, feature } from './config.js';
+import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
+import { whoAmI } from './lib/api.js';
+import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './lib/admin-session.js';
+import { checkBackendVersion, versionBanner } from './lib/version-check.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { load, save } from './lib/storage.js';
 import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
@@ -138,15 +141,91 @@ async function openTest(code) {
   }
 }
 
-function adminGate() {
-  if (load('adminUnlocked', false, 'session')) return navigate('admin');
+// Opens the admin panel and, for admins only, checks the backend version (banner when the Apps Script is older).
+function openAdmin() {
+  navigate('admin');
+  runVersionCheck();
+}
+
+async function runVersionCheck() {
+  if (!feature('adminAccounts') || !CONFIG.GAS_WEB_APP_URL) return; // behind the flag until the v4 backend is the norm
+  const info = await checkBackendVersion({ gasUrl: CONFIG.GAS_WEB_APP_URL });
+  if (!info.outdated) return;
+  for (let i = 0; i < 40 && !(currentView === 'admin' && loaded.has('admin') && root.firstChild); i++) await new Promise((r) => setTimeout(r, 50));
+  if (currentView !== 'admin' || root.querySelector('[data-testid="version-banner"]')) return;
+  root.insertBefore(versionBanner(info), root.firstChild);
+}
+
+let adminGateBusy = false; // true while the Google admin sign-in modal is open (the landing sign-in toast stays quiet)
+
+// V4-07: the signed-in Google user is the admin. Falls back to the access-code flow when the flag is off,
+// Google or the backend is not configured, the user is not signed in (offered a Google button + a code link),
+// or the account is not on the Admins list.
+async function adminGate() {
+  if (load('adminUnlocked', false, 'session')) return openAdmin();
+  if (!feature('adminAccounts') || !googleConfigured(CONFIG) || !CONFIG.GAS_WEB_APP_URL) return accessCodeGate();
+  if (confirmedAdminEmail()) return openAdmin();
+
+  const u = getUser();
+  if (u && u.provider === 'google') {
+    const token = getIdToken() || await getFreshIdToken();
+    if (token) {
+      const res = await whoAmI({ gasUrl: CONFIG.GAS_WEB_APP_URL, idToken: token });
+      if (res.ok && String(res.email).toLowerCase() === String(u.email).trim().toLowerCase()) {
+        setAdminConfirmed(res.email);
+        return openAdmin();
+      }
+      clearAdminConfirmed();
+      return googleGateModal({ notice: res.error === 'not_admin'
+        ? `${u.email} is not on the admin list. Ask an owner to add you, or use the access code.`
+        : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.` });
+    }
+  }
+  return googleGateModal({});
+}
+
+function googleGateModal({ notice = '' }) {
+  navigate('landing');
+  adminGateBusy = true;
+  const msgEl = h('p', { class: notice ? 'field-error' : 'muted', role: 'alert', dataset: { testid: 'admin-google-message' } }, notice || 'Sign in with the Google account that is on the admin list.');
+  const buttonHost = h('div', { dataset: { testid: 'admin-google-button' } });
+  let off = () => {};
+  const done = () => { adminGateBusy = false; off(); };
+  const m = openModal({
+    title: 'Admin access', testid: 'admin-gate', onClose: done,
+    body: h('div', { class: 'stack' }, msgEl, buttonHost,
+      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'admin-use-code' }, on: { click: () => { m.close(); accessCodeGate(); } } }, 'Use access code instead')),
+    actions: [{ label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } }],
+  });
+  const confirm = async (user) => {
+    if (!user || user.provider !== 'google') return;
+    msgEl.className = 'muted';
+    msgEl.textContent = 'Checking your admin access…';
+    const token = user.idToken || await getFreshIdToken();
+    const res = token ? await whoAmI({ gasUrl: CONFIG.GAS_WEB_APP_URL, idToken: token }) : { ok: false, error: 'invalid_token' };
+    if (res.ok && String(res.email).toLowerCase() === String(user.email).trim().toLowerCase()) {
+      setAdminConfirmed(res.email);
+      m.close();
+      return openAdmin();
+    }
+    msgEl.className = 'field-error';
+    msgEl.textContent = res.error === 'not_admin'
+      ? `${user.email} is not on the admin list. Ask an owner to add you, or use the access code.`
+      : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.`;
+  };
+  off = onAuthChange(confirm);
+  renderGoogleButton(buttonHost, CONFIG, { onError: (e) => { msgEl.className = 'field-error'; msgEl.textContent = e; } });
+}
+
+function accessCodeGate() {
+  if (load('adminUnlocked', false, 'session')) return openAdmin();
   const input = h('input', { class: 'input', type: 'password', placeholder: 'Admin access code', autocomplete: 'off', dataset: { testid: 'admin-code-input' } });
   const err = h('p', { class: 'field-error', role: 'alert' });
   const tryUnlock = (close) => {
     if (input.value === CONFIG.ADMIN_ACCESS_CODE) {
       save('adminUnlocked', true, 'session');
       close();
-      navigate('admin');
+      openAdmin();
     } else {
       err.textContent = 'Incorrect access code.';
       input.classList.add('shake');
@@ -179,7 +258,7 @@ function start() {
 
 // When a student signs in on the landing screen with a pending ?code=, continue to the test.
 onAuthChange((user) => {
-  if (!user || currentView !== 'landing') return;
+  if (!user || currentView !== 'landing' || adminGateBusy) return;
   const code = new URLSearchParams(location.search).get('code');
   toast(`Signed in as ${user.name}`, { type: 'success' });
   if (code) openTest(code);

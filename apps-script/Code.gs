@@ -8,12 +8,18 @@
  * v3: set the GOOGLE_CLIENT_ID script property (same OAuth client as js/config.js) so student identity is
  * verified from Google ID tokens (getStudentStatus, single-submission enforcement). Optional: ALLOWED_DOMAINS
  * (comma-separated, e.g. "myschool.org"), ALLOW_UNVERIFIED_EMAIL=true (local/demo only).
+ *
+ * v4: admins sign in with Google. Every admin request carries the admin's ID token (idToken); the verified email
+ * must be on the Admins sheet (seeded from the ADMIN_EMAILS script property). ADMIN_KEY still works during the
+ * upgrade period (adminKey in the request body). Every admin write is appended to the Log sheet.
  */
 
-var VERSION = '3.0.0';
+var VERSION = '4.0.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
+var ADMINS_SHEET = 'Admins';
+var LOG_SHEET = 'Log';
 
 var SUBMISSION_HEADERS = [
   'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title',
@@ -34,6 +40,13 @@ var STATUS_EXTRA = 'Extra attempt'; // v3: a second submission to a single-submi
 var TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
 var TOKEN_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
 var TEST_HEADERS = ['Code', 'Title', 'Updated At', 'Test JSON'];
+var ADMIN_HEADERS = ['Email', 'Role', 'Added by', 'Added at'];
+var LOG_HEADERS = ['Time', 'Admin', 'Action', 'Target', 'Details'];
+var ROLE_OWNER = 'owner';
+var ROLE_ADMIN = 'admin';
+var EMAIL_RE = /^[A-Za-z0-9_][^\s@,;'"<>=]*@[^\s@,;'"<>=]+\.[^\s@,;'"<>=]+$/;
+var LOG_DEFAULT_LIMIT = 100;
+var LOG_MAX_LIMIT = 500;
 
 var HEADER_BACKGROUND = '#E2E8F0';
 var MAX_CELL_CHARS = 49000; // Sheets cells hold at most 50,000 characters.
@@ -73,6 +86,11 @@ function doPost(e) {
       case 'getSubmissionCounts':
       case 'releaseAll':
       case 'allowRetake':
+      case 'whoami':
+      case 'listAdmins':
+      case 'saveAdmin':
+      case 'removeAdmin':
+      case 'getLog':
         return json_(handleAdmin_(body));
       case 'getFeedback':
         return json_(getFeedback_(body));
@@ -98,14 +116,21 @@ function doPost(e) {
 function setup() {
   getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   getSheet_(TESTS_SHEET, TEST_HEADERS);
+  var admins = ensureAdmins_();
+  getSheet_(LOG_SHEET, LOG_HEADERS);
   var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
-  Logger.log('Sheets "' + SUBMISSIONS_SHEET + '" and "' + TESTS_SHEET + '" are ready.');
-  if (hasKey) {
-    Logger.log('ADMIN_KEY is set.');
+  Logger.log('Sheets "' + SUBMISSIONS_SHEET + '", "' + TESTS_SHEET + '", "' + ADMINS_SHEET + '" and "' + LOG_SHEET + '" are ready.');
+  if (admins.length) {
+    Logger.log(admins.length + ' admin(s) on the "' + ADMINS_SHEET + '" sheet. Add or remove rows there to change who can sign in as an admin.');
   } else {
-    Logger.log('NEXT STEP: set the admin key. Open Project Settings (gear icon) > Script properties > ' +
-      'Add script property: name ADMIN_KEY, value = a long random passphrase. ' +
-      'Without it, publishing tests and reading results are disabled.');
+    Logger.log('NEXT STEP: no admins yet. Add a row to the "' + ADMINS_SHEET + '" sheet (Email, Role = owner) or set the ADMIN_EMAILS script property ' +
+      '(comma-separated, first = owner) and run setup again.');
+  }
+  if (hasKey) {
+    Logger.log('ADMIN_KEY is set (still accepted during the upgrade to admin accounts; remove it once every admin is on the list).');
+  } else {
+    Logger.log('ADMIN_KEY is not set: only admins on the "' + ADMINS_SHEET + '" sheet (signed in with Google) can use the admin panel. ' +
+      'To also allow the old shared key: Project Settings > Script properties > ADMIN_KEY.');
   }
   Logger.log('Then: Deploy > New deployment > Web app > Execute as "Me", Who has access "Anyone".');
 }
@@ -317,27 +342,233 @@ function getTest_(code) {
 // Admin operations
 // ---------------------------------------------------------------------------
 
-function checkAdmin_(body) {
+// -> { ok: true, email, role, via: 'google' | 'key' } | { ok: false, error }
+// Google path (body.idToken present): the token is verified exactly like a student's (verifyIdToken_), then the
+// verified, lower-cased email must be on the Admins sheet. Nothing else is accepted on this path: a bad token is
+// 'invalid_token', an unlisted email is 'not_admin' (the key is NOT consulted as a fallback).
+// Key path (no idToken): body.adminKey must equal the ADMIN_KEY script property (upgrade period). The key never
+// reads the Admins sheet; it counts as owner for the admin-management actions only while no owner exists (isOwner_).
+function requireAdmin_(body) {
+  var token = body && body.idToken ? String(body.idToken) : '';
+  if (token) {
+    var clientId = PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID');
+    if (!clientId) return { ok: false, error: 'identity_not_configured' };
+    var who = verifyIdToken_(token, clientId);
+    if (who.error || !who.email) return { ok: false, error: 'invalid_token' };
+    var email = String(who.email).trim().toLowerCase();
+    var admins = ensureAdmins_();
+    for (var i = 0; i < admins.length; i++) {
+      if (admins[i].email === email) return { ok: true, email: email, role: admins[i].role, via: 'google' };
+    }
+    return { ok: false, error: 'not_admin' };
+  }
   var key = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
-  if (!key) return 'admin_key_not_configured';
-  if (!body.adminKey || String(body.adminKey) !== key) return 'unauthorized';
-  return null;
+  if (!key) return { ok: false, error: 'admin_key_not_configured' };
+  if (!body || !body.adminKey || String(body.adminKey) !== key) return { ok: false, error: 'unauthorized' };
+  return { ok: true, email: '', role: ROLE_ADMIN, via: 'key' };
+}
+
+// Admins sheet rows: [{ row, email, role, added_by, added_at }]. Emails trimmed + lower-cased, blank and duplicate
+// emails ignored (first row wins), any role other than 'owner' reads as 'admin'.
+function readAdminRows_() {
+  var sheet = getSheet_(ADMINS_SHEET, ADMIN_HEADERS);
+  var last = sheet.getLastRow();
+  var out = [];
+  if (last < 2) return out;
+  var values = sheet.getRange(2, 1, last - 1, 4).getValues();
+  var seen = {};
+  for (var i = 0; i < values.length; i++) {
+    var email = String(values[i][0] == null ? '' : values[i][0]).trim().toLowerCase();
+    if (!email || seen[email]) continue;
+    seen[email] = true;
+    var role = String(values[i][1] == null ? '' : values[i][1]).trim().toLowerCase() === ROLE_OWNER ? ROLE_OWNER : ROLE_ADMIN;
+    out.push({ row: i + 2, email: email, role: role, added_by: String(values[i][2] == null ? '' : values[i][2]), added_at: iso_(values[i][3]) });
+  }
+  return out;
+}
+
+// Reads the Admins sheet; when it is missing or has no emails, creates it and seeds it from the ADMIN_EMAILS
+// script property (comma list, first = owner). With no property either, returns [] (only ADMIN_KEY works).
+function ensureAdmins_() {
+  var rows = readAdminRows_();
+  if (rows.length) return rows;
+  var raw = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS');
+  var emails = [];
+  String(raw || '').split(',').forEach(function (e) {
+    var v = e.trim().toLowerCase();
+    if (v && EMAIL_RE.test(v) && emails.indexOf(v) < 0) emails.push(v);
+  });
+  if (!emails.length) return rows;
+  return withLock_(function () {
+    if (readAdminRows_().length) return readAdminRows_();
+    var sheet = getSheet_(ADMINS_SHEET, ADMIN_HEADERS);
+    for (var i = 0; i < emails.length; i++) sheet.appendRow([emails[i], i === 0 ? ROLE_OWNER : ROLE_ADMIN, 'ADMIN_EMAILS', new Date()]);
+    return readAdminRows_();
+  });
+}
+
+function hasOwner_(rows) {
+  for (var i = 0; i < rows.length; i++) if (rows[i].role === ROLE_OWNER) return true;
+  return false;
+}
+
+// Owner-only actions. A key caller is an owner only while the Admins sheet has no owner at all (bootstrap).
+function isOwner_(auth, rows) {
+  if (auth.role === ROLE_OWNER) return true;
+  return auth.via === 'key' && !hasOwner_(rows);
+}
+
+function appendLog_(auth, action, target, details) {
+  try {
+    var who = auth.via === 'google' ? auth.email : 'ADMIN_KEY';
+    withLock_(function () {
+      getSheet_(LOG_SHEET, LOG_HEADERS).appendRow([new Date(), text_(who), text_(action), text_(target || ''), text_(details || '').slice(0, 500)]);
+    });
+  } catch (err) { /* logging never blocks the action */ }
+}
+
+var LOGGED_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll: 1, allowRetake: 1, saveAdmin: 1, removeAdmin: 1 };
+
+function logTarget_(body) {
+  switch (body.action) {
+    case 'publishTest': return body.test && body.test.code ? normalizeCode_(body.test.code) : '';
+    case 'deleteTest': return normalizeCode_(body.code);
+    case 'releaseAll': return normalizeCode_(body.testCode);
+    case 'saveGrade':
+    case 'allowRetake': return body.submissionId ? String(body.submissionId) : '';
+    case 'saveAdmin':
+    case 'removeAdmin': return body.email ? String(body.email).trim().toLowerCase() : '';
+  }
+  return '';
+}
+
+function logDetails_(body, res) {
+  switch (body.action) {
+    case 'publishTest': return res.updated ? 'updated' : 'created';
+    case 'releaseAll': return 'released ' + num_(res.released);
+    case 'allowRetake': return body.allow === false ? 'revoked' : 'allowed';
+    case 'saveAdmin': return 'role ' + (res.role || '');
+    case 'saveGrade': return body.release === true ? 'released' : '';
+  }
+  return '';
 }
 
 function handleAdmin_(body) {
-  var authError = checkAdmin_(body);
-  if (authError) return { result: 'error', error: authError };
+  var auth = requireAdmin_(body);
+  if (!auth.ok) return { result: 'error', error: auth.error };
+  var res = dispatchAdmin_(body, auth);
+  if (res && res.result === 'success' && LOGGED_ACTIONS_[body.action]) appendLog_(auth, body.action, logTarget_(body), logDetails_(body, res));
+  return res;
+}
+
+function dispatchAdmin_(body, auth) {
   switch (body.action) {
     case 'publishTest': return publishTest_(body.test);
     case 'listTests': return listTests_();
     case 'deleteTest': return deleteTest_(body.code);
     case 'getResults': return getResults_(body.testCode);
-    case 'saveGrade': return saveGrade_(body);
+    case 'saveGrade':
+      // "Graded by": a Google admin who sent no name is recorded by email.
+      if (auth.via === 'google' && !String(body.gradedBy == null ? '' : body.gradedBy).trim()) body.gradedBy = auth.email;
+      return saveGrade_(body);
     case 'getSubmissionCounts': return getSubmissionCounts_();
     case 'releaseAll': return releaseAll_(body.testCode);
     case 'allowRetake': return allowRetake_(body);
+    case 'whoami': return whoami_(auth);
+    case 'listAdmins': return listAdmins_();
+    case 'saveAdmin': return saveAdmin_(body, auth);
+    case 'removeAdmin': return removeAdmin_(body, auth);
+    case 'getLog': return getLog_(body);
   }
   return { result: 'error', error: 'unknown_action' };
+}
+
+// Any admin. A key caller reports role 'owner' only while no owner exists (the bootstrap case), else 'admin'.
+function whoami_(auth) {
+  var role = auth.role;
+  if (auth.via === 'key') role = isOwner_(auth, ensureAdmins_()) ? ROLE_OWNER : ROLE_ADMIN;
+  return { result: 'success', email: auth.email, role: role, via: auth.via };
+}
+
+function listAdmins_() {
+  var rows = ensureAdmins_();
+  return {
+    result: 'success',
+    admins: rows.map(function (r) { return { email: r.email, role: r.role, added_by: r.added_by, added_at: r.added_at }; })
+  };
+}
+
+// Owner only. body: { email, role: 'owner' | 'admin' } -> adds the admin or changes the role of an existing one.
+// The last owner cannot be demoted.
+function saveAdmin_(body, auth) {
+  var email = String(body && body.email != null ? body.email : '').trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email) || email.length > 200) return { result: 'error', error: 'invalid_email' };
+  var role = String(body.role == null || body.role === '' ? ROLE_ADMIN : body.role).trim().toLowerCase();
+  if (role !== ROLE_OWNER && role !== ROLE_ADMIN) return { result: 'error', error: 'invalid_role' };
+  ensureAdmins_();
+  return withLock_(function () {
+    var rows = readAdminRows_();
+    if (!isOwner_(auth, rows)) return { result: 'error', error: 'owner_only' };
+    var existing = null;
+    var owners = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].role === ROLE_OWNER) owners++;
+      if (rows[i].email === email) existing = rows[i];
+    }
+    var sheet = getSheet_(ADMINS_SHEET, ADMIN_HEADERS);
+    if (existing) {
+      if (existing.role === ROLE_OWNER && role !== ROLE_OWNER && owners <= 1) return { result: 'error', error: 'last_owner' };
+      sheet.getRange(existing.row, 2, 1, 1).setValues([[role]]);
+      return { result: 'success', email: email, role: role, updated: true };
+    }
+    sheet.appendRow([email, role, auth.via === 'google' ? auth.email : 'ADMIN_KEY', new Date()]);
+    return { result: 'success', email: email, role: role, updated: false };
+  });
+}
+
+// Owner only. body: { email }. Refuses removing yourself and removing the last owner.
+function removeAdmin_(body, auth) {
+  var email = String(body && body.email != null ? body.email : '').trim().toLowerCase();
+  if (!email) return { result: 'error', error: 'invalid_email' };
+  if (auth.via === 'google' && email === auth.email) return { result: 'error', error: 'cannot_remove_self' };
+  ensureAdmins_();
+  return withLock_(function () {
+    var rows = readAdminRows_();
+    if (!isOwner_(auth, rows)) return { result: 'error', error: 'owner_only' };
+    var target = null;
+    var owners = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].role === ROLE_OWNER) owners++;
+      if (rows[i].email === email) target = rows[i];
+    }
+    if (!target) return { result: 'error', error: 'not_found' };
+    if (target.role === ROLE_OWNER && owners <= 1) return { result: 'error', error: 'last_owner' };
+    var sheet = getSheet_(ADMINS_SHEET, ADMIN_HEADERS);
+    // Also drop any duplicate rows for the same email (read as one admin, so all must go).
+    var all = sheet.getLastRow() >= 2 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues() : [];
+    for (var r = all.length - 1; r >= 0; r--) {
+      if (String(all[r][0] == null ? '' : all[r][0]).trim().toLowerCase() === email) sheet.deleteRow(r + 2);
+    }
+    return { result: 'success', email: email };
+  });
+}
+
+// Any admin. body: { limit } -> newest first (default 100, max 500).
+function getLog_(body) {
+  var limit = Math.floor(num_(body && body.limit, LOG_DEFAULT_LIMIT));
+  if (limit < 1) limit = LOG_DEFAULT_LIMIT;
+  if (limit > LOG_MAX_LIMIT) limit = LOG_MAX_LIMIT;
+  var sheet = getSheet_(LOG_SHEET, LOG_HEADERS);
+  var last = sheet.getLastRow();
+  var rows = [];
+  if (last >= 2) {
+    var first = Math.max(2, last - limit + 1);
+    var values = sheet.getRange(first, 1, last - first + 1, 5).getValues();
+    for (var i = values.length - 1; i >= 0; i--) {
+      rows.push({ time: iso_(values[i][0]), admin: String(values[i][1]), action: String(values[i][2]), target: String(values[i][3]), details: String(values[i][4]) });
+    }
+  }
+  return { result: 'success', rows: rows };
 }
 
 function publishTest_(test) {
@@ -569,6 +800,12 @@ function verifyStudent_(body) {
     }
     return { error: clientId ? 'unauthorized' : 'identity_not_configured' };
   }
+  return verifyIdToken_(token, clientId);
+}
+
+// Shared by students and admins. -> { email } (lowercased) | { error: 'unauthorized' }
+// Accepts a Google ID token only if aud = clientId, email_verified, not expired, issuer is Google, domain allowed.
+function verifyIdToken_(token, clientId) {
   var cache = null;
   var key = '';
   try {
