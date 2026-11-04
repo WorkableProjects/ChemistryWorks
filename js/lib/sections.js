@@ -98,9 +98,27 @@ export function referenceTitle(ref) {
 }
 
 /** Safe image URL (https, or a relative path without a scheme); '' when unsafe. */
-export function safeImageUrl(url) {
-  const s = String(url ?? '').trim();
+/**
+ * Turn common share links into direct image links: http -> https, Google Drive file links -> the Drive thumbnail
+ * endpoint (works for files shared "Anyone with the link"), Dropbox ?dl=0 -> ?raw=1. Anything else is returned trimmed.
+ */
+export function normalizeImageUrl(url) {
+  let s = String(url ?? '').trim();
   if (!s) return '';
+  if (/^http:\/\//i.test(s)) s = `https://${s.slice(7)}`;
+  const drive = s.match(/^https:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/([\w-]{10,})|(?:open|uc)\?(?:[^#]*&)?id=([\w-]{10,}))/i);
+  if (drive) return `https://drive.google.com/thumbnail?id=${drive[1] || drive[2]}&sz=w2000`;
+  if (/^https:\/\/(?:www\.)?dropbox\.com\//i.test(s)) return s.replace(/([?&])dl=0\b/, '$1raw=1');
+  return s;
+}
+
+/** Inline uploaded pictures (raster only; SVG data URLs are not accepted). */
+const DATA_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=\s]+$/i;
+
+export function safeImageUrl(url) {
+  const s = normalizeImageUrl(url);
+  if (!s) return '';
+  if (DATA_IMAGE_RE.test(s)) return s;
   if (/^https:\/\//i.test(s)) return s;
   if (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith('//')) return '';
   return s;
