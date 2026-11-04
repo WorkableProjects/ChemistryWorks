@@ -19,6 +19,7 @@ import { whoAmI } from './lib/api.js';
 import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './lib/admin-session.js';
 import { checkBackendVersion, versionBanner } from './lib/version-check.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
+import { instantiateTest } from './lib/instantiate.js';
 import { load, save } from './lib/storage.js';
 import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
@@ -118,7 +119,10 @@ function navigate(view, params = {}) {
 async function openTest(code) {
   const c = normalizeCode(code);
   try {
-    const { test, source } = await loadTest(c, { config: CONFIG });
+    const loaded = await loadTest(c, { config: CONFIG });
+    // V4-09 / V4-02: per-student instance (randomized numbers, drawn pool questions), stable across devices.
+    const test = instantiateTest(loaded.test, { email: ctx.user?.email || '' });
+    const { source } = loaded;
     // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
     mount(root, h('div', { class: 'status-check' }, flaskLoader({ size: 88, label: 'Checking your submission…', testid: 'submission-status-check' })));
     const state = await checkSubmissionState(ctx, test);

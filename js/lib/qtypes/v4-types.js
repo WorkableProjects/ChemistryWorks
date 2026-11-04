@@ -8,3 +8,8 @@ import './nuclear.js';
 import './reaction.js';
 import './vsepr.js';
 import './datatable.js';
+import './molarmass.js';
+import './imagechoice.js';
+import './particles.js';
+import './titration.js';
+import './estimate.js';
