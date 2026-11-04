@@ -115,8 +115,9 @@ async function openTest(code) {
     mount(root, h('div', { class: 'status-check', role: 'status', 'aria-live': 'polite', dataset: { testid: 'submission-status-check' } },
       h('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Checking your submission…'));
     const state = await checkSubmissionState(ctx, test);
-    const canRetake = !test.singleSubmission || !state.blocking;
-    const practiceOnly = !canRetake;
+    // "Take again" is offered only when the test allows more than one submission per student.
+    const canRetake = test.singleSubmission !== true;
+    const practiceOnly = !canRetake && state.blocking;
     if (state.feedback) return navigate('feedback', { test, source, status: state, canRetake, practiceOnly });
     const showNotice = test.singleSubmission ? state.blocking : (state.source === 'server' && state.submitted);
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });

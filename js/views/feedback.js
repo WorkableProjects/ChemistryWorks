@@ -7,7 +7,7 @@
 //   params.test     — the loaded test (optional; loaded by code when missing)
 //   params.source   — the test source (passed through to the runner for Take again)
 //   params.practiceOnly — offer Game mode practice (single-submission test already submitted)
-//   params.canRetake — show "Take again" (false for single-submission tests unless the teacher allowed a retake)
+//   params.canRetake — show "Take again" (never shown for single-submission tests)
 
 import { h, mount, icon, renderMath, appHeader, userBadge, toast } from '../ui.js';
 import { fetchFeedback } from '../lib/api.js';
@@ -106,7 +106,7 @@ export function render(root, ctx, params = {}) {
   const setMeta = (submittedAt) => { meta.textContent = [code, submittedAt ? `Submitted ${fmtWhen(submittedAt)}` : ''].filter(Boolean).join(' · '); };
   setMeta(payload?.submitted_at || params.status?.latest?.submitted_at);
 
-  if (params.canRetake && test) {
+  if (params.canRetake && test && test.singleSubmission !== true) {
     actions.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'take-again' },
       on: { click: () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source: params.source }) } }, icon('right', { size: 16 }), 'Take again'));
   }
