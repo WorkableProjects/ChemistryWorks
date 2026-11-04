@@ -24,13 +24,6 @@
 .feedback-skeleton__row { height: 56px; border-radius: var(--radius); background: var(--bg-sunken); }
 
 /* Landing: past submissions */
-.past-results { margin-top: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
-.past-results__title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin: 0; }
-.past-results__item { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); }
-.past-results__main { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
-.past-results__name { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
-.past-results__meta { font-size: 12px; color: var(--text-faint); }
-.past-results__code { font-family: var(--mono); font-weight: 700; }
 
 /* v3: released review on the export model (V3-01) */
 .feedback-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
