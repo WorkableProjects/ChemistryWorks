@@ -6,6 +6,7 @@ Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 
 | # | Session | Status | Branch / PR | Notes |
 |---|---|---|---|---|
+| S00 | Fixes | In progress | `claude/fix-grading-save-loop` | FIX-1 grading loop and FIX-2 picker done; FIX-3 Label the diagram to do |
 | S01 | Foundations | Not started | | |
 | S02 | Brand system | Not started | | |
 | S03 | App shell + student views | Not started | | |
