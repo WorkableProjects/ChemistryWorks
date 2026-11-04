@@ -29,7 +29,7 @@ export function motionReduced() {
  *   shell.hud({ label, lives, ring, scored }) -> hud controller
  *   shell.flash(ok) / shell.intro({...}) / shell.end({...}) / shell.back() / shell.cleanup()
  */
-export function createShell(root, ctx, { test, source, game, studyBlocked = false }) {
+export function createShell(root, ctx, { test, source, game, studyBlocked = false, cleared = false }) {
   const user = ctx.user;
   let timer = null;
   let keyFn = null;
@@ -61,8 +61,8 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
 
     cleanup() { dead = true; shell.clearTimer(); shell.clearKeys(); clearTimeout(focusTimer); clearTimeout(flashTimer); },
 
-    back() { ctx.navigate('mode-select', { test, source, picker: true, studyBlocked }); },
-    toStudy() { ctx.navigate('runner', { test, source }); },
+    back() { ctx.navigate('mode-select', { test, source, picker: true, studyBlocked, cleared }); },
+    toStudy() { ctx.navigate('runner', { test, source, cleared: cleared && !studyBlocked }); },
     best: () => loadBest(user.email, test.code, game.id),
     sound: playTone,
 

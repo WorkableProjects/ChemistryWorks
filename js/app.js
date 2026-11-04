@@ -61,6 +61,11 @@ export const ctx = {
 
 function navigate(view, params = {}) {
   if (!VIEWS[view]) throw new Error(`Unknown view ${view}`);
+  // Single-submission tests may only be started after openTest() has checked this student's submissions;
+  // every other route into the runner (back buttons, game mode, stale links) goes back through that check.
+  if (view === 'runner' && !params.preview && params.test?.singleSubmission === true && params.cleared !== true) {
+    return openTest(params.test.code);
+  }
   try { cleanup?.(); } catch (e) { console.error(e); }
   cleanup = null;
   currentView = view;
@@ -115,14 +120,20 @@ async function openTest(code) {
     mount(root, h('div', { class: 'status-check', role: 'status', 'aria-live': 'polite', dataset: { testid: 'submission-status-check' } },
       h('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Checking your submission…'));
     const state = await checkSubmissionState(ctx, test);
-    // "Take again" is offered only when the test allows more than one submission per student.
-    const canRetake = test.singleSubmission !== true;
-    const practiceOnly = !canRetake && state.blocking;
+    const single = test.singleSubmission === true;
+    // Single-submission tests: one attempt, period — "Take again" only when the teacher allowed a retake.
+    if (single && state.blocking) {
+      if (state.feedback) return navigate('feedback', { test, source, status: state, canRetake: false, practiceOnly: true });
+      return navigate('submitted', { test, source, status: state, canRetake: false });
+    }
+    const canRetake = !single || state.retakeAllowed === true;
+    const practiceOnly = false;
     if (state.feedback) return navigate('feedback', { test, source, status: state, canRetake, practiceOnly });
-    const showNotice = test.singleSubmission ? state.blocking : (state.source === 'server' && state.submitted);
+    const showNotice = !single && state.source === 'server' && state.submitted;
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
-    navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source });
+    // `cleared` marks that this student passed the submission check (required for single-submission tests).
+    navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
   } catch (err) {
     navigate('landing', { code: c, error: err.message });
   }

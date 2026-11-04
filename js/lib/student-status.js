@@ -5,6 +5,7 @@
 //   source: 'server' | 'local' | 'none',   // where the answer came from ('none' = no backend / no identity)
 //   submitted: boolean,                     // at least one counted submission exists
 //   blocking: boolean,                      // a submission exists that is NOT marked "retake allowed"
+//   retakeAllowed: boolean,                 // server confirms the teacher allowed this student one more attempt
 //   attempts: number,
 //   latest: { submission_id, submitted_at, status, released } | null,
 //   feedback: object | null,                // latest released review (server only), see Code.gs getStudentStatus_
@@ -15,7 +16,7 @@ import { fetchStudentStatus } from './api.js';
 import { getFreshIdToken } from './auth.js';
 import { hasLocalSubmission, getOutbox } from './submit.js';
 
-const EMPTY = { source: 'none', submitted: false, blocking: false, attempts: 0, latest: null, feedback: null, others: [] };
+const EMPTY = { source: 'none', submitted: false, blocking: false, retakeAllowed: false, attempts: 0, latest: null, feedback: null, others: [] };
 
 function queuedOnDevice(email, code) {
   const e = String(email || '').toLowerCase();
@@ -38,10 +39,14 @@ export async function checkSubmissionState(ctx, test) {
     const res = await fetchStudentStatus({ gasUrl, testCode: code, idToken, studentEmail: idToken ? undefined : user.email });
     if (!res.ok) return local(); // offline, old backend, identity not configured -> fail open to the local check
     const queued = queuedOnDevice(user.email, code);
+    // A submission recorded on this device also blocks, unless the server confirms the teacher allowed a retake.
+    const onDevice = hasLocalSubmission(user.email, code);
+    const retakeAllowed = res.submitted === true && res.blocking === false && res.latest?.retake_allowed === true;
     return {
       source: 'server',
-      submitted: res.submitted || queued,
-      blocking: res.blocking === true || queued,
+      submitted: res.submitted || queued || onDevice,
+      blocking: res.blocking === true || queued || (onDevice && !retakeAllowed),
+      retakeAllowed: retakeAllowed && !queued,
       attempts: res.attempts,
       latest: res.latest || null,
       feedback: res.feedback || null,
