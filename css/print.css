@@ -64,6 +64,10 @@
   .export-doc svg * { stroke-opacity: 1; }
   .export-doc a { color: #000; text-decoration: underline; }
   .export-item { border-top-color: #000; }
+  .export-doc .export-head__top { flex-wrap: nowrap; border-bottom: 1.5pt solid #000; }
+  .export-doc .export-head .export-title { color: #000; }
+  .export-doc .export-head .export-student, .export-doc .export-head .export-date, .export-doc .export-brand { color: #000; }
+  .export-foot { color: #000; font-size: 8pt; border-top: 0.5pt solid #000; align-items: flex-end; }
 
   /* Keep every question whole on one page; only a question taller than a page may split, and then
      never right after its header or prompt. */

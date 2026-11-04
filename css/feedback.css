@@ -40,3 +40,14 @@
 
 /* V3 a11y: touch targets for feedback controls */
 .feedback .btn, .feedback .icon-btn { min-height: 44px; }
+
+/* v4: score header card + teacher comments */
+.feedback-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 20px 24px; border-top: 4px solid var(--brand-teal); }
+.feedback-summary__score { display: flex; flex-direction: column; gap: 2px; }
+.feedback-summary__pct { font-family: var(--font-display); font-size: 36px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.feedback-summary__pts { font-family: var(--font-display); font-size: 14px; font-weight: 600; }
+.feedback-summary__side { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.feedback-summary__chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.feedback-summary__by { font-size: 13px; }
+.feedback-doc .export-comment { border-left: 3px solid var(--brand-teal); background: var(--primary-soft); border-radius: var(--radius-sm); }
+@media (max-width: 480px) { .feedback-summary__side, .feedback-summary__chips { align-items: flex-start; justify-content: flex-start; } }

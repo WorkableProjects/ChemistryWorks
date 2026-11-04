@@ -36,7 +36,7 @@ function chipsFor(submission) {
 }
 
 function scoreRing(pct, grade) {
-  const tone = pct >= 80 ? 'success' : pct >= 50 ? 'primary' : 'warning';
+  const tone = pct >= 80 ? 'teal' : pct >= 50 ? 'teal' : 'warning';
   const valueEl = h('span', { class: 'results-ring__pct', dataset: { testid: 'score-percentage' } }, `${grade.percentage}%`);
   const arc = svg('circle', {
     class: 'results-ring__arc', cx: '80', cy: '80', r: String(RADIUS), fill: 'none', 'stroke-width': '11', 'stroke-linecap': 'round',
@@ -56,8 +56,8 @@ function scoreRing(pct, grade) {
     arc.style.strokeDashoffset = finalOffset.toFixed(2);
   } else {
     valueEl.textContent = '0.00%';
-    const DURATION = 1100;
-    const start = performance.now() + 120;
+    const DURATION = 400;
+    const start = performance.now() + 60;
     const ease = (t) => 1 - Math.pow(1 - t, 3);
     requestAnimationFrame(() => arc.classList.add('is-animated'));
     requestAnimationFrame(() => requestAnimationFrame(() => { arc.style.strokeDashoffset = finalOffset.toFixed(2); }));
@@ -70,6 +70,22 @@ function scoreRing(pct, grade) {
     raf = requestAnimationFrame(step);
   }
   return { el: wrap, stop: () => cancelAnimationFrame(raf), finalize: () => { valueEl.textContent = `${grade.percentage}%`; } };
+}
+
+/** Correct / partial / incorrect / pending counts as icon pills (never colour-only). */
+function summaryChips(grade) {
+  const c = { correct: 0, partial: 0, incorrect: 0, pending: 0 };
+  for (const r of grade.results || []) {
+    if (r.needsGrading) c.pending += 1;
+    else if (r.isCorrect) c.correct += 1;
+    else if (r.answered && r.pointsEarned > 0) c.partial += 1;
+    else c.incorrect += 1;
+  }
+  const defs = [['correct', 'Correct', 'check', 'pill--success'], ['partial', 'Partial', 'minus', 'pill--warning'],
+    ['incorrect', 'Incorrect', 'x', 'pill--danger'], ['pending', 'Pending', 'hourglass', 'pill--primary']];
+  return h('div', { class: 'results-summary', role: 'list', 'aria-label': 'Question summary', dataset: { testid: 'results-summary' } },
+    defs.filter(([k]) => k !== 'pending' || c.pending > 0).map(([k, label, ic, cls]) => h('span', { class: ['pill', 'results-summary__chip', cls], role: 'listitem', dataset: { testid: `summary-${k}` } },
+      icon(ic, { size: 14 }), h('span', { class: 'results-summary__n' }, String(c[k])), ` ${label}`)));
 }
 
 function confetti() {
@@ -95,7 +111,7 @@ function reviewItem(r, i, test, stagger) {
   const q = test.questions.find((x) => x.id === r.questionId);
   const status = r.needsGrading ? 'pending' : r.isCorrect ? 'correct' : !r.answered ? 'unanswered' : r.pointsEarned > 0 ? 'partial' : 'incorrect';
   const statusLabel = { correct: 'Correct', partial: 'Partially correct', incorrect: 'Incorrect', unanswered: 'Not answered', pending: 'Awaiting teacher grading' }[status];
-  const statusIcon = status === 'correct' ? 'check' : status === 'partial' || status === 'pending' ? 'info' : status === 'unanswered' ? 'alert' : 'x';
+  const statusIcon = status === 'correct' ? 'check' : status === 'partial' ? 'minus' : status === 'pending' ? 'hourglass' : status === 'unanswered' ? 'alert' : 'x';
   const open = status !== 'correct';
 
   const formulaHtml = (text) => h('span', { class: 'results-formula', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
@@ -146,7 +162,9 @@ function reviewItem(r, i, test, stagger) {
   },
     h('span', { class: `results-item__status results-item__status--${status}`, title: statusLabel }, icon(statusIcon, { size: 16 }), h('span', { class: 'sr-only' }, statusLabel)),
     h('span', { class: 'results-item__num' }, `Q${i + 1}`),
-    richText(r.questionText, 'span', 'results-item__text'),
+    h('span', { class: 'results-item__main' },
+      richText(r.questionText, 'span', 'results-item__text'),
+      h('span', { class: 'results-item__label', 'aria-hidden': 'true' }, statusLabel)),
     h('span', { class: 'results-item__pts' }, r.needsGrading ? `— / ${r.pointsPossible} pts` : `${r.pointsEarned} / ${r.pointsPossible} pts`),
     h('span', { class: 'results-item__chev' }, icon('down', { size: 16 })),
   );
@@ -251,6 +269,7 @@ export function render(root, ctx, params = {}) {
           h('div', {}, h('strong', { dataset: { testid: 'score-points' } }, `${grade.scoreAchieved} / ${grade.scoreTotal}`), h('span', { class: 'muted' }, pending ? ' points so far' : ' points')),
           h('div', {}, h('strong', { dataset: { testid: 'score-correct' } }, `${grade.correctCount} of ${grade.questionCount} correct`))),
         passBadge,
+        summaryChips(grade),
         pending ? h('p', { class: 'notice notice--info', dataset: { testid: 'pending-note' } }, icon('info'),
           h('span', {}, `${pending} ${pending === 1 ? 'answer' : 'answers'} (${grade.pendingPoints} pts) will be graded by your teacher. This score is not final.`)) : null,
         !pending && test.passingPercent != null && typeof test.passingPercent === 'number'

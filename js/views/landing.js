@@ -1,10 +1,11 @@
-// Landing: a single centered panel, like a testing-platform login screen.
+// Landing: hero + code entry as the main action, then "Continue where you left off" and "Your tests" cards.
 // Signed out: "Sign in with Google to Begin". Signed in: test-code entry and resumable attempts.
 
 import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl, stagger, brandLogo } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
 import { keys, load } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
+import { SITE_VERSION } from '../version.js';
 
 function signInCard(ctx, params) {
   const { config } = ctx;
@@ -38,6 +39,7 @@ function signInCard(ctx, params) {
     h('p', { class: 'muted' }, 'Your name and email are attached to your submission automatically.'),
     ...body,
     err,
+    h('p', { class: 'site-version', dataset: { testid: 'site-version' } }, `v${SITE_VERSION}`),
   );
 }
 
@@ -57,20 +59,46 @@ function pastResults(user) {
     .slice(0, 20);
 }
 
+// Local result payloads carry no "released" flag (release state lives on the server and is fetched on the feedback
+// view), so a local result is shown as Submitted. If a payload ever gains `released`/`feedback_released`, show Released.
+function resultStatus(p) {
+  return (p.released || p.feedback_released || p.feedback?.released)
+    ? h('span', { class: 'pill pill--success' }, 'Released')
+    : h('span', { class: 'pill pill--warning' }, 'Submitted');
+}
+
 function pastCard(ctx, user) {
   const list = pastResults(user);
   if (!list.length) return null;
   const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'medium' }); };
-  const card = h('section', { class: 'card past-results', dataset: { testid: 'past-results' } },
-    h('h3', { class: 'past-results__title' }, 'Your submitted tests'),
-    list.map((p) => h('div', { class: 'past-results__item stagger-item' },
-      h('div', { class: 'past-results__main' },
-        h('span', { class: 'past-results__name' }, p.test_title || p.test_code),
-        h('span', { class: 'past-results__meta' }, h('span', { class: 'past-results__code' }, p.test_code), p.submitted_at ? ` · Submitted ${when(p.submitted_at)}` : '')),
+  const card = h('section', { class: 'tests-block past-results', dataset: { testid: 'past-results' } },
+    h('h3', { class: 'tests-block__title' }, 'Your tests'),
+    h('div', { class: 'tests-grid' }, list.map((p) => h('div', { class: 'card test-card past-results__item stagger-item' },
+      h('div', { class: 'test-card__top' }, h('span', { class: 'test-card__code' }, p.test_code), resultStatus(p)),
+      h('span', { class: 'test-card__name' }, p.test_title || p.test_code),
+      h('span', { class: 'test-card__meta' }, p.submitted_at ? `Submitted ${when(p.submitted_at)}` : ''),
       h('button', { class: 'btn btn--sm', type: 'button', dataset: { testid: `view-feedback-${p.submission_id}` },
-        'aria-label': `View feedback for ${p.test_title || p.test_code}`, on: { click: () => ctx.navigate('feedback', { payload: p }) } }, 'View feedback'))));
-  stagger(card);
+        'aria-label': `View feedback for ${p.test_title || p.test_code}`, on: { click: () => ctx.navigate('feedback', { payload: p }) } }, 'View feedback')))));
+  stagger(card.querySelector('.tests-grid'));
   return card;
+}
+
+function resumeBlock(ctx, user) {
+  const resumable = inProgress(user);
+  if (!resumable.length) return null;
+  const box = h('section', { class: 'tests-block resume', dataset: { testid: 'resume-list' } },
+    h('h3', { class: 'tests-block__title resume__title' }, 'Continue where you left off'),
+    h('div', { class: 'tests-grid' }, resumable.map((p) => h('button', {
+      class: 'card test-card resume__item stagger-item', type: 'button', dataset: { testid: `resume-${p.code}` },
+      on: { click: () => ctx.openTest(p.code) },
+    },
+      h('span', { class: 'test-card__top' }, h('span', { class: 'test-card__code' }, p.code), h('span', { class: 'pill pill--primary' }, 'In progress')),
+      h('span', { class: 'test-card__name' }, p.title || 'Test in progress'),
+      h('span', { class: 'test-card__meta' }, `${Object.keys(p.answers || {}).length} answered · ${p.updatedAt ? formatDurationLong((Date.now() - p.updatedAt) / 1000) + ' ago' : ''}`),
+      h('span', { class: 'test-card__go' }, 'Resume', icon('right', { size: 14 })),
+    ))));
+  stagger(box.querySelector('.tests-grid'));
+  return box;
 }
 
 function codeCard(ctx, params) {
@@ -102,31 +130,15 @@ function codeCard(ctx, params) {
     await ctx.openTest(input.value);
   };
 
-  const resumable = inProgress(user);
-  const resumeBox = resumable.length
-    ? h('div', { class: 'resume', dataset: { testid: 'resume-list' } },
-        h('h3', { class: 'resume__title' }, 'Continue where you left off'),
-        resumable.map((p) => h('button', {
-          class: 'resume__item stagger-item', type: 'button', dataset: { testid: `resume-${p.code}` },
-          on: { click: () => ctx.openTest(p.code) },
-        },
-          h('span', { class: 'resume__code' }, p.code),
-          h('span', { class: 'resume__title-text' }, p.title || 'Test in progress'),
-          h('span', { class: 'resume__meta' }, `${Object.keys(p.answers || {}).length} answered · ${p.updatedAt ? formatDurationLong((Date.now() - p.updatedAt) / 1000) + ' ago' : ''}`),
-          icon('right'),
-        )),
-      )
-    : null;
-  stagger(resumeBox);
   return h('section', { class: 'card code-card', dataset: { testid: 'code-card' } },
     h('div', { class: 'code-card__top' },
       h('h2', { class: 'card__title' }, `Welcome, ${user.name.split(' ')[0]}`),
       userBadge(user, { onSignOut: () => ctx.signOut() }),
     ),
-    h('p', { class: 'muted' }, 'Enter your test code to begin.'),
+    h('p', { class: 'muted' }, 'Enter the test code from your teacher.'),
     h('form', { class: 'code-form', on: { submit: onSubmit } }, input, btn),
     errBox,
-    resumeBox,
+    h('p', { class: 'site-version', dataset: { testid: 'site-version' } }, `v${SITE_VERSION}`),
   );
 }
 
@@ -138,19 +150,43 @@ function bubbles() {
     spec.map(([x, size, delay, dur]) => h('span', { style: `--x:${x}%;--s:${size}px;--d:${delay}s;--t:${dur}s` })));
 }
 
+/** Decorative hex/molecule pattern for the hero (inline SVG, aria-hidden). */
+function heroPattern() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'landing__pattern');
+  svg.setAttribute('viewBox', '0 0 200 120');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const hex = (cx, cy, r) => Array.from({ length: 6 }, (_, i) => {
+    const a = Math.PI / 3 * i + Math.PI / 6;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+  [[40, 40, 18], [75, 60, 18], [40, 80, 18], [110, 40, 18], [145, 60, 18], [180, 40, 18]].forEach(([x, y, r]) => {
+    const p = document.createElementNS(ns, 'polygon');
+    p.setAttribute('points', hex(x, y, r));
+    svg.appendChild(p);
+  });
+  return svg;
+}
+
 export function render(root, ctx, params = {}) {
   const user = getUser();
   mount(root,
     h('main', { class: 'landing' },
-      h('h1', { class: 'sr-only' }, 'ChemistryWorks'),
-      h('div', { class: 'landing__brand', dataset: { testid: 'landing-logo' } }, brandLogo('wordmark')),
-      h('div', { class: 'theme-float landing__topbar' },
+      h('div', { class: 'landing__topbar' },
         h('a', { href: '?admin=true', class: 'theme-ctl__btn', title: 'Teacher / admin', 'aria-label': 'Teacher / admin panel', dataset: { testid: 'admin-link' } }, icon('home')),
         themeControl()),
       bubbles(),
+      h('header', { class: 'landing__hero' },
+        heroPattern(),
+        h('h1', { class: 'sr-only' }, 'ChemistryWorks'),
+        h('div', { class: 'landing__brand', dataset: { testid: 'landing-logo' } }, brandLogo('wordmark')),
+        h('p', { class: 'landing__intro' }, 'ChemistryWorks — chemistry tests, study and games'),
+      ),
       h('div', { class: 'landing__inner' },
-        h('div', { class: 'landing__panel' },
-          user ? [codeCard(ctx, params), pastCard(ctx, user)] : signInCard(ctx, params)),
+        h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
+        user ? h('div', { class: 'landing__lists' }, resumeBlock(ctx, user), pastCard(ctx, user)) : null,
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),

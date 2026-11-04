@@ -3,6 +3,7 @@
 // render(root, ctx, { test, source, status, canRetake }) -> cleanup()
 
 import { h, mount, icon, appHeader, userBadge } from '../ui.js';
+import { statusPage } from './status-page.js';
 
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -17,7 +18,6 @@ export function render(root, ctx, params = {}) {
   const canRetake = params.canRetake === true;
   const start = () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
 
-  const title = h('h1', { class: 'feedback__title', tabindex: '-1' }, test?.title || test?.code || 'Test');
   const lines = [
     when ? `You submitted this test on ${when}.` : 'You’ve already submitted this test.',
     status.source === 'local' ? 'It was saved on this device and will be sent when you’re back online.' : 'Your teacher hasn’t released grades yet. Check back here later.',
@@ -31,14 +31,17 @@ export function render(root, ctx, params = {}) {
   }
   buttons.push(h('button', { class: 'btn btn--ghost', type: 'button', on: { click: () => ctx.navigate('landing') } }, icon('home', { size: 16 }), 'Back to start'));
 
-  mount(root, h('div', { class: 'feedback-shell' },
+  const page = statusPage({
+    icon: 'check', tone: 'info', art: 'badge', testid: 'already-submitted',
+    title: test?.title || test?.code || 'Test',
+    lines,
+    note: single && !canRetake ? 'This test allows one submission per student. Ask your teacher if you need a retake.' : null,
+    actions: buttons,
+  });
+  mount(root, h('div', { class: 'status-shell' },
     appHeader({ title: 'ChemistryWorks', subtitle: test?.title, onHome: () => ctx.navigate('landing'), right: userBadge(user) }),
-    h('main', { class: 'feedback', dataset: { testid: 'already-submitted' } },
-      title,
-      h('div', { class: 'notice notice--info', role: 'status' }, icon('check'),
-        h('div', { class: 'stack' }, lines.map((l) => h('span', {}, l)),
-          single && !canRetake ? h('span', { class: 'muted' }, 'This test allows one submission per student. Ask your teacher if you need a retake.') : null)),
-      h('div', { class: 'feedback-actions' }, buttons))));
+    page));
+  const title = page.querySelector('.status-page__title');
   const t = setTimeout(() => title.focus({ preventScroll: true }), 50);
   return () => clearTimeout(t);
 }
