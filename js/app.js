@@ -17,7 +17,7 @@ import { CONFIG } from './config.js';
 import { getUser, signOut, onAuthChange } from './lib/auth.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { load, save } from './lib/storage.js';
-import { h, mount, icon, openModal, toast, viewTransition } from './ui.js';
+import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
@@ -117,8 +117,7 @@ async function openTest(code) {
   try {
     const { test, source } = await loadTest(c, { config: CONFIG });
     // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
-    mount(root, h('div', { class: 'status-check', role: 'status', 'aria-live': 'polite', dataset: { testid: 'submission-status-check' } },
-      h('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Checking your submission…'));
+    mount(root, h('div', { class: 'status-check' }, flaskLoader({ size: 88, label: 'Checking your submission…', testid: 'submission-status-check' })));
     const state = await checkSubmissionState(ctx, test);
     const single = test.singleSubmission === true;
     // Single-submission tests: one attempt, period — "Take again" only when the teacher allowed a retake.

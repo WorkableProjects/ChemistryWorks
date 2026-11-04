@@ -216,8 +216,8 @@ img { max-width: 100%; }
 .icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
 /* ---------- Boot ---------- */
-.boot { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 16px; color: var(--text-muted); }
-.boot__flask { width: 44px; height: 44px; border-radius: 14px; background: var(--primary); animation: pulse 1.2s var(--ease) infinite; }
+.boot { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 4px; color: var(--text-muted); }
+.boot p { margin: 0; font-weight: 600; letter-spacing: 0.01em; }
 @keyframes pulse { 50% { transform: scale(0.9); opacity: 0.7; } }
 
 /* ---------- Buttons ---------- */
@@ -243,7 +243,18 @@ img { max-width: 100%; }
 .btn--lg { height: 50px; padding: 0 24px; font-size: 16px; }
 .btn--block { width: 100%; }
 .btn.is-loading { position: relative; color: transparent !important; pointer-events: none; }
-.btn.is-loading::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
+/* Busy button: three bubbles rising in turn (the middle dot is the pseudo-element, the outer two its shadows). */
+.btn.is-loading::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
+  color: var(--primary); background: currentColor; animation: cw-bubbles 900ms var(--ease) infinite;
+}
+.btn--primary.is-loading::after, .btn--success.is-loading::after, .btn--danger.is-loading::after { color: var(--on-primary); }
+@keyframes cw-bubbles {
+  0%, 100% { box-shadow: -12px 0 0 0 currentColor, 12px 0 0 0 currentColor; transform: translateY(0); }
+  25% { box-shadow: -12px -5px 0 0 currentColor, 12px 0 0 0 currentColor; transform: translateY(0); }
+  50% { box-shadow: -12px 0 0 0 currentColor, 12px 0 0 0 currentColor; transform: translateY(-5px); }
+  75% { box-shadow: -12px 5px 0 0 currentColor, 12px -5px 0 0 currentColor; transform: translateY(5px); }
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .icon-btn {
@@ -298,12 +309,18 @@ img { max-width: 100%; }
 }
 .app-header__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; min-width: 0; }
-.brand__mark { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--primary), var(--accent-2)); color: var(--on-primary); display: grid; place-items: center; box-shadow: 0 6px 14px -6px var(--primary-shadow); transition: background var(--dur) var(--ease); flex-shrink: 0; }
-.brand__text { display: flex; flex-direction: column; min-width: 0; }
-.brand__name { font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brand__sub { font-size: 12px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brand--lg .brand__mark { width: 42px; height: 42px; border-radius: 12px; }
-.brand--lg .brand__name { font-size: 20px; }
+.brand__logo { display: inline-grid; grid-template-rows: 100%; align-items: center; height: 34px; flex-shrink: 0; transform-origin: 12% 85%; transition: transform var(--dur-base) var(--ease-out); }
+.brand__logo .brand-logo { grid-area: 1 / 1; height: 100%; }
+.brand__mark { display: none !important; }
+.brand:hover .brand__logo { transform: rotate(-3deg) scale(1.03); }
+.brand:active .brand__logo { transform: scale(0.97); }
+.brand__text { display: flex; flex-direction: column; min-width: 0; padding-left: 12px; border-left: 1px solid var(--border); }
+.brand__name { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand__sub { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) {
+  .brand__wordmark { display: none !important; }
+  .brand__mark { display: inline-grid !important; }
+}
 
 .user-badge { display: inline-flex; align-items: center; gap: 10px; padding: 4px 4px 4px 4px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); max-width: 320px; }
 .user-badge__avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
@@ -355,13 +372,31 @@ img { max-width: 100%; }
 /* ---------- Landing: single centered login panel ---------- */
 /* Landing hero: graph paper at full strength (decorative area; the panel itself is a solid card). */
 .landing { min-height: 100vh; display: flex; flex-direction: column; background: var(--texture), var(--bg); }
-.landing__inner { flex: 1; display: grid; place-items: center; padding: 32px 16px; }
+.landing { position: relative; overflow: hidden; }
+.landing__inner { position: relative; z-index: 1; flex: 1; display: grid; place-items: center; padding: 32px 16px; }
+.landing__brand { position: relative; z-index: 2; align-self: flex-start; display: block; margin: 12px 0 0 20px; height: 52px; animation: cw-brand-in var(--dur-slow) var(--ease-out) both; }
+.landing__brand .brand-logo { height: 100%; }
+@keyframes cw-brand-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+.landing__bubbles { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.landing__bubbles span {
+  position: absolute; left: var(--x); bottom: -40px; width: var(--s); height: var(--s); border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, rgb(255 255 255 / 0.55), transparent 42%), var(--brand-teal-soft);
+  border: 1.5px solid color-mix(in srgb, var(--brand-teal) 35%, transparent);
+  animation: cw-drift var(--t) linear var(--d) infinite both;
+}
+@keyframes cw-drift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(14px, -55vh); }
+  90% { opacity: 1; }
+  100% { transform: translate(-8px, -110vh); opacity: 0; }
+}
+@media (max-width: 520px) { .landing__brand { height: 40px; margin: 14px 0 0 16px; } }
 .landing__panel { width: min(440px, 100%); animation: rise var(--dur-slow) var(--ease-out) both; }
 .landing__footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; font-size: 13px; color: var(--text-faint); }
 .link-quiet { color: var(--text-faint); text-decoration: none; }
 .link-quiet:hover { color: var(--primary); text-decoration: underline; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.signin-card__mark { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, var(--primary), var(--accent-2)); color: var(--on-primary); }
 
 .signin-card, .code-card { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 14px; padding: 28px; }
 .gsi-slot { min-height: 44px; display: flex; justify-content: center; }
@@ -456,3 +491,38 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .code-notice[hidden] { display: none; }
 .code-notice .field-error { flex: 1; min-width: 160px; margin: 0; color: inherit; }
 .app-header .icon-btn, .app-header .theme-ctl__btn { min-width: 44px; min-height: 44px; }
+
+/* ---------- Brand (assets/brand) ---------- */
+:root { --brand-navy: #002250; --brand-teal: #00A9AE; --brand-teal-soft: rgb(0 169 174 / 0.14); }
+:root[data-theme="dark"] { --brand-navy: #E8EEF8; --brand-teal: #2CC5C9; --brand-teal-soft: rgb(44 197 201 / 0.16); }
+
+.brand-logo { display: inline-grid; grid-template-rows: 100%; line-height: 0; }
+.brand-logo__img { grid-area: 1 / 1; height: 100%; min-height: 0; width: auto; max-width: none; user-select: none; }
+.brand-logo__img--dark { visibility: hidden; }
+:root[data-theme="dark"] .brand-logo__img--light { visibility: hidden; }
+:root[data-theme="dark"] .brand-logo__img--dark { visibility: visible; }
+
+/* Animated flask loader (js/ui.js flaskSvg / flaskLoader; inlined in index.html for the boot screen). */
+.cw-loader { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-muted); }
+.cw-loader__art { display: inline-grid; line-height: 0; }
+.cw-loader__label { font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+.cw-flask { overflow: visible; }
+.cw-flask__glass { fill: none; stroke: var(--brand-navy); stroke-width: 7.5; stroke-linecap: round; stroke-linejoin: round; }
+.cw-flask__wave { fill: var(--brand-teal); animation: cw-wave 1.8s linear infinite; }
+.cw-flask__wave--back { opacity: 0.4; animation-duration: 2.6s; animation-direction: reverse; }
+.cw-flask__liquid { animation: cw-fill 3.6s var(--ease) infinite; }
+.cw-flask__bubble { fill: var(--brand-navy); opacity: 0; animation: cw-rise 2.2s ease-in infinite; transform-box: fill-box; transform-origin: center; }
+.cw-flask__bubble:nth-of-type(2) { animation-delay: 0.7s; }
+.cw-flask__bubble:nth-of-type(3) { animation-delay: 1.4s; }
+.cw-flask__bond { stroke: var(--brand-teal); stroke-width: 6; stroke-linecap: round; }
+.cw-flask__atom { fill: var(--brand-teal); }
+.cw-flask__molecule { transform-origin: 50px 12px; animation: cw-rock 2.4s var(--ease) infinite; }
+@keyframes cw-wave { from { transform: translateX(0); } to { transform: translateX(50px); } }
+@keyframes cw-fill { 0%, 100% { transform: translateY(6px); } 50% { transform: translateY(-4px); } }
+@keyframes cw-rise {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-40px) scale(1.15); }
+}
+@keyframes cw-rock { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(16deg); } }

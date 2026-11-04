@@ -1,7 +1,7 @@
 // Landing: a single centered panel, like a testing-platform login screen.
 // Signed out: "Sign in with Google to Begin". Signed in: test-code entry and resumable attempts.
 
-import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl, stagger } from '../ui.js';
+import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl, stagger, brandLogo } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
 import { keys, load } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
@@ -34,7 +34,6 @@ function signInCard(ctx, params) {
   }
 
   return h('section', { class: 'card signin-card', dataset: { testid: 'signin-card' } },
-    h('span', { class: 'signin-card__mark', 'aria-hidden': 'true' }, icon('flask', { size: 22 })),
     h('h2', { class: 'card__title' }, params.code ? `Sign in to begin ${params.code}` : 'Sign in with Google to Begin'),
     h('p', { class: 'muted' }, 'Your name and email are attached to your submission automatically.'),
     ...body,
@@ -131,16 +130,27 @@ function codeCard(ctx, params) {
   );
 }
 
+/** Decorative bubbles drifting up behind the panel (pure CSS; hidden from assistive tech, still under reduced motion). */
+function bubbles() {
+  const spec = [[6, 18, 0, 14], [14, 34, 3, 18], [23, 12, 7, 12], [31, 26, 1.5, 16], [44, 10, 9, 11], [58, 22, 4.5, 17],
+    [67, 14, 0.8, 13], [76, 30, 6, 19], [85, 16, 2.5, 15], [93, 24, 8, 14]];
+  return h('div', { class: 'landing__bubbles', 'aria-hidden': 'true' },
+    spec.map(([x, size, delay, dur]) => h('span', { style: `--x:${x}%;--s:${size}px;--d:${delay}s;--t:${dur}s` })));
+}
+
 export function render(root, ctx, params = {}) {
   const user = getUser();
   mount(root,
     h('main', { class: 'landing' },
       h('h1', { class: 'sr-only' }, 'ChemistryWorks'),
+      h('div', { class: 'landing__brand', dataset: { testid: 'landing-logo' } }, brandLogo('wordmark')),
       h('div', { class: 'theme-float landing__topbar' },
         h('a', { href: '?admin=true', class: 'theme-ctl__btn', title: 'Teacher / admin', 'aria-label': 'Teacher / admin panel', dataset: { testid: 'admin-link' } }, icon('home')),
         themeControl()),
+      bubbles(),
       h('div', { class: 'landing__inner' },
-        h('div', { class: 'landing__panel' }, user ? [codeCard(ctx, params), pastCard(ctx, user)] : signInCard(ctx, params)),
+        h('div', { class: 'landing__panel' },
+          user ? [codeCard(ctx, params), pastCard(ctx, user)] : signInCard(ctx, params)),
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),
