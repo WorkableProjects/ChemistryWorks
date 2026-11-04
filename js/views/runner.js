@@ -133,14 +133,19 @@ export function render(root, ctx, params = {}) {
 
   const navToggle = h('button', {
     type: 'button', class: 'btn btn--ghost btn--sm runner-hbtn', 'aria-expanded': 'false', 'aria-controls': 'runner-navigator',
-    dataset: { testid: 'navigator-toggle' }, on: { click: () => (drawerOpen ? closeDrawer() : openDrawer()) },
+    dataset: { testid: 'navigator-toggle' }, on: { click: () => (drawerOpen ? closeDrawer({ remember: true }) : openDrawer({ remember: true })) },
   }, icon('grid', { size: 16 }), h('span', { class: 'runner-hbtn__label' }, 'Questions'));
 
   const header = appHeader({
     subtitle: test.title,
     onHome: () => ctx.navigate(preview ? 'admin' : 'landing'),
-    right: [timerEl, timerAnnouncer, modeBtn, navToggle, userBadge(user)],
+    right: [modeBtn, navToggle, userBadge(user)],
   });
+  // Calm bar under the navy header: test title, timer, and the progress bar along its bottom edge.
+  const runnerBar = h('div', { class: 'runner-bar' },
+    h('div', { class: 'runner-bar__inner' },
+      h('span', { class: 'runner-bar__title', title: test.title }, test.title),
+      timerEl, timerAnnouncer));
 
   const progressFill = h('div', { class: 'runner-progress__fill' });
   const progressBar = h('div', {
@@ -244,6 +249,10 @@ export function render(root, ctx, params = {}) {
       submitBtn));
 
   /* ---- navigator drawer */
+  // >= 1024px the navigator is a docked left rail (open/closed choice remembered per device in `cw:navRail`);
+  // below that it is a bottom sheet with a backdrop.
+  const railMq = typeof matchMedia === 'function' ? matchMedia('(min-width: 1024px)') : null;
+  const isRail = () => !!railMq?.matches;
   let drawerOpen = false;
   const tiles = new Map();
   const cntAnswered = h('b', {}), cntFlagged = h('b', {}), cntUnanswered = h('b', {});
@@ -252,7 +261,7 @@ export function render(root, ctx, params = {}) {
       type: 'button', class: 'nav-tile', dataset: { testid: `nav-item-${q.id}` },
       on: { click: () => {
         goTo(i, { focus: true });
-        if (matchMedia('(max-width: 720px)').matches) closeDrawer();
+        if (!isRail()) closeDrawer(); // bottom sheet closes on pick; the desktop rail stays docked
       } },
     }, String(i + 1));
     tiles.set(q.id, t);
@@ -274,8 +283,9 @@ export function render(root, ctx, params = {}) {
     }
     return wrap;
   })();
-  const drawerClose = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close navigator', on: { click: () => closeDrawer() } }, icon('x'));
+  const drawerClose = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close navigator', on: { click: () => closeDrawer({ remember: true }) } }, icon('x'));
   const drawer = h('aside', { class: 'nav-drawer', id: 'runner-navigator', 'aria-label': 'Question navigator', dataset: { testid: 'navigator' } },
+    h('div', { class: 'nav-drawer__grip', 'aria-hidden': 'true' }),
     h('div', { class: 'nav-drawer__head' }, h('h2', {}, 'Questions'), drawerClose),
     h('div', { class: 'nav-drawer__body' },
       h('div', { class: 'nav-counts' },
@@ -290,20 +300,24 @@ export function render(root, ctx, params = {}) {
     h('div', { class: 'nav-drawer__foot' },
       h('button', { type: 'button', class: 'btn btn--primary btn--block', dataset: { testid: 'navigator-submit' }, on: { click: () => openSubmit() } }, 'Submit test')));
   drawer.inert = true;
-  const overlay = h('div', { class: 'nav-overlay', on: { click: () => closeDrawer() } });
+  const overlay = h('div', { class: 'nav-overlay', on: { click: () => closeDrawer({ remember: true }) } });
 
-  function openDrawer() {
+  // `remember: true` marks a deliberate open/close by the student (stored for the desktop rail); programmatic
+  // closes (submit, cleanup) never change the stored preference.
+  function openDrawer({ remember = false, restore = false } = {}) {
     if (drawerOpen) return;
+    if (remember && isRail()) save('navRail', { open: true });
     drawerOpen = true;
     drawer.inert = false;
     drawer.classList.add('is-open');
     runnerEl.classList.add('is-drawer-open');
     overlay.classList.add('is-open');
     navToggle.setAttribute('aria-expanded', 'true');
-    setTimeout(() => tiles.get(ordered[state.index].id)?.focus({ preventScroll: true }), 60);
+    if (!restore) setTimeout(() => tiles.get(ordered[state.index].id)?.focus({ preventScroll: true }), 60);
   }
-  function closeDrawer() {
+  function closeDrawer({ remember = false } = {}) {
     if (!drawerOpen) return;
+    if (remember && isRail()) save('navRail', { open: false });
     drawerOpen = false;
     const hadFocus = drawer.contains(document.activeElement);
     drawer.classList.remove('is-open');
@@ -319,7 +333,7 @@ export function render(root, ctx, params = {}) {
   function updateChrome() {
     const done = answeredCount();
     progressBar.setAttribute('aria-valuenow', String(done));
-    progressFill.style.width = `${total ? (done / total) * 100 : 0}%`;
+    progressFill.style.transform = `scaleX(${total ? done / total : 0})`;
     progressText.textContent = `${done} of ${total} answered`;
     cntAnswered.textContent = String(done);
     cntFlagged.textContent = String(state.flagged.size);
@@ -642,7 +656,7 @@ export function render(root, ctx, params = {}) {
   /* ---- global listeners */
   function onKeyDown(e) {
     if (e.defaultPrevented || state.submitting || state.done) return;
-    if (e.key === 'Escape' && drawerOpen) { closeDrawer(); return; }
+    if (e.key === 'Escape' && drawerOpen) { closeDrawer({ remember: true }); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('#modal-root .modal-overlay.is-open')) return;
     const t = e.target;
@@ -660,7 +674,7 @@ export function render(root, ctx, params = {}) {
     if (key === '?') { e.preventDefault(); openShortcuts(); return; }
     const lower = key.length === 1 ? key.toLowerCase() : '';
     if (lower === 'g') { e.preventDefault(); toggleFlag(ordered[state.index].id); return; }
-    if (lower === 'n') { e.preventDefault(); drawerOpen ? closeDrawer() : openDrawer(); return; }
+    if (lower === 'n') { e.preventDefault(); drawerOpen ? closeDrawer({ remember: true }) : openDrawer({ remember: true }); return; }
     if (lower === 'r' && refPane) { e.preventDefault(); refPane.toggle(); return; }
     if (lower && cards[state.index].widget.shortcut?.(lower)) e.preventDefault();
   }
@@ -683,12 +697,13 @@ export function render(root, ctx, params = {}) {
   const refPane = referencePane(test, { storageKey: `refpane:${test.code}` });
   const mainEl = h('main', { class: 'runner-main' }, stage, actions, announcer);
   const runnerEl = h('div', { class: ['runner', preview && 'runner--preview'], dataset: { testid: 'runner' } },
-    h('div', { class: 'runner-top' }, header, progressBar, previewBanner),
+    h('div', { class: 'runner-top' }, header, runnerBar, progressBar, previewBanner),
     refPane ? h('div', { class: 'runner-split', dataset: { testid: 'runner-split' } }, mainEl, refPane.el) : mainEl,
     footer,
     h('div', { class: 'nav-host' }, overlay, drawer),
   );
   mount(root, runnerEl);
+  if (isRail() && load('navRail', null)?.open === true) openDrawer({ restore: true });
   applyMode();
   tick(true);
   startTimer();
