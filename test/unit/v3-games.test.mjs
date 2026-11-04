@@ -12,7 +12,7 @@ const mcq = (id, points = 1) => ({ id, type: 'mcq', text: id, points, options: [
 const matching = { id: 'm1', type: 'matching', text: 'm', left: [{ id: 'l1', text: 'Na' }, { id: 'l2', text: 'K' }], right: [{ id: 'r1', text: 'Sodium' }, { id: 'r2', text: 'Potassium' }], correctAnswer: { l1: 'r1', l2: 'r2' } };
 
 test('registry lists every game with the documented shape', () => {
-  assert.deepEqual(GAMES.map((g) => g.id), ['classic', 'survival', 'lightning', 'elementhunt', 'matchup', 'flashcards']);
+  assert.deepEqual(GAMES.map((g) => g.id), ['classic', 'survival', 'lightning', 'elementhunt', 'matchup', 'flashcards', 'tower', 'mistakes', 'boss', 'unitdash']);
   for (const g of GAMES) for (const k of ['id', 'title', 'blurb', 'icon', 'playableTypes', 'minQuestions']) assert.ok(k in g, `${g.id}.${k}`);
   assert.equal(getGame('nope'), null);
 });
@@ -20,14 +20,14 @@ test('registry lists every game with the documented shape', () => {
 test('playableGames honours test.games and reports reasons', () => {
   const t = { questions: [mcq('q1'), mcq('q2'), mcq('q3')] };
   const all = playableGames(t);
-  assert.equal(all.length, 6);
-  assert.ok(all.every((x) => x.playable));
+  assert.equal(all.length, 10);
+  assert.ok(all.filter((x) => x.game.id !== 'mistakes').every((x) => x.playable)); // Mistake Review needs earlier mistakes
   const none = playableGames({ questions: [] });
   assert.equal(none.find((x) => x.game.id === 'classic').playable, false);
   assert.match(none.find((x) => x.game.id === 'survival').reason, /at least 3/);
   assert.equal(none.find((x) => x.game.id === 'elementhunt').playable, true);
   assert.deepEqual(playableGames({ ...t, games: ['flashcards', 'classic'] }).map((x) => x.game.id), ['classic', 'flashcards']);
-  assert.equal(playableGames({ ...t, games: ['bogus'] }).length, 6);
+  assert.equal(playableGames({ ...t, games: ['bogus'] }).length, 10);
   assert.equal(playableGames({ questions: [mcq('q1'), { id: 'n', type: 'numeric', text: 'n', correctAnswer: 1 }, mcq('q3')] }).find((x) => x.game.id === 'lightning').playable, true);
 });
 

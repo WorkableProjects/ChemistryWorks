@@ -7,6 +7,7 @@
 import { h, mount, icon, richText, renderMath, appHeader, userBadge } from '../ui.js';
 import { splitGameQuestions } from '../lib/game.js';
 import { playableGames, loadBest } from '../lib/games/index.js';
+import { getLocalResults } from '../lib/submit.js';
 
 export function render(root, ctx, params = {}) {
   const { test, source } = params;
@@ -14,7 +15,7 @@ export function render(root, ctx, params = {}) {
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
   const { skipped } = splitGameQuestions(test);
-  const games = playableGames(test);
+  const games = playableGames(test, { email: user.email, localResults: getLocalResults() });
   const anyPlayable = games.some((g) => g.playable);
   const view = h('div', { class: 'mode-view' });
   let timer = null;
@@ -41,7 +42,7 @@ export function render(root, ctx, params = {}) {
           h('span', { class: 'mode-choice__go' }, 'Start studying'),
           () => ctx.navigate('runner', { test, source, cleared: !!params.cleared })),
         choice('game', 'gamepad', 'Game mode',
-          `${games.length} game${games.length === 1 ? '' : 's'} to choose from: race the clock, survive, hunt elements, match pairs or use flashcards.`,
+          `${games.length} game${games.length === 1 ? '' : 's'} to choose from: race the clock, survive, stack a tower, fight a boss, match pairs, drill units or use flashcards.`,
           h('span', { class: 'mode-choice__go' }, anyPlayable ? 'Choose a game' : 'No playable games'),
           showPicker, !anyPlayable)),
       h('p', { class: 'mode-select__note', dataset: { testid: 'game-practice-note' } }, icon('info', { size: 16 }),

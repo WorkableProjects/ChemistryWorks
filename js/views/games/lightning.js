@@ -9,14 +9,20 @@ import { questionBoard, numberKeys, shuffleOptions } from './question-ui.js';
 const ADVANCE_MS = 450;
 
 export function play(shell) {
-  const { test, user } = shell;
+  const { user, opts } = shell;
+  const test = shell.gtest;
   const pool = questionsOfTypes(test, LIGHTNING_TYPES);
+  const total = opts.totalSeconds || TOTAL_SECONDS;
   let round = 0;
 
   function intro() {
     shell.intro({
-      rules: [
-        `${TOTAL_SECONDS} seconds in total. Answer as many questions as you can.`,
+      rules: () => shell.untimed() ? [
+        `No clock. Answer all ${pool.length} questions, one time through.`,
+        'Skipping is free. A wrong answer scores nothing and resets your streak. Streaks add a bonus.',
+        'Keyboard: press 1–4 to pick an answer; Enter submits a typed answer; Tab to Skip.',
+      ] : [
+        `${total} seconds in total. Answer as many questions as you can.`,
         `Skipping is allowed but costs ${SKIP_PENALTY_SECONDS} seconds.`,
         'A wrong answer scores nothing and resets your streak. Streaks add a bonus.',
         'Keyboard: press 1–4 to pick an answer; Enter submits a typed answer; Tab to Skip.',
@@ -28,27 +34,32 @@ export function play(shell) {
   function begin() {
     round++;
     const seed = `${user.email}${test.code}${Date.now()}${round}`;
-    const g = { score: 0, streak: 0, skips: 0, answered: 0, correct: 0, bestStreak: 0, queue: [], startedAt: performance.now(), over: false, n: 0 };
-    const hud = shell.hud({ label: 'Lightning Round', ring: true });
+    const untimed = shell.untimed();
+    const g = { score: 0, streak: 0, skips: 0, answered: 0, correct: 0, bestStreak: 0, queue: [], startedAt: performance.now(), over: false, n: 0, log: [] };
+    if (untimed) g.queue = shuffle(pool, makeRng(seed)).map((q) => shuffleOptions(q, seededShuffle, seed));
+    const hud = shell.hud({ label: 'Lightning Round', ring: !untimed });
     hud.setScore(0); hud.setStreak(0);
     const slot = h('div', { class: 'game-lightning__slot' });
-    const skipBtn = h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-skip' } }, `Skip (−${SKIP_PENALTY_SECONDS}s)`);
+    const skipBtn = h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-skip' } }, untimed ? 'Skip' : `Skip (−${SKIP_PENALTY_SECONDS}s)`);
     const flashMsg = h('p', { class: 'game-lightning__msg', 'aria-hidden': 'true' });
     shell.setStage(h('section', { class: 'game-play', 'aria-label': 'Lightning Round' }, hud.el, slot, h('div', { class: 'game-powers' }, skipBtn, flashMsg)));
 
-    const left = () => secondsLeft(performance.now() - g.startedAt, g.skips);
+    const left = () => (untimed ? Infinity : secondsLeft(performance.now() - g.startedAt, g.skips, total));
     const paint = () => {
       const s = left();
-      hud.setTime(s / TOTAL_SECONDS, String(Math.ceil(s)), s <= 10);
+      if (!untimed) hud.setTime(s / total, String(Math.ceil(s)), s <= 10);
       return s;
     };
-    paint();
-    shell.setTimer(() => { if (!g.over && paint() <= 0) finishRound(); }, shell.reduced() ? 500 : 100);
+    if (!untimed) {
+      paint();
+      shell.setTimer(() => { if (!g.over && paint() <= 0) finishRound(); }, shell.reduced() ? 500 : 100);
+    }
 
     let current = null;
     let locked = false;
     function nextQuestion() {
       if (g.over) return;
+      if (untimed && !g.queue.length) { finishRound(); return; }
       if (!g.queue.length) g.queue = shuffle(pool, makeRng(seed + g.n)).map((q) => shuffleOptions(q, seededShuffle, seed + g.n));
       g.n++;
       current = g.queue.shift();
@@ -69,6 +80,7 @@ export function play(shell) {
       locked = true;
       const ok = !!gradeQuestion(q, a).isCorrect;
       g.answered++;
+      g.log.push({ q, correct: ok });
       if (ok) {
         const pts = lightningPoints(g.streak);
         g.score += pts; g.streak++; g.correct++; g.bestStreak = Math.max(g.bestStreak, g.streak);
@@ -89,7 +101,7 @@ export function play(shell) {
       g.skips++; g.streak = 0;
       hud.setStreak(0);
       paint();
-      shell.announce(`Skipped. ${SKIP_PENALTY_SECONDS} seconds lost.`);
+      shell.announce(untimed ? 'Skipped.' : `Skipped. ${SKIP_PENALTY_SECONDS} seconds lost.`);
       if (left() <= 0) finishRound(); else nextQuestion();
     });
 
@@ -97,8 +109,9 @@ export function play(shell) {
       if (g.over) return;
       g.over = true;
       shell.end({
-        title: "Time's up!",
+        title: untimed ? 'Round complete!' : "Time's up!",
         score: g.score,
+        results: g.log,
         stats: [
           { label: 'Answered', value: String(g.answered), testid: 'game-answered' },
           { label: 'Correct', value: `${g.correct} / ${g.answered}`, testid: 'game-correct' },

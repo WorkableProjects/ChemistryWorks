@@ -8,12 +8,13 @@ const MISMATCH_MS = 900;
 
 export function play(shell) {
   let g = null;
+  const pairCount = shell.opts.questions ? Math.max(2, Math.min(12, shell.opts.questions)) : PAIR_COUNT;
 
   function intro() {
-    const { fromTest, fromElements } = choosePairs(shell.test);
+    const { fromTest, fromElements } = choosePairs(shell.gtest, pairCount);
     shell.intro({
       rules: [
-        `Find ${PAIR_COUNT} matching pairs. Turn two cards at a time; matches stay face-up.`,
+        `Find ${pairCount} matching pairs. Turn two cards at a time; matches stay face-up.`,
         'Each failed attempt costs 15 points, so remember where things are.',
         fromTest ? `Pairs come from this test${fromElements ? ' and element symbols and names' : ''}.` : 'Pairs are element symbols and their names.',
         'Keyboard: Tab to a card and press Enter or Space to turn it.',
@@ -23,7 +24,7 @@ export function play(shell) {
   }
 
   function begin() {
-    const { pairs } = choosePairs(shell.test);
+    const { pairs } = choosePairs(shell.gtest, pairCount);
     g = { pairs, deck: buildDeck(pairs), open: [], matched: new Set(), misses: 0, turns: 0, busy: false };
     board();
   }

@@ -226,3 +226,51 @@
 /* V3-05: runner widgets (balance, ptable, categorize, ...) shown on a game board */
 .game-answers--widget { display: block; padding: 14px; border-radius: var(--radius); background: var(--bg-elev); border: 1px solid var(--border); }
 .game-answers--widget[inert] { opacity: 0.75; }
+
+/* ---------- V4-04: game options, Tower, Boss Battle, Unit Dash ---------- */
+.game-relaxed { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; min-height: 44px; cursor: pointer; }
+.game-relaxed input { width: 22px; height: 22px; accent-color: var(--primary); }
+.game-hint-text { flex-basis: 100%; margin: 4px 0 0; color: var(--text-muted); font-weight: 600; }
+.game-hint-text:empty { display: none; }
+.game-powers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.game-powers .btn { min-height: 44px; }
+
+.tower-slot { display: flex; justify-content: center; margin-bottom: 16px; }
+.tower { position: relative; width: 140px; height: 190px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; overflow: hidden; }
+.tower__stack { display: flex; flex-direction: column-reverse; align-items: center; transform-origin: 50% 100%; }
+.tower__block { display: block; width: 84px; height: var(--block-h, 20px); border-radius: 3px; border: 1px solid var(--border-strong, var(--border)); margin-top: 1px; }
+.tower__block--0 { background: var(--game-tile-0); }
+.tower__block--1 { background: var(--game-tile-1); }
+.tower__block--2 { background: var(--game-tile-2); }
+.tower__block--3 { background: var(--game-tile-3); }
+.tower__base { width: 120px; height: 10px; border-radius: 4px; background: var(--text-muted); margin-top: 2px; }
+.tower__stack.is-wobbling { animation: tower-wobble var(--dur-slow, 400ms) var(--ease-out, ease-out); }
+.tower__stack.is-fallen { animation: tower-fall var(--dur-slow, 400ms) var(--ease-out, ease-in) forwards; }
+.tower__stack.is-down { opacity: 0.45; }
+@keyframes tower-wobble { 0% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 55% { transform: rotate(4deg); } 80% { transform: rotate(-2deg); } 100% { transform: rotate(0); } }
+@keyframes tower-fall { from { transform: rotate(0); opacity: 1; } to { transform: rotate(35deg) translateX(30px); opacity: 0.45; } }
+
+.boss-slot { margin-bottom: 16px; }
+.boss { display: flex; gap: 16px; align-items: center; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elev); }
+.boss__art { flex: none; }
+.boss__body { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 4; }
+.boss__eye { fill: var(--bg-elev); stroke: var(--danger); stroke-width: 2; }
+.boss__pupil { fill: var(--text); }
+.boss__mouth { stroke: var(--danger); }
+.boss__art.is-hit { animation: game-shake var(--dur-base, 240ms) var(--ease-out, ease-out); }
+.boss__art.is-striking { animation: game-pop var(--dur-base, 240ms) var(--ease-spring, ease-out); }
+.boss__art.is-beaten { opacity: 0.4; transform: rotate(12deg); }
+.boss__info { flex: 1; display: grid; gap: 6px; min-width: 0; }
+.boss__bar { height: 14px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border-strong, var(--border)); overflow: hidden; }
+.boss__fill { height: 100%; width: 100%; background: var(--danger); transform-origin: 0 50%; transition: transform var(--dur-base, 240ms) var(--ease-out, ease-out); }
+.boss__hp { font-family: var(--mono); font-size: 14px; color: var(--text-muted); }
+
+.dash-slot { display: grid; gap: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tower__stack.is-wobbling, .tower__stack.is-fallen, .boss__art.is-hit, .boss__art.is-striking { animation: none; }
+  .boss__fill { transition: none; }
+}
+:root[data-motion="reduce"] .tower__stack.is-wobbling, :root[data-motion="reduce"] .tower__stack.is-fallen,
+:root[data-motion="reduce"] .boss__art.is-hit, :root[data-motion="reduce"] .boss__art.is-striking { animation: none; }
+:root[data-motion="reduce"] .boss__fill { transition: none; }

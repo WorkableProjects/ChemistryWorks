@@ -9,6 +9,7 @@ import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { ELEMENTS } from './elements.js';
 import { parseConfig } from './qtypes/econfig.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
+import { cleanGameOptions, validateGameOptions } from './games/options.js';
 import { feature } from '../config.js';
 import './qtypes/v4-types.js'; // V4-03: registers the v4 question types
 
@@ -303,6 +304,7 @@ export function normalizeTest(raw) {
   t.singleSubmission = bool(t.singleSubmission, false);
   t.requireAllQuestions = bool(t.requireAllQuestions, false);
   if (t.games !== undefined) t.games = Array.isArray(t.games) ? t.games.map((g) => str(g).trim()).filter(Boolean) : undefined;
+  if (t.gameOptions !== undefined) t.gameOptions = cleanGameOptions(t.gameOptions); // V4-04
   t.defaultMode = t.defaultMode === undefined || t.defaultMode === null || t.defaultMode === '' ? null : t.defaultMode;
   t.passingPercent = nullableNum(t.passingPercent);
   t.sections = Array.isArray(t.sections) ? t.sections.map((x) => {
@@ -653,6 +655,7 @@ export function validateTest(test) {
     const seen = new Set();
     test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet));
   }
+  errors.push(...validateGameOptions(test)); // V4-04
   return { valid: errors.length === 0, errors };
 }
 
