@@ -325,7 +325,7 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   const idLabel = isObj(q) && q.id !== undefined && q.id !== '' ? String(q.id) : '?';
   const where = `Question ${index + 1} (${idLabel})`;
   if (isObj(q) && isObj(q.image)) {
-    if (!safeImageUrl(q.image.url)) errors.push(`${where}: image url must start with https:// or be a path on this site.`);
+    if (!safeImageUrl(q.image.url)) errors.push(`${where}: image url must start with https://, be a path on this site, or be an uploaded picture.`);
     if (!nonEmptyStr(q.image.alt)) errors.push(`${where}: question images need alt text describing the image.`);
   }
   if (!isObj(q)) { errors.push(`${where}: must be an object.`); return; }
@@ -595,7 +595,7 @@ export function validateTest(test) {
       });
     }
     if (ref.type === 'image') {
-      if (!safeImageUrl(ref.url)) errors.push(`${where}: image url must start with https:// or be a path on this site.`);
+      if (!safeImageUrl(ref.url)) errors.push(`${where}: image url must start with https://, be a path on this site, or be an uploaded picture.`);
       if (!nonEmptyStr(ref.alt)) errors.push(`${where}: image references need alt text describing the image.`);
     }
   });

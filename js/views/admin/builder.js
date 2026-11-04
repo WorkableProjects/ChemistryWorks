@@ -766,21 +766,29 @@ export function renderBuilder(root, ctx) {
       if (url) q.image = { url, alt: imgAlt.value, position: imgPos.value };
       else delete q.image;
       drawPreviewSoon();
-      // "Label the diagram" places pins on this picture: redraw its editor when the image changes.
-      if (q.type === 'hotspot') { clearTimeout(hotTimer); hotTimer = setTimeout(() => drawType(), 400); }
       changed();
     };
-    let hotTimer = 0;
     for (const el of [imgUrl, imgAlt]) el.addEventListener('input', syncImage);
     imgPos.addEventListener('change', syncImage);
 
     const typeSection = h('div', { class: 'adm-typesec' });
-    const drawType = () => { mount(typeSection, typeEditor(q, drawType, changed, uid)); renderMath(typeSection); };
+    // "Label the diagram" manages its own picture (link, upload, paste, drop) inside its editor, so the generic
+    // image row is hidden for it; when switching back to another type the row is refreshed from q.image.
+    const drawType = () => {
+      const hot = q.type === 'hotspot';
+      if (imgRow) {
+        imgRow.hidden = hot;
+        if (!hot) { imgUrl.value = q.image?.url || ''; imgAlt.value = q.image?.alt || ''; imgPos.value = q.image?.position || 'right'; }
+      }
+      mount(typeSection, typeEditor(q, drawType, changed, uid));
+      renderMath(typeSection);
+    };
+    let imgRow = null;
 
     const inner = h('div', { class: 'adm-q__inner' },
       h('div', { class: 'adm-grid adm-grid--idsec' }, field('ID', idInput), field('Points', pts), field('Section', secSel)),
       field('Question text', text),
-      h('div', { class: 'adm-grid adm-grid--idsec' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos)),
+      (imgRow = h('div', { class: 'adm-grid adm-grid--idsec', hidden: q.type === 'hotspot' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos))),
       richPrev,
       typeSection,
       field('Explanation', expl),

@@ -1,9 +1,11 @@
-// Builder editor for `hotspot` ("Label the diagram"). The picture is the question's Image field (above).
+// Builder editor for `hotspot` ("Label the diagram"). The picture is q.image: a link (https, Google Drive / Dropbox share
+// links are converted), a path on this site, or a picture uploaded / pasted / dropped here (compressed into the test).
 // The teacher adds labels, selects one and clicks the picture to place it; pins can be dragged, or nudged with the
 // arrow keys (1%, Shift = 5%). The answer circle shows the accepted distance (the same oval the grader uses).
 // Exact positions are available as percentages under "Exact positions". JSON keeps x / y / radius as 0-1 fractions.
 import { h, icon } from '../../../ui.js';
 import { safeImageUrl } from '../../../lib/sections.js';
+import { compressImageFile, isDataImage } from '../../../lib/image-upload.js';
 import { switchEl, iconButton } from '../common.js';
 import { DEFAULT_RADIUS } from '../../../lib/qtypes/hotspot.js';
 
@@ -26,7 +28,7 @@ export function hotspotEditor(q, redraw, changed) {
   const say = (t) => { status.textContent = t; };
   const name = (i) => (q.labels[i]?.text || '').trim() || `Label ${i + 1}`;
 
-  // ---------- stage: wrapper sized to the rendered image, so % positions match the picture exactly ----------
+  // ---------- stage: pins sit in .q-hot__frame, exactly the rendered image's box (same as the student widget) ----------
   const img = url ? h('img', { class: 'q-hot__img', src: url, alt: (q.image && q.image.alt) || '', draggable: 'false', referrerpolicy: 'no-referrer' }) : null;
   const layer = h('div', { class: 'q-hot__pins adm-hot__layer' });
   const pinEls = [];
@@ -119,11 +121,71 @@ export function hotspotEditor(q, redraw, changed) {
       if (sel < 0 || !q.labels[sel]) { say('Add a label first, then click the picture to place it.'); return; }
       placeAt(sel, pointFrom(e), { advance: true });
     } },
-  }, img || h('div', { class: 'adm-hot__empty' }, icon('flask', { size: 28 }),
+  }, img ? h('div', { class: 'q-hot__frame' }, img, layer) : h('div', { class: 'adm-hot__empty' }, icon('flask', { size: 28 }),
     h('p', {}, h('strong', {}, 'Add the diagram first.')),
-    h('p', { class: 'muted' }, 'Paste the picture’s URL in the question Image field above. It appears here, and then you click to place each label.')),
-  layer);
-  if (img) img.addEventListener('load', paintAll);
+    h('p', { class: 'muted' }, 'Upload, paste or drop any picture here, or paste a link above. Then click the picture to place each label.'),
+    h('button', { class: 'btn btn--primary btn--sm', type: 'button', on: { click: (e) => { e.stopPropagation(); fileIn.click(); } } }, icon('upload', { size: 16 }), 'Upload picture')));
+  if (img) {
+    img.addEventListener('load', paintAll);
+    img.addEventListener('error', () => {
+      stage.classList.add('is-broken');
+      say(/drive\.google\.com/.test(url) ? 'This Google Drive picture didn’t load. In Drive, set sharing to “Anyone with the link”, or upload the picture instead.'
+        : 'This picture didn’t load. Check the link, or upload the picture instead.');
+    });
+  }
+  // Drop a picture file onto the stage to use it.
+  stage.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.items || [])].some((it) => it.kind === 'file')) { e.preventDefault(); stage.classList.add('is-drop'); } });
+  stage.addEventListener('dragleave', () => stage.classList.remove('is-drop'));
+  stage.addEventListener('drop', (e) => {
+    stage.classList.remove('is-drop');
+    const f = [...(e.dataTransfer?.files || [])].find((x) => /^image\//.test(x.type));
+    if (f) { e.preventDefault(); upload(f); }
+  });
+
+  // ---------- picture: link, upload, paste or drop ----------
+  const setImage = (u) => {
+    if (u) q.image = { ...(q.image || {}), url: u, alt: q.image?.alt || '' };
+    else delete q.image;
+    changed();
+  };
+  async function upload(file) {
+    say('Preparing the picture…');
+    try {
+      const res = await compressImageFile(file);
+      setImage(res.url);
+      if (!q.image.alt) q.image.alt = (file.name || '').replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim();
+      changed();
+      redraw();
+    } catch (err) { say(err.message || 'Could not use that picture.'); }
+  }
+  const uploaded = isDataImage(q.image?.url);
+  const fileIn = h('input', { type: 'file', accept: 'image/*', hidden: true, dataset: { testid: 'hot-image-file' },
+    on: { change: () => { const f = fileIn.files && fileIn.files[0]; fileIn.value = ''; if (f) upload(f); } } });
+  const urlIn = h('input', { class: 'input', type: 'text', autocomplete: 'off', spellcheck: 'false', value: uploaded ? '' : (q.image?.url || ''),
+    placeholder: uploaded ? 'Using an uploaded picture. Paste a link to replace it.' : 'https://…, a Google Drive or Dropbox share link, or images/diagram.png',
+    'aria-label': 'Picture link', dataset: { testid: 'hot-image-url' },
+    on: {
+      input: () => { if (urlIn.value.trim() || !uploaded) setImage(urlIn.value.trim()); },
+      change: () => redraw(),
+      paste: (e) => {
+        const f = [...(e.clipboardData?.files || [])].find((x) => /^image\//.test(x.type));
+        if (f) { e.preventDefault(); upload(f); } else setTimeout(() => redraw(), 0);
+      },
+    } });
+  const altIn = h('input', { class: 'input', type: 'text', value: q.image?.alt || '', placeholder: 'e.g. Lab bench with a beaker, a flask and a burner',
+    'aria-label': 'Picture description', dataset: { testid: 'hot-image-alt' },
+    on: { input: () => { if (q.image) { q.image.alt = altIn.value; changed(); } } } });
+  const picture = h('div', { class: 'adm-hot__picture' },
+    h('div', { class: 'adm-hot__pictop' },
+      h('label', { class: 'field adm-hot__url' }, h('span', { class: 'field__label' }, 'Picture'), urlIn),
+      h('div', { class: 'row row--wrap adm-hot__picbtns' },
+        h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'hot-image-upload' }, on: { click: () => fileIn.click() } }, icon('upload', { size: 16 }), url ? 'Replace picture' : 'Upload picture'),
+        url ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: 'hot-image-remove' }, on: { click: () => { setImage(''); redraw(); } } }, icon('trash', { size: 16 }), 'Remove') : null,
+        fileIn)),
+    h('span', { class: 'field__hint' }, uploaded
+      ? `Uploaded picture, stored in the test (${Math.round(q.image.url.length / 1000)} KB). You can also paste or drop a new one.`
+      : 'Paste a link, upload a file, paste a screenshot (Ctrl/Cmd+V here) or drop a picture on the box below. Uploads are shrunk to fit in the test.'),
+    url ? h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Picture description'), altIn, h('span', { class: 'field__hint' }, 'Read to students who use a screen reader.')) : null);
 
   // ---------- label list ----------
   const exact = h('details', { class: 'adm-hot__exact' });
@@ -206,7 +268,12 @@ export function hotspotEditor(q, redraw, changed) {
   say(!url ? '' : !q.labels.length ? 'Add a label, then click the picture to place it.'
     : sel >= 0 ? `Label ${sel + 1} selected${unplaced ? `. ${unplaced} not placed yet` : ''}. Click the picture to place it, or drag a pin.` : '');
 
-  return h('div', { class: 'stack adm-hot' },
+  const root = h('div', { class: 'stack adm-hot', on: { paste: (e) => {
+    if (e.target === urlIn) return;
+    const f = [...(e.clipboardData?.files || [])].find((x) => /^image\//.test(x.type));
+    if (f) { e.preventDefault(); upload(f); }
+  } } },
+    picture,
     h('div', { class: 'field__label' }, 'Labels'),
     h('p', { class: 'field__hint' }, 'Select a label, then click the picture where it belongs. Drag a pin to move it, or focus it and use the arrow keys (Shift for bigger steps). The circle shows how close a student must be.'),
     stage,
@@ -228,4 +295,5 @@ export function hotspotEditor(q, redraw, changed) {
       h('div', { class: 'row row--wrap adm-hot__sizectl' }, sizeBtns, slider, h('label', { class: 'adm-inline' }, radiusIn, h('span', { class: 'faint' }, '% of width'))),
       h('span', { class: 'field__hint' }, 'How close a student’s pin must be to count as correct.')),
     switchEl({ label: 'Partial credit', hint: 'Points for each label placed inside its circle', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }));
+  return root;
 }

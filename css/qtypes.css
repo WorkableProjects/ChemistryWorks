@@ -61,6 +61,9 @@
 .q-hot__chip.is-active, .q-hot__chip[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .q-hot__num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--bg-sunken); color: var(--text); }
 .q-hot__stage { position: relative; display: block; width: fit-content; max-width: 100%; align-self: flex-start; justify-self: start; line-height: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); cursor: crosshair; touch-action: manipulation; }
+/* The frame is exactly the image box: pins, rings and the crosshair are positioned in % of it, in the editor and for students. */
+.q-hot__frame { position: relative; display: block; width: fit-content; max-width: 100%; line-height: 0; }
+.q-hot__frame > .q-hot__img { max-width: 100%; }
 .q-hot__img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-sm); user-select: none; -webkit-user-drag: none; }
 .q-hot__pin { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer;
   color: var(--on-primary); background: var(--primary); border: 2px solid var(--bg-elev); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
@@ -131,3 +134,12 @@
 .q-graph__cursor circle { fill: none; stroke: var(--danger); stroke-width: 2; }
 .q-graph--read .q-numeric { margin-top: 6px; }
 .q-graph__status { margin: 8px 0 0; }
+
+/* Label the diagram editor: picture panel */
+.adm-hot__picture { display: flex; flex-direction: column; gap: 8px; }
+.adm-hot__pictop { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.adm-hot__url { flex: 1 1 260px; min-width: 0; }
+.adm-hot__picbtns { gap: 8px; }
+.adm-hot .q-hot__stage.is-drop { outline: 2px dashed var(--primary); outline-offset: 3px; }
+.adm-hot .q-hot__stage.is-broken .q-hot__img { min-width: 200px; min-height: 80px; }
+.adm-hot__empty .btn { margin-top: 6px; }

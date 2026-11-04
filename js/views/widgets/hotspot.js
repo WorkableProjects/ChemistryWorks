@@ -1,5 +1,7 @@
 // Student widget for `hotspot` (V3-05): pick a label, then click / tap the image to place it.
 // Keyboard: choose a label, then arrow keys move a crosshair over the image (step 0.02, Shift = 0.1) and Enter places it.
+// Pins and the crosshair live in .q-hot__frame, a box exactly the size of the rendered image, so x / y fractions
+// mean the same spot here and in the teacher's editor whatever the image size or the card width.
 // Contract (see runner.js): returns { el, refresh(answer), focus() }. Answer = { labelId: { x, y } } (fractions 0-1).
 import { h } from '../../ui.js';
 import { safeImageUrl } from '../../lib/sections.js';
@@ -76,15 +78,14 @@ export function hotspotWidget(q, api) {
         else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(); }
       },
     },
-  }, url ? img : h('p', { class: 'muted' }, 'No image set for this question.'), cross,
-  labels.map((l, i) => {
+  }, url ? h('div', { class: 'q-hot__frame' }, img, cross, labels.map((l, i) => {
     const pin = h('button', {
       type: 'button', class: 'q-hot__pin', hidden: true, 'aria-label': `${l.text} (placed). Select to move.`, dataset: { testid: `hotspot-pin-${l.id}` },
       on: { click: (e) => { e.stopPropagation(); select(l.id); chips.get(l.id)?.focus(); } },
     }, String(i + 1));
     pins.set(l.id, pin);
     return pin;
-  }));
+  })) : h('p', { class: 'muted' }, 'No image set for this question.'));
 
   labels.forEach((l, i) => {
     chips.set(l.id, h('button', {
