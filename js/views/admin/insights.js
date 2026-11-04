@@ -7,6 +7,7 @@ import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { fetchResults } from '../../lib/api.js';
 import { TYPE_LABELS } from '../../lib/schema.js';
 import { skeleton, emptyState, round2 } from './common.js';
+import { confidenceStats } from '../../lib/extras.js';
 import { normalizeRow, filterRows, testInsights, questionInsights, answersForQuestion, formatPercent, STATUS, REVIEW_THRESHOLD } from './stats.js';
 
 const S = { testCode: '', questionId: '', rawRows: null, error: '' };
@@ -63,9 +64,14 @@ export function renderInsights(root, ctx, { goSettings } = {}) {
     const rows = filterRows(all, { testCode: S.testCode, status: 'all' });
     const sum = testInsights(rows);
     const qs = questionInsights(rows);
+    const conf = confidenceStats(rows);
+    const showConf = conf.size > 0;
     const sel = h('select', { class: 'select adm-select-sm', 'aria-label': 'Test', dataset: { testid: 'insights-test' }, on: { change: () => { S.testCode = sel.value; S.questionId = ''; draw(); } } }, codes.map((c) => h('option', { value: c }, c)));
     sel.value = S.testCode;
 
+    const confCell = (c, id) => (c
+      ? h('td', { class: 'adm-td-nowrap', dataset: { testid: `insights-confidence-${id}` } }, `${c.avg} / 3`, c.confidentWrong ? h('span', { class: 'pill pill--warning', title: 'Students who were certain but got it wrong', dataset: { testid: `insights-certainwrong-${id}` } }, `${c.confidentWrong} certain but wrong`) : null)
+      : h('td', {}, h('span', { class: 'faint' }, '—')));
     const qRow = (q, i) => {
       const open = () => { S.questionId = S.questionId === q.questionId ? '' : q.questionId; draw(); };
       const pct = q.pctCorrect;
@@ -76,6 +82,7 @@ export function renderInsights(root, ctx, { goSettings } = {}) {
       h('td', { class: 'adm-td-nowrap' }, h('span', { class: 'adm-meter', role: 'img', 'aria-label': `${pct} percent correct` }, h('span', { class: 'adm-meter__fill', style: `width:${pct}%` })), ` ${formatPercent(pct)}`),
       h('td', { class: 'adm-td-nowrap' }, `${round2(q.avgPoints)} / ${round2(q.pointsPossible)}`),
       h('td', {}, q.topWrong ? h('span', { dataset: { testid: `insights-wrong-${q.questionId}` } }, richText(q.topWrong.text, 'span'), h('span', { class: 'faint' }, ` (${q.topWrong.count})`)) : h('span', { class: 'faint' }, '—')),
+      showConf ? confCell(conf.get(String(q.questionId)), q.questionId) : null,
       h('td', {}, q.review ? h('span', { class: 'pill pill--warning', dataset: { testid: `insights-review-${q.questionId}` } }, icon('alert', { size: 14 }), 'Review') : null));
     };
 
@@ -108,7 +115,7 @@ export function renderInsights(root, ctx, { goSettings } = {}) {
         h('h3', { class: 'adm-h3' }, 'Questions'),
         h('p', { class: 'field__hint' }, `Questions under ${REVIEW_THRESHOLD}% correct are flagged for review. Select a question to see every student's answer.`),
         qs.length ? h('div', { class: 'adm-tablewrap' }, h('table', { class: 'adm-table adm-table--insights', dataset: { testid: 'insights-questions' } },
-          h('thead', {}, h('tr', {}, ['#', 'Question', '% correct', 'Avg. points', 'Most-chosen wrong answer', ''].map((t) => h('th', { scope: 'col' }, t)))),
+          h('thead', {}, h('tr', {}, ['#', 'Question', '% correct', 'Avg. points', 'Most-chosen wrong answer', ...(showConf ? ['Avg. confidence'] : []), ''].map((t) => h('th', { scope: 'col' }, t)))),
           h('tbody', {}, qs.map(qRow)))) : h('p', { class: 'muted' }, 'No graded answers yet.')),
       detail);
     renderMath(content);

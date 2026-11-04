@@ -1,0 +1,95 @@
+{
+  "code": "DEMOV4A",
+  "title": "V4 Question Types Demo A",
+  "description": "Multi-part, naming (both directions) and dropdown cloze questions, plus the per-question extras: a hint that costs points and a \"How sure are you?\" row.",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "allowModeToggle": true,
+  "passingPercent": 70,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multipart",
+      "text": "Sodium reacts with water.",
+      "stem": "Sodium metal is dropped into water: $\\ce{2Na + 2H2O -> 2NaOH + H2}$.",
+      "points": 3,
+      "parts": [
+        {
+          "id": "a",
+          "type": "mcq",
+          "text": "Which gas is released?",
+          "points": 1,
+          "options": [
+            { "id": "a", "text": "Oxygen" },
+            { "id": "b", "text": "Hydrogen" },
+            { "id": "c", "text": "Chlorine" }
+          ],
+          "correctAnswer": "b"
+        },
+        {
+          "id": "b",
+          "type": "numeric",
+          "text": "How many moles of $\\ce{H2}$ form from 4 mol of Na?",
+          "points": 2,
+          "correctAnswer": 2,
+          "tolerance": 0,
+          "toleranceType": "absolute",
+          "unit": "mol"
+        }
+      ],
+      "explanation": "Hydrogen gas is released, and the 2:1 ratio of Na to H2 gives 2 mol from 4 mol of Na."
+    },
+    {
+      "id": "q2",
+      "type": "naming",
+      "text": "Name this compound.",
+      "direction": "toName",
+      "prompt": "CuSO4.5H2O",
+      "points": 2,
+      "answers": ["copper(II) sulfate pentahydrate"],
+      "confidence": true,
+      "explanation": "Copper is +2 here, and five waters of hydration give the prefix penta-."
+    },
+    {
+      "id": "q3",
+      "type": "naming",
+      "text": "Write the formula for this compound.",
+      "direction": "toFormula",
+      "prompt": "iron(III) oxide",
+      "points": 2,
+      "answers": ["Fe2O3"],
+      "explanation": "Two Fe3+ ions balance three O2- ions."
+    },
+    {
+      "id": "q4",
+      "type": "dropdown",
+      "text": "Sodium is a [[b1]] and chlorine is a [[b2]], so NaCl is [[b3]].",
+      "points": 3,
+      "partialCredit": true,
+      "blanks": [
+        { "id": "b1", "options": ["metal", "nonmetal"], "answer": "metal" },
+        { "id": "b2", "options": ["metal", "nonmetal"], "answer": "nonmetal" },
+        { "id": "b3", "options": ["ionic", "covalent"], "answer": "ionic" }
+      ],
+      "explanation": "A metal and a nonmetal transfer electrons, which makes an ionic compound."
+    },
+    {
+      "id": "q5",
+      "type": "mcq",
+      "text": "Which particle carries a negative charge?",
+      "points": 2,
+      "options": [
+        { "id": "a", "text": "Proton" },
+        { "id": "b", "text": "Electron" },
+        { "id": "c", "text": "Neutron" }
+      ],
+      "correctAnswer": "b",
+      "hint": { "text": "It orbits the nucleus.", "cost": 1 },
+      "confidence": true,
+      "explanation": "Electrons are negative; protons are positive and neutrons are neutral."
+    }
+  ]
+}

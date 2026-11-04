@@ -104,3 +104,6 @@
 @keyframes results-fall { to { transform: translate(var(--dx), 108vh) rotate(var(--rr)); opacity: 0.9; } }
 @media (prefers-reduced-motion: reduce) { .results-confetti { display: none; } }
 :root[data-motion="reduce"] .results-confetti { display: none; }
+
+/* ---- per-question extras (V4-03) ---- */
+.results-extras { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

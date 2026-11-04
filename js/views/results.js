@@ -16,6 +16,7 @@ import { groupQuestions } from '../lib/sections.js';
 import { orbitalDiagram } from './orbital-view.js';
 import { hotspotDiagram } from './widgets/hotspot-stage.js';
 import { typeUI } from './qtypes/registry.js';
+import { confidenceLabel, ptsText } from '../lib/extras.js';
 import { choiceImagesEl } from './runner.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -172,6 +173,13 @@ function reviewItem(r, i, test, stagger) {
     h('span', { class: 'results-item__pts' }, r.needsGrading ? `— / ${r.pointsPossible} pts` : `${r.pointsEarned} / ${r.pointsPossible} pts`),
     h('span', { class: 'results-item__chev' }, icon('down', { size: 16 })),
   );
+  // V4-03 extras: the hint that cost points and the student's own confidence (with a nudge when certain but wrong).
+  const certainWrong = r.confidence === 3 && r.answered && !r.isCorrect && !r.needsGrading;
+  const extrasNote = (r.hintUsed || r.confidence)
+    ? h('div', { class: 'results-extras', dataset: { testid: 'results-extras' } },
+      r.hintUsed ? h('span', { class: 'pill', dataset: { testid: 'results-hint' } }, `Hint used${r.hintCost ? ` (−${ptsText(r.hintCost)})` : ''}`) : null,
+      r.confidence ? h('span', { class: ['pill', certainWrong && 'pill--warning'], dataset: { testid: 'results-confidence' } }, `You were: ${confidenceLabel(r.confidence)}${certainWrong ? ' — worth a second look' : ''}`) : null)
+    : null;
   const explanation = q?.explanation ? h('div', { class: 'results-answer results-answer--expl' },
     h('span', { class: 'results-answer__label' }, 'Explanation'), richText(q.explanation, 'div', 'results-explanation')) : null;
   const item = h('article', {
@@ -186,6 +194,7 @@ function reviewItem(r, i, test, stagger) {
         h('div', { class: 'results-answer' }, h('span', { class: 'results-answer__label' }, 'Your answer'), given),
         showCorrect ? h('div', { class: 'results-answer results-answer--correct' }, h('span', { class: 'results-answer__label' }, correctLabel), correct) : null,
         r.needsGrading ? h('p', { class: 'muted' }, 'Your teacher will grade this answer.') : null,
+        extrasNote,
         explanation)),
   );
   return item;

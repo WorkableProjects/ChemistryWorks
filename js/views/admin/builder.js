@@ -95,6 +95,29 @@ function safeValidate(test) {
 function totalPoints(test) {
   return Math.round(test.questions.reduce((s, q) => s + (Number(q.points) || 0), 0) * 100) / 100;
 }
+/** "Extras" disclosure in the common question settings (V4-03): confidence switch and a point-costing hint. */
+function extrasPanel(q, changed) {
+  const text = h('textarea', { class: 'textarea', rows: 2, placeholder: 'Hint shown when the student asks for it (leave empty for no hint)', dataset: { testid: 'q-hint-text' } });
+  text.value = q.hint?.text || '';
+  const cost = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: q.hint?.cost ?? 0, dataset: { testid: 'q-hint-cost' } });
+  const syncHint = () => {
+    if (text.value.trim() === '') delete q.hint;
+    else q.hint = { text: text.value, cost: cost.value.trim() === '' ? 0 : Number(cost.value) };
+    changed();
+  };
+  text.addEventListener('input', syncHint);
+  cost.addEventListener('input', syncHint);
+  const open = !!(q.confidence || q.hint);
+  const d = h('details', { class: 'adm-extras', open, dataset: { testid: 'q-extras' } },
+    h('summary', {}, 'Extras'),
+    h('div', { class: 'stack adm-extras__body' },
+      switchEl({ label: 'Ask “How sure are you?”', hint: 'After answering, students rate Guessing / Fairly sure / Certain. Shown in results and Insights.',
+        checked: !!q.confidence, testid: 'q-confidence', onChange: (v) => { if (v) q.confidence = true; else delete q.confidence; changed(); } }),
+      field('Hint', text, 'Students can reveal it; revealing it costs points.'),
+      field('Hint cost (points)', cost, 'Deducted from the points earned (never below 0); at most the question\'s points.')));
+  return d;
+}
+
 function previewText(q) {
   const t = String(q.text || '').replace(/\s+/g, ' ').trim();
   return t ? (t.length > 90 ? `${t.slice(0, 90)}…` : t) : '(no text yet)';
@@ -759,6 +782,7 @@ export function renderBuilder(root, ctx) {
       richPrev,
       typeSection,
       field('Explanation', expl),
+      extrasPanel(q, changed),
       switchEl({ label: 'Required', hint: 'The student must answer this question before submitting (all questions are required when “All questions required” is on).',
         checked: !!q.required, testid: 'q-required',
         onChange: (v) => { if (v) q.required = true; else delete q.required; updateHead(); changed(); } }));

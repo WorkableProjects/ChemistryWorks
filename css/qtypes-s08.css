@@ -1,1 +1,31 @@
-/* ChemWorks — v4 question types (S08: multipart, naming, dropdown). Tokens only. */
+/* ChemWorks — v4 question types (S08: multipart, naming, dropdown) and the builder "Extras" disclosure. Tokens only. */
+
+/* ---- naming ---- */
+.q-naming { display: flex; flex-direction: column; gap: 10px; }
+.naming-prompt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; padding: 12px 16px; background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius); }
+.naming-prompt__label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.naming-prompt__value { font-size: 22px; font-weight: 600; color: var(--text); }
+.q-naming .q-hint { margin: 0; }
+
+/* ---- dropdown cloze ---- */
+.q-dropdown .q-dropdown__select { min-height: 44px; width: auto; max-width: 100%; margin: 0 4px; }
+
+/* ---- multipart ---- */
+.q-multipart { display: flex; flex-direction: column; gap: 18px; }
+.mp-stem { font-size: 18px; line-height: 1.6; color: var(--text); }
+.mp-part { border-left: 3px solid var(--primary-line); padding: 4px 0 4px 16px; }
+.mp-part__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mp-part__label { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--primary-ink); }
+.mp-part .q-text { font-size: 18px; margin-bottom: 14px; }
+
+/* ---- builder editors ---- */
+.mp-ed__part, .dropdown-ed__blank { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mp-ed__part legend, .dropdown-ed__blank legend { padding: 0 6px; font-weight: 700; font-size: 14px; color: var(--text); }
+.mp-ed__actions, .mp-ed__add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.naming-ed { display: flex; flex-direction: column; gap: 8px; }
+.naming-ed__row, .dropdown-ed__opt { display: flex; gap: 8px; align-items: center; }
+.naming-ed__row .input, .dropdown-ed__opt .input { flex: 1; min-width: 0; }
+.dropdown-ed__opt input[type="radio"] { width: 20px; height: 20px; flex: none; }
+.adm-extras { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; }
+.adm-extras summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+.adm-extras__body { padding-bottom: 8px; }

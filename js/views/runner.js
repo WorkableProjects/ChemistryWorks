@@ -12,6 +12,7 @@ import { gradeTest, isAnswered } from '../lib/grading.js';
 import { TYPE_LABELS, isRequired } from '../lib/schema.js';
 import { groupQuestions } from '../lib/sections.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
+import { CONFIDENCE_LEVELS, validConfidence, hintButtonText } from '../lib/extras.js';
 import { preSubmitBlocked } from '../lib/student-status.js';
 import { load, save, remove } from '../lib/storage.js';
 import { referencePane } from './reference-pane.js';
@@ -73,7 +74,7 @@ export function render(root, ctx, params = {}) {
   const defaultMode = modeOk(test.defaultMode) || modeOk(ctx.config?.DEFAULT_MODE) || 'focus';
 
   const state = {
-    answers: {}, flagged: new Set(), index: 0, mode: defaultMode, startedAt: Date.now(),
+    answers: {}, confidence: {}, hints: new Set(), flagged: new Set(), index: 0, mode: defaultMode, startedAt: Date.now(),
     tabSwitches: 0, submitting: false, done: false,
   };
 
@@ -82,6 +83,8 @@ export function render(root, ctx, params = {}) {
   if (saved && typeof saved === 'object') {
     for (const [k, v] of Object.entries(saved.answers || {})) if (byId.has(k) && isAnswered(byId.get(k), v)) state.answers[k] = v;
     for (const k of saved.flagged || []) if (byId.has(k)) state.flagged.add(k);
+    for (const [k, v] of Object.entries(saved.confidence || {})) if (byId.get(k)?.confidence && validConfidence(v)) state.confidence[k] = Number(v);
+    for (const k of saved.hints || []) if (byId.get(k)?.hint) state.hints.add(k);
     state.index = Math.min(Math.max(Number(saved.index) || 0, 0), total - 1);
     if (test.allowModeToggle !== false && modeOk(saved.mode)) state.mode = saved.mode;
     if (Number(saved.startedAt) > 0) state.startedAt = Number(saved.startedAt);
@@ -97,7 +100,7 @@ export function render(root, ctx, params = {}) {
     saveTimer = null;
     if (preview || state.done) return;
     save(progressKey, {
-      answers: state.answers, flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
+      answers: state.answers, confidence: state.confidence, hints: [...state.hints], flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
       tabSwitches: state.tabSwitches, mode: state.mode, updatedAt: Date.now(), title: test.title,
     });
     flashSaved();
@@ -178,6 +181,54 @@ export function render(root, ctx, params = {}) {
       h('span', { class: 'q-section__pts' }, `${points} pts`));
   }
 
+  /** Per-question extras (V4-03): a point-costing hint and the "How sure are you?" row. Both are off unless the question asks. */
+  function buildExtras(q) {
+    if (!q.hint && !q.confidence) return { el: null, refresh() {} };
+    let hintBtn = null; let hintBox = null; let confRow = null; let confBtns = [];
+    if (q.hint) {
+      const hintId = `hint-${q.id}`;
+      hintBox = h('div', { class: 'q-hintbox', id: hintId, role: 'note', hidden: true, dataset: { testid: 'hint-text' } },
+        h('span', { class: 'q-hintbox__label' }, 'Hint'), richText(q.hint.text, 'div', 'q-hintbox__text'));
+      hintBtn = h('button', {
+        type: 'button', class: 'btn btn--ghost btn--sm q-hintbtn', 'aria-controls': hintId, dataset: { testid: 'hint-btn' },
+        on: { click: () => {
+          if (state.done || state.submitting) return;
+          state.hints.add(q.id);
+          refreshQuestion(q.id);
+          hintBox.focus({ preventScroll: true });
+        } },
+      }, hintButtonText(q));
+      hintBox.tabIndex = -1;
+    }
+    if (q.confidence) {
+      confBtns = CONFIDENCE_LEVELS.map((l) => h('button', {
+        type: 'button', class: 'q-conf__btn', role: 'radio', 'aria-checked': 'false', dataset: { testid: `confidence-${l.value}` },
+        on: { click: () => { if (state.done || state.submitting) return; state.confidence[q.id] = l.value; refreshQuestion(q.id); } },
+      }, l.label));
+      confRow = h('div', { class: 'q-conf', hidden: true, dataset: { testid: 'confidence-row' } },
+        h('span', { class: 'q-conf__label', id: `conf-${q.id}` }, 'How sure are you?'),
+        h('div', { class: 'q-conf__opts', role: 'radiogroup', 'aria-labelledby': `conf-${q.id}` }, confBtns));
+    }
+    return {
+      el: h('div', { class: 'q-extras' }, hintBtn, hintBox, confRow),
+      refresh(answered) {
+        if (hintBtn) {
+          const used = state.hints.has(q.id);
+          hintBtn.hidden = used;
+          hintBox.hidden = !used;
+        }
+        if (confRow) {
+          confRow.hidden = !answered;
+          confBtns.forEach((b, k) => {
+            const on = state.confidence[q.id] === CONFIDENCE_LEVELS[k].value;
+            b.setAttribute('aria-checked', String(on));
+            b.classList.toggle('is-selected', on);
+          });
+        }
+      },
+    };
+  }
+
   function buildCard(q, i) {
     const widget = buildWidget(q, api);
     const flagBtn = h('button', {
@@ -186,9 +237,10 @@ export function render(root, ctx, params = {}) {
     }, icon('flag', { size: 16 }), h('span', { class: 'q-flag__label' }, 'Flag'));
     const clearBtn = h('button', {
       type: 'button', class: 'q-clear', dataset: { testid: 'clear-answer' },
-      on: { click: () => { delete state.answers[q.id]; refreshQuestion(q.id); card.el.focus({ preventScroll: true }); } },
+      on: { click: () => { delete state.answers[q.id]; delete state.confidence[q.id]; refreshQuestion(q.id); card.el.focus({ preventScroll: true }); } },
     }, 'Clear answer');
     const clearSlot = h('div', { class: 'q-clear-slot' });
+    const extras = buildExtras(q);
     const el = h('section', {
       class: 'q-card', tabindex: '-1', 'aria-label': `Question ${i + 1} of ${total}`,
       dataset: { testid: 'question-card', questionId: q.id },
@@ -205,6 +257,7 @@ export function render(root, ctx, params = {}) {
       // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
       withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
+      extras.el,
       clearSlot,
     );
     el.querySelector('.q-text').id = `qt-${q.id}`;
@@ -214,6 +267,7 @@ export function render(root, ctx, params = {}) {
         const ans = state.answers[q.id];
         widget.refresh(ans);
         const answered = isAnswered(q, ans);
+        extras.refresh(answered);
         if (answered && !clearBtn.isConnected) clearSlot.appendChild(clearBtn);
         else if (!answered) clearBtn.remove();
         const flagged = state.flagged.has(q.id);
@@ -581,7 +635,7 @@ export function render(root, ctx, params = {}) {
     submitBtn.disabled = true;
     runnerEl.classList.add('is-submitting');
     try {
-      const grade = gradeTest(test, state.answers);
+      const grade = gradeTest(test, state.answers, { hintsUsed: state.hints, confidence: state.confidence });
       if (preview) {
         state.done = true;
         submitModal?.close();

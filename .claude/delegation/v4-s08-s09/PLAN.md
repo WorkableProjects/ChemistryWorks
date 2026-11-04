@@ -42,3 +42,14 @@ Spec: `docs/v3/v4.0plan.md` **V4-03** (type table, per-question extras, acceptan
 - Stay in your owned files; never git checkout/stash/reset/commit; another agent edits other files concurrently.
 - Same data-testids everywhere; new testids: `<type>-…` prefixes.
 - If a shared file truly needs a change, do NOT edit it: describe the exact change in your report.
+
+## Restart notes (second attempt)
+The first agents were stopped part-way. Committed so far (commit "v4 S08/S09 (partial)"):
+- Pure definitions for all eight types in `js/lib/qtypes/<type>.js` (registered) — review and finish them, don't start over.
+- `js/lib/extras.js` + edits in `js/lib/schema.js` / `js/lib/grading.js` for per-question extras (T11 only).
+- **The new types are hidden behind `FEATURES.v4Types` (off)** — `schema.js` adds registered types to `QUESTION_TYPES`
+  only when `feature('v4Types')` is on. Unit tests: import your definition module directly. E2E: pass
+  `newSession(env, { config: { FEATURES: { v4Types: true } } })`. `validate:tests` (scripts/validate-tests.mjs) runs in
+  Node without the flag: if your sample test fails validation only because of the flag, report it (Opus will flip the flag
+  to on when both tasks are done) — do not edit config.js.
+- Still to do for every type: UI module (widget / editor / review), CSS, sample test, unit tests, E2E file, guide text.
