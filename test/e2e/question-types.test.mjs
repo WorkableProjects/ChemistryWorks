@@ -143,21 +143,21 @@ test('appearance: dark mode persists; student and admin have separate accents', 
   const { page, url } = s;
   await page.goto(url + '/');
   const html = page.locator('html');
-  await waitAttr(html, 'data-accent', 'blue');
+  await waitAttr(html, 'data-accent', 'navy'); // V4-00: navy/teal default for students and admins
   await page.locator(tid('theme-toggle')).click();
   await page.locator(tid('theme-dark')).click();
   await waitAttr(html, 'data-theme', 'dark');
   await page.locator(tid('accent-teal')).click();
   await waitAttr(html, 'data-accent', 'teal');
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  assert.equal(bg, 'rgb(26, 23, 19)'); // Lab-notebook dark --bg #1A1713 (V2-09)
+  assert.equal(bg, 'rgb(11, 20, 36)'); // ChemWorks Lab dark --bg #0B1424 (V4-00)
 
   await page.reload();
   await waitAttr(html, 'data-theme', 'dark');
   await waitAttr(html, 'data-accent', 'teal');
 
   await unlockAdmin(page, url);
-  await waitAttr(html, 'data-accent', 'violet');
+  await waitAttr(html, 'data-accent', 'navy'); // admin keeps its own accent (default navy), not the student's teal
   await waitAttr(html, 'data-role', 'admin');
   await page.locator(tid('theme-toggle')).click();
   await page.locator(tid('theme-light')).click();

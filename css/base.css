@@ -1,66 +1,89 @@
-/* ChemistryWorks — "Lab notebook" design tokens, base elements, shared components.
-   Full documentation: docs/DESIGN.md. View-specific styles live in runner.css (student test + results),
-   admin.css, references.css, diagrams.css, grading.css and feedback.css. Never hard-code theme colours
-   outside this file: use the tokens. */
+/* ChemWorks — "ChemWorks Lab" design tokens (V4-00), base elements, shared components.
+   Built from the logo: navy #00224F + teal #01A9AE on cool off-white (light) / deep navy (dark).
+   Full documentation: docs/DESIGN.md. View CSS references tokens only (no hex literals outside this file and
+   print.css; asserted by test/unit/v4-brand.test.mjs). */
 
 :root {
-  /* Paper + ink neutrals (light). Contrast of --text* on --bg* is asserted by test/unit/v2-contrast.test.mjs. */
-  --bg: #F6F2E8;
-  --bg-elev: #FFFDF7;
-  --bg-sunken: #EEE8DA;
-  --border: #DCD3C0;
-  --border-strong: #C3B79F;
-  --text: #1B2A4A;
-  --text-muted: #3F4B66;
-  --text-faint: #596381;
-  --border-control: #8A8372; /* form-control / interactive-diagram boundary, >= 3:1 (WCAG 1.4.11) */
+  /* Brand (sampled from the logo). Teal fails contrast as text on light surfaces (2.9:1): use --brand-teal-ink for
+     teal text, links and control edges; --brand-teal only for fills, highlights and decoration. */
+  --brand-navy: #00224F;
+  --brand-teal: #01A9AE;
+  --brand-teal-ink: #00797D;
+  --brand-teal-soft: rgb(1 169 174 / 0.14);
+
+  /* Cool neutrals (light). Contrast of every text/surface pair is asserted by test/unit/v2-contrast.test.mjs. */
+  --bg: #F5F8FB;
+  --bg-elev: #FFFFFF;
+  --bg-sunken: #EAF0F6;
+  --border: #D8E1EB;
+  --border-strong: #B9C6D6;
+  --text: #0B1F3A;
+  --text-muted: #3A4D68;
+  --text-faint: #53647D;
+  --border-control: #718299; /* form-control / interactive-diagram boundary, >= 3:1 (WCAG 1.4.11) */
   --paper: var(--bg);
   --ink: var(--text);
 
-  /* Graph-paper texture. strength: 1 full (student) / 0.5 toned (runner) / 0 none (admin). */
-  --texture-strength: 1;
+  /* v2 graph paper is gone (V4-00). The variables stay so older rules (`background: var(--texture), var(--bg)`) work. */
+  --texture-strength: 0;
+  --texture: none;
   --grid-size: 24px;
-  --grid-ink: 27 42 74;
-  --margin-rule: #C9707A;
+  --grid-ink: 11 31 58;
+  --margin-rule: transparent;
 
-  /* Accent (see the accent palettes below; js/lib/theme.js sets data-accent per role) */
-  --primary: #2348A4;
-  --primary-hover: #1A3A8A;
-  --primary-soft: #E1E8F8;
-  --primary-line: #BCC9EA;
-  --primary-ink: #1B2F6B;
+  /* Accent (data-accent palettes below; js/lib/theme.js sets data-accent per role). Default = navy. */
+  --primary: #00224F;
+  --primary-hover: #0A3A7A;
+  --primary-soft: #E3ECF7;
+  --primary-line: #B8CAE2;
+  --primary-ink: #00224F;
   --primary-ring: color-mix(in srgb, var(--primary) 28%, transparent);
-  --primary-shadow: color-mix(in srgb, var(--primary) 70%, transparent);
-  --accent-2: #4F46E5;
+  --primary-shadow: color-mix(in srgb, var(--primary) 60%, transparent);
+  --accent-2: #00797D;
   --selected-bg: color-mix(in srgb, var(--primary) 6%, var(--bg-elev));
   --hover-tint: color-mix(in srgb, var(--primary) 5%, var(--bg-elev));
   --on-primary: #FFFFFF;
 
-  --success: #046C4E;
-  --success-soft: #DCF3E6;
+  /* Status (re-tuned for cool surfaces; always paired with an icon or text). */
+  --success: #08704F;
+  --success-soft: #DDF3EA;
   --success-ink: #064E3B;
-  --danger: #C62828;
-  --danger-soft: #FBE4E1;
+  --danger: #C42B2B;
+  --danger-soft: #FBE5E3;
   --danger-ink: #8E1B1B;
-  --danger-line: #E5A39C;
-  --warning: #98440A;
-  --warning-soft: #FBEBC4;
+  --danger-line: #E8A9A2;
+  --warning: #97460C;
+  --warning-soft: #FCEFD2;
   --warning-ink: #7A3508;
-  --warning-line: #E2B94F;
+  --warning-line: #E6BF5E;
 
-  --glass: rgba(246, 242, 232, 0.92);
-  --glass-card: rgba(255, 253, 247, 0.96);
-  --overlay: rgba(27, 42, 74, 0.45);
-  --toast-bg: #1B2A4A;
+  --glass: rgba(245, 248, 251, 0.9);
+  --glass-card: rgba(255, 255, 255, 0.96);
+  --overlay: rgba(0, 18, 43, 0.5);
+  --toast-bg: #00224F;
   --toast-fg: #FFFFFF;
   --toast-ok: #6EE7B7;
   --toast-err: #FCA5A5;
   --toast-warn: #FCD34D;
-  --skeleton-hi: #FFFDF7;
+  --skeleton-hi: #FFFFFF;
+  --img-mat: #FFFFFF;          /* behind pictures with transparency */
+  --header-bg: #00224F;        /* slim navy app bar */
+  --header-fg: #FFFFFF;
+  --header-fg-muted: #C5D3E8;
+  --header-line: rgba(255, 255, 255, 0.16);
+  --brand-teal-on-header: #2CC5C9; /* 8:1 on the navy bar */
 
-  /* Typography */
+  /* Game answer tiles: white text on each is >= 4.5:1 in both themes. */
+  --game-tile-0: #B3261E;
+  --game-tile-1: #1D4ED8;
+  --game-tile-2: #8A5300;
+  --game-tile-3: #0F6B3A;
+  --game-tile-fg: #FFFFFF;
+
+  /* Typography: Plus Jakarta Sans (display, closest Google Font to the wordmark's round C/W/k),
+     Atkinson Hyperlegible (body), IBM Plex Mono (formulas, numbers). */
   --font-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
   --font: var(--font-body);
   --mono: var(--font-mono);
@@ -77,98 +100,101 @@
 
   --radius-sm: 8px;
   --radius: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
 
-  --shadow-sm: 0 1px 2px rgba(27, 42, 74, 0.08);
-  --shadow: 0 1px 3px rgba(27, 42, 74, 0.07), 0 8px 24px -12px rgba(27, 42, 74, 0.2);
-  --shadow-lg: 0 24px 60px -20px rgba(27, 42, 74, 0.38);
+  --shadow-sm: 0 1px 2px rgba(0, 34, 79, 0.08);
+  --shadow: 0 1px 2px rgba(0, 34, 79, 0.06), 0 6px 20px -10px rgba(0, 34, 79, 0.22);
+  --shadow-lg: 0 24px 56px -20px rgba(0, 34, 79, 0.4);
 
+  /* Motion (V4-01): calm and quick, transform/opacity only, nothing longer than ~400 ms. */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-fast: 120ms;
-  --dur-base: 240ms;
-  --dur-slow: 400ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
   --dur: var(--dur-base);
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  --header-h: 64px;
+  --header-h: 60px;
+  --touch: 44px;
   color-scheme: light;
 }
 
-/* Graph-paper pieces are re-declared on .runner so the runner's own --texture-strength applies. */
-:root, .runner {
-  --grid-line: rgb(var(--grid-ink) / calc(0.05 * var(--texture-strength)));
-  --grid-major: rgb(var(--grid-ink) / calc(0.1 * var(--texture-strength)));
-  --texture:
-    linear-gradient(var(--grid-major) 1px, transparent 1px) 0 0 / calc(var(--grid-size) * 5) calc(var(--grid-size) * 5),
-    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px) 0 0 / calc(var(--grid-size) * 5) calc(var(--grid-size) * 5),
-    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / var(--grid-size) var(--grid-size);
-}
+/* ---------- Roles: same look for students and admins (V4-00); admin gets a darker header only. ---------- */
+:root[data-role="admin"] { --header-bg: #001634; }
 
-/* ---------- Intensity levels. Students: full. Admin: toned down (no grid anywhere). ---------- */
-:root[data-role="student"] { --texture-strength: 1; }
-:root[data-role="admin"] { --texture-strength: 0; }
-
-/* ---------- Accent palettes (light). Students default to blue (ink blue), the admin panel to violet. ---------- */
+/* ---------- Accent palettes (light). Navy is the default for students and admins. ---------- */
+:root[data-accent="navy"]   { --primary: #00224F; --primary-hover: #0A3A7A; --primary-soft: #E3ECF7; --primary-line: #B8CAE2; --primary-ink: #00224F; --accent-2: #00797D; }
 :root[data-accent="blue"]   { --primary: #2348A4; --primary-hover: #1A3A8A; --primary-soft: #E1E8F8; --primary-line: #BCC9EA; --primary-ink: #1B2F6B; --accent-2: #4F46E5; }
 :root[data-accent="violet"] { --primary: #6D28D9; --primary-hover: #5B21B6; --primary-soft: #ECE6FA; --primary-line: #D4C8F2; --primary-ink: #4C1D95; --accent-2: #C026A3; }
-:root[data-accent="teal"]   { --primary: #0D6B64; --primary-hover: #0A5650; --primary-soft: #D8F0EC; --primary-line: #A9DDD6; --primary-ink: #0B4A45; --accent-2: #0369A1; }
+:root[data-accent="teal"]   { --primary: #00797D; --primary-hover: #005F62; --primary-soft: #D9F1F1; --primary-line: #A6DCDD; --primary-ink: #004F52; --accent-2: #00224F; }
 :root[data-accent="rose"]   { --primary: #BE123C; --primary-hover: #9F1239; --primary-soft: #FBE3E8; --primary-line: #F2B8C4; --primary-ink: #881337; --accent-2: #C2410C; }
 :root[data-accent="orange"] { --primary: #B03A0A; --primary-hover: #8F2F08; --primary-soft: #FCE8D8; --primary-line: #F2C6A4; --primary-ink: #6E2506; --accent-2: #A16207; }
 :root[data-accent="green"]  { --primary: #166534; --primary-hover: #14532D; --primary-soft: #DDF1E3; --primary-line: #B4DEC1; --primary-ink: #14532D; --accent-2: #0D6B64; }
 
-/* ---------- Dark mode: "notebook at night". data-theme="dark" is set by js/lib/theme.js. ---------- */
+/* ---------- Dark mode: deep navy. data-theme="dark" is set by js/lib/theme.js. ---------- */
 :root[data-theme="dark"] {
-  --bg: #1A1713;
-  --bg-elev: #231F19;
-  --bg-sunken: #15120F;
-  --border: #3A342A;
-  --border-strong: #50483A;
-  --text: #E6EAF5;
-  --text-muted: #B4BCD0;
-  --text-faint: #939CB5;
-  --border-control: #7C7565;
-  --grid-ink: 230 234 245;
-  --margin-rule: #8F4B53;
+  --brand-navy: #E7EDF7;
+  --brand-teal: #2CC5C9;
+  --brand-teal-ink: #2CC5C9;
+  --brand-teal-soft: rgb(44 197 201 / 0.16);
 
-  --primary-soft: color-mix(in srgb, var(--primary) 22%, var(--bg-elev));
+  --bg: #0B1424;
+  --bg-elev: #14213A;
+  --bg-sunken: #08101D;
+  --border: #22314D;
+  --border-strong: #31446A;
+  --text: #E7EDF7;
+  --text-muted: #B3C0D6;
+  --text-faint: #91A1BB;
+  --border-control: #6F82A3;
+  --grid-ink: 231 237 247;
+
+  --primary-soft: color-mix(in srgb, var(--primary) 20%, var(--bg-elev));
   --primary-line: color-mix(in srgb, var(--primary) 45%, var(--bg-elev));
   --primary-ink: color-mix(in srgb, var(--primary) 35%, #FFFFFF);
   --selected-bg: color-mix(in srgb, var(--primary) 14%, var(--bg-elev));
   --hover-tint: color-mix(in srgb, var(--primary) 8%, var(--bg-elev));
-  --on-primary: #0E1422;
+  --on-primary: #04121F;
 
-  --success: #10B981;
-  --success-soft: #0E2F27;
+  --success: #34D399;
+  --success-soft: #0D2E28;
   --success-ink: #6EE7B7;
   --danger: #F87171;
-  --danger-soft: #3A1B1B;
+  --danger-soft: #3A1B22;
   --danger-ink: #FCA5A5;
-  --danger-line: #7F2D2D;
-  --warning: #F59E0B;
-  --warning-soft: #36260A;
+  --danger-line: #7F2D35;
+  --warning: #F5A524;
+  --warning-soft: #33260E;
   --warning-ink: #FCD34D;
   --warning-line: #92400E;
 
-  --glass: rgba(26, 23, 19, 0.9);
-  --glass-card: rgba(35, 31, 25, 0.96);
-  --overlay: rgba(8, 6, 4, 0.65);
-  --toast-bg: #E6EAF5;
-  --toast-fg: #15120F;
+  --glass: rgba(11, 20, 36, 0.88);
+  --glass-card: rgba(20, 33, 58, 0.96);
+  --overlay: rgba(2, 6, 14, 0.7);
+  --toast-bg: #E7EDF7;
+  --toast-fg: #0B1424;
   --toast-ok: #047857;
   --toast-err: #B91C1C;
   --toast-warn: #B45309;
-  --skeleton-hi: #2E2921;
+  --skeleton-hi: #1E2E4D;
+  --img-mat: #FFFFFF;
+  --header-bg: #08101D;
+  --header-fg: #E7EDF7;
+  --header-fg-muted: #B3C0D6;
+  --header-line: #22314D;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.75);
   color-scheme: dark;
 }
-/* Dark accents are lighter; --on-primary is dark ink so text on them keeps AA contrast. */
-:root[data-theme="dark"] { --primary: #7B9AF5; --primary-hover: #9DB4F8; --accent-2: #A5B4FC; }
+:root[data-theme="dark"][data-role="admin"] { --header-bg: #050B16; }
+/* Dark accents are lighter; --on-primary is dark ink so text on them keeps AA contrast. Navy becomes teal. */
+:root[data-theme="dark"] { --primary: #2CC5C9; --primary-hover: #5ED6D9; --accent-2: #9DB4F8; }
+:root[data-theme="dark"][data-accent="navy"]   { --primary: #2CC5C9; --primary-hover: #5ED6D9; --accent-2: #9DB4F8; }
 :root[data-theme="dark"][data-accent="blue"]   { --primary: #7B9AF5; --primary-hover: #9DB4F8; --accent-2: #A5B4FC; }
 :root[data-theme="dark"][data-accent="violet"] { --primary: #A78BFA; --primary-hover: #C4B5FD; --accent-2: #F0ABFC; }
 :root[data-theme="dark"][data-accent="teal"]   { --primary: #2DD4BF; --primary-hover: #5EEAD4; --accent-2: #7DD3FC; }
@@ -299,30 +325,47 @@ img { max-width: 100%; }
 .pill--danger { background: var(--danger-soft); color: var(--danger-ink); }
 .pill--warning { background: var(--warning-soft); color: var(--warning-ink); }
 
-/* ---------- Header ---------- */
+/* ---------- Header (V4-01 app shell): slim navy bar ---------- */
 .app-header {
   position: sticky; top: 0; z-index: 50; height: var(--header-h);
-  display: flex; align-items: center; gap: 16px; padding: 0 20px;
-  background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 var(--margin-rule); /* decorative notebook margin rule */
+  display: flex; align-items: center; gap: 14px; padding: 0 16px 0 18px;
+  background: var(--header-bg); color: var(--header-fg);
+  border-bottom: 1px solid var(--header-line);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.04), 0 6px 18px -14px rgb(0 18 43 / 0.6);
 }
-.app-header__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; min-width: 0; }
-.brand__logo { display: inline-grid; grid-template-rows: 100%; align-items: center; height: 34px; flex-shrink: 0; transform-origin: 12% 85%; transition: transform var(--dur-base) var(--ease-out); }
-.brand__logo .brand-logo { grid-area: 1 / 1; height: 100%; }
+/* Widgets sitting on the navy bar re-point their tokens at the header colours (the settings popover keeps the page's). */
+.app-header .brand, .app-header .brand__text, .app-header > .app-header__right > :not(.theme-ctl), .app-header .theme-ctl__btn {
+  --text: var(--header-fg); --text-muted: var(--header-fg-muted); --text-faint: var(--header-fg-muted);
+  --bg-elev: rgb(255 255 255 / 0.06); --bg-sunken: rgb(255 255 255 / 0.12); --border: var(--header-line); --border-strong: rgb(255 255 255 / 0.32);
+  --primary: var(--brand-teal-on-header); --primary-soft: rgb(255 255 255 / 0.12); --primary-hover: var(--header-fg); --primary-line: rgb(255 255 255 / 0.3);
+  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
+  color: var(--text);
+}
+.app-header :focus-visible { outline-color: var(--brand-teal-on-header); }
+.app-header__right { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand { display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px; margin-left: -4px; border-radius: 10px; cursor: pointer; text-align: left; min-width: 0; flex-shrink: 0; }
+.brand__logo { display: inline-flex; align-items: center; height: 30px; flex-shrink: 0; transform-origin: 12% 85%; transition: transform var(--dur-base) var(--ease-out); }
+.brand__logo .brand-logo--wordmark { --brand-size: 30px; }
 .brand__mark { display: none !important; }
 .brand:hover .brand__logo { transform: rotate(-3deg) scale(1.03); }
 .brand:active .brand__logo { transform: scale(0.97); }
-.brand__text { display: flex; flex-direction: column; min-width: 0; padding-left: 12px; border-left: 1px solid var(--border); }
-.brand__name { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brand__sub { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 640px) {
+.brand__text { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding-left: 14px; border-left: 1px solid var(--header-line); line-height: 1.25; }
+.brand__name { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand__sub { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand__name + .brand__sub { font-size: 12px; font-family: var(--font-body); }
+@media (max-width: 480px) {
   .brand__wordmark { display: none !important; }
-  .brand__mark { display: inline-grid !important; }
+  .brand__mark { display: inline-flex !important; }
+  .app-header { gap: 10px; padding: 0 10px 0 12px; }
+  .brand__text { padding-left: 10px; }
 }
+.app-header .btn--ghost { background: rgb(255 255 255 / 0.06); border-color: var(--header-line); color: var(--header-fg); }
+.app-header .btn--ghost:hover:not(:disabled) { background: rgb(255 255 255 / 0.14); border-color: rgb(255 255 255 / 0.32); }
+.app-header .icon-btn { color: var(--header-fg-muted); }
+.app-header .icon-btn:hover { color: var(--header-fg); background: rgb(255 255 255 / 0.12); }
+.app-header a { color: var(--header-fg); }
 
-.user-badge { display: inline-flex; align-items: center; gap: 10px; padding: 4px 4px 4px 4px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); max-width: 320px; }
+.user-badge { display: inline-flex; align-items: center; gap: 10px; padding: 3px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); max-width: 320px; }
 .user-badge__avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .user-badge__avatar--initials { display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-hover); font-size: 12px; font-weight: 700; }
 .user-badge__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; padding-right: 6px; }
@@ -453,7 +496,7 @@ body[data-view="runner"] .toast-root { bottom: 88px; }
 
 /* ---------- Theme menu (light / dark / system + accent per role) ---------- */
 .theme-ctl { position: relative; }
-.theme-ctl__btn { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-muted); display: grid; place-items: center; cursor: pointer; transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.theme-ctl__btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-muted); display: grid; place-items: center; cursor: pointer; transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
 .theme-ctl__btn:hover { color: var(--primary); border-color: var(--primary-line); }
 .theme-ctl__btn:active { transform: scale(0.94); }
 .theme-ctl__pop {
@@ -463,6 +506,7 @@ body[data-view="runner"] .toast-root { bottom: 88px; }
 }
 .theme-ctl__pop[hidden] { display: none; }
 @keyframes theme-pop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: none; } }
+.theme-ctl__title { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--text); }
 .theme-ctl__label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
 .theme-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 12px; background: var(--bg-sunken); }
 .theme-seg__btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 0; border-radius: 9px; background: none; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); }
@@ -493,14 +537,26 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .app-header .icon-btn, .app-header .theme-ctl__btn { min-width: 44px; min-height: 44px; }
 
 /* ---------- Brand (assets/brand) ---------- */
-:root { --brand-navy: #002250; --brand-teal: #00A9AE; --brand-teal-soft: rgb(0 169 174 / 0.14); }
-:root[data-theme="dark"] { --brand-navy: #E8EEF8; --brand-teal: #2CC5C9; --brand-teal-soft: rgb(44 197 201 / 0.16); }
 
-.brand-logo { display: inline-grid; grid-template-rows: 100%; line-height: 0; }
-.brand-logo__img { grid-area: 1 / 1; height: 100%; min-height: 0; width: auto; max-width: none; user-select: none; }
-.brand-logo__img--dark { visibility: hidden; }
-:root[data-theme="dark"] .brand-logo__img--light { visibility: hidden; }
-:root[data-theme="dark"] .brand-logo__img--dark { visibility: visible; }
+/* Logo (js/ui.js brandLogo): inline SVG mark + "ChemWorks" set in the display face. Never stretched: height drives
+   the size, width follows. Minimum clear space = one bubble diameter (about 8% of the mark height). */
+.brand-logo { display: inline-flex; align-items: center; gap: 0.18em; height: 100%; line-height: 1; white-space: nowrap; --brand-mark-gap: var(--bg-elev); }
+.brand-logo__mark { display: inline-flex; height: 100%; aspect-ratio: 100 / 132; flex-shrink: 0; }
+.brand-mark { width: 100%; height: 100%; display: block; overflow: visible; }
+.brand-mark__neck { stroke: var(--brand-navy); }
+.brand-mark__glass { fill: var(--brand-navy); }
+.brand-mark__liquid { fill: var(--brand-teal); stroke: var(--brand-mark-gap); }
+.brand-mark__gap { fill: var(--brand-mark-gap); }
+.brand-mark__bond { stroke: var(--brand-teal); }
+.brand-mark__atom { fill: var(--brand-teal); }
+.brand-logo__word { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.035em; font-size: 0.62em; display: inline-flex; }
+.brand-logo--wordmark { font-size: var(--brand-size, 52px); height: 1em; }
+.brand-logo__chem { color: var(--brand-navy); }
+.brand-logo__works { color: var(--brand-teal); }
+/* Mono: one colour for print and high contrast. */
+.brand-logo--mono { --brand-navy: currentColor; --brand-teal: currentColor; }
+@media (prefers-contrast: more) { .brand-logo { --brand-teal: var(--brand-navy); } }
+@media print { .brand-logo { --brand-navy: #000000; --brand-teal: #000000; --brand-mark-gap: #FFFFFF; } }
 
 /* Animated flask loader (js/ui.js flaskSvg / flaskLoader; inlined in index.html for the boot screen). */
 .cw-loader { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-muted); }

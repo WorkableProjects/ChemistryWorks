@@ -48,15 +48,15 @@
 @media (max-width: 480px) { .game-answers--two { grid-template-columns: 1fr; } .game-hud { grid-template-columns: 1fr auto auto; } .game-hud__score { grid-column: 1 / -1; } }
 
 .game-tile {
-  --tile: #1D4ED8;
+  --tile: var(--game-tile-1);
   display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 14px 18px; text-align: left; cursor: pointer;
-  border: 3px solid transparent; border-radius: var(--radius); background: var(--tile); color: #FFFFFF; font: inherit; font-size: 18px; font-weight: 700;
+  border: 3px solid transparent; border-radius: var(--radius); background: var(--tile); color: var(--game-tile-fg); font: inherit; font-size: 18px; font-weight: 700;
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
-.game-tile--0 { --tile: #B3261E; }
-.game-tile--1 { --tile: #1D4ED8; }
-.game-tile--2 { --tile: #8A5300; }
-.game-tile--3 { --tile: #0F6B3A; }
+.game-tile--0 { --tile: var(--game-tile-0); }
+.game-tile--1 { --tile: var(--game-tile-1); }
+.game-tile--2 { --tile: var(--game-tile-2); }
+.game-tile--3 { --tile: var(--game-tile-3); }
 .game-tile:hover:not(:disabled) { transform: translateY(-2px); }
 .game-tile:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
 .game-tile:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
@@ -64,8 +64,8 @@
 .game-tile__shape { font-size: 26px; line-height: 1; width: 30px; text-align: center; }
 .game-tile__num { font-family: var(--mono); font-size: 13px; opacity: 0.85; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 6px; padding: 0 6px; }
 .game-tile__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.game-tile.is-picked { border-color: #FFFFFF; box-shadow: 0 0 0 3px var(--text), 0 4px 0 rgba(0, 0, 0, 0.3); }
-.game-tile.is-correct { border-color: #FFFFFF; box-shadow: 0 0 0 4px var(--success); }
+.game-tile.is-picked { border-color: var(--game-tile-fg); box-shadow: 0 0 0 3px var(--text), 0 4px 0 rgba(0, 0, 0, 0.3); }
+.game-tile.is-correct { border-color: var(--game-tile-fg); box-shadow: 0 0 0 4px var(--success); }
 .game-tile.is-wrong { box-shadow: 0 0 0 4px var(--danger); opacity: 0.85; text-decoration: line-through; }
 .game-tile.is-dim { opacity: 0.45; }
 .game-tile.is-removed { opacity: 0.2; visibility: visible; }

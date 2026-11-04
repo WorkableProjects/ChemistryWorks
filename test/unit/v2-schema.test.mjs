@@ -71,9 +71,11 @@ test('validation: references', () => {
   has(v([{ id: 'r', type: 'video' }]), /type must be one of/);
   has(v([{ id: 'r', type: 'text', title: 'C', content: '   ' }]), /text references need content/);
   has(v([{ id: 'r', type: 'image', url: 'https://x.org/a.png', alt: '' }]), /need alt text/);
-  has(v([{ id: 'r', type: 'image', url: 'http://x.org/a.png', alt: 'a' }]), /image url must start with https/);
+  // FIX-3: http:// links are upgraded to https:// and raster data: URLs (uploaded pictures) are accepted.
+  assert.ok(!v([{ id: 'r', type: 'image', url: 'http://x.org/a.png', alt: 'a' }]).some((e) => /image url/.test(e)));
   has(v([{ id: 'r', type: 'image', url: 'javascript:alert(1)', alt: 'a' }]), /image url must start with https/);
-  has(v([{ id: 'r', type: 'image', url: 'data:image/png;base64,AA', alt: 'a' }]), /image url/);
+  assert.ok(!v([{ id: 'r', type: 'image', url: 'data:image/png;base64,AA', alt: 'a' }]).some((e) => /image url/.test(e)));
+  has(v([{ id: 'r', type: 'image', url: 'data:image/svg+xml;base64,AA', alt: 'a' }]), /image url/);
   has(v([{ id: 'a', type: 'periodic-table' }, { id: 'b', type: 'periodic-table' }]), /periodic table reference only once/);
   has(v([{ id: 'a', type: 'text', content: 'x' }, { id: 'a', type: 'text', content: 'y' }]), /duplicate reference id/);
   has(errsOf(base({ references: 'x' })), /references must be a list/);

@@ -30,12 +30,39 @@ const DEFAULTS = {
 
   // Default question layout: 'focus' (one question at a time) or 'scroll' (all on one page).
   DEFAULT_MODE: 'focus',
+
+  // V4-08 feature flags: half-done v4 features ship hidden between sessions. Override per page with
+  // window.CHEMISTRYWORKS_CONFIG = { FEATURES: { name: true } } or, on one device, the URL ?features=name1,name2
+  // (or ?features=all). Read flags with feature('name').
+  FEATURES: {
+    adminShell: false,     // S05: Classroom-style admin shell + dashboard
+    adminAccounts: false,  // S06: Google sign-in for admins
+    teacherTools: false,   // S07: insights, grade by question, comment bank
+    studentTools: false,   // S16: calculator, scratchpad, read-aloud
+  },
 };
+
+const OVERRIDES = typeof window !== 'undefined' && window.CHEMISTRYWORKS_CONFIG ? window.CHEMISTRYWORKS_CONFIG : {};
 
 export const CONFIG = Object.freeze({
   ...DEFAULTS,
-  ...(typeof window !== 'undefined' && window.CHEMISTRYWORKS_CONFIG ? window.CHEMISTRYWORKS_CONFIG : {}),
+  ...OVERRIDES,
+  FEATURES: Object.freeze({ ...DEFAULTS.FEATURES, ...(OVERRIDES.FEATURES || {}) }),
 });
+
+/** Flags switched on through the URL (?features=a,b or ?features=all) for this page load only. */
+export function urlFeatures(search = (typeof location !== 'undefined' ? location.search : '')) {
+  const raw = new URLSearchParams(search).get('features');
+  return raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+}
+
+/** True when the V4 feature flag `name` is on (config, then ?features=). Unknown names are off. */
+export function feature(name, config = CONFIG, search) {
+  if (!Object.prototype.hasOwnProperty.call(config.FEATURES || {}, name)) return false;
+  if (config.FEATURES[name] === true) return true;
+  const fromUrl = urlFeatures(search);
+  return fromUrl.includes('all') || fromUrl.includes(name);
+}
 
 export function netlifyFormsEnabled(config = CONFIG, hostname = (typeof location !== 'undefined' ? location.hostname : '')) {
   if (config.NETLIFY_FORMS === true || config.NETLIFY_FORMS === false) return config.NETLIFY_FORMS;
