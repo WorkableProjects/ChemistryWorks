@@ -44,7 +44,7 @@ function correctDiagram(item) {
 
 /** Answer text: chemical formulas get sub/superscripts, everything else goes through richText (KaTeX). */
 function textEl(text, type) {
-  if (type === 'formula') return h('div', { class: 'export-answer-text', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
+  if (type === 'formula' || type === 'balance') return h('div', { class: 'export-answer-text', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
   return richText(text, 'div', ['export-answer-text', (type === 'short' || type === 'open') && 'export-pre'].filter(Boolean).join(' '));
 }
 

@@ -31,3 +31,20 @@
 .past-results__name { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
 .past-results__meta { font-size: 12px; color: var(--text-faint); }
 .past-results__code { font-family: var(--mono); font-weight: 700; }
+
+/* v3: released review on the export model (V3-01) */
+.feedback-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.feedback-doc { padding: 20px 22px; overflow-x: auto; }
+.feedback-doc .export-doc { font-size: 15px; }
+.feedback-doc .export-item { border-top-color: var(--border); }
+.feedback-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.feedback-actions:empty { display: none; }
+.feedback-attempts { font-size: 14px; color: var(--text-muted); }
+.feedback-attempts summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.status-check { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50vh; color: var(--text-muted); }
+.status-check .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: cw-spin 0.8s linear infinite; }
+@keyframes cw-spin { to { transform: rotate(360deg); } }
+@media (max-width: 480px) { .feedback-doc { padding: 14px; } }
+
+/* V3 a11y: touch targets for feedback controls */
+.feedback .btn, .feedback .icon-btn { min-height: 44px; }

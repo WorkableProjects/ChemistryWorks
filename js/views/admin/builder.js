@@ -17,6 +17,13 @@ import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextRefer
 import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../lib/orbital.js';
 import { ELEMENTS } from '../../lib/elements.js';
 import { orbitalWidget } from '../orbital-view.js';
+import { balanceEditor } from './editors/balance.js';
+import { econfigEditor } from './editors/econfig.js';
+import { ptableEditor } from './editors/ptable.js';
+import { sigfigsEditor } from './editors/sigfigs.js';
+import { categorizeEditor } from './editors/categorize.js';
+import { hotspotEditor } from './editors/hotspot.js';
+import { graphEditor } from './editors/graph.js';
 import { withQuestionImage } from '../question-image.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
@@ -413,7 +420,9 @@ export function renderBuilder(root, ctx) {
         sw('showResults', 'Show score to students', 'Off: students only see “Submission received”. Grade in the Grading tab.', true),
         sw('showCorrectAnswers', 'Show correct answers', 'Review with explanations (only when the score is shown)', true),
         sw('allowModeToggle', 'Allow layout toggle', 'Focus / scroll switch', true),
-        sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false)),
+        sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false),
+        sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false),
+        sw('requireAllQuestions', 'All questions required', 'Students must answer every question before they can submit. Or mark single questions Required below.', false)),
     );
   }
 
@@ -771,7 +780,10 @@ export function renderBuilder(root, ctx) {
       h('div', { class: 'adm-grid adm-grid--idsec' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos)),
       richPrev,
       typeSection,
-      field('Explanation', expl));
+      field('Explanation', expl),
+      switchEl({ label: 'Required', hint: 'The student must answer this question before submitting (all questions are required when “All questions required” is on).',
+        checked: !!q.required, testid: 'q-required',
+        onChange: (v) => { if (v) q.required = true; else delete q.required; updateHead(); changed(); } }));
     const collapse = h('div', { class: 'adm-q__collapse' }, inner);
 
     const el = h('article', { class: 'adm-q', dataset: { testid: 'question-editor', index } }, head, collapse);
@@ -871,6 +883,13 @@ function typeEditor(q, redraw, changed, uid) {
     case 'structure': return structureEditor(q, redraw, changed);
     case 'open': return openEditor(q, redraw, changed);
     case 'orbital': return orbitalEditor(q, redraw, changed);
+    case 'balance': return balanceEditor(q, redraw, changed);
+    case 'econfig': return econfigEditor(q, changed);
+    case 'ptable': return ptableEditor(q, changed, redraw);
+    case 'sigfigs': return sigfigsEditor(q, changed);
+    case 'categorize': return categorizeEditor(q, redraw, changed);
+    case 'hotspot': return hotspotEditor(q, redraw, changed);
+    case 'graph': return graphEditor(q, redraw, changed);
     default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
   }
 }

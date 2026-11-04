@@ -142,3 +142,41 @@ export async function fetchFeedback({ gasUrl, submissionId, studentEmail, fetchI
     return { ok: false, error: msg(e) };
   }
 }
+
+// V3-01: the signed-in student's submissions for one test (no admin key; identity verified on the server
+// from the Google ID token). -> { ok: true, submitted, attempts, latest, feedback?, others? } |
+// { ok: false, error } (error 'identity_not_configured' / OUTDATED_BACKEND / network -> caller fails open).
+export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEmail, fetchImpl } = {}) {
+  try {
+    const body = { action: 'getStudentStatus', testCode };
+    if (idToken) body.idToken = idToken;
+    if (studentEmail) body.studentEmail = studentEmail;
+    const d = await post(gasUrl, body, fetchImpl);
+    if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
+    const { result, ...rest } = d;
+    return { ok: true, ...rest, submitted: d.submitted === true, attempts: Number(d.attempts) || 0 };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+// V3-03 (admin): release every Graded / Auto-graded submission of a test. -> { ok, released: n, error? }
+export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action: 'releaseAll', adminKey, testCode }, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, released: Number(d.released) || 0 } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+// V3-03 (admin): allow (or revoke) one more submission for the student of this submission.
+// -> { ok, retake_allowed_at, error? }
+export async function allowRetake({ gasUrl, adminKey, submissionId, allow = true, fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action: 'allowRetake', adminKey, submissionId, allow: !!allow }, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, retake_allowed_at: d.retake_allowed_at || '' } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}

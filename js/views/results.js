@@ -100,7 +100,7 @@ function reviewItem(r, i, test, stagger) {
   const formulaHtml = (text) => h('span', { class: 'results-formula', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
   const given = !r.answered
     ? h('span', { class: 'muted' }, 'Not answered')
-    : r.type === 'formula' ? formulaHtml(r.givenAnswerText)
+    : r.type === 'formula' || r.type === 'balance' ? formulaHtml(r.givenAnswerText)
       : r.type === 'lewis' ? h('span', { class: 'results-lewis' }, lewisDiagram(q?.element, r.givenAnswer), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'structure' && q ? h('span', { class: 'results-structure' }, structureDiagram(q, r.givenAnswer, { label: 'Your Lewis structure' }), h('span', { class: 'muted' }, r.givenAnswerText))
       : r.type === 'orbital' && q ? h('span', { class: 'results-orbital' }, orbitalDiagram(q, r.givenAnswer, { label: 'Your orbital diagram' }), h('span', { class: 'muted' }, r.givenAnswerText))
@@ -119,6 +119,8 @@ function reviewItem(r, i, test, stagger) {
       h('span', { class: 'muted' }, r.correctAnswerText));
   } else if (r.type === 'open') {
     correct = h('span', { class: 'results-pre' }, r.correctAnswerText);
+  } else if (r.type === 'balance') {
+    correct = formulaHtml(r.correctAnswerText);
   } else if (r.type === 'formula') {
     const list = Array.isArray(r.correctAnswer) ? r.correctAnswer : [r.correctAnswer];
     correct = h('span', {}, list.flatMap((a, k) => (k ? [' / ', formulaHtml(a)] : [formulaHtml(a)])));
@@ -238,6 +240,8 @@ export function render(root, ctx, params = {}) {
       ring.el,
       h('div', { class: 'results-score__text' },
         titleEl,
+        h('span', { class: 'sr-only', role: 'status', 'aria-live': 'polite', dataset: { testid: 'score-live' } },
+          `Your score is ${grade.percentage} percent, ${grade.correctCount} of ${grade.questionCount} correct.`),
         h('p', { class: 'muted' }, test.title),
         h('div', { class: 'results-score__stats' },
           h('div', {}, h('strong', { dataset: { testid: 'score-points' } }, `${grade.scoreAchieved} / ${grade.scoreTotal}`), h('span', { class: 'muted' }, pending ? ' points so far' : ' points')),
@@ -248,7 +252,8 @@ export function render(root, ctx, params = {}) {
         !pending && test.passingPercent != null && typeof test.passingPercent === 'number'
           ? h('p', { class: 'faint results-score__pass-note' }, `Passing score: ${test.passingPercent}%`) : null),
     );
-    if (pct >= 90 && !pending && !prefersReducedMotion()) {
+    const confettiAt = typeof test.passingPercent === 'number' ? test.passingPercent : 90;
+    if (pct >= confettiAt && !pending && !prefersReducedMotion()) {
       const c = confetti();
       cleanups.push(c.stop);
       scoreCard.appendChild(c.el);

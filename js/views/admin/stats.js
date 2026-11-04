@@ -5,7 +5,9 @@ export function formatPercent(n) {
   return `${(Math.round((Number(n) || 0) * 10) / 10).toFixed(1)}%`;
 }
 
-export const STATUS = { NEEDS_GRADING: 'Needs grading', AUTO: 'Auto-graded', GRADED: 'Graded' };
+export const STATUS = { NEEDS_GRADING: 'Needs grading', AUTO: 'Auto-graded', GRADED: 'Graded', EXTRA: 'Extra attempt' };
+// v3 grading-list filters beyond a plain status: 'released' (Released At set) and 'all' (everything except extra attempts).
+export const FILTER_RELEASED = 'released';
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const r2 = (n) => Math.round(n * 100) / 100;
@@ -97,6 +99,7 @@ export function normalizeRow(raw) {
     teacher_note: r.teacher_note || '',
     comments: isObj(r.comments) ? r.comments : {},   // v2: { questionId: comment text }
     released_at: r.released_at || '',
+    retake_allowed_at: r.retake_allowed_at || '',  // v3: ISO time the teacher allowed a retake, '' = none
     graded_by: r.graded_by || '',                    // who graded (free text)                // v2: ISO time grades/comments were released to the student, '' = not released
   };
 }
@@ -106,7 +109,9 @@ export function filterRows(rows, { testCode = '', query = '', status = '' } = {}
   const q = String(query || '').trim().toLowerCase();
   return rows.filter((r) => {
     if (testCode && testCode !== 'all' && r.test_code !== testCode) return false;
-    if (status && status !== 'all' && r.status !== status) return false;
+    if (status === FILTER_RELEASED) { if (!r.released_at || r.status === STATUS.EXTRA) return false; }
+    else if (status === 'all') { if (r.status === STATUS.EXTRA) return false; }
+    else if (status && r.status !== status) return false;
     if (q && !`${r.student_name} ${r.student_email}`.toLowerCase().includes(q)) return false;
     return true;
   });

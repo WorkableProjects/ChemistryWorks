@@ -10,13 +10,21 @@ import {
 } from '../ui.js';
 import { gradeTest, isAnswered, parseNumber } from '../lib/grading.js';
 import { formulaToHTML } from '../lib/formula.js';
-import { TYPE_LABELS } from '../lib/schema.js';
+import { TYPE_LABELS, isRequired } from '../lib/schema.js';
 import { groupQuestions, safeImageUrl } from '../lib/sections.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
+import { preSubmitBlocked } from '../lib/student-status.js';
 import { load, save, remove } from '../lib/storage.js';
 import { lewisWidget } from './lewis-view.js';
 import { structureWidget } from './structure-view.js';
 import { orbitalWidget } from './orbital-view.js';
+import { balanceWidget } from './widgets/balance.js';
+import { econfigWidget } from './widgets/econfig.js';
+import { ptableWidget } from './widgets/ptable.js';
+import { sigfigsWidget } from './widgets/sigfigs.js';
+import { categorizeWidget } from './widgets/categorize.js';
+import { hotspotWidget } from './widgets/hotspot.js';
+import { graphWidget } from './widgets/graph.js';
 import { referencePane } from './reference-pane.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
@@ -507,6 +515,13 @@ function buildWidget(q, api) {
     case 'open': return openWidget(q, api);
     case 'structure': return structureWidget(q, api);
     case 'orbital': return orbitalWidget(q, api);
+    case 'balance': return balanceWidget(q, api);
+    case 'econfig': return econfigWidget(q, api);
+    case 'ptable': return ptableWidget(q, api);
+    case 'sigfigs': return sigfigsWidget(q, api);
+    case 'categorize': return categorizeWidget(q, api);
+    case 'hotspot': return hotspotWidget(q, api);
+    case 'graph': return graphWidget(q, api);
     default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
   }
 }
@@ -532,6 +547,7 @@ export function render(root, ctx, params = {}) {
     if (q.type === 'matching') {
       return { ...q, left: seededShuffle(q.left, `${seed}${q.id}left`), right: seededShuffle(q.right, `${seed}${q.id}right`) };
     }
+    if (q.type === 'categorize') return { ...q, items: seededShuffle(q.items, `${seed}${q.id}items`) };
     return q;
   });
   // Ordering items always start scrambled (never already in the correct order).
@@ -582,6 +598,16 @@ export function render(root, ctx, params = {}) {
       answers: state.answers, flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
       tabSwitches: state.tabSwitches, mode: state.mode, updatedAt: Date.now(), title: test.title,
     });
+    flashSaved();
+  }
+  // Brief "Saved" tick after an autosave (hidden from assistive tech; purely visual reassurance).
+  let savedEl = null;
+  let savedT = null;
+  function flashSaved() {
+    if (!savedEl) return;
+    savedEl.classList.add('is-visible');
+    clearTimeout(savedT);
+    savedT = setTimeout(() => savedEl.classList.remove('is-visible'), 1400);
   }
   function persist(debounce = false) {
     if (preview || state.done) return;
@@ -590,7 +616,9 @@ export function render(root, ctx, params = {}) {
 
   /* ---- header chrome */
   const timerText = h('span', { class: 'runner-timer__text' }, '0:00');
-  const timerEl = h('div', { class: 'runner-timer', role: 'timer', dataset: { testid: 'timer' } }, icon('clock', { size: 16 }), timerText);
+  const timerEl = h('div', { class: 'runner-timer', role: 'timer', 'aria-live': 'off', dataset: { testid: 'timer' } }, icon('clock', { size: 16 }), timerText);
+  // Screen readers hear the time once per minute (not every second).
+  const timerAnnouncer = h('span', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true', dataset: { testid: 'timer-announcer' } });
 
   const modeLabel = h('span', { class: 'runner-hbtn__label' });
   const modeIcon = h('span', { class: 'runner-hbtn__icon' });
@@ -609,7 +637,7 @@ export function render(root, ctx, params = {}) {
   const header = appHeader({
     subtitle: test.title,
     onHome: () => ctx.navigate(preview ? 'admin' : 'landing'),
-    right: [timerEl, modeBtn, navToggle, userBadge(user)],
+    right: [timerEl, timerAnnouncer, modeBtn, navToggle, userBadge(user)],
   });
 
   const progressFill = h('div', { class: 'runner-progress__fill' });
@@ -663,10 +691,12 @@ export function render(root, ctx, params = {}) {
         h('h2', { class: 'q-card__num' }, `Question ${i + 1} of ${total}`),
         h('span', { class: 'pill pill--primary' }, TYPE_LABELS[q.type] || q.type),
         h('span', { class: 'pill' }, pointsLabel(q.points ?? 1)),
+        isRequired(test, q) ? h('span', { class: 'pill pill--warning q-required-pill', dataset: { testid: 'required-pill' } }, 'Required') : null,
         sectionOfQ(q) ? h('span', { class: 'pill q-section-pill', title: sectionOfQ(q).section.title, dataset: { testid: 'section-pill' } }, sectionPillText(sectionOfQ(q).section.title)) : null,
         h('span', { class: 'spacer' }),
         flagBtn),
-      withQuestionImage(q, widget.textEl || richText(q.text, 'div', 'q-text')),
+      // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
+      withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
       clearSlot,
     );
@@ -700,10 +730,12 @@ export function render(root, ctx, params = {}) {
 
   /* ---- footer */
   const progressText = h('span', { class: 'runner-footer__progress', dataset: { testid: 'progress-text' } });
+  savedEl = h('span', { class: 'runner-saved', 'aria-hidden': 'true', dataset: { testid: 'saved-tick' } }, icon('check', { size: 14 }), 'Saved');
   const submitBtn = h('button', { type: 'button', class: 'btn btn--primary', dataset: { testid: 'submit-btn' }, on: { click: () => openSubmit() } }, icon('check', { size: 16 }), 'Submit test');
   const footer = h('footer', { class: 'runner-footer' },
     h('div', { class: 'runner-footer__inner' },
       progressText,
+      savedEl,
       h('button', { type: 'button', class: 'btn btn--subtle btn--sm runner-footer__hint', dataset: { testid: 'shortcuts-btn' }, on: { click: () => openShortcuts() } },
         icon('keyboard', { size: 16 }), h('span', {}, 'Keyboard shortcuts (?)')),
       h('span', { class: 'spacer' }),
@@ -781,6 +813,7 @@ export function render(root, ctx, params = {}) {
   }
 
   /* ---- chrome refresh */
+  const tileState = new Map();
   function updateChrome() {
     const done = answeredCount();
     progressBar.setAttribute('aria-valuenow', String(done));
@@ -793,6 +826,13 @@ export function render(root, ctx, params = {}) {
       const t = tiles.get(q.id);
       const a = isAnswered(q, state.answers[q.id]);
       const f = state.flagged.has(q.id);
+      const was = tileState.get(q.id);
+      if (was && ((a && !was.a) || (f && !was.f)) && !prefersReducedMotion()) {
+        t.classList.remove('is-pop');
+        void t.offsetWidth;
+        t.classList.add('is-pop');
+      }
+      tileState.set(q.id, { a, f });
       t.classList.toggle('is-answered', a);
       t.classList.toggle('is-flagged', f);
       t.classList.toggle('is-current', i === state.index);
@@ -933,11 +973,17 @@ export function render(root, ctx, params = {}) {
   let timerId = null;
   let warned5 = false;
   let warned1 = false;
+  let lastAnnouncedMin = null;
   function tick(initial = false) {
     const elapsed = (Date.now() - state.startedAt) / 1000;
     if (!limitSec) { timerText.textContent = formatDuration(elapsed); return; }
     const rem = Math.ceil(limitSec - elapsed);
     timerText.textContent = formatDuration(Math.max(0, rem));
+    const remMin = Math.ceil(Math.max(0, rem) / 60);
+    if (remMin !== lastAnnouncedMin) {
+      lastAnnouncedMin = remMin;
+      if (!initial && rem > 0) timerAnnouncer.textContent = `${remMin} ${remMin === 1 ? 'minute' : 'minutes'} remaining`;
+    }
     timerEl.classList.toggle('is-warning', rem <= 300 && rem > 60);
     timerEl.classList.toggle('is-danger', rem <= 60);
     if (rem <= 300 && !warned5) { warned5 = true; if (rem > 60) toast('5 minutes left', { type: 'warning' }); }
@@ -964,6 +1010,9 @@ export function render(root, ctx, params = {}) {
     closeDrawer();
     const unanswered = ordered.map((q, i) => ({ q, i })).filter(({ q }) => !isAnswered(q, state.answers[q.id]));
     const done = total - unanswered.length;
+    // Required questions (per question, or all via test.requireAllQuestions) block a manual submit. A timed-out test
+    // still auto-submits (finish({ auto: true }) skips this modal).
+    const missingRequired = unanswered.filter(({ q }) => isRequired(test, q));
     const stat = (value, label) => h('div', { class: 'runner-stat' }, h('span', { class: 'runner-stat__v' }, value), h('span', { class: 'runner-stat__l' }, label));
     const body = h('div', { class: 'stack runner-submit' },
       h('div', { class: 'runner-stats' },
@@ -980,7 +1029,16 @@ export function render(root, ctx, params = {}) {
               on: { click: () => { submitModal?.close(); goTo(i, { focus: true }); } },
             }, String(i + 1))))))
         : null,
-      h('p', { class: 'muted' }, 'Once you submit, you cannot change your answers.'),
+      missingRequired.length
+        ? h('div', { class: 'notice notice--error runner-required', role: 'alert', dataset: { testid: 'required-warning' } },
+          icon('alert'),
+          h('div', { class: 'stack' },
+            h('span', {}, `Answer ${missingRequired.length === 1 ? 'this required question' : `these ${missingRequired.length} required questions`} before you submit:`),
+            h('div', { class: 'runner-jumps' }, missingRequired.map(({ i }) => h('button', {
+              type: 'button', class: 'runner-jump', 'aria-label': `Go to required question ${i + 1}`,
+              on: { click: () => { submitModal?.close(); goTo(i, { focus: true }); } },
+            }, String(i + 1))))))
+        : h('p', { class: 'muted' }, 'Once you submit, you cannot change your answers.'),
     );
     submitModal = openModal({
       title: 'Submit your test?',
@@ -989,8 +1047,8 @@ export function render(root, ctx, params = {}) {
       onClose: () => { submitModal = null; },
       actions: [
         { label: 'Keep working', variant: 'ghost', testid: 'cancel-submit', autofocus: true, onClick: (close) => close() },
-        { label: 'Submit test', variant: 'primary', testid: 'confirm-submit', onClick: () => finish({ auto: false }) },
-      ],
+        missingRequired.length ? null : { label: 'Submit test', variant: 'primary', testid: 'confirm-submit', onClick: () => finish({ auto: false }) },
+      ].filter(Boolean),
     });
   }
 
@@ -1013,6 +1071,19 @@ export function render(root, ctx, params = {}) {
         submitModal?.close();
         ctx.navigate('results', { test, grade, payload: null, submission: null, preview: true });
       } else {
+        // V3-02: re-check just before sending (second tab / device). Network errors send anyway (server backstop).
+        if (test.singleSubmission && await preSubmitBlocked(ctx, test)) {
+          state.done = true;
+          remove(progressKey);
+          submitModal?.close();
+          openModal({
+            title: 'Already submitted',
+            testid: 'already-submitted-modal',
+            body: 'You’ve already submitted this test, so this attempt was not sent. Ask your teacher if you need a retake.',
+            actions: [{ label: 'OK', variant: 'primary', onClick: (close) => { close(); ctx.openTest(test.code); } }],
+          });
+          return;
+        }
         const payload = buildPayload({
           test, grade, user, startedAt: state.startedAt, submittedAt: Date.now(),
           flags: { tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode },
@@ -1126,6 +1197,7 @@ export function render(root, ctx, params = {}) {
 
   return function cleanup() {
     stopTimer();
+    clearTimeout(savedT);
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('visibilitychange', onVisibility);
     window.removeEventListener('pagehide', onPageHide);

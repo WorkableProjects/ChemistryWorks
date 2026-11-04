@@ -1,7 +1,8 @@
 // Shared DOM helpers used by every view. No framework: views build DOM with `h()` and
 // return a cleanup function from their render function.
 
-import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange } from './lib/theme.js';
+import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange,
+  prefersReducedMotion, getReduceMotionPref, setReduceMotion } from './lib/theme.js';
 
 /**
  * Create an element.
@@ -62,6 +63,7 @@ const ICONS = {
   flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 14h9"/>',
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
@@ -109,7 +111,37 @@ export function richText(text, tag = 'span', className = '') {
   const el = document.createElement(tag);
   el.className = `rich ${className}`.trim();
   el.textContent = text == null ? '' : String(text);
+  if (el.textContent && NEEDS_MATH.test(el.textContent)) loadKatex();
   return el;
+}
+
+// KaTeX (+ mhchem, auto-render) is loaded on demand, only once some content actually contains math delimiters.
+const KATEX_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/';
+const NEEDS_MATH = /\$|\\\(|\\\[/;
+let katexPromise = null;
+function addScript(src) {
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+/** Load KaTeX once (katex, then mhchem + auto-render). Resolves true when ready. Safe to call repeatedly. */
+export function loadKatex() {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (window.katex && typeof window.renderMathInElement === 'function') return Promise.resolve(true);
+  if (!katexPromise) {
+    katexPromise = (async () => {
+      if (!window.katex && !(await addScript(`${KATEX_BASE}katex.min.js`))) return false;
+      await Promise.all([addScript(`${KATEX_BASE}contrib/mhchem.min.js`), addScript(`${KATEX_BASE}contrib/auto-render.min.js`)]);
+      flushMath();
+      return true;
+    })().catch(() => false);
+    katexPromise.then((ok) => { if (!ok) katexPromise = null; });
+  }
+  return katexPromise;
 }
 
 const MATH_DELIMITERS = [
@@ -168,6 +200,10 @@ export function renderMath(root) {
   if (!root) return;
   const targets = root.matches?.('.rich') ? [root] : Array.from(root.querySelectorAll('.rich:not(.math-ready)'));
   if (!katexReady()) {
+    const plain = targets.filter((t) => !NEEDS_MATH.test(t.textContent || ''));
+    plain.forEach((t) => requestAnimationFrame(() => t.classList.add('math-ready')));
+    if (plain.length === targets.length) return; // no math anywhere: nothing to load or replay
+    loadKatex();
     mathQueue.push(root);
     // Still show text immediately if KaTeX never arrives (offline): reveal after a grace period.
     setTimeout(() => targets.forEach((t) => t.classList.add('math-ready')), 1200);
@@ -274,9 +310,47 @@ export function formatDurationLong(totalSeconds) {
   return hr ? `${hr}h ${m % 60}m` : `${m}m ${r}s`;
 }
 
-/** Respect the user's reduced-motion setting in JS-driven animations. */
-export function prefersReducedMotion() {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Respect the user's reduced-motion setting (OS or app switch) in JS-driven animations. Defined in js/lib/theme.js. */
+export { prefersReducedMotion };
+
+/** Run a DOM update inside a View Transition when supported and motion is not reduced; otherwise just run it. */
+export function viewTransition(fn) {
+  if (typeof document !== 'undefined' && typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
+    try { return document.startViewTransition(fn); } catch { /* fall through */ }
+  }
+  return fn();
+}
+
+/** Animate a number in el from 0 to `to` (instant under reduced motion). */
+export function countUp(el, to, { duration = 600, decimals = 0, suffix = '' } = {}) {
+  const target = Number(to);
+  const fmt = (v) => `${v.toFixed(decimals)}${suffix}`;
+  if (!el) return;
+  if (!Number.isFinite(target) || prefersReducedMotion() || typeof requestAnimationFrame !== 'function' || duration <= 0) {
+    el.textContent = fmt(Number.isFinite(target) ? target : 0);
+    return;
+  }
+  const t0 = performance.now();
+  const tick = (now) => {
+    const p = Math.min(1, (now - t0) / duration);
+    const eased = 1 - (1 - p) ** 3;
+    el.textContent = fmt(target * eased);
+    if (p < 1 && el.isConnected !== false) requestAnimationFrame(tick);
+    else el.textContent = fmt(target);
+  };
+  requestAnimationFrame(tick);
+}
+
+/** Stagger the entrance of `.stagger-item` children (CSS `rise` keyframe) by `step` ms each. */
+export function stagger(listEl, { step = 40 } = {}) {
+  if (!listEl) return;
+  const reduced = prefersReducedMotion();
+  let i = 0;
+  for (const child of listEl.children) {
+    if (!child.classList?.contains('stagger-item')) continue;
+    child.style.animationDelay = reduced ? '0ms' : `${Math.min(i, 12) * step}ms`;
+    i += 1;
+  }
 }
 
 /**
@@ -294,8 +368,11 @@ export function themeControl({ floating = false } = {}) {
     'aria-label': `${name} accent`, dataset: { testid: `accent-${name}` }, on: { click: () => setAccent(name) },
   }));
   const roleNote = h('p', { class: 'theme-ctl__note' });
+  const motionBox = h('input', { type: 'checkbox', dataset: { testid: 'reduce-motion' }, 'aria-label': 'Reduce motion',
+    on: { change: () => setReduceMotion(motionBox.checked) } });
   const sync = () => {
     drawIcon();
+    motionBox.checked = getReduceMotionPref();
     const pref = getThemePref();
     segBtns.forEach((b, i) => b.setAttribute('aria-checked', String(THEMES[i] === pref)));
     const acc = getAccent();
@@ -305,6 +382,7 @@ export function themeControl({ floating = false } = {}) {
   const pop = h('div', { class: 'theme-ctl__pop', role: 'dialog', 'aria-label': 'Appearance', hidden: true, dataset: { testid: 'theme-menu' } },
     h('span', { class: 'theme-ctl__label' }, 'Theme'),
     h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Theme' }, segBtns),
+    h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Reduce motion'), motionBox),
     h('span', { class: 'theme-ctl__label' }, 'Accent colour'),
     h('div', { class: 'theme-swatches', role: 'radiogroup', 'aria-label': 'Accent colour' }, swatches),
     roleNote);

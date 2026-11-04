@@ -1,1 +1,7 @@
-[]
+[
+  {
+    "code": "DEMOV3",
+    "title": "V3 Question Types Demo",
+    "description": "One question of each V3 type: balancing, electron configuration, periodic-table pick, significant figures, sorting into groups, labelling a diagram, and reading and plotting a graph."
+  }
+]

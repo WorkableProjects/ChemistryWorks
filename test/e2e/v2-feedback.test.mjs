@@ -44,9 +44,10 @@ test('student opens feedback from the landing list: pending, then released with 
   await page.locator(tid('code-card')).waitFor();
   await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
   await page.locator(tid('feedback-released')).waitFor();
-  await waitText(page.locator(tid('feedback-score')), new RegExp(`^1\\.5 / ${sub.score_total} \\(12\\.5%\\)$`));
-  await waitText(page.locator(tid(`feedback-points-${qa}`)), new RegExp(`^0\\.5 / `));
-  const c = page.locator(tid(`feedback-comment-${qa}`));
+  // v3: the released review is the PDF export model (export-* testids).
+  await waitText(page.locator(tid('export-score')), new RegExp(`^1\\.5 / ${sub.score_total} · 12\\.5%$`));
+  await waitText(page.locator(tid(`export-item-${qa}`)).locator('.export-item__pts'), new RegExp(`^0\\.5 / `));
+  const c = page.locator(tid(`export-item-${qa}`)).locator('.export-comment');
   await c.waitFor();
   assert.equal(await c.locator('strong').textContent(), 'Well done');
   const a = c.locator('a');
@@ -54,8 +55,8 @@ test('student opens feedback from the landing list: pending, then released with 
   assert.match(await a.getAttribute('rel'), /noopener/);
   assert.equal(await c.locator('b').count(), 0, 'raw HTML is not rendered');
   assert.match(await c.textContent(), /<b>raw<\/b>/);
-  assert.equal(await page.locator(tid(`feedback-comment-${qb}`)).locator('li').count(), 2);
-  assert.equal(await page.locator(tid(`feedback-comment-${qids[2]}`)).count(), 0);
+  assert.equal(await page.locator(tid(`export-item-${qb}`)).locator('.export-comment li').count(), 2);
+  assert.equal(await page.locator(tid(`export-item-${qids[2]}`)).locator('.export-comment').count(), 0);
 }));
 
 test('feedback groups questions under section headings', () => withSession(env, {}, async (s) => {
@@ -77,8 +78,8 @@ test('feedback groups questions under section headings', () => withSession(env, 
   await backToLanding(page);
   await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
   await page.locator(tid('feedback-released')).waitFor();
-  await poll(async () => (await page.locator(tid('feedback-section')).count()) === 2, { message: 'two section headings' });
-  assert.equal(await page.locator(tid('feedback-comment-q2')).count(), 1);
+  await poll(async () => (await page.locator(tid('export-section')).count()) === 2, { message: 'two section headings' });
+  assert.equal(await page.locator(tid('export-item-q2')).locator('.export-comment').count(), 1);
 }));
 
 test('feedback errors offer a retry; no backend shows unavailable', () => withSession(env, {}, async (s) => {

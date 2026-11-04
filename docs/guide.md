@@ -19,7 +19,7 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 1. Output strict JSON: double-quoted keys and strings, no `//` comments, no trailing commas.
 2. `code`: 2–32 characters, uppercase letters, digits, `-` or `_` (e.g. `CHEM-U3-QUIZ`). Must be unique among the teacher's tests.
 3. Every question needs a unique `id` (letters, digits, `-`, `_`). Use `q1`, `q2`, `q3`, …
-4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`.
+4. `type` must be one of: `mcq`, `multi`, `numeric`, `formula`, `truefalse`, `matching`, `ordering`, `fillblank`, `lewis`, `structure`, `short`, `open`, `orbital`, `balance`, `econfig`, `ptable`, `sigfigs`, `categorize`, `hotspot`, `graph`.
 5. `points` must be a number greater than 0.
 6. Option ids (`mcq`, `multi`), item ids (`matching`, `ordering`), blank ids (`fillblank`) and atom ids (`structure`) must be unique **within that question**. Use `a`, `b`, `c`, `d` for options.
 7. `correctAnswer` must refer to ids that exist in the question (see each type below).
@@ -61,6 +61,10 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 | `allowModeToggle` | no | boolean | `true` | Student may switch between one-at-a-time and all-on-one-page. |
 | `defaultMode` | no | `"focus"`, `"scroll"` or `null` | `null` (site default) | Starting layout. |
 | `passingPercent` | no | number 0–100 or `null` | `null` | Shows a Passed / Not yet badge. |
+| `gameMode` | no | boolean | `false` | Offers a practice **Game mode** (never submitted) next to the normal test. |
+| `games` | no | array of game ids | all playable | Limits the game picker: `classic`, `survival`, `lightning`, `elementhunt`, `matchup`, `flashcards`. |
+| `singleSubmission` | no | boolean | `false` | **One submission per student** (v3): a student who already submitted (same Google email) cannot start it again. Use **Grading → Allow retake** for exceptions. |
+| `requireAllQuestions` | no | boolean | `false` | Every question must be answered before the student can submit. To require only some questions, set `required: true` on those questions. A test that runs out of time still submits automatically. |
 | `sections` | no | array of `{ id, title, instructions? }` | `[]` | Named groups of questions. See [Sections and references](#sections-and-references-v2). |
 | `references` | no | array of reference items | `[]` | Resources shown in a split-screen pane beside the questions. See [Sections and references](#sections-and-references-v2). |
 | `questions` | yes | array, at least 1 | — | See below. |
@@ -131,6 +135,13 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 | draw the full Lewis structure of a molecule or polyatomic ion (bonds + lone pairs) | `structure` |
 | draw a structure with brackets, an overall charge and formal charges (teacher graded) | `structure` with `"studentCharges": true` |
 | fill in an energy orbital diagram with up/down arrows (teacher graded) | `orbital` |
+| balance a chemical equation by typing coefficients | `balance` |
+| write an electron configuration (`1s2 2s2 2p6` or `[Ne] 3s1`) | `econfig` |
+| click one or more elements on the periodic table | `ptable` |
+| give a number with the right number of significant figures | `sigfigs` |
+| sort items into labeled groups (ionic / covalent / metallic) | `categorize` |
+| place labels on a picture (lab equipment, a diagram) | `hotspot` |
+| read a value off a chart, or plot points on a grid (heating curve, titration) | `graph` |
 | write a sentence or two (teacher graded) | `short` |
 | write an extended explanation graded with a rubric (teacher graded) | `open` |
 
@@ -145,6 +156,7 @@ A reference pane appears beside the questions on wide screens (stacked or collap
 | `text` | yes | The question. Supports math, see [Writing chemistry and math](#writing-chemistry-and-math). |
 | `points` | no | Number > 0. Default `1`. |
 | `explanation` | no | Shown in the student review after submitting (if `showCorrectAnswers` is on). Strongly recommended. |
+| `required` | no | `true` = the student must answer this question before submitting (shown with a **Required** tag). Default `false`. |
 | `section` | no | Id of a section in the test's `sections`. Omit for an unsectioned question. |
 | `image` | no | Image shown alongside the question: `{ "url": "https://…" or "images/x.png", "alt": "what it shows", "position": "right" \| "left" \| "below" }`. `alt` is required; `position` defaults to `right`. Phones stack it under the text. Also appears in the review, grading and PDF export. |
 
@@ -547,6 +559,187 @@ Students get an empty orbital diagram (one box per orbital, grouped by sublevel,
 - `orbitalTypes` (default `["s","p"]`): which sublevel types to include, any subset of `s`, `p`, `d`, `f`. Include every type up to the highest one you need (for iron, `3d` needs `["s","p","d"]`).
 - `sampleAnswer` (optional, recommended): the reference diagram the teacher sees while grading. An object keyed by sublevel, each value an array with **one entry per orbital box** (s = 1, p = 3, d = 5, f = 7): `""` empty, `"u"` one up arrow, `"d"` one down arrow, `"ud"` a pair. Example iron 3d: `["ud","u","u","u","u"]`. It is shown to students in the review only if `showCorrectAnswers` is on.
 - Set `points` to reflect the work (for example 1 point per correctly filled sublevel).
+
+---
+
+### 14. `balance`: balance the equation
+
+Students type a whole-number coefficient into a box in front of every formula (`_ H2 + _ O2 → _ H2O`). Formulas are shown with subscripts and charges.
+
+```json
+{
+  "id": "bal1",
+  "type": "balance",
+  "text": "Balance the equation for the formation of water.",
+  "points": 2,
+  "reactants": ["H2", "O2"],
+  "products": ["H2O"],
+  "coefficients": [2, 1, 2],
+  "allowMultiples": false,
+  "partialCredit": false
+}
+```
+
+- `reactants` and `products`: non-empty lists of formulas, written like `formula` answers (`Fe^3+`, `Ca(OH)2`).
+- `coefficients`: positive whole numbers, one per formula, **reactants first and then products** (so the length is `reactants` + `products`). A coefficient of 1 must still be listed.
+- `allowMultiples` (default `false`): when `true`, any whole-number multiple of the lowest ratio is also correct (`[4, 2, 4]` for `[2, 1, 2]`). When `false`, only `coefficients` is correct.
+- `partialCredit` (default `false`): credit is the fraction of boxes that match.
+- The student's answer is stored as a list of numbers (a blank box is `0`).
+
+### 15. `econfig`: electron configuration
+
+Students type a configuration such as `1s2 2s2 2p6 3s1` or the noble-gas shorthand `[Ne] 3s1`. A live preview shows the electron counts as superscripts.
+
+```json
+{
+  "id": "ec1",
+  "type": "econfig",
+  "text": "Write the ground-state electron configuration of sodium.",
+  "points": 2,
+  "answers": ["1s2 2s2 2p6 3s1", "[Ne] 3s1"]
+}
+```
+
+- `answers`: one or more accepted configurations. A student's answer is correct if it matches **any** of them.
+- Spacing, order of the subshells, `^` or superscript digits (`2p^6`, `2p⁶`), upper or lower-case subshell letters and noble-gas cores (`[He]`, `[Ne]`, `[Ar]`, `[Kr]`, `[Xe]`, `[Rn]`) are all normalized before comparing, so `[Ar] 4s1 3d5` equals `1s2 2s2 2p6 3s2 3p6 3d5 4s1`.
+- List exceptions (Cr, Cu and others) simply by giving the accepted configuration(s) in `answers`.
+- Separate subshells with spaces when typing without superscripts (`1s2 2s2`).
+
+### 16. `ptable`: pick elements on the periodic table
+
+Students click one or more elements on a periodic table. Every element is a real button with its name as the accessible label.
+
+```json
+{
+  "id": "pt1",
+  "type": "ptable",
+  "text": "Click the alkali metals in periods 3 and 4.",
+  "points": 2,
+  "answers": ["Na", "K"],
+  "multiple": true,
+  "partialCredit": true
+}
+```
+
+- `answers`: element symbols (`"Na"`, `"Fe"`), no duplicates.
+- `multiple` (default `true`): `false` makes it single select and needs exactly one answer.
+- Graded like `multi`: all and only the answers is correct. `partialCredit` (default `false`) gives `(right - wrong) / answers` of the points.
+
+### 17. `sigfigs`: significant figures
+
+Students type a number (scientific notation such as `4.50e-3` or `4.50 × 10^-3` is accepted). It is correct when the **value** is within `tolerance` and the number of **significant figures they wrote** equals `sigFigs`.
+
+```json
+{
+  "id": "sf1",
+  "type": "sigfigs",
+  "text": "Write 0.00450 g in scientific notation with the correct number of significant figures.",
+  "points": 2,
+  "answer": 0.0045,
+  "sigFigs": 3,
+  "tolerance": 0.000001,
+  "partialCredit": true
+}
+```
+
+- `answer`: the correct number. `sigFigs`: whole number from 1 to 15. `tolerance` (default `0`): absolute (plus or minus).
+- `partialCredit` (default `true`): half the points for the right value, half for the right number of significant figures.
+- Counting rules: leading zeros never count; zeros after a decimal point count (`0.00450` has 3); trailing zeros of a whole number with no decimal point are **not** significant (`1500` has 2, `1500.` has 4). Use scientific notation to be exact: `1.50e3` has 3.
+- The student's raw text is kept as the answer.
+
+### 18. `categorize`: sort into groups
+
+Students put every item into one of the groups. Each item card has a menu (so it works with keyboard, touch and screen readers); mouse users can also drag a card onto a group.
+
+```json
+{
+  "id": "cat1",
+  "type": "categorize",
+  "text": "Sort each substance by the type of bonding it has.",
+  "points": 3,
+  "categories": [
+    { "id": "ionic", "label": "Ionic" },
+    { "id": "covalent", "label": "Covalent" },
+    { "id": "metallic", "label": "Metallic" }
+  ],
+  "items": [
+    { "id": "i1", "text": "NaCl", "category": "ionic" },
+    { "id": "i2", "text": "H2O", "category": "covalent" },
+    { "id": "i3", "text": "Cu", "category": "metallic" }
+  ],
+  "partialCredit": true
+}
+```
+
+- At least 2 `categories` and 1 `items`; each item's `category` must be one of the category ids. Ids must be unique within the question.
+- All items correct = full points. `partialCredit` (default `true`) gives the fraction of items in the right group.
+- With the test option `shuffleOptions` the item order is shuffled per student.
+
+### 19. `hotspot`: label the diagram
+
+The student selects a label, then clicks or taps where it belongs on the picture. Keyboard: select a label, use the arrow keys to move a crosshair (Shift = bigger steps) and press Enter to place it.
+
+```json
+{
+  "id": "hot1",
+  "type": "hotspot",
+  "text": "Place each label on the lab equipment.",
+  "points": 3,
+  "image": { "url": "data/tests/lab-bench.svg", "alt": "A lab bench with a beaker, a flask and a burner" },
+  "labels": [
+    { "id": "a", "text": "Beaker", "x": 0.25, "y": 0.58 },
+    { "id": "b", "text": "Flask", "x": 0.6, "y": 0.63 }
+  ],
+  "radius": 0.1,
+  "partialCredit": true
+}
+```
+
+- `image` (required) is the diagram; it must have `alt` text. In the builder this is the question's **Image** field.
+- `x` and `y` are fractions of the picture (0 to 1; `x` of the width, `y` of the height). `radius` (default `0.06`) is how far from the target a label may be, as a fraction of the image width; on a non-square picture the accepted area is slightly oval.
+- A label is correct when it is within `radius` of its target. `partialCredit` (default `true`) gives the fraction of labels placed correctly.
+- Builder: select a label in the list, then click the preview picture to set its spot, or type `x` / `y`.
+
+### 20. `graph`: read or plot a graph
+
+`mode: "read"` draws a chart (inline SVG) and the student types a number. `mode: "plot"` shows an empty grid; the student clicks to add points and clicks a point to remove it. Keyboard: arrow keys move a crosshair, Enter adds or removes a point.
+
+```json
+{
+  "id": "gr1",
+  "type": "graph",
+  "mode": "read",
+  "text": "What is the temperature after 4 minutes?",
+  "points": 2,
+  "chart": {
+    "xLabel": "Time (min)", "yLabel": "Temperature (°C)",
+    "xMin": 0, "xMax": 10, "yMin": 0, "yMax": 100,
+    "series": [{ "points": [[0, 20], [2, 40], [4, 60], [6, 80], [8, 100]] }]
+  },
+  "answer": 60,
+  "tolerance": 3,
+  "unit": "°C"
+}
+```
+
+```json
+{
+  "id": "gr2",
+  "type": "graph",
+  "mode": "plot",
+  "text": "Plot the points (1, 20), (3, 50) and (5, 80).",
+  "points": 3,
+  "chart": { "xLabel": "Time (min)", "yLabel": "Temperature (°C)", "xMin": 0, "xMax": 6, "yMin": 0, "yMax": 100, "series": [] },
+  "targets": [[1, 20], [3, 50], [5, 80]],
+  "toleranceX": 0.3,
+  "toleranceY": 5,
+  "partialCredit": true
+}
+```
+
+- `chart` needs `xMin < xMax` and `yMin < yMax`. In `read` mode at least one series with points is required; in `plot` mode `series` is not shown to students (use `[]`).
+- `read`: `answer` and `tolerance` (absolute, default `0`) are graded like `numeric`; `unit` is optional.
+- `plot`: correct when every target has a placed point within the `toleranceX` / `toleranceY` box and the student placed no more points than there are targets. `partialCredit` gives the fraction of targets hit.
 
 ---
 
@@ -1123,6 +1316,14 @@ After students submit, open the admin **Grading** tab (it needs the admin key in
 v2 additions to the grader: the **Full / Half / Zero** buttons set 100%, 50% or 0% of a question's points in one click, or type any score from 0 up to the question's points (negative, too-high or non-numeric entries are rejected with a message). Scores can be fractional (for example 1.5). Auto-graded questions keep their automatic score as the default; a different score is saved as an **override** and labelled with the automatic score. Orbital diagrams and `structure` questions with `studentCharges` are teacher graded like `short` and `open`.
 
 To give feedback, add a **comment** to any question (supports `**bold**`, `*italic*`, `- ` and `1. ` lists and `[text](https://…)` links; empty comments are not saved). Comments are private until you tick **Release grade & comments to student** and save. After release, students see their score and your comments under **Your submitted tests > View feedback**. **Export PDF** (in an open submission) prints one student's reviewed submission, including correct answers and your comments (released or not), with math typeset. Each question is kept whole on one page, and the PDF has no browser header or footer.
+
+### Released feedback, one submission per student and retakes (v3)
+
+- **Students see released feedback from the test link, on any device.** After you release a grade (tick **Release grade & comments to student**, or **Release all graded** for a whole test), the student opens the same test link, signs in with Google, and sees the full review: score, every question, their answer (with diagrams and images), the correct answer (if *Show correct answers* is on), points per question, your comments and "Graded by". **Download PDF** gives them the same document as your export. Un-release it and it disappears on their next visit.
+- **Before release**, the student sees "You submitted this test on … Your teacher hasn't released grades yet." For normal tests there is a **Take again** button; for one-submission tests there isn't.
+- **One submission per student:** turn on **One submission per student** in the builder settings (or `"singleSubmission": true`). The library shows a **1 attempt** tag. A blocked student can still practice in **Game mode** if it is on. If a student forces a second submission (for example two tabs), it is saved as **Extra attempt**: kept for your records, not counted, and not shown to the student. See it with the **Extra attempts** status filter.
+- **Allow retake:** open the student's submission in **Grading** and click **Allow retake**. That student can submit once more; their earlier feedback stays viewable.
+- These features need the v3 Apps Script with the `GOOGLE_CLIENT_ID` script property (see DEPLOYMENT.md, "Upgrading to v3"). Without it, the app keeps the v2.5 behavior.
 
 ---
 

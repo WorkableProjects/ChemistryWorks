@@ -4,7 +4,7 @@
 /* ---------- Split layout (runner) ---------- */
 .runner-split { --ref-w: 40%; --ref-col: var(--ref-w); flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) var(--ref-col); align-items: start; gap: 0 20px; padding-right: 16px; }
 .runner-split[data-ref-collapsed="true"] { --ref-col: 52px; }
-.runner-split:not(.is-resizing) { transition: grid-template-columns 200ms var(--ease); }
+.runner-split:not(.is-resizing) { transition: grid-template-columns var(--dur-base) var(--ease); }
 .runner-split.is-resizing { cursor: col-resize; user-select: none; }
 .runner-split > .runner-main { width: 100%; max-width: 760px; margin: 0 auto; min-width: 0; }
 

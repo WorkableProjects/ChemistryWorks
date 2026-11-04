@@ -7,7 +7,8 @@
 //   game     params: { test, source }     (single-player practice; never submits)
 //   runner   params: { test, source, preview?: boolean }
 //   results  params: { test, grade, payload, submission, preview?: boolean }
-//   feedback params: { payload }  (a past submission from getLocalResults())
+//   feedback params: { payload } (a past submission from getLocalResults()) | { test, source, status, canRetake, practiceOnly } (V3-01)
+//   submitted params: { test, source, status, canRetake }  (V3-01/02: submitted, not released yet)
 //   admin    params: {}
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
@@ -16,20 +17,28 @@ import { CONFIG } from './config.js';
 import { getUser, signOut, onAuthChange } from './lib/auth.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { load, save } from './lib/storage.js';
-import { h, mount, openModal, toast } from './ui.js';
+import { h, mount, icon, openModal, toast, viewTransition } from './ui.js';
+import { checkSubmissionState } from './lib/student-status.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
 import * as runner from './views/runner.js';
-import * as modeSelect from './views/mode-select.js';
-import * as game from './views/game.js';
 import * as results from './views/results.js';
 import * as feedback from './views/feedback.js';
-import * as admin from './views/admin.js';
+import * as submitted from './views/submitted.js';
 
-const VIEWS = { landing, runner, 'mode-select': modeSelect, game, results, feedback, admin };
+// Rarely needed heavy views are lazy: an entry may be a loader `() => import(...)` that navigate() awaits once.
+const VIEWS = {
+  landing, runner, results, feedback, submitted,
+  'mode-select': () => import('./views/mode-select.js'),
+  game: () => import('./views/game.js'),
+  admin: () => import('./views/admin.js'),
+};
 const root = document.getElementById('app');
 let cleanup = null;
 let currentView = null;
+let navSeq = 0;
+const loaded = new Map();
+const resolveView = (view) => loaded.get(view) || VIEWS[view];
 
 function setUrl(params) {
   const url = new URL(location.href);
@@ -61,12 +70,40 @@ function navigate(view, params = {}) {
   if (view === 'admin') setUrl({ admin: 'true' });
   else if ((view === 'runner' || view === 'mode-select' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
   else if (view === 'landing') setUrl({ code: params.code || null });
+  else if ((view === 'feedback' || view === 'submitted') && params.test?.code) setUrl({ code: params.test.code });
   window.scrollTo({ top: 0 });
+  const seq = ++navSeq;
+  const swap = () => {
+    if (seq !== navSeq) return; // a newer navigation won the race
+    const res = resolveView(view).render(root, ctx, params);
+    cleanup = typeof res === 'function' ? res : null;
+  };
+  const start = () => {
+    if (seq !== navSeq) return;
+    transition();
+  };
+  const transition = () => {
   root.classList.remove('view-enter');
-  void root.offsetWidth; // restart the enter animation
-  root.classList.add('view-enter');
-  const res = VIEWS[view].render(root, ctx, params);
-  cleanup = typeof res === 'function' ? res : null;
+  // View Transitions API where supported and motion is allowed (skipped under automation so renders stay synchronous);
+  // otherwise the CSS view-enter animation.
+  if (typeof document.startViewTransition === 'function' && !navigator.webdriver) {
+    viewTransition(swap);
+  } else {
+    void root.offsetWidth; // restart the enter animation
+    root.classList.add('view-enter');
+    swap();
+  }
+  };
+  const entry = VIEWS[view];
+  if (typeof entry === 'function') {
+    // Lazy view: load its module first (once), then run the same transition/swap path.
+    entry().then((mod) => { loaded.set(view, mod); start(); }).catch((e) => {
+      console.error(e);
+      if (seq === navSeq) { toast('Could not load this page. Check your connection and try again.', { type: 'error' }); if (view !== 'landing') navigate('landing'); }
+    });
+  } else {
+    start();
+  }
 }
 
 /** Load a test by code and open it in the runner (student mode). Errors return to landing. */
@@ -74,6 +111,15 @@ async function openTest(code) {
   const c = normalizeCode(code);
   try {
     const { test, source } = await loadTest(c, { config: CONFIG });
+    // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
+    mount(root, h('div', { class: 'status-check', role: 'status', 'aria-live': 'polite', dataset: { testid: 'submission-status-check' } },
+      h('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Checking your submission…'));
+    const state = await checkSubmissionState(ctx, test);
+    const canRetake = !test.singleSubmission || !state.blocking;
+    const practiceOnly = !canRetake;
+    if (state.feedback) return navigate('feedback', { test, source, status: state, canRetake, practiceOnly });
+    const showNotice = test.singleSubmission ? state.blocking : (state.source === 'server' && state.submitted);
+    if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source });
   } catch (err) {

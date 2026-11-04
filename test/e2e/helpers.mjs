@@ -33,6 +33,7 @@ export async function startEnv() {
 export async function newSession(env, { config = {}, viewport, acceptDownloads = true } = {}) {
   const context = await env.browser.newContext({ viewport: viewport || { width: 1280, height: 900 }, acceptDownloads });
   const gas = [];
+  const statusCalls = [];
   const netlify = [];
   const errors = [];
   const modes = { gas: 'ok', netlify: 200 };
@@ -71,7 +72,8 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
       if (req.method() === 'POST') {
         let body = null;
         try { body = JSON.parse(req.postData() || 'null'); } catch { body = { raw: req.postData() }; }
-        gas.push(body);
+        // v3: the read-only submission-status check is recorded separately so `gas` keeps meaning "writes".
+        if (body && body.action === 'getStudentStatus') statusCalls.push(body); else gas.push(body);
         if (modes.gas === 'fail') return route.abort('failed');
         const reply = session.onGas?.(body) || { result: 'success' };
         return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(reply) });
@@ -92,7 +94,7 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
   });
 
   const session = {
-    page, context, gas, netlify, errors, modes, url: env.url,
+    page, context, gas, netlify, errors, modes, statusCalls, url: env.url,
     onGas: null, // optional (body) => reply object for Apps Script POSTs (admin actions)
     serveTest(code, test) { overrides.set(`/data/tests/${code}.json`, test); },
     async close() {

@@ -29,6 +29,7 @@
 
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/runner.css" />
+  <link rel="stylesheet" href="css/qtypes.css" />
   <link rel="stylesheet" href="css/game.css" />
   <link rel="stylesheet" href="css/admin.css" />
   <link rel="stylesheet" href="css/references.css" />
@@ -37,10 +38,7 @@
   <link rel="stylesheet" href="css/feedback.css" />
   <link rel="stylesheet" href="css/print.css" />
 
-  <!-- KaTeX + mhchem (\ce{...}) for chemistry notation. Loaded deferred; the app re-renders math once ready. -->
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/contrib/mhchem.min.js"></script>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/contrib/auto-render.min.js"></script>
+  <!-- KaTeX + mhchem are loaded on demand by js/ui.js (loadKatex) when content contains math. -->
   <!-- Google Identity Services -->
   <script async defer src="https://accounts.google.com/gsi/client"></script>
 
@@ -63,6 +61,7 @@
     <input type="hidden" name="percentage" />
     <input type="hidden" name="duration_seconds" />
     <input type="hidden" name="needs_grading" />
+    <input type="hidden" name="single_submission" />
     <input type="hidden" name="responses_json" />
     <input type="hidden" name="flags_json" />
     <input type="hidden" name="submitted_at" />
