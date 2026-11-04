@@ -2,15 +2,15 @@
 
 Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 
-**Integration branch:** `v4` (not created yet; S01 creates it)
+**Integration branch:** `v4` (not created yet). S00–S04 were built on `claude/elegant-knuth-3ig53s` (the session branch).
 
 | # | Session | Status | Branch / PR | Notes |
 |---|---|---|---|---|
-| S00 | Fixes | In progress | `claude/v4-plan` (PR #13) | FIX-1 grading loop, FIX-2 picker, FIX-3 alignment + editor done; FIX-3 shared stage for results/grading/PDF to do |
-| S01 | Foundations | Not started | | |
-| S02 | Brand system | Not started | | |
-| S03 | App shell + student views | Not started | | |
-| S04 | Runner + results revamp | Not started | | |
+| S00 | Fixes | Done | `claude/v4-plan` (PR #13), `claude/elegant-knuth-3ig53s` | FIX-1, FIX-2, FIX-3 (shared stage in results/grading/PDF, tap-to-zoom, snap animation) |
+| S01 | Foundations | Done | `claude/elegant-knuth-3ig53s` | FEATURES flags, SITE_VERSION, runner/builder split. `v4` branch not created (session could only push its own branch) |
+| S02 | Brand system | Done | `claude/elegant-knuth-3ig53s` | Tokens, Plus Jakarta Sans, SVG mark, contrast + no-hex tests, DESIGN.md |
+| S03 | App shell + student views | In progress | `claude/elegant-knuth-3ig53s` | |
+| S04 | Runner + results revamp | In progress | `claude/elegant-knuth-3ig53s` | |
 | S05 | Admin revamp | Not started | | |
 | S06 | Admin accounts + backend 4.0 base | Not started | | |
 | S07 | Teacher tools I | Not started | | |

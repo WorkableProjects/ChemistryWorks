@@ -368,3 +368,33 @@ excluded from counts, from `getStudentStatus`, and from the default grading list
 `requireAllQuestions` (test, default false) and `required` (question, optional). `isRequired(test, q)` in `js/lib/schema.js`.
 The runner tags them (`required-pill`) and the submit modal lists unanswered required questions (`required-warning`) without a
 **Submit test** button. A timer auto-submit is never blocked. Builder: `opt-requireAllQuestions`, `q-required`.
+
+## V4 contracts (docs/v3/v4.0plan.md)
+
+### Feature flags (V4-08, S01)
+- `js/config.js` `CONFIG.FEATURES` = `{ adminShell, adminAccounts, teacherTools, studentTools }` (all `false`).
+  Read with `feature(name)`. Turn on per page with `window.CHEMISTRYWORKS_CONFIG = { FEATURES: { name: true } }` or the
+  URL `?features=name1,name2` / `?features=all`. Unknown names are always off. Half-done v4 features ship behind a flag.
+
+### Site version (S01)
+- `js/version.js` `SITE_VERSION` (`4.0.0`) — kept equal to `package.json` `version` (unit test). Shown under the
+  landing card; compared with the backend's `?action=ping` in S06.
+
+### Module layout (S01)
+- `js/views/runner.js` = the runner view; per-type answer widgets live in `js/views/runner/widgets.js`
+  (`buildWidget(q, api)`); `runner.js` re-exports `formatInterpreted`, `optionImageEl`, `choiceImagesEl`.
+- `js/views/admin/builder.js` = the builder view; built-in per-type editors live in `js/views/admin/editors/core.js`
+  (`typeEditor(q, redraw, changed, uid)`).
+
+### Brand + shell (S02/S03)
+- Tokens and logo: see `docs/DESIGN.md`. `brandLogo('wordmark'|'mark', { mono })` and `brandMarkSvg()` in `js/ui.js`.
+- `icon(name)` renders from one hidden SVG sprite (`#cw-icon-sprite`, symbols `#i-<name>`); `ICON_NAMES` lists them.
+- `appHeader({ title, subtitle, right, onHome })`: navy bar + one Settings popover (testids unchanged: `brand`,
+  `theme-toggle`, `theme-menu`, `theme-<pref>`, `accent-<name>`, `reduce-motion`).
+- Accents: `navy` added and default for both roles (`DEFAULT_ACCENT`).
+- CSS files: `results.css` (results + feedback cards, split from runner.css), `landing.css`, `status.css`
+  (status pages + mode select), `export.css` (PDF screen header).
+
+### Label the diagram (FIX-3)
+- `js/views/widgets/hotspot-stage.js` `hotspotDiagram(q, points|null, { size, showTargets, marks, label })`: read-only
+  picture + pins used by results, grading and export. `points = null` draws the answer key.
