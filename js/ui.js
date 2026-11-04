@@ -409,14 +409,51 @@ export function themeControl({ floating = false } = {}) {
 }
 
 /** Standard app header used by runner/admin. `right` is a Node or array of Nodes. */
+/* ---------- Brand: logo images + animated flask loader ---------- */
+
+/**
+ * Brand logo (assets/brand). kind: 'mark' (flask) or 'wordmark' (flask + name). Renders a light-theme and a
+ * dark-theme image; CSS shows the one that matches :root[data-theme].
+ */
+export function brandLogo(kind = 'mark', { className = '', alt = '' } = {}) {
+  const file = kind === 'wordmark' ? 'wordmark' : 'mark';
+  return h('span', { class: ['brand-logo', `brand-logo--${file}`, className].filter(Boolean).join(' '), role: alt ? 'img' : null, 'aria-label': alt || null, 'aria-hidden': alt ? null : 'true' },
+    h('img', { class: 'brand-logo__img brand-logo__img--light', src: `assets/brand/${file}.png`, alt: '', decoding: 'async', draggable: 'false' }),
+    h('img', { class: 'brand-logo__img brand-logo__img--dark', src: `assets/brand/${file}-dark.png`, alt: '', decoding: 'async', draggable: 'false' }));
+}
+
+let loaderSeq = 0;
+/**
+ * The ChemistryWorks loader: a vector redraw of the logo flask with sloshing liquid, rising bubbles and a rocking
+ * molecule. Static SVG markup only (no user content). The same markup is inlined in index.html for the boot screen.
+ */
+export function flaskSvg(size = 64) {
+  const id = `cwl${++loaderSeq}`;
+  return `<svg class="cw-flask" width="${size}" height="${size}" viewBox="-6 -22 112 130" aria-hidden="true" focusable="false">
+<defs><clipPath id="${id}"><path d="M42.5 47 L19 91 Q15.5 99.5 25 99.5 H75 Q84.5 99.5 81 91 L57.5 47 Z"/></clipPath></defs>
+<g clip-path="url(#${id})"><g class="cw-flask__liquid"><path class="cw-flask__wave cw-flask__wave--back" d="M-100 70 q12.5 -6 25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 V110 H-100 Z"/><path class="cw-flask__wave" d="M-100 74 q12.5 6 25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 V110 H-100 Z"/></g>
+<circle class="cw-flask__bubble" cx="40" cy="96" r="4"/><circle class="cw-flask__bubble" cx="55" cy="96" r="3"/><circle class="cw-flask__bubble" cx="64" cy="96" r="2.5"/></g>
+<path class="cw-flask__glass" d="M40 12 V45 L15 90 Q9 104 25 104 H75 Q91 104 85 90 L60 45 V12"/><path class="cw-flask__glass" d="M33 12 H67"/>
+<g class="cw-flask__molecule"><path class="cw-flask__bond" d="M50 -10 L76 10"/><circle class="cw-flask__atom" cx="47" cy="-12" r="9"/><circle class="cw-flask__atom" cx="79" cy="12" r="6"/></g>
+</svg>`;
+}
+
+/** Loader block: animated flask + optional status text. */
+export function flaskLoader({ size = 64, label = '', className = '', testid } = {}) {
+  return h('div', { class: ['cw-loader', className].filter(Boolean).join(' '), role: 'status', 'aria-live': 'polite', dataset: testid ? { testid } : {} },
+    h('span', { class: 'cw-loader__art', html: flaskSvg(size) }),
+    label ? h('span', { class: 'cw-loader__label' }, label) : h('span', { class: 'sr-only' }, 'Loading'));
+}
+
 export function appHeader({ title = 'ChemistryWorks', subtitle = '', right = null, onHome = null } = {}) {
   return h('header', { class: 'app-header' },
     h('button', { class: 'brand', type: 'button', 'aria-label': 'ChemistryWorks home', on: { click: onHome }, dataset: { testid: 'brand' } },
-      h('span', { class: 'brand__mark' }, icon('flask', { size: 18 })),
-      h('span', { class: 'brand__text' },
-        h('span', { class: 'brand__name' }, title),
+      // Full wordmark top-left; narrow screens swap to the flask mark (CSS).
+      h('span', { class: 'brand__logo' }, brandLogo('wordmark', { className: 'brand__wordmark' }), brandLogo('mark', { className: 'brand__mark' })),
+      title !== 'ChemistryWorks' || subtitle ? h('span', { class: 'brand__text' },
+        title !== 'ChemistryWorks' ? h('span', { class: 'brand__name' }, title) : null,
         subtitle ? h('span', { class: 'brand__sub' }, subtitle) : null,
-      ),
+      ) : null,
     ),
     h('div', { class: 'app-header__right' }, right, themeControl()),
   );

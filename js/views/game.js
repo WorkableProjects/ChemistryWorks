@@ -14,12 +14,12 @@ import * as flashcards from './games/flashcards.js';
 const BOARDS = { classic, survival, lightning, elementhunt, matchup, flashcards };
 
 export function render(root, ctx, params = {}) {
-  const { test, source, studyBlocked } = params;
+  const { test, source, studyBlocked, cleared } = params;
   const user = ctx.user;
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
   const game = getGame(params.gameId || 'classic') || getGame('classic');
-  const shell = createShell(root, ctx, { test, source, game, studyBlocked: !!studyBlocked });
+  const shell = createShell(root, ctx, { test, source, game, studyBlocked: !!studyBlocked, cleared: !!cleared });
   BOARDS[game.id].play(shell);
   return () => shell.cleanup();
 }

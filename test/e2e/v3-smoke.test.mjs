@@ -71,3 +71,63 @@ test('required questions block submit until answered', async () => {
     assert.deepEqual(s.errors, []);
   } finally { await s.close(); }
 });
+
+const RELEASED_FB = { submission_id: 'x', test_code: 'SINGLE2', test_title: 'T', student_name: 'Stu', submitted_at: '2026-11-01T10:00:00Z', released_at: '2026-11-02T10:00:00Z', final_score: 1, score_total: 2, final_percentage: 50, grades: {}, comments: {},
+  responses: [{ questionId: 'q1', type: 'mcq', questionText: 'What?', givenAnswerText: 'A', correctAnswerText: 'B', pointsEarned: 1, pointsPossible: 2, answered: true }] };
+
+test('single submission: no Take again on released feedback, and a second attempt cannot be submitted', async () => {
+  const s = await newSession(env, {});
+  let submitted = false;
+  s.onGas = (b) => (b.action === 'getStudentStatus'
+    ? (submitted ? { ...NOT, submitted: true, blocking: true, attempts: 1, latest: { submission_id: 'x', released: true }, feedback: RELEASED_FB } : NOT)
+    : null);
+  s.serveTest('SINGLE2', { ...JSON.parse(fs.readFileSync('data/tests/DEMOV3.json', 'utf8')), code: 'SINGLE2', singleSubmission: true });
+  try {
+    await startTest(s, 'SINGLE2');
+    submitted = true; // e.g. submitted from another tab / device meanwhile
+    await s.page.locator(tid('submit-btn')).first().click();
+    await s.page.locator(tid('confirm-submit')).click();
+    await s.page.locator(tid('already-submitted-modal')).waitFor();
+    assert.equal(s.gas.filter((b) => b.submission_id).length, 0, 'the second attempt was not sent');
+    await s.page.locator(`${tid('already-submitted-modal')} button`).last().click();
+    await s.page.locator(tid('feedback-released')).waitFor();
+    assert.equal(await s.page.locator(tid('take-again')).count(), 0);
+    assert.deepEqual(s.errors, []);
+  } finally { await s.close(); }
+});
+
+test('single submission: device record blocks even when the server has no row yet', async () => {
+  const s = await newSession(env, {});
+  s.onGas = (b) => (b.action === 'getStudentStatus' ? NOT : null);
+  s.serveTest('SINGLE3', { ...JSON.parse(fs.readFileSync('data/tests/DEMOV3.json', 'utf8')), code: 'SINGLE3', singleSubmission: true });
+  try {
+    await startTest(s, 'SINGLE3');
+    await s.page.locator(tid('submit-btn')).first().click();
+    await s.page.locator(tid('confirm-submit')).click();
+    await s.page.locator(tid('results')).waitFor();
+    await s.page.locator(tid('home-btn')).click();
+    await s.page.locator(tid('code-input')).fill('SINGLE3');
+    await s.page.locator(tid('code-submit')).click();
+    await s.page.locator(tid('already-submitted')).waitFor();
+    assert.equal(await s.page.locator(tid('take-again')).count(), 0);
+    assert.deepEqual(s.errors, []);
+  } finally { await s.close(); }
+});
+
+test('single submission: Take again appears when the teacher allowed a retake', async () => {
+  const s = await newSession(env, {});
+  s.onGas = (b) => (b.action === 'getStudentStatus'
+    ? { ...NOT, submitted: true, blocking: false, attempts: 1, latest: { submission_id: 'x', released: true, retake_allowed: true }, feedback: RELEASED_FB }
+    : null);
+  s.serveTest('SINGLE2', { ...JSON.parse(fs.readFileSync('data/tests/DEMOV3.json', 'utf8')), code: 'SINGLE2', singleSubmission: true });
+  try {
+    await s.page.goto(s.url + '/');
+    await signIn(s.page);
+    await s.page.locator(tid('code-input')).fill('SINGLE2');
+    await s.page.locator(tid('code-submit')).click();
+    await s.page.locator(tid('feedback-released')).waitFor();
+    await s.page.locator(tid('take-again')).click();
+    await s.page.locator(tid('submit-btn')).first().waitFor();
+    assert.deepEqual(s.errors, []);
+  } finally { await s.close(); }
+});

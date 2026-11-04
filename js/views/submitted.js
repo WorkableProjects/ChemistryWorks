@@ -10,11 +10,12 @@ function fmtWhen(iso) {
 }
 
 export function render(root, ctx, params = {}) {
-  const { test, source, status = {}, canRetake = false } = params;
+  const { test, source, status = {} } = params;
   const user = ctx.user;
   const when = fmtWhen(status.latest?.submitted_at);
   const single = !!test?.singleSubmission;
-  const start = () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source });
+  const canRetake = params.canRetake === true;
+  const start = () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
 
   const title = h('h1', { class: 'feedback__title', tabindex: '-1' }, test?.title || test?.code || 'Test');
   const lines = [

@@ -42,7 +42,6 @@
 .feedback-attempts { font-size: 14px; color: var(--text-muted); }
 .feedback-attempts summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .status-check { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50vh; color: var(--text-muted); }
-.status-check .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: cw-spin 0.8s linear infinite; }
 @keyframes cw-spin { to { transform: rotate(360deg); } }
 @media (max-width: 480px) { .feedback-doc { padding: 14px; } }
 

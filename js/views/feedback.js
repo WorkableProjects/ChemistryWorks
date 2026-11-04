@@ -7,7 +7,7 @@
 //   params.test     — the loaded test (optional; loaded by code when missing)
 //   params.source   — the test source (passed through to the runner for Take again)
 //   params.practiceOnly — offer Game mode practice (single-submission test already submitted)
-//   params.canRetake — show "Take again" (false for single-submission tests unless the teacher allowed a retake)
+//   params.canRetake — show "Take again" (single-submission tests: only when the teacher allowed a retake)
 
 import { h, mount, icon, renderMath, appHeader, userBadge, toast } from '../ui.js';
 import { fetchFeedback } from '../lib/api.js';
@@ -108,7 +108,7 @@ export function render(root, ctx, params = {}) {
 
   if (params.canRetake && test) {
     actions.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'take-again' },
-      on: { click: () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source: params.source }) } }, icon('right', { size: 16 }), 'Take again'));
+      on: { click: () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source: params.source, cleared: true }) } }, icon('right', { size: 16 }), 'Take again'));
   }
 
   if (params.practiceOnly && test?.gameMode === true) {

@@ -39,7 +39,7 @@ export function render(root, ctx, params = {}) {
         params.studyBlocked ? null : choice('study', 'pen', 'Study mode',
           'The normal test: every question, at your own pace. Your answers are submitted when you finish.',
           h('span', { class: 'mode-choice__go' }, 'Start studying'),
-          () => ctx.navigate('runner', { test, source })),
+          () => ctx.navigate('runner', { test, source, cleared: !!params.cleared })),
         choice('game', 'flag', 'Game mode',
           `${games.length} game${games.length === 1 ? '' : 's'} to choose from: race the clock, survive, hunt elements, match pairs or use flashcards.`,
           h('span', { class: 'mode-choice__go' }, anyPlayable ? 'Choose a game' : 'No playable games'),
@@ -61,7 +61,7 @@ export function render(root, ctx, params = {}) {
       return h('button', {
         type: 'button', class: ['mode-choice', 'game-pick', !playable && 'is-unplayable'], disabled: !playable, dataset: { testid: `game-pick-${game.id}` },
         'aria-describedby': `gp-${game.id}`,
-        on: { click: () => ctx.navigate('game', { test, source, gameId: game.id, studyBlocked: !!params.studyBlocked }) },
+        on: { click: () => ctx.navigate('game', { test, source, gameId: game.id, studyBlocked: !!params.studyBlocked, cleared: !!params.cleared }) },
       },
       h('span', { class: 'mode-choice__icon' }, icon(game.icon, { size: 28 })),
       h('span', { class: 'mode-choice__title' }, game.title),
@@ -76,7 +76,7 @@ export function render(root, ctx, params = {}) {
       h('div', { class: 'mode-select__grid game-picker__grid' }, cards),
       h('div', { class: 'game-actions' },
         h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-picker-back' }, on: { click: showModes } }, 'Back'),
-        params.studyBlocked ? null : h('button', { class: 'btn btn--ghost', type: 'button', on: { click: () => ctx.navigate('runner', { test, source }) } }, 'Study mode instead')),
+        params.studyBlocked ? null : h('button', { class: 'btn btn--ghost', type: 'button', on: { click: () => ctx.navigate('runner', { test, source, cleared: !!params.cleared }) } }, 'Study mode instead')),
       h('p', { class: 'mode-select__note' }, icon('info', { size: 16 }), h('span', {}, 'Game mode is practice — your score is not submitted.')));
     mount(view, appHeader({ subtitle: test.title, onHome: () => ctx.navigate('landing'), right: [userBadge(user)] }), page);
     renderMath(view);

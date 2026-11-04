@@ -20,7 +20,8 @@
       } catch (e) { /* storage blocked: defaults apply */ }
     })();
   </script>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563EB'/><path d='M12 7h8M14 7v7l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V7' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/brand/favicon-64.png" />
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -68,9 +69,16 @@
   </form>
 
   <div id="app" class="app" aria-live="polite">
-    <div class="boot">
-      <div class="boot__flask" aria-hidden="true"></div>
-      <p>Loading ChemistryWorks…</p>
+    <!-- Boot loader: same markup as flaskSvg() in js/ui.js (keep in sync). -->
+    <div class="boot cw-loader" role="status">
+      <span class="cw-loader__art"><svg class="cw-flask" width="96" height="96" viewBox="-6 -22 112 130" aria-hidden="true" focusable="false">
+        <defs><clipPath id="cwl0"><path d="M42.5 47 L19 91 Q15.5 99.5 25 99.5 H75 Q84.5 99.5 81 91 L57.5 47 Z"/></clipPath></defs>
+        <g clip-path="url(#cwl0)"><g class="cw-flask__liquid"><path class="cw-flask__wave cw-flask__wave--back" d="M-100 70 q12.5 -6 25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 V110 H-100 Z"/><path class="cw-flask__wave" d="M-100 74 q12.5 6 25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 t25 0 V110 H-100 Z"/></g>
+        <circle class="cw-flask__bubble" cx="40" cy="96" r="4"/><circle class="cw-flask__bubble" cx="55" cy="96" r="3"/><circle class="cw-flask__bubble" cx="64" cy="96" r="2.5"/></g>
+        <path class="cw-flask__glass" d="M40 12 V45 L15 90 Q9 104 25 104 H75 Q91 104 85 90 L60 45 V12"/><path class="cw-flask__glass" d="M33 12 H67"/>
+        <g class="cw-flask__molecule"><path class="cw-flask__bond" d="M50 -10 L76 10"/><circle class="cw-flask__atom" cx="47" cy="-12" r="9"/><circle class="cw-flask__atom" cx="79" cy="12" r="6"/></g>
+      </svg></span>
+      <p class="cw-loader__label">Loading ChemistryWorks…</p>
     </div>
   </div>
 

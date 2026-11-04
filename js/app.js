@@ -17,7 +17,7 @@ import { CONFIG } from './config.js';
 import { getUser, signOut, onAuthChange } from './lib/auth.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { load, save } from './lib/storage.js';
-import { h, mount, icon, openModal, toast, viewTransition } from './ui.js';
+import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
@@ -61,6 +61,11 @@ export const ctx = {
 
 function navigate(view, params = {}) {
   if (!VIEWS[view]) throw new Error(`Unknown view ${view}`);
+  // Single-submission tests may only be started after openTest() has checked this student's submissions;
+  // every other route into the runner (back buttons, game mode, stale links) goes back through that check.
+  if (view === 'runner' && !params.preview && params.test?.singleSubmission === true && params.cleared !== true) {
+    return openTest(params.test.code);
+  }
   try { cleanup?.(); } catch (e) { console.error(e); }
   cleanup = null;
   currentView = view;
@@ -112,16 +117,22 @@ async function openTest(code) {
   try {
     const { test, source } = await loadTest(c, { config: CONFIG });
     // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
-    mount(root, h('div', { class: 'status-check', role: 'status', 'aria-live': 'polite', dataset: { testid: 'submission-status-check' } },
-      h('span', { class: 'spinner', 'aria-hidden': 'true' }), 'Checking your submission…'));
+    mount(root, h('div', { class: 'status-check' }, flaskLoader({ size: 88, label: 'Checking your submission…', testid: 'submission-status-check' })));
     const state = await checkSubmissionState(ctx, test);
-    const canRetake = !test.singleSubmission || !state.blocking;
-    const practiceOnly = !canRetake;
+    const single = test.singleSubmission === true;
+    // Single-submission tests: one attempt, period — "Take again" only when the teacher allowed a retake.
+    if (single && state.blocking) {
+      if (state.feedback) return navigate('feedback', { test, source, status: state, canRetake: false, practiceOnly: true });
+      return navigate('submitted', { test, source, status: state, canRetake: false });
+    }
+    const canRetake = !single || state.retakeAllowed === true;
+    const practiceOnly = false;
     if (state.feedback) return navigate('feedback', { test, source, status: state, canRetake, practiceOnly });
-    const showNotice = test.singleSubmission ? state.blocking : (state.source === 'server' && state.submitted);
+    const showNotice = !single && state.source === 'server' && state.submitted;
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
-    navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source });
+    // `cleared` marks that this student passed the submission check (required for single-submission tests).
+    navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
   } catch (err) {
     navigate('landing', { code: c, error: err.message });
   }
