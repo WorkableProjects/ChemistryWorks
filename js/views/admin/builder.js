@@ -803,7 +803,7 @@ export function renderBuilder(root, ctx) {
     structure: 'Lewis structure', hotspot: 'Label diagram', graph: 'Graph',
   };
   // V4-03: registered v4 types join their group and bring their own short label.
-  for (const t of registeredTypes()) {
+  for (const t of registeredTypes().filter((x) => QUESTION_TYPES.includes(x))) {
     const d = typeDef(t);
     const g = TYPE_GROUPS.find((x) => x.title === d.group);
     if (g && !g.types.includes(t)) g.types.push(t);

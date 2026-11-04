@@ -9,6 +9,7 @@ import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { ELEMENTS } from './elements.js';
 import { parseConfig } from './qtypes/econfig.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
+import { feature } from '../config.js';
 import './qtypes/v4-types.js'; // V4-03: registers the v4 question types
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
@@ -46,7 +47,8 @@ export const TYPE_LABELS = {
   graph: 'Read or plot a graph',
 };
 // V4-03: registered v4 types join the type list and labels (js/lib/qtypes/registry.js).
-for (const t of registeredTypes()) {
+// Hidden until FEATURES.v4Types is on (S08/S09 widgets and editors unfinished).
+for (const t of feature('v4Types') ? registeredTypes() : []) {
   if (!QUESTION_TYPES.includes(t)) QUESTION_TYPES.push(t);
   TYPE_LABELS[t] = typeDef(t).label || t;
   if (typeDef(t).manual === true && !MANUAL_TYPES.includes(t)) MANUAL_TYPES.push(t);
@@ -105,6 +107,16 @@ function normalizeQuestion(raw) {
   } else delete q.image;
   if (q.section === undefined || q.section === null || str(q.section).trim() === '') delete q.section;
   else q.section = str(q.section).trim();
+  // V4-03 per-question extras (all optional, off by default): confidence switch and a point-costing hint.
+  if (q.confidence !== undefined) {
+    if (bool(q.confidence, false)) q.confidence = true; else delete q.confidence;
+  }
+  if (q.hint !== undefined) {
+    const src = typeof q.hint === 'string' ? { text: q.hint } : q.hint;
+    if (isObj(src) && str(src.text).trim() !== '') {
+      q.hint = { text: str(src.text), cost: src.cost === undefined || src.cost === null || src.cost === '' ? 0 : Number(src.cost) };
+    } else delete q.hint;
+  }
   switch (q.type) {
     case 'mcq':
       q.options = normOptions(q.options);
@@ -360,6 +372,16 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   if (!isNum(q.points) || q.points <= 0) errors.push(`${where}: points must be a number greater than 0.`);
   if (q.section !== undefined && q.section !== null && q.section !== '' && !sectionIdSet.has(q.section)) {
     errors.push(`${where}: section "${q.section}" does not exist. Add it under sections or remove the question's section.`);
+  }
+
+  if (q.confidence !== undefined && typeof q.confidence !== 'boolean') errors.push(`${where}: confidence must be true or false.`);
+  if (q.hint !== undefined) {
+    if (!isObj(q.hint)) errors.push(`${where}: hint must be an object with text and cost.`);
+    else {
+      if (!nonEmptyStr(q.hint.text)) errors.push(`${where}: hint text is required.`);
+      if (!isNum(q.hint.cost) || q.hint.cost < 0) errors.push(`${where}: hint cost must be a number of points, 0 or more.`);
+      else if (isNum(q.points) && q.points > 0 && q.hint.cost > q.points) errors.push(`${where}: hint cost (${q.hint.cost}) cannot be more than the question's points (${q.points}).`);
+    }
   }
 
   if (!QUESTION_TYPES.includes(q.type)) {
