@@ -7,6 +7,8 @@
 // Rendering (js/views/comment-view.js) builds DOM nodes from this tree with textContent only; links get
 // target="_blank" rel="noopener noreferrer nofollow".
 
+import { load, save } from './storage.js';
+
 export const MAX_COMMENT_CHARS = 2000;
 
 /** Trimmed comment, capped at MAX_COMMENT_CHARS; '' when empty/whitespace (empty comments are never saved). */
@@ -107,3 +109,93 @@ export function commentToText(text) {
   return parseComment(text).map((b) => (b.type === 'p' ? inl(b.children)
     : b.items.map((it, i) => `${b.type === 'ol' ? `${i + 1}.` : '•'} ${inl(it)}`).join('\n'))).join('\n\n');
 }
+
+/* ------------------------------------------------------------------ comment bank (V4-02)
+ * Reusable comments saved on this device (localStorage `cw:commentBank`), plus optional per-question rubrics
+ * keyed by test code + question id. Shape: { comments: [{ id, text }], rubrics: { 'CODE|qid': [{ text, points }] } }.
+ * Pure functions return a new bank; the load/save pair below touches storage and never throws. */
+
+export const BANK_KEY = 'commentBank';
+export const MAX_BANK_COMMENTS = 200;
+
+export function emptyBank() { return { comments: [], rubrics: {} }; }
+
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** Key of a rubric inside the bank. */
+export function rubricKey(testCode, questionId) { return `${String(testCode || '').toUpperCase()}|${questionId}`; }
+
+/** Clean rubric criteria: non-empty text, points a finite number >= 0 (rounded to 2 decimals). */
+export function cleanRubric(list) {
+  return (Array.isArray(list) ? list : []).map((c) => ({ text: String(c?.text ?? '').trim().slice(0, 300), points: Math.round(Math.max(0, Number(c?.points) || 0) * 100) / 100 })).filter((c) => c.text);
+}
+
+/** Repair whatever was stored into a valid bank (drops bad entries, de-duplicates ids). */
+export function normalizeBank(raw) {
+  const bank = emptyBank();
+  if (!isObj(raw)) return bank;
+  const ids = new Set();
+  for (const c of Array.isArray(raw.comments) ? raw.comments : []) {
+    const text = cleanComment(c?.text);
+    let id = String(c?.id ?? '');
+    if (!text || bank.comments.length >= MAX_BANK_COMMENTS) continue;
+    if (!id || ids.has(id)) id = nextBankId(bank);
+    ids.add(id);
+    bank.comments.push({ id, text });
+  }
+  if (isObj(raw.rubrics)) {
+    for (const [k, v] of Object.entries(raw.rubrics)) {
+      const r = cleanRubric(v);
+      if (r.length) bank.rubrics[k] = r;
+    }
+  }
+  return bank;
+}
+
+function nextBankId(bank) {
+  const used = new Set(bank.comments.map((c) => c.id));
+  let n = bank.comments.length + 1;
+  while (used.has(`c${n}`)) n++;
+  return `c${n}`;
+}
+
+/** Add a comment (ignored when empty or identical to an existing one). */
+export function addBankComment(bank, text) {
+  const t = cleanComment(text);
+  if (!t || bank.comments.length >= MAX_BANK_COMMENTS || bank.comments.some((c) => c.text === t)) return bank;
+  return { ...bank, comments: [...bank.comments, { id: nextBankId(bank), text: t }] };
+}
+
+/** Replace one comment's text (an empty text deletes it). */
+export function updateBankComment(bank, id, text) {
+  const t = cleanComment(text);
+  return { ...bank, comments: bank.comments.flatMap((c) => (c.id !== id ? [c] : t ? [{ id, text: t }] : [])) };
+}
+
+export function deleteBankComment(bank, id) {
+  return { ...bank, comments: bank.comments.filter((c) => c.id !== id) };
+}
+
+/** Save (or with an empty list remove) the rubric of one question. */
+export function setBankRubric(bank, testCode, questionId, criteria) {
+  const rubrics = { ...bank.rubrics };
+  const r = cleanRubric(criteria);
+  if (r.length) rubrics[rubricKey(testCode, questionId)] = r; else delete rubrics[rubricKey(testCode, questionId)];
+  return { ...bank, rubrics };
+}
+
+export function getBankRubric(bank, testCode, questionId) {
+  return bank.rubrics[rubricKey(testCode, questionId)] || [];
+}
+
+/** Text after inserting `snippet` into `current`: on a new line when the box already has text; capped at MAX_COMMENT_CHARS. */
+export function insertComment(current, snippet) {
+  const cur = String(current ?? '');
+  const add = cleanComment(snippet);
+  if (!add) return cur;
+  return cleanComment(cur.trim() ? `${cur.replace(/\s+$/, '')}\n${add}` : add) || cur;
+}
+
+/** Load / save the bank on this device (storage.js is exception-safe and a no-op without localStorage). */
+export function loadBank() { return normalizeBank(load(BANK_KEY, null)); }
+export function saveBank(bank) { return save(BANK_KEY, normalizeBank(bank)); }

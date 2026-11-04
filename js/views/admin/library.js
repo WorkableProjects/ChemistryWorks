@@ -1,7 +1,8 @@
 // Admin "Library" tab: bundled tests, local drafts, and tests published to the Google Sheet.
 import { h, mount, icon, toast, openModal } from '../../ui.js';
 import { CONFIG } from '../../config.js';
-import { load } from '../../lib/storage.js';
+import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
+import { duplicateTest, versionTest, suggestCopyCode, validateNewCode } from '../../lib/versions.js';
 import { loadCatalog, loadTest, getDrafts, deleteDraft } from '../../lib/tests.js';
 import { normalizeTest } from '../../lib/schema.js';
 import { listPublishedTests, deletePublishedTest, fetchPublishedTest, fetchSubmissionCounts } from '../../lib/api.js';
@@ -15,6 +16,7 @@ export function testLink(code) {
 
 export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
   let alive = true;
+  const knownCodes = new Set(); // every code in the library (bundled, drafts, published): new codes must not clash
   let counts = null; // { CODE: n } once loaded with the admin key; null = unavailable (no counts shown)
   const body = h('div', { class: 'stack adm-library' }, skeleton(4));
   mount(root, body);
@@ -41,6 +43,9 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
         } } }, icon('copy', { size: 14 }), 'Copy student link'));
     }
     add('copy', 'Duplicate into builder', () => openInBuilder({ ...test, code: `${code}_COPY`.slice(0, 32) }, { duplicate: true }), `duplicate-${code}`, { disabled: !can });
+    add('layers', 'Duplicate with a new code', () => askDuplicate(test), `duplicate-new-${code}`, { disabled: !can });
+    add('sort', 'Make version B (shuffled questions and options)', () => makeVersionB(test), `version-b-${code}`, { disabled: !can });
+    add('download', 'Print test (student copy or answer key)', () => askPrint(test), `print-${code}`, { disabled: !can });
     if (source !== 'bundled') {
       add('trash', source === 'draft' ? 'Delete draft' : 'Delete published test', () => confirmDelete(code, source), `delete-${code}`, { className: 'icon-btn--danger' });
     }
@@ -57,6 +62,51 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
       actions);
   }
 
+  function askDuplicate(test) {
+    const input = h('input', { class: 'input', type: 'text', maxlength: '32', value: suggestCopyCode(test.code, knownCodes), 'aria-label': 'New test code', dataset: { testid: 'duplicate-code' } });
+    const err = h('span', { class: 'field-error', role: 'alert', dataset: { testid: 'duplicate-error' } });
+    openModal({
+      title: `Duplicate ${test.code}`, testid: 'duplicate-modal',
+      body: h('div', { class: 'stack' }, h('p', {}, 'The copy opens in the builder as a draft. Choose a code that is not used yet.'), h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'New code'), input), err),
+      actions: [
+        { label: 'Cancel', variant: 'ghost' },
+        { label: 'Duplicate', variant: 'primary', testid: 'duplicate-confirm', onClick: (close) => {
+          const msg = validateNewCode(input.value, knownCodes);
+          if (msg) { err.textContent = msg; input.focus(); return; }
+          close();
+          openInBuilder(duplicateTest(test, input.value), { duplicate: true });
+        } },
+      ],
+    });
+    setTimeout(() => input.select(), 0);
+  }
+
+  function makeVersionB(test) {
+    const copy = versionTest(test, { label: 'B', existingCodes: knownCodes });
+    toast(`Version B created as ${copy.code}. Review it, then save or publish.`, { type: 'success' });
+    openInBuilder(copy, { duplicate: true });
+  }
+
+  function askPrint(test) {
+    const version = h('select', { class: 'select adm-select-sm', 'aria-label': 'Version', dataset: { testid: 'print-version' } }, h('option', { value: 'A' }, 'Version A (as written)'), h('option', { value: 'B' }, 'Version B (shuffled)'));
+    const run = async (key, close) => {
+      close();
+      try {
+        const { printTest } = await import('./print-test.js');
+        await printTest({ test, key, version: version.value });
+      } catch (e) { toast(`Could not print: ${e && e.message ? e.message : 'unavailable'}`, { type: 'error' }); }
+    };
+    openModal({
+      title: `Print ${test.code}`, testid: 'print-modal',
+      body: h('div', { class: 'stack' }, h('p', {}, 'Opens your browser print dialog. The student copy has no answers; the answer key shows them. Drawing and graph questions leave an answer box.'), h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Version'), version)),
+      actions: [
+        { label: 'Cancel', variant: 'ghost' },
+        { label: 'Answer key', variant: 'ghost', testid: 'print-key', onClick: (close) => run(true, close) },
+        { label: 'Student copy', variant: 'primary', testid: 'print-student', onClick: (close) => run(false, close) },
+      ],
+    });
+  }
+
   function confirmDelete(code, source) {
     openModal({
       title: `Delete ${code}?`, testid: 'confirm-delete-test',
@@ -67,7 +117,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
           close();
           if (source === 'draft') { deleteDraft(code); toast(`Draft ${code} deleted`, { type: 'success' }); }
           else {
-            const res = await deletePublishedTest(code, { gasUrl: CONFIG.GAS_WEB_APP_URL, adminKey: load('adminKey', '', 'session') });
+            const res = await deletePublishedTest(code, { gasUrl: CONFIG.GAS_WEB_APP_URL, adminKey: adminKey() });
             toast(res.ok ? `Deleted ${code}` : `Delete failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error' });
           }
           if (alive) refresh();
@@ -82,10 +132,10 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
   async function refresh() {
     mount(body, skeleton(4));
     const gasUrl = CONFIG.GAS_WEB_APP_URL;
-    const adminKey = load('adminKey', '', 'session');
+    const authed = hasAdminAuth();
     const settle = (p) => p.then((v) => v, () => null);
     // Counts load in parallel with everything else; without a backend + key (or on error) no counts are shown.
-    const countsP = gasUrl && adminKey ? settle(fetchSubmissionCounts({ gasUrl, adminKey })) : Promise.resolve(null);
+    const countsP = gasUrl && authed ? settle(fetchSubmissionCounts({ gasUrl, adminKey: adminKey() })) : Promise.resolve(null);
 
     // Bundled
     const catalog = (await settle(loadCatalog())) || [];
@@ -93,6 +143,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
       const r = await settle(loadTest(c.code, { config: {} }));
       return { code: c.code, title: c.title, test: r?.test || null, note: r ? '' : 'Could not load' };
     }));
+    catalog.forEach((c) => knownCodes.add(String(c.code).toUpperCase()));
     const countsRes = await countsP;
     counts = countsRes && countsRes.ok ? countsRes.counts : null;
     // Drafts
@@ -101,15 +152,17 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings }) {
       try { test = normalizeTest(d); } catch { /* shown without stats */ }
       return { code: d.code, title: d.title, test, updatedAt: d.updatedAt };
     }).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    drafts.forEach((d) => knownCodes.add(String(d.code).toUpperCase()));
     // Published
     let publishedContent;
-    if (gasUrl && adminKey) {
-      const res = await settle(listPublishedTests({ gasUrl, adminKey }));
+    if (gasUrl && authed) {
+      const res = await settle(listPublishedTests({ gasUrl, adminKey: adminKey() }));
       if (!res || !res.ok) {
         publishedContent = h('div', { class: 'notice notice--error' }, icon('alert'), h('span', {}, `Could not load published tests${res?.error ? `: ${res.error}` : ''}. Check your admin key in Settings.`));
       } else if (!res.tests.length) {
         publishedContent = emptyState('sheet', 'Nothing published yet', 'Use “Publish to Sheet” in the builder.');
       } else {
+        res.tests.forEach((t) => knownCodes.add(String(t.code).toUpperCase()));
         const items = await Promise.all(res.tests.map(async (t) => {
           const raw = await settle(fetchPublishedTest(t.code, { gasUrl }));
           return { code: t.code, title: t.title, test: raw ? normalizeTest(raw) : null, source: 'published', note: t.updatedAt ? `Updated ${fmtDate(t.updatedAt)}` : '' };

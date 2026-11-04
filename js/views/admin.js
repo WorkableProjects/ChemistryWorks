@@ -7,7 +7,9 @@ import { load, save, remove } from '../lib/storage.js';
 import { renderBuilder, setBuilderTest, newBuilderTest, builderIsDirty } from './admin/builder.js';
 import { renderLibrary } from './admin/library.js';
 import { renderGrading } from './admin/grading.js';
+import { renderInsights } from './admin/insights.js';
 import { renderSettings } from './admin/settings.js';
+import { clearAdminConfirmed } from '../lib/admin-session.js';
 
 export * from './admin/stats.js';
 
@@ -15,6 +17,7 @@ const TABS = [
   { id: 'library', label: 'Library', icon: 'list' },
   { id: 'builder', label: 'Builder', icon: 'grid' },
   { id: 'grading', label: 'Grading', icon: 'pen' },
+  { id: 'insights', label: 'Insights', icon: 'chart' },
   { id: 'settings', label: 'Settings', icon: 'key' },
 ];
 
@@ -30,6 +33,7 @@ export function render(root, ctx, params = {}) {
   const lockBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: 'lock-admin' }, on: { click: () => {
     remove('adminUnlocked', 'session');
     remove('adminKey', 'session');
+    clearAdminConfirmed(); // V4-07: also forget the confirmed Google admin for this tab
     ctx.navigate('landing');
   } } }, icon('logout', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Lock'));
 
@@ -94,6 +98,7 @@ export function render(root, ctx, params = {}) {
     const sub = { library: () => renderLibrary(host, ctx, { openInBuilder, goSettings }),
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
+      insights: () => renderInsights(host, ctx, { goSettings }),
       settings: () => renderSettings(host, ctx, {}) }[tab];
     const res = sub();
     tabCleanup = typeof res === 'function' ? res : null;

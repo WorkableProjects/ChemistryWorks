@@ -12,8 +12,8 @@ Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 | S03 | App shell + student views | Done (untested) | `claude/elegant-knuth-3ig53s` | Navy header + settings popover, icon sprite, landing, mode select, shared status page |
 | S04 | Runner + results revamp | Done (untested) | `claude/elegant-knuth-3ig53s` | Runner bar + progress, nav rail (desktop) / bottom sheet (phones), results ring + summary pills, feedback header, PDF header |
 | S05 | Admin revamp | Not started | | |
-| S06 | Admin accounts + backend 4.0 base | Not started | | |
-| S07 | Teacher tools I | Not started | | |
+| S06 | Admin accounts + backend 4.0 base | Done (unit-tested) | `claude/elegant-knuth-3ig53s` | Code.gs 4.0.0, Admins + Log sheets, Google admin gate behind `adminAccounts`, version banner |
+| S07 | Teacher tools I | Done (unit-tested) | `claude/elegant-knuth-3ig53s` | Insights, grade by question, comment bank, bulk tools, print test, duplicate / Version B, per-question CSV. Built on the old admin tabs (S05 not done) |
 | S08 | Question types I | Not started | | |
 | S09 | Question types II | Not started | | |
 | S10 | Question types III + algorithmic | Not started | | |
@@ -30,6 +30,12 @@ Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 ## Handoff notes
 
 <!-- Newest first. For each session: what got done, what's half-done (and behind which flag), next step, surprises. -->
+
+### S06 + S07 (2026-11-04)
+- S06: every admin action goes through `requireAdmin_` (Google token on the Admins sheet, or ADMIN_KEY). Client sign-in UI is behind `FEATURES.adminAccounts` until Code.gs 4.0.0 is deployed (steps in DEPLOYMENT.md).
+- S07: all client-side, visible (no flag). Old `duplicate-<code>` button still makes `CODE_COPY` (E2E asserts it); the new `CODE-2` flow is `duplicate-new-<code>`. Bulk release/un-release use `saveGrade` (Auto-graded rows become Graded). Fixed `normalizeRow` overwriting the Extra attempt status.
+- Not run: E2E suite. Run `npm run test:all` first next session.
+- S05 still to do; S07 tools will need to move into the new shell.
 
 ### S00–S04 (2026-11-04)
 - Done: FIX-3 finished; S01 flags/version/module split; S02 tokens, logo, DESIGN.md; S03 shell + student views; S04 runner, results, feedback, PDF header.

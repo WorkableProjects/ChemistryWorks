@@ -3,22 +3,20 @@
 import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
 import { CONFIG } from '../../config.js';
 import { load, save as saveLocal } from '../../lib/storage.js';
+import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { fetchResults, saveGrade, releaseAll, allowRetake } from '../../lib/api.js';
 import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
 import { groupQuestions } from '../../lib/sections.js';
 import { cleanComments, MAX_COMMENT_CHARS } from '../../lib/comments.js';
-import { commentBody } from '../comment-view.js';
+import { commentBody, commentBankPicker } from '../comment-view.js';
 import { withQuestionImage } from '../question-image.js';
-import { orbitalDiagram } from '../orbital-view.js';
-import { structureDiagram } from '../structure-view.js';
-import { lewisDiagram } from '../lewis-view.js';
-import { hotspotDiagram } from '../widgets/hotspot-stage.js';
+import { renderGradeByQuestion, answerDiagram } from './grade-by-question.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
-import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, STATUS, FILTER_RELEASED } from './stats.js';
+import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
 
 // Module state: remembered while switching tabs in the session.
-const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null };
+const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false };
 
 // Test definitions (for sections + answer diagrams), cached per code. A failed lookup is cached as null.
 const testCache = new Map();
@@ -38,9 +36,8 @@ export function renderGrading(root, ctx, { goSettings }) {
   let alive = true;
   const cleanups = [];
   const gasUrl = CONFIG.GAS_WEB_APP_URL;
-  const adminKey = () => load('adminKey', '', 'session');
 
-  if (!gasUrl || !adminKey()) {
+  if (!gasUrl || !hasAdminAuth()) {
     mount(root, h('div', { class: 'card' },
       emptyState('pen', 'Connect your Google Sheet to grade', 'Grading reads every student submission from the Google Sheet. Set the Apps Script URL and your admin key first.', 'grading-unconfigured'),
       h('p', { class: 'adm-center' }, h('button', { class: 'btn btn--primary', type: 'button', on: { click: goSettings } }, icon('key', { size: 16 }), 'Open Settings'))));
@@ -70,13 +67,36 @@ export function renderGrading(root, ctx, { goSettings }) {
     draw();
   }
 
+  let gbqCleanup = null;
+  const stopGbq = () => { try { gbqCleanup?.(); } catch (e) { console.error(e); } gbqCleanup = null; };
+
+  // "By student | By question" switch shown above both list views.
+  const modeToggle = () => h('div', { class: 'adm-seg', role: 'tablist', 'aria-label': 'Grade by', dataset: { testid: 'grading-mode' } },
+    [['student', 'By student'], ['question', 'By question']].map(([m, label]) => h('button', {
+      class: 'adm-seg__btn', type: 'button', role: 'tab', 'aria-selected': String(G.mode === m), dataset: { testid: `grading-mode-${m}` },
+      on: { click: () => { if (G.mode !== m) { G.mode = m; draw(); } } },
+    }, label)));
+
+  function drawByQuestion() {
+    gbqCleanup = renderGradeByQuestion(content, {
+      gasUrl, adminKey, getRows: () => rows, modeToggle: modeToggle(), onRefresh: () => loadRows(true),
+      getTest: async (code) => { await ensureTest(code); return testCache.get(code) || null; },
+      onSaved: (id, patch) => {
+        const raw = G.rawRows && G.rawRows.find((r) => r.submission_id === id);
+        if (raw) Object.assign(raw, patch);
+        rows = (G.rawRows || []).map(normalizeRow);
+      },
+    });
+  }
+
   function draw() {
     if (!alive) return;
+    stopGbq();
     const selected = G.selectedId && rows.find((r) => r.submission_id === G.selectedId);
     if (selected) {
       if (testCache.has(selected.test_code)) drawGrader(selected);
       else ensureTest(selected.test_code).then(() => { if (alive && G.selectedId === selected.submission_id) drawGrader(selected); });
-    } else { G.selectedId = null; drawList(); }
+    } else { G.selectedId = null; if (G.mode === 'question') drawByQuestion(); else drawList(); }
   }
 
   /* ---------------------------------------------------------------- list */
@@ -129,20 +149,95 @@ export function renderGrading(root, ctx, { goSettings }) {
         ],
       });
     } } }, icon('check', { size: 16 }), 'Release all graded');
+    const perQuestionBox = h('input', { type: 'checkbox', checked: !!G.perQuestion, dataset: { testid: 'export-per-question' }, on: { change: () => { G.perQuestion = perQuestionBox.checked; } } });
     const exportBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'export-grades' }, on: { click: () => {
       const list = visibleRows();
       if (!list.length) return toast('Nothing to export', { type: 'warning' });
-      downloadFile(`chemistryworks-grades${G.testCode !== 'all' ? `-${G.testCode}` : ''}.csv`, toGradebookCsv(list), 'text/csv');
+      downloadFile(`chemistryworks-grades${G.testCode !== 'all' ? `-${G.testCode}` : ''}.csv`, toGradebookCsv(list, { perQuestion: !!G.perQuestion }), 'text/csv');
       const pending = list.filter((r) => r.status === STATUS.NEEDS_GRADING).length;
       toast(pending ? `Exported ${list.length} rows (${pending} still need grading)` : `Exported ${list.length} rows`, { type: pending ? 'warning' : 'success' });
     } } }, icon('download', { size: 16 }), 'Export grades');
 
+    // Bulk tools: checkboxes + a bar that loops the single-row actions with progress. Selection only ever counts visible rows.
+    const bulkHost = h('div', { class: 'adm-bulk-host', dataset: { testid: 'bulk-host' } });
+    const selectedRows = () => visibleRows().filter((r) => G.selected.has(r.submission_id));
+
+    function drawBulk() {
+      const sel = selectedRows();
+      if (!sel.length) { mount(bulkHost); return; }
+      const btn = (action, label, testid, iconName) => h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid }, on: { click: () => confirmBulk(action, label) } }, icon(iconName, { size: 14 }), label);
+      mount(bulkHost, h('div', { class: 'adm-bulk', role: 'region', 'aria-label': 'Bulk actions', dataset: { testid: 'bulk-bar' } },
+        h('strong', { dataset: { testid: 'bulk-count' } }, `${sel.length} selected`),
+        btn(BULK.RELEASE, 'Release', 'bulk-release', 'check'),
+        btn(BULK.UNRELEASE, 'Un-release', 'bulk-unrelease', 'x'),
+        btn(BULK.RETAKE, 'Allow retake', 'bulk-retake', 'refresh'),
+        h('span', { class: 'spacer' }),
+        h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: 'bulk-clear' }, on: { click: () => { G.selected.clear(); drawTable(); } } }, 'Clear')));
+    }
+
+    function confirmBulk(action, label) {
+      const { eligible, skipped } = planBulk(selectedRows(), action);
+      const note = {
+        [BULK.RELEASE]: 'Students then see their score, answers and your comments. Submissions that still need grading, and ones already released, are skipped.',
+        [BULK.UNRELEASE]: 'Students lose access to their review. Their grades are kept as they are.',
+        [BULK.RETAKE]: 'Each student can submit once more. Rows that already have a retake allowed are skipped.',
+      }[action];
+      openModal({
+        title: `${label} ${eligible.length} submission${eligible.length === 1 ? '' : 's'}?`, testid: 'bulk-modal',
+        body: h('div', {}, h('p', {}, note), skipped.length ? h('p', { class: 'faint' }, `${skipped.length} selected row${skipped.length === 1 ? ' does' : 's do'} not apply and will be skipped.`) : null),
+        actions: [
+          { label: 'Cancel', variant: 'ghost', autofocus: true },
+          { label: label, variant: 'primary', testid: 'bulk-confirm', onClick: (close) => { close(); if (eligible.length) runBulk(action, eligible, skipped.length); else toast('Nothing to do for this selection.', { type: 'info' }); } },
+        ],
+      });
+    }
+
+    async function runBulk(action, targets, skippedCount) {
+      const bar = h('div', { class: 'adm-bulk', role: 'status', dataset: { testid: 'bulk-progress' } },
+        h('progress', { max: String(targets.length), value: '0', 'aria-label': 'Bulk progress' }), h('span', {}, `0 / ${targets.length}`));
+      mount(bulkHost, bar);
+      let done = 0;
+      let failed = 0;
+      for (const [i, r] of targets.entries()) {
+        let res;
+        try {
+          if (action === BULK.RETAKE) res = await allowRetake({ gasUrl, adminKey: adminKey(), submissionId: r.submission_id, allow: true });
+          else res = await saveGrade({ gasUrl, adminKey: adminKey(), submissionId: r.submission_id, grades: r.grades || {}, note: r.teacher_note || '', release: action === BULK.RELEASE });
+        } catch (e) { res = { ok: false, error: e.message }; }
+        if (!alive) return;
+        const raw = G.rawRows && G.rawRows.find((x) => x.submission_id === r.submission_id);
+        if (res && res.ok && raw) {
+          if (action === BULK.RETAKE) raw.retake_allowed_at = res.retake_allowed_at || new Date().toISOString();
+          else {
+            const gr = res.grade || {};
+            Object.assign(raw, { status: STATUS.GRADED, grades: gr.grades || r.grades || {}, final_score: gr.final_score ?? raw.final_score ?? null, final_percentage: gr.final_percentage ?? raw.final_percentage ?? null,
+              graded_at: gr.graded_at || new Date().toISOString(), released_at: gr.released_at !== undefined ? gr.released_at : (action === BULK.RELEASE ? new Date().toISOString() : '') });
+          }
+        }
+        if (res && res.ok) done++; else failed++;
+        bar.firstChild.value = String(i + 1);
+        bar.lastChild.textContent = `${i + 1} / ${targets.length}`;
+      }
+      rows = (G.rawRows || []).map(normalizeRow);
+      G.selected.clear();
+      toast(summarizeBulk(action, { done, skipped: skippedCount, failed }), { type: failed ? 'warning' : 'success', timeout: 6000 });
+      drawList();
+    }
+
     function drawTable() {
       const list = visibleRows();
+      const visibleIds = new Set(list.map((r) => r.submission_id));
+      for (const id of [...G.selected]) if (!visibleIds.has(id)) G.selected.delete(id);
+      const allBox = h('input', { type: 'checkbox', 'aria-label': 'Select all visible submissions', checked: list.length > 0 && list.every((r) => G.selected.has(r.submission_id)), disabled: !list.length, dataset: { testid: 'bulk-select-all' },
+        on: { change: () => { if (allBox.checked) list.forEach((r) => G.selected.add(r.submission_id)); else G.selected.clear(); drawTable(); } } });
       const body = list.map((r) => {
         const open = () => { G.selectedId = r.submission_id; draw(); };
+        const pick = h('input', { type: 'checkbox', 'aria-label': `Select ${r.student_name || r.student_email}`, checked: G.selected.has(r.submission_id), dataset: { testid: 'bulk-select' },
+          on: { change: () => { if (pick.checked) G.selected.add(r.submission_id); else G.selected.delete(r.submission_id); allBox.checked = list.every((x) => G.selected.has(x.submission_id)); drawBulk(); } } });
+        const stop = (e) => e.stopPropagation();
         return h('tr', { class: 'adm-row', tabindex: '0', 'aria-label': `Grade ${r.student_name || r.student_email}`, dataset: { testid: 'grading-row' },
-          on: { click: open, keydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } } } },
+          on: { click: open, keydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } } },
+        h('td', { class: 'adm-td-check', on: { click: stop, keydown: stop } }, pick),
         h('td', {}, r.student_name || '—'), h('td', { class: 'adm-td-email' }, r.student_email || '—'),
         h('td', {}, h('span', { class: 'adm-item__code adm-item__code--sm' }, r.test_code)),
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
@@ -152,9 +247,10 @@ export function renderGrading(root, ctx, { goSettings }) {
           r.retake_allowed_at ? h('span', { class: 'pill pill--primary adm-retake-pill', dataset: { testid: 'retake-allowed' } }, 'Retake allowed') : null));
       });
       mount(tableHost, h('table', { class: 'adm-table adm-table--results' },
-        h('thead', {}, h('tr', {}, ['Student', 'Email', 'Test', 'Submitted', 'Score', 'Status', 'Released'].map((t) => h('th', { scope: 'col' }, t)))),
-        h('tbody', {}, body.length ? body : h('tr', {}, h('td', { colspan: 7, class: 'muted adm-center' },
+        h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'adm-td-check' }, allBox), ['Student', 'Email', 'Test', 'Submitted', 'Score', 'Status', 'Released'].map((t) => h('th', { scope: 'col' }, t)))),
+        h('tbody', {}, body.length ? body : h('tr', {}, h('td', { colspan: 8, class: 'muted adm-center' },
           G.status === STATUS.NEEDS_GRADING ? 'Nothing left to grade.' : 'No matching submissions.')))));
+      drawBulk();
     }
     const onSearch = debounce(() => { G.query = search.value; drawTable(); }, 120);
     cleanups.push(() => onSearch.cancel());
@@ -162,13 +258,16 @@ export function renderGrading(root, ctx, { goSettings }) {
 
     mount(content,
       h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
+        modeToggle(),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Status'), statusSel),
         h('span', { class: 'spacer' }), releaseAllBtn, refreshBtn),
       G.error
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
         : h('section', { class: 'card adm-card-results', 'aria-label': 'Submissions to grade' },
-          h('div', { class: 'adm-toolbar adm-toolbar--wrap' }, h('h3', { class: 'adm-h3' }, 'Submissions'), h('span', { class: 'spacer' }), search, exportBtn),
+          h('div', { class: 'adm-toolbar adm-toolbar--wrap' }, h('h3', { class: 'adm-h3' }, 'Submissions'), h('span', { class: 'spacer' }), search,
+            h('label', { class: 'adm-inline adm-inline--sm', title: 'Add one points column per question to the CSV' }, perQuestionBox, h('span', {}, 'Per-question columns')), exportBtn),
+          bulkHost,
           tableHost,
           h('p', { class: 'field__hint' }, 'Export grades downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom.')));
     drawTable();
@@ -248,15 +347,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       const tone = res.needsGrading ? 'pill--warning' : res.isCorrect ? 'pill--success' : res.answered && !manual ? 'pill--danger' : '';
 
       // Diagram of the student's answer (orbital / Lewis structure / Lewis dots) above the text.
-      let diagram = null;
-      if (q && res.answered && res.givenAnswer != null) {
-        try {
-          if (res.type === 'orbital') diagram = orbitalDiagram(q, res.givenAnswer, { size: 'sm' });
-          else if (res.type === 'structure') diagram = structureDiagram(q, res.givenAnswer, { size: 'sm' });
-          else if (res.type === 'lewis') diagram = lewisDiagram(q.element, res.givenAnswer);
-          else if (res.type === 'hotspot') diagram = hotspotDiagram(q, res.givenAnswer, { size: 'sm', marks: true, showTargets: true });
-        } catch { diagram = null; }
-      }
+      const diagram = answerDiagram(q, res, 'sm');
       const answerCell = res.answered
         ? [diagram ? h('div', { class: 'adm-grade__diagram' }, diagram) : null, h('div', { class: manual ? 'adm-pre' : '' }, res.givenAnswerText || '—')]
         : h('span', { class: 'faint' }, 'Not answered');
@@ -298,6 +389,7 @@ export function renderGrading(root, ctx, { goSettings }) {
           h('label', { class: 'field__label', for: `comment-${res.questionId}` }, 'Comment for student'),
           ta,
           h('span', { class: 'field__hint' }, '**bold**, *italic*, - lists, links'),
+          commentBankPicker({ testCode: row.test_code, questionId: res.questionId, getText: () => ta.value, setText: (t) => { ta.value = t; renderPreview(); }, onRubricPoints: (n) => set(Math.min(possible, n)) }),
           preview));
       ta.id = `comment-${res.questionId}`;
       refreshPoints();
@@ -446,5 +538,5 @@ export function renderGrading(root, ctx, { goSettings }) {
   }
 
   loadRows();
-  return () => { alive = false; cleanups.forEach((fn) => fn()); };
+  return () => { alive = false; stopGbq(); cleanups.forEach((fn) => fn()); };
 }
