@@ -1,102 +1,66 @@
-# ChemistryWorks
+<p align="center">
+  <img src="assets/brand/wordmark.png" alt="ChemistryWorks" width="440">
+</p>
 
-A lightweight, serverless chemistry testing platform: Google sign-in, thirteen question types (ten auto-graded, including Lewis dot diagrams, full Lewis structures for bonding, fill-in-the-blank and ordering, plus teacher-graded short answer, open response with rubrics and orbital diagrams), instant client-side scoring, light / dark mode, and submissions synced to Google Sheets (with Netlify Forms as a backup).
+<p align="center">
+  A chemistry assessment platform for teachers and students.
+</p>
 
-- **Students** sign in with Google, enter a test code (or open `/test?code=CHEM101`), and take a focused, auto-saved, keyboard-friendly test with live formula rendering.
-- **Teachers** open `?admin=true` to build tests visually or as JSON, preview them, publish them to the Sheet, grade open-ended answers (with rubric checkboxes), and export final scores for a gradebook.
+ChemistryWorks lets teachers create and manage chemistry assessments, review student work, and share feedback. Students can complete assignments online, with support for chemical formulas, diagrams, and other chemistry-specific answers.
 
-Everyone can switch **light / dark / system** theme and pick an accent colour from the sun/moon button in the header. Students and the teacher panel keep separate accents (blue and violet by default), so it is always obvious which mode you are in.
+## Features
 
-Turn off **Show score to students** on a test and students only see "Submission received"; you review and grade every answer privately in the **Grading** tab, then export the final scores (CSV) to copy into Aeries or Google Classroom.
+### For teachers
 
-## What's new in v4
+- Create assessments with a visual editor or JSON, then preview and publish them.
+- Use a broad range of question formats, including auto-graded and teacher-graded questions.
+- Review submissions, award partial credit, add comments, and release grades when ready.
+- Organize tests with classes, rosters, question banks, and randomized pools.
+- Export grades as CSV and reviewed submissions as PDF.
+- Use classroom tools such as assessment insights, print versions, and activity logs.
 
-- **ChemWorks Lab design**: navy/teal brand, new logo, calm motion, Classroom-style admin with a dashboard.
-- **33 question types**: multi-part, naming, dropdown cloze, dimensional analysis, nuclear notation, predict products, VSEPR shapes, data tables, molar mass, image choice, particle diagrams, virtual titration, estimate sliders, plus randomized (algorithmic) numbers per student.
-- **Teacher tools**: insights, grade by question, comment bank, bulk actions, print A/B, regrade, question bank, pools, import + templates, classes and roster-only tests, open/close windows, late work, accommodations, live monitor, mastery report, release emails, backup/restore.
-- **Admin accounts**: Google sign-in for listed admins (Admins sheet), activity log.
-- **Games**: per-test game options and 14 games, XP/badges, assigned practice, optional class leaderboard.
-- **Student tools**: calculator, constants, scratchpad, read-aloud, highlighter, flag notes, dashboard, offline banner.
-- Upgrade steps: `DEPLOYMENT.md` → "Upgrading to v4". Teacher guide: `docs/guide.md`.
+### For students
 
-## What's new in v2
+- Sign in with Google and access assigned assessments from the student dashboard.
+- Complete assessments with autosave and chemistry-aware formula rendering.
+- Use available study tools such as a calculator, constants, scratchpad, and read-aloud support.
+- View released grades and teacher feedback.
 
-- **Submission counts** in the teacher's test library (completed submissions per test, shown once the Apps Script URL and admin key are set).
-- **Split-screen reference pane**: tests can attach a periodic table (CST Chemistry Reference Sheet values), a per-test **Resources** table of the constants your class uses (e.g. 6.02 × 10²³), text notes and images that students view beside the questions, resize and collapse without losing answers.
-- **Partial credit and overrides**: Full / Half / Zero buttons or any score from 0 to the question's points; changing an auto-graded score is saved as an override.
-- **Sections**: named groups of questions with instructions and automatically calculated point totals; unsectioned questions still work.
-- **Orbital diagrams**: a new teacher-graded question type where students place up / down electron arrows.
-- **Lewis brackets and charges**: structure questions can require brackets, an overall charge and per-atom formal charges (teacher graded).
-- **Comments and release**: add formatted comments to individual questions; students see them only after you release the grade.
-- **PDF export**: print one student's reviewed submission (scores, answers, diagrams, and comments if released).
-- **Lab-notebook look**: warm paper surfaces, ink-blue text and monospace formulas, full on student screens and toned down for the teacher panel.
+The platform also supports light, dark, and system themes. See the [teacher guide](docs/guide.md) for detailed instructions and the [architecture notes](docs/ARCHITECTURE.md) for the test schema and module contracts.
 
-Existing tests, submissions and grades keep working unchanged. Upgrading the backend is described in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-to-v2).
+## Run locally
 
-## Teacher workflow: grade, comment, release, export
-
-1. Open **Grading** in the admin panel and pick a submission (filter by **Needs grading**).
-2. Score each question with **Full / Half / Zero** or type a number (0 to the question's points). Auto-graded answers keep their automatic score unless you override it.
-3. Optionally write a **comment** on any question (bold, italic, lists and links are supported).
-4. Tick **Release grade & comments to student** and **Save**. Until released, students see neither your comments nor the final grade details.
-5. Click **Export PDF** to print that student's reviewed submission (comments are included only after release). **Export grades** still downloads the CSV of final scores.
-
-**Students:** after signing in, **Your submitted tests** on the home screen lists past submissions. Once the teacher has released a grade, **View feedback** shows the score and the teacher's comments. This works on the device the student submitted from.
-
-## Quick start
+Requirements: Node.js 20 or later.
 
 ```bash
-npm start          # http://localhost:3000  (demo sign-in is enabled until a Google Client ID is set)
+npm start
 ```
 
-Open http://localhost:3000/?admin=true (code `chemadmin`) for the admin panel.
+Open <http://localhost:3000>. The local demo sign-in is enabled until a Google Client ID is configured. To open the admin panel, visit <http://localhost:3000/?admin=true> and use the demo code `chemadmin`.
 
-## Tests
+## Tests and validation
 
 ```bash
-npm test           # unit tests: grading, formulas, schema, submission pipeline, Apps Script backend
-npm run test:e2e   # browser tests (Playwright/Chromium) of the full student and admin flows
-npm run validate:tests   # validate every test JSON in data/tests/
+npm test                 # Unit tests
+npm run test:e2e          # Playwright browser tests
+npm run validate:tests    # Validate test files in data/tests/
 ```
 
-No dependencies are needed for the app or unit tests (Node's built-in runner, Node 20+). E2E tests need Playwright with Chromium available; if it isn't installed globally, run `npm i --no-save playwright && npx playwright install chromium` first.
+The application and unit tests use Node's built-in runner and do not require additional dependencies. End-to-end tests require Playwright and Chromium.
 
-## Question types
+## Deployment
 
-| Type | Answer | Grading |
-|---|---|---|
-| Multiple choice | one option | exact |
-| Multiple select | several options | exact, optional partial credit |
-| Numeric | number (`6.02e23`, `6.02×10^23`, units allowed) | absolute or percent tolerance |
-| Chemical formula | `H2SO4`, `CuSO4·5H2O`, `SO4^2-` | normalized formula match |
-| True / False | true/false | exact |
-| Matching matrix | pairs | per-pair partial credit |
-| Ordering | arrange items (drag or arrow buttons) | per-position partial credit |
-| Fill in the blanks | inline blanks (text, number or formula), optional word bank | per-blank partial credit |
-| Lewis dot diagram | dots around one element | valence count + placement |
-| Lewis structure (bonding) | bond orders + lone pairs on a molecule / polyatomic ion skeleton | exact (resonance forms accepted), optional partial credit |
-| Lewis structure with brackets and charges | as above, plus brackets, an overall charge and per-atom formal charges (`studentCharges`) | teacher graded |
-| Orbital diagram | up / down electron arrows in s, p, d or f orbital boxes | teacher graded in the admin **Grading** tab |
-| Short answer | free text | teacher graded in the admin **Grading** tab |
-| Open response | long free text, optional rubric and word range | teacher graded with rubric checkboxes |
+See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions for Google sign-in, Google Sheets and the Apps Script backend, and Netlify. Add the required project settings to `js/config.js` before deployment.
 
-That is thirteen types; the two Lewis structure rows are one question type (`structure`) with `studentCharges` off or on.
-Formula, numeric and fill-in questions automatically show students **how to type charges** (`SO4^2-`, `Na^+`) or **powers of ten** (`6.02e23`) when the answer needs them, with insert buttons for `^ + −` and `×10^`.
+For existing installations, consult the upgrade instructions in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-to-v4).
 
-The full test JSON schema and module contracts are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). To have an AI write tests for you, give it [docs/guide.md](docs/guide.md).
+## Repository structure
 
-## Deploying
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for Google Cloud (sign-in), Google Sheets + Apps Script (backend), and Netlify setup, and fill in `js/config.js`.
-
-## Project layout
-
-```
-index.html            app shell + hidden Netlify form
-js/                   app (ES modules, no build step)
-css/                  styles
-data/tests/           bundled tests (index.json = catalog; ships empty)
-test/fixtures/tests/  sample tests used only by the automated test suite
+```text
+index.html            Application shell
+js/                   JavaScript application modules
+css/                  Stylesheets
+data/tests/           Bundled test catalog and test data
 apps-script/Code.gs   Google Apps Script backend
-test/                 unit + E2E tests
+test/                 Unit and browser tests
 ```
