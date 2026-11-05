@@ -4,7 +4,7 @@
 
 import { h, mount, icon, richText, renderMath, toast, openModal, prefersReducedMotion } from '../../ui.js';
 import { resourcesTable } from '../reference-pane.js';
-import { CONFIG } from '../../config.js';
+import { CONFIG, feature } from '../../config.js';
 import { load, save } from '../../lib/storage.js';
 import { saveDraft } from '../../lib/tests.js';
 import { QUESTION_TYPES, TYPE_LABELS, MANUAL_TYPES, normalizeTest, validateTest, blankQuestion, nextQuestionId, blankTest } from '../../lib/schema.js';
@@ -14,6 +14,7 @@ import { publishTest } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
 import { testLink } from './library.js';
 import { typeEditor } from './editors/core.js';
+import { gameOptionsPanel } from './game-options.js';
 import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
@@ -143,8 +144,26 @@ function jsonErrorMessage(err, text) {
 }
 
 // ---------- render ----------
+// V4-01: icon + one-line description per question type (type picker, outline).
+export const TYPE_ICONS = {
+  mcq: 'list', multi: 'check', truefalse: 'flag', numeric: 'type', short: 'pencil', open: 'pen',
+  matching: 'layers', ordering: 'sort', fillblank: 'minus', categorize: 'grid',
+  formula: 'flask', balance: 'refresh', econfig: 'sparkle', sigfigs: 'type', ptable: 'grid', orbital: 'panel',
+  lewis: 'user', structure: 'layers', hotspot: 'eye', graph: 'chart',
+};
+export const TYPE_DESCRIPTIONS = {
+  mcq: 'One correct answer from a list.', multi: 'Select every correct answer.', truefalse: 'A statement that is true or false.',
+  numeric: 'A number, with optional tolerance and units.', short: 'A short typed answer matched to accepted answers.', open: 'Free-text answer that you grade by hand.',
+  matching: 'Pair items from two columns.', ordering: 'Put steps or items in the right order.', fillblank: 'Type the missing words in a sentence.',
+  categorize: 'Drag items into the right groups.', formula: 'A chemical formula such as H2SO4.', balance: 'Balance a chemical equation.',
+  econfig: 'An electron configuration.', sigfigs: 'Count or round to significant figures.', ptable: 'Click elements on the periodic table.',
+  orbital: 'Fill in an orbital diagram.', lewis: 'Draw a Lewis dot symbol.', structure: 'Draw a Lewis structure; teacher graded.',
+  hotspot: 'Label places on a picture.', graph: 'Plot or read a graph.',
+};
+
 export function renderBuilder(root, ctx) {
   ensure();
+  const v2 = feature('adminShell');
   const cleanups = [];
   const gasUrl = CONFIG.GAS_WEB_APP_URL;
 
@@ -210,7 +229,7 @@ export function renderBuilder(root, ctx) {
     buttons.publish.title = why || 'Publish to the Google Sheet';
     publishNote.textContent = why && valid ? why : '';
   }
-  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); };
+  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); if (v2) drawOutline(); };
 
   const normalizedOrNull = () => { try { return normalizeTest(S.test); } catch { return null; } };
 
@@ -413,6 +432,7 @@ export function renderBuilder(root, ctx) {
         sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false),
         sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false),
         sw('requireAllQuestions', 'All questions required', 'Students must answer every question before they can submit. Or mark single questions Required below.', false)),
+      v2 ? (gameOptionsPanel(S.test, changed) || null) : null,
     );
   }
 
@@ -841,10 +861,12 @@ export function renderBuilder(root, ctx) {
     const items = [];
     const groupEls = groups.map((g) => {
       const btns = g.types.map((t) => {
-        const b = h('button', { class: 'adm-menu__item', type: 'button', role: 'menuitem', title: TYPE_LABELS[t], dataset: { testid: `add-question-${t}` },
+        const b = h('button', { class: 'adm-menu__item', type: 'button', role: 'menuitem', title: v2 ? null : TYPE_LABELS[t], 'aria-label': v2 ? `${TYPE_LABELS[t]}. ${TYPE_DESCRIPTIONS[t] || ''}`.trim() : null, dataset: { testid: `add-question-${t}` },
           on: { click: () => { setOpen(false); addQuestion(t); } } },
-        h('span', {}, SHORT_LABELS[t] || TYPE_LABELS[t]),
-        MANUAL_TYPES.includes(t) ? h('span', { class: 'adm-menu__tag' }, 'Teacher') : null);
+        v2 ? h('span', { class: 'adm-menu__icon' }, icon(TYPE_ICONS[t] || 'sparkle', { size: 16 })) : null,
+        h('span', { class: 'adm-menu__name' }, SHORT_LABELS[t] || TYPE_LABELS[t]),
+        MANUAL_TYPES.includes(t) ? h('span', { class: 'adm-menu__tag' }, 'Teacher') : null,
+        v2 ? h('span', { class: 'adm-menu__desc', role: 'tooltip' }, TYPE_DESCRIPTIONS[t] || typeDef(t)?.description || TYPE_LABELS[t]) : null);
         b._search = `${TYPE_LABELS[t]} ${SHORT_LABELS[t] || ''} ${t} ${g.title}`.toLowerCase();
         items.push(b);
         return b;
@@ -891,6 +913,176 @@ export function renderBuilder(root, ctx) {
     return wrap;
   }
 
+
+  // ----- V4-01: outline (left pane), drag + keyboard reorder, preview as student -----
+  const outlineEl = v2 ? h('aside', { class: 'bld2__outline', 'aria-label': 'Test outline', dataset: { testid: 'builder-outline' } }) : null;
+  let dragging = false;
+  let outlineFocus = null; // question object to re-focus after a redraw
+  const prevTops = new WeakMap();
+
+  /** Move question i to index j inside its own section; used by drag and drop. */
+  function reorderTo(i, j) {
+    const qs = S.test.questions;
+    if (!listEl || i === j || i < 0 || j < 0 || i >= qs.length || j >= qs.length || sectionKey(qs[i]) !== sectionKey(qs[j])) return false;
+    const [q] = qs.splice(i, 1);
+    qs.splice(j, 0, q);
+    outlineFocus = q;
+    renderList();
+    changed();
+    return true;
+  }
+
+  function drawOutline() {
+    if (!outlineEl || dragging) return;
+    const qs = S.test.questions;
+    const secs = S.test.sections || [];
+    // FLIP: remember where every row was, rebuild, then slide rows from the old spot to the new one.
+    outlineEl.querySelectorAll('[data-qi]').forEach((li) => { if (li._q) prevTops.set(li._q, li.getBoundingClientRect().top); });
+    const items = [];
+    const addItem = (q) => {
+      const i = qs.indexOf(q);
+      const li = h('li', { class: 'bld2-ol__item', tabindex: '0', dataset: { testid: 'outline-item', qi: String(i), qid: q.id },
+        'aria-label': `Question ${i + 1}: ${previewText(q) || TYPE_LABELS[q.type] || q.type}. Enter opens it. Alt plus arrow up or down moves it.`,
+        on: {
+          click: () => { focusQuestion(qs.indexOf(q)); },
+          keydown: (e) => {
+            const at = qs.indexOf(q);
+            if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+              e.preventDefault();
+              if (!listEl) return;
+              outlineFocus = q;
+              moveQuestion(at, e.key === 'ArrowUp' ? -1 : 1);
+              drawOutline();
+              outlineEl.querySelector(`[data-qi="${qs.indexOf(q)}"]`)?.focus({ preventScroll: true });
+            } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); focusQuestion(at); }
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              const rows = [...outlineEl.querySelectorAll('.bld2-ol__item')];
+              rows[rows.indexOf(li) + (e.key === 'ArrowUp' ? -1 : 1)]?.focus();
+            }
+          },
+        } },
+      h('span', { class: 'bld2-ol__grip', 'aria-hidden': 'true', title: 'Drag to reorder', style: 'touch-action:none', on: { pointerdown: (e) => startDrag(e, li, q) } }, icon('sort', { size: 16 })),
+      h('span', { class: 'bld2-ol__num' }, `Q${i + 1}`),
+      icon(TYPE_ICONS[q.type] || 'sparkle', { size: 16 }),
+      h('span', { class: 'bld2-ol__text' }, previewText(q) || TYPE_LABELS[q.type] || q.type));
+      li._q = q;
+      items.push(li);
+    };
+    if (secs.length) {
+      for (const g of groupQuestions(S.test)) {
+        const i = g.section ? secs.findIndex((x) => x.id === g.section.id) : -1;
+        items.push(h('li', { class: 'bld2-ol__sec', role: 'presentation' }, g.section ? sectionTitleOf(g.section, i) : 'No section'));
+        g.questions.forEach(addItem);
+      }
+    } else qs.forEach(addItem);
+    mount(outlineEl,
+      h('h3', { class: 'adm-h3' }, icon('list', { size: 16 }), 'Outline'),
+      qs.length ? h('ol', { class: 'bld2-ol', dataset: { testid: 'outline-list' } }, items) : h('p', { class: 'faint' }, 'Questions appear here as you add them.'),
+      h('p', { class: 'bld2-ol__hint' }, 'Drag the handle, or press Alt + arrow up/down on a row, to reorder.'));
+    if (!prefersReducedMotion()) {
+      for (const li of items) {
+        if (!li._q || !prevTops.has(li._q)) continue;
+        const dy = prevTops.get(li._q) - li.getBoundingClientRect().top;
+        if (Math.abs(dy) < 2) continue;
+        li.style.transition = 'none';
+        li.style.transform = `translateY(${dy}px)`;
+        void li.offsetWidth;
+        li.style.transition = '';
+        li.style.transform = '';
+      }
+    }
+    if (outlineFocus) {
+      const li = items.find((x) => x._q === outlineFocus);
+      outlineFocus = null;
+      if (li && outlineEl.contains(document.activeElement) === false && document.activeElement !== document.body && !document.activeElement?.closest?.('.bld2__outline')) { /* focus stays where the user is typing */ }
+      else li?.focus({ preventScroll: true });
+    }
+  }
+
+  function startDrag(e, li, q) {
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    if (!listEl) return;
+    const from = S.test.questions.indexOf(q);
+    const rows = [...outlineEl.querySelectorAll('.bld2-ol__item')].filter((r) => r._q && sectionKey(r._q) === sectionKey(q));
+    const mids = rows.map((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
+    const startY = e.clientY;
+    const grip = e.currentTarget;
+    dragging = true;
+    li.classList.add('is-dragging');
+    try { grip.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    const target = (y) => {
+      let k = rows.indexOf(li);
+      const mine = mids[k] + (y - startY);
+      let best = 0;
+      mids.forEach((m, idx) => { if (Math.abs(m - mine) < Math.abs(mids[best] - mine)) best = idx; });
+      return rows[best] ? S.test.questions.indexOf(rows[best]._q) : S.test.questions.indexOf(q);
+    };
+    const move = (ev) => { li.style.transform = `translateY(${ev.clientY - startY}px)`; };
+    const end = (ev) => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', end);
+      grip.removeEventListener('pointercancel', end);
+      try { grip.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      const to = ev.type === 'pointercancel' ? from : target(ev.clientY);
+      dragging = false;
+      li.classList.remove('is-dragging');
+      li.style.transform = '';
+      outlineFocus = null;
+      if (!reorderTo(from, to)) drawOutline();
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', end);
+    grip.addEventListener('pointercancel', end);
+  }
+
+  // Preview as student: the real runner widgets (not wired to any submission) on a per-student instance of the test.
+  let previewOn = false;
+  const previewBtn = v2 ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-pressed': 'false', dataset: { testid: 'builder-preview-toggle' },
+    on: { click: () => { previewOn = !previewOn; previewBtn.setAttribute('aria-pressed', String(previewOn)); renderMain(); } } }, icon('eye', { size: 16 }), 'Preview as student') : null;
+  async function renderPreview() {
+    const email = h('input', { class: 'input', type: 'email', value: load('builderPreviewEmail', 'student@example.org'), autocomplete: 'off', 'aria-label': 'Fake student email for the preview', dataset: { testid: 'preview-email' } });
+    const seedNote = h('span', { class: 'faint', dataset: { testid: 'preview-seed' } });
+    const cards = h('div', { class: 'bld2-preview', dataset: { testid: 'builder-preview' } });
+    const draw = async () => {
+      save('builderPreviewEmail', email.value);
+      const t = normalizedOrNull();
+      if (!t || !t.questions.length) { mount(cards, h('p', { class: 'muted' }, 'Add at least one valid question to preview the test.')); seedNote.textContent = ''; return; }
+      let inst = t;
+      try { inst = (await import('../../lib/instantiate.js')).instantiateTest(t, { email: email.value }); } catch (err) { console.error(err); }
+      const { buildWidget } = await import('../runner/widgets.js');
+      const answers = {};
+      const api = { get: (id) => answers[id], set: (id, val) => { answers[id] = val; } };
+      seedNote.textContent = inst.instance && inst.instance.seed ? `Seed: ${inst.instance.seed}` : '';
+      const nodes = [];
+      let n = 0;
+      for (const g of groupQuestions(inst)) {
+        if (g.section) nodes.push(h('h4', { class: 'adm-grade__sectionhead' }, g.section.title || 'Section'));
+        for (const q of g.questions) {
+          let w;
+          try { w = buildWidget(q, api); } catch (err) { w = { el: h('p', { class: 'muted' }, 'Could not draw this question.'), refresh() {} }; }
+          nodes.push(h('section', { class: 'bld2-preview__card', inert: true, dataset: { testid: 'preview-card', question: q.id } },
+            h('div', { class: 'bld2-preview__head' }, h('strong', {}, `Question ${++n}`), h('span', { class: 'pill pill--primary' }, TYPE_LABELS[q.type] || q.type), h('span', { class: 'pill' }, `${q.points ?? 1} pt${Number(q.points ?? 1) === 1 ? '' : 's'}`)),
+            withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, w.textEl || richText(q.text, 'div', 'q-text')), w.el));
+          try { w.refresh(undefined); } catch { /* ignore */ }
+        }
+      }
+      mount(cards, nodes);
+      renderMath(cards);
+    };
+    const drawSoon = debounce(draw, 250);
+    cleanups.push(() => drawSoon.cancel());
+    email.addEventListener('input', drawSoon);
+    const wrap = h('div', { class: 'stack' },
+      h('div', { class: 'bld2-preview__email' }, h('label', { class: 'field__label', for: 'preview-email-input' }, 'Preview as'), email, seedNote,
+        h('span', { class: 'field__hint' }, 'Enter any email to see that student’s random numbers and drawn questions. Nothing is submitted.')),
+      cards);
+    email.id = 'preview-email-input';
+    draw();
+    return wrap;
+  }
+
   function renderVisual() {
     listEl = h('div', { class: 'adm-qlist' });
     emptyHint = h('div', { class: 'adm-qempty', hidden: S.test.questions.length > 0 },
@@ -910,11 +1102,20 @@ export function renderBuilder(root, ctx) {
   }
 
   function renderMain() {
+    if (v2 && previewOn && S.mode === 'visual') {
+      listEl = null; // the visual editor is not on screen while previewing
+      mount(mainEl, h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'This is what a student sees. Switch the preview off to keep editing.')));
+      renderPreview().then((node) => { if (previewOn) mainEl.appendChild(node); });
+      drawOutline();
+      return;
+    }
     mount(mainEl, S.mode === 'json' ? renderJson() : renderVisual());
+    drawOutline();
   }
 
-  mount(root, h('div', { class: 'adm-builder', dataset: { testid: 'builder' } },
-    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), guideBtn), mainEl),
+  mount(root, h('div', { class: v2 ? 'adm-builder bld2' : 'adm-builder', dataset: { testid: 'builder' } },
+    v2 ? outlineEl : null,
+    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), previewBtn, guideBtn), mainEl),
     side));
   renderMain();
   refreshValidation();

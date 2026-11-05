@@ -1,0 +1,127 @@
+{
+  "code": "DEMOV4C",
+  "title": "V4 Question Types Demo C",
+  "description": "Molar mass, picture choice, particle diagram, titration and estimate questions, plus algorithmic questions where every student gets their own numbers.",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "allowModeToggle": true,
+  "passingPercent": 70,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "molarmass",
+      "text": "Calculate the molar mass of calcium hydroxide.",
+      "formula": "Ca(OH)2",
+      "points": 2,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "showWork": true,
+      "explanation": "40.08 + 2 x 16.00 + 2 x 1.01 = 74.10 g/mol."
+    },
+    {
+      "id": "q2",
+      "type": "imagechoice",
+      "text": "Which picture shows a sample of one pure substance (all particles the same)?",
+      "points": 1,
+      "multiple": false,
+      "options": [
+        { "id": "a", "text": "A", "image": { "url": "data/tests/demo-particles-a.svg", "alt": "Four identical dark blue particles" } },
+        { "id": "b", "text": "B", "image": { "url": "data/tests/demo-particles-b.svg", "alt": "Two dark blue and two red particles mixed together" } },
+        { "id": "c", "text": "C", "image": { "url": "data/tests/demo-particles-c.svg", "alt": "Four identical red particles" } }
+      ],
+      "correctAnswer": "a",
+      "explanation": "A and C are both pure; this question accepts A. Mixtures like B contain two kinds of particles."
+    },
+    {
+      "id": "q3",
+      "type": "particles",
+      "text": "Water vapour (H2O) condenses completely. Place 4 particles of H2O in the liquid box and none in the gas box.",
+      "points": 2,
+      "partialCredit": true,
+      "maxPerZone": 12,
+      "species": [
+        { "id": "h2o", "label": "H2O", "shape": "circle", "tone": 1 },
+        { "id": "o2", "label": "O2", "shape": "square", "tone": 3 }
+      ],
+      "zones": [{ "id": "liquid", "label": "Liquid" }, { "id": "gas", "label": "Gas" }],
+      "targets": { "liquid": { "h2o": 4 }, "gas": {} },
+      "explanation": "All of the water ends up in the liquid phase."
+    },
+    {
+      "id": "q4",
+      "type": "titration",
+      "text": "Titrate 25.0 mL of 0.100 M acetic acid with 0.100 M NaOH. Record the equivalence-point volume and the pH there.",
+      "points": 3,
+      "analyte": { "type": "acid", "kind": "weak", "conc": 0.1, "volumeMl": 25, "K": 0.000018 },
+      "titrant": { "conc": 0.1 },
+      "ask": "both",
+      "volumeTolerance": 0.5,
+      "phTolerance": 0.3,
+      "partialCredit": true,
+      "explanation": "Equal moles of acid and base: 25.0 mL. The acetate ion is a weak base, so the pH is above 7 (about 8.72)."
+    },
+    {
+      "id": "q5",
+      "type": "estimate",
+      "text": "Estimate the pH of 0.010 M hydrochloric acid.",
+      "points": 1,
+      "min": 0,
+      "max": 14,
+      "step": 0.5,
+      "answer": 2,
+      "tolerance": 0.5,
+      "toleranceType": "absolute",
+      "explanation": "HCl is a strong acid: pH = -log(0.010) = 2."
+    },
+    {
+      "id": "q6",
+      "type": "numeric",
+      "text": "How many moles are in {m} g of $\\ce{{compound}}$?",
+      "points": 2,
+      "correctAnswer": 0.5,
+      "tolerance": 2,
+      "toleranceType": "percent",
+      "unit": "mol",
+      "variables": {
+        "m": { "min": 10, "max": 100, "step": 5, "sigFigs": 3 },
+        "compound": { "pick": ["NaCl", "KCl", "CaCl2"] }
+      },
+      "answerFormula": "= m / molarMass(compound)",
+      "explanation": "moles = mass / molar mass."
+    },
+    {
+      "id": "q7",
+      "type": "sigfigs",
+      "text": "A gas sample at {T} K and 1.00 atm occupies {V} L. How many moles of gas is that? Give 3 significant figures.",
+      "points": 2,
+      "answer": 0.0409,
+      "sigFigs": 3,
+      "tolerance": 0.001,
+      "partialCredit": true,
+      "variables": {
+        "T": { "min": 250, "max": 350, "step": 10, "sigFigs": 3 },
+        "V": { "min": 1, "max": 5, "step": 0.5, "sigFigs": 2 }
+      },
+      "answerFormula": "= idealGasN(1, V, T)",
+      "explanation": "n = PV / RT with R = 0.08206 L atm / (mol K)."
+    },
+    {
+      "id": "q8",
+      "type": "dimensional",
+      "text": "Convert {m} g of sodium chloride to moles.",
+      "points": 3,
+      "given": { "value": 117, "unit": "g" },
+      "answer": { "value": 2, "unit": "mol" },
+      "tolerance": 2,
+      "toleranceType": "percent",
+      "factors": [{ "top": { "value": 1, "unit": "mol" }, "bottom": { "value": 58.44, "unit": "g" } }],
+      "variables": { "m": { "min": 50, "max": 250, "step": 10 } },
+      "givenVariable": "m",
+      "answerFormula": "= m / molarMass(\"NaCl\")",
+      "explanation": "Multiply by 1 mol / 58.44 g."
+    }
+  ]
+}

@@ -426,3 +426,22 @@ The runner tags them (`required-pill`) and the submit modal lists unanswered req
   `listAdmins`, `saveAdmin`, `removeAdmin`, `getLog`. Admin gate (`js/app.js`, behind `adminAccounts`): signed-in Google user ->
   `whoAmI` -> panel with no prompt; otherwise Google button + "Use access code instead". UI: `js/views/admin/admins.js`
   (Settings -> Admins for owners, Settings -> Activity log).
+
+### Question types III + algorithmic questions (V4-03 / V4-09, S10)
+- **New registry types** (`js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js`, styles in `css/qtypes-s10.css`):
+  - `molarmass` `{ formula, answer?, tolerance (0.05), toleranceType, showWork }`; answer `{ value, work: [{ symbol, count, mass }] }`; only `value` is graded (parsed with an optional "g/mol"); the key is `answer` or the molar mass computed from `formula`.
+  - `imagechoice` `{ multiple, options: [{ id, text?, image: { url, alt } }], correctAnswer: id | [ids], partialCredit }`; every option needs a picture (`safeImageUrl`) and alt text. Answer = id or array of ids.
+  - `particles` `{ species: [{ id, label, shape: circle|square|triangle|diamond, tone: 1-6 }], zones: [{ id, label }] (default one zone `box`, max 4), targets: { zoneId: { speciesId: count } }, maxPerZone (24), partialCredit }`; answer = `[{ s, z, x, y }]` (x, y are fractions; only the counts per zone and species are graded; `correctAnswer` is the key laid out as particles).
+  - `titration` `{ analyte: { type: acid|base, kind: strong|weak, conc, volumeMl, K? }, titrant: { conc }, ask: volume|ph|both, atVolume?, volumeTolerance (0.5 mL), phTolerance (0.2), maxVolume?, partialCredit }`; exact charge-balance simulation (`titrationPH(q, mL)`), answer `{ volume, ph }`.
+  - `estimate` `{ min, max, step, answer, tolerance, toleranceType, unit }`; answer = number.
+- **Chemistry functions** `js/lib/chemfuncs.js` (pure): `parseFormulaCounts`, `molarMass`, `molarMassBreakdown`, `moles`, `massFromMoles`, `convert(value, from, to)`, ideal gas (`idealGasP/V/N/T`), dilution (`dilutionC2/V2/V1`), `pH`, `pOH`, `hFromPH`, `pHStrongAcid/Base`, `pHWeakAcid/Base`, plus math (`sqrt`, `log`, `ln`, `exp`, `pow`, `round`, `min`, `max`). `CHEM_FUNCS` is the only set of functions a formula may call; `CHEM_CONSTANTS` = `pi`, `NA`, `R`, `Kw`.
+- **Algorithmic questions** `js/lib/algorithmic.js` (registers the `algorithmic` instantiate step). A `numeric`, `sigfigs`, `dimensional` or `multipart` question may carry
+  `variables: { name: { min, max, step?, sigFigs? } | { pick: [...] } | { formula, sigFigs? } }` and `answerFormula: "= m / molarMass(compound)"`.
+  `{name}` in any text field is replaced by the drawn value; the formula sets `numeric.correctAnswer`, `sigfigs.answer` (rounded to `sigFigs`) or `dimensional.answer.value`
+  (`answerSigFigs` rounds any type; dimensional `givenVariable: 'm'` sets `given.value`). Multipart: variables on the question, `answerFormula` (and optional extra `variables`) on each part.
+  Each question draws from its own stream seeded by `seed + '#alg#' + id`, so the same email gets the same numbers on every device. The step stores `q.drawn = { name: value }`
+  and skips questions that already have `drawn` (an instantiated copy is never redrawn, so regrading uses the stored key). A bad definition leaves the question untouched (logged).
+  The formula language is a hand-written parser (numbers, "text", variables, constants, `+ - * / ^ ** × ÷ −`, parentheses, unary minus, whitelisted calls); no `eval` / `Function`.
+  `validateVariables(q, where, errors)` (exported) dry-runs the definition; **hook for `schema.js validateQuestion`** (call it for every question, it is a no-op without algorithmic fields).
+  Builder: `js/views/admin/variables-editor.js` (`variablesEditor(q, redraw, changed)`), mounted under the numeric and sigfigs editors in `editors/core.js`.
+- **Backend**: `Submissions` column 25 `Seed` (`COL.SEED`) holds the student's instance seed. `handleSubmission_` reads `payload.instance.seed` (also `instance_json` / `instance_seed` form fields), text, max 200 characters; older sheets get the header appended by `getSheet_`.

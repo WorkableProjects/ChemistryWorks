@@ -3,7 +3,7 @@
 // validateGameOptions(test)  -> string[] of human-readable problems (empty = fine).
 // cleanGameOptions(raw)      -> the normalized object to store back on the test (schema.js hook).
 
-export const KNOWN_GAME_IDS = ['classic', 'survival', 'lightning', 'elementhunt', 'matchup', 'flashcards', 'tower', 'mistakes', 'boss', 'unitdash'];
+export const KNOWN_GAME_IDS = ['classic', 'survival', 'lightning', 'elementhunt', 'matchup', 'flashcards', 'tower', 'mistakes', 'boss', 'unitdash', 'reactionlab', 'molbuilder', 'periodicpuzzle', 'dailyelement'];
 export const POWERUP_IDS = ['fifty', 'freeze', 'skip', 'hint'];
 export const LIMITS = {
   questions: [1, 200], timePerQuestion: [5, 300], totalSeconds: [10, 900], lives: [1, 9],
@@ -39,6 +39,7 @@ export function normalizeGameOptions(test) {
     types: types && types.length ? types : null,
     sound: raw.sound !== false,
     leaderboard: raw.leaderboard === true,
+    leaderboardNames: raw.leaderboardNames === 'nicknames' ? 'nicknames' : 'real',
   };
 }
 
@@ -63,6 +64,7 @@ export function validateGameOptions(test) {
   for (const key of ['untimed', 'allowUntimed', 'sound', 'leaderboard']) {
     if (raw[key] !== undefined && typeof raw[key] !== 'boolean') errs.push(`Test: gameOptions.${key} must be true or false.`);
   }
+  if (raw.leaderboardNames !== undefined && !['real', 'nicknames'].includes(raw.leaderboardNames)) errs.push('Test: gameOptions.leaderboardNames must be "real" or "nicknames".');
   return errs;
 }
 

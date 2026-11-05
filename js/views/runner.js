@@ -16,6 +16,17 @@ import { CONFIDENCE_LEVELS, validConfidence, hintButtonText } from '../lib/extra
 import { preSubmitBlocked } from '../lib/student-status.js';
 import { load, save, remove } from '../lib/storage.js';
 import { referencePane } from './reference-pane.js';
+import { feature } from '../config.js';
+import { toolsFor } from './tools/tools-config.js';
+import { calculatorPanel } from './tools/calculator.js';
+import { constantsPanel } from './tools/constants-tab.js';
+import { scratchpad } from './tools/scratchpad.js';
+import { normalizeScratch, normalizeScratchMap, isEmptyScratch } from './tools/scratch-model.js';
+import { marksBar } from './tools/marks.js';
+import { readAloudButton, stopSpeaking } from './tools/readaloud.js';
+import { questionSpeech } from './tools/speech.js';
+import { networkBanner } from './tools/banner.js';
+import { ensureToolsCss } from './tools/settings.js';
 import { buildWidget, pointsLabel } from './runner/widgets.js';
 
 // Re-exported so results.js, export-view.js and unit tests keep importing these from runner.js.
@@ -76,7 +87,12 @@ export function render(root, ctx, params = {}) {
   const state = {
     answers: {}, confidence: {}, hints: new Set(), flagged: new Set(), index: 0, mode: defaultMode, startedAt: Date.now(),
     tabSwitches: 0, submitting: false, done: false,
+    scratch: {}, struck: {}, flagNotes: {}, // V4-05 student tools: saved with progress, never submitted
   };
+  // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
+  const toolsOn = feature('studentTools');
+  const tools = toolsFor(test, { enabled: toolsOn, accommodations: user.accommodations });
+  if (toolsOn) ensureToolsCss();
 
   // ---- restore
   const saved = preview ? null : load(progressKey, null);
@@ -85,6 +101,11 @@ export function render(root, ctx, params = {}) {
     for (const k of saved.flagged || []) if (byId.has(k)) state.flagged.add(k);
     for (const [k, v] of Object.entries(saved.confidence || {})) if (byId.get(k)?.confidence && validConfidence(v)) state.confidence[k] = Number(v);
     for (const k of saved.hints || []) if (byId.get(k)?.hint) state.hints.add(k);
+    if (toolsOn) {
+      state.scratch = normalizeScratchMap(saved.scratch, [...byId.keys()]);
+      for (const [k, v] of Object.entries(saved.struck || {})) if (byId.has(k) && Array.isArray(v) && v.length) state.struck[k] = v.map(String);
+      for (const [k, v] of Object.entries(saved.flagNotes || {})) if (byId.has(k) && typeof v === 'string') state.flagNotes[k] = v.slice(0, 200);
+    }
     state.index = Math.min(Math.max(Number(saved.index) || 0, 0), total - 1);
     if (test.allowModeToggle !== false && modeOk(saved.mode)) state.mode = saved.mode;
     if (Number(saved.startedAt) > 0) state.startedAt = Number(saved.startedAt);
@@ -102,6 +123,7 @@ export function render(root, ctx, params = {}) {
     save(progressKey, {
       answers: state.answers, confidence: state.confidence, hints: [...state.hints], flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
       tabSwitches: state.tabSwitches, mode: state.mode, updatedAt: Date.now(), title: test.title,
+      ...(toolsOn ? { scratch: state.scratch, struck: state.struck, flagNotes: state.flagNotes } : {}),
     });
     flashSaved();
   }
@@ -156,6 +178,7 @@ export function render(root, ctx, params = {}) {
     'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': '0', dataset: { testid: 'progress-bar' },
   }, progressFill);
 
+  const netBanner = toolsOn && !preview ? networkBanner({ config: ctx.config }) : null;
   const previewBanner = preview
     ? h('div', { class: 'runner-preview', dataset: { testid: 'preview-banner' } },
       icon('eye', { size: 16 }),
@@ -241,6 +264,17 @@ export function render(root, ctx, params = {}) {
     }, 'Clear answer');
     const clearSlot = h('div', { class: 'q-clear-slot' });
     const extras = buildExtras(q);
+    // V4-05: optional note to the teacher that goes with the flag.
+    const noteInput = toolsOn ? h('input', {
+      class: 'input q-flagnote__input', type: 'text', maxlength: '200', 'aria-label': 'Note for your teacher (optional)',
+      placeholder: 'Note for your teacher (optional)', dataset: { testid: 'flag-note' },
+      on: {
+        input: () => { state.flagNotes[q.id] = noteInput.value; persist(true); },
+        keydown: (e) => e.stopPropagation(), // typing here must not trigger runner shortcuts or Enter -> next question
+      },
+    }) : null;
+    const noteRow = noteInput ? h('div', { class: 'q-flagnote', hidden: true, dataset: { testid: 'flag-note-row' } }, noteInput) : null;
+    const readAloud = tools.readAloud ? readAloudButton({ getText: () => questionSpeech(q) }) : null;
     const el = h('section', {
       class: 'q-card', tabindex: '-1', 'aria-label': `Question ${i + 1} of ${total}`,
       dataset: { testid: 'question-card', questionId: q.id },
@@ -253,7 +287,9 @@ export function render(root, ctx, params = {}) {
         isRequired(test, q) ? h('span', { class: 'pill pill--warning q-required-pill', dataset: { testid: 'required-pill' } }, 'Required') : null,
         sectionOfQ(q) ? h('span', { class: 'pill q-section-pill', title: sectionOfQ(q).section.title, dataset: { testid: 'section-pill' } }, sectionPillText(sectionOfQ(q).section.title)) : null,
         h('span', { class: 'spacer' }),
+        readAloud?.el,
         flagBtn),
+      noteRow,
       // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
       withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
@@ -261,6 +297,16 @@ export function render(root, ctx, params = {}) {
       clearSlot,
     );
     el.querySelector('.q-text').id = `qt-${q.id}`;
+    const marks = tools.highlighter ? marksBar({
+      card: el, qid: q.id, getStruck: () => state.struck[q.id] || [],
+      setStruck: (ids) => { if (ids.length) state.struck[q.id] = ids; else delete state.struck[q.id]; persist(true); },
+    }) : null;
+    if (marks) widget.el.before(marks.el);
+    const pad = tools.scratchpad ? scratchpad({
+      qid: q.id, get: () => state.scratch[q.id],
+      set: (v) => { const n = normalizeScratch(v); if (isEmptyScratch(n)) delete state.scratch[q.id]; else state.scratch[q.id] = n; persist(true); },
+    }) : null;
+    if (pad) clearSlot.before(pad.el);
     const card = {
       q, i, el, widget,
       refresh() {
@@ -273,6 +319,12 @@ export function render(root, ctx, params = {}) {
         const flagged = state.flagged.has(q.id);
         flagBtn.setAttribute('aria-pressed', String(flagged));
         flagBtn.classList.toggle('is-flagged', flagged);
+        if (noteRow) {
+          noteRow.hidden = !flagged;
+          if (noteInput.value !== (state.flagNotes[q.id] || '')) noteInput.value = state.flagNotes[q.id] || '';
+        }
+        marks?.refresh();
+        pad?.refresh();
       },
     };
     return card;
@@ -431,8 +483,9 @@ export function render(root, ctx, params = {}) {
   }
 
   function toggleFlag(qid) {
-    if (state.flagged.has(qid)) state.flagged.delete(qid); else state.flagged.add(qid);
+    if (state.flagged.has(qid)) { state.flagged.delete(qid); delete state.flagNotes[qid]; } else state.flagged.add(qid);
     refreshQuestion(qid);
+    if (toolsOn && state.flagged.has(qid)) cardById.get(qid)?.el.querySelector('[data-testid="flag-note"]')?.focus({ preventScroll: true });
   }
 
   /* ---- navigation / modes */
@@ -656,7 +709,11 @@ export function render(root, ctx, params = {}) {
         }
         const payload = buildPayload({
           test, grade, user, startedAt: state.startedAt, submittedAt: Date.now(),
-          flags: { tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode },
+          flags: {
+            tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode,
+            // V4-05: flagged questions with the student's optional note { qid: note }; scratchpads are never sent.
+            ...(toolsOn && state.flagged.size ? { questions: Object.fromEntries([...state.flagged].map((id) => [id, String(state.flagNotes[id] || '').trim().slice(0, 200)])) } : {}),
+          },
         });
         const submission = await submitResults(payload, { config: ctx.config });
         state.done = true;
@@ -748,10 +805,13 @@ export function render(root, ctx, params = {}) {
 
   /* ---- mount */
   // Built once: the pane is a sibling of the questions, so stage rerenders never rebuild or reset it.
-  const refPane = referencePane(test, { storageKey: `refpane:${test.code}` });
+  const extraTabs = [];
+  if (tools.calculator) extraTabs.push({ id: 'tool-calc', title: 'Calculator', build: calculatorPanel });
+  if (tools.constants) extraTabs.push({ id: 'tool-constants', title: 'Units & constants', build: constantsPanel });
+  const refPane = referencePane(test, { storageKey: `refpane:${test.code}`, extraTabs });
   const mainEl = h('main', { class: 'runner-main' }, stage, actions, announcer);
   const runnerEl = h('div', { class: ['runner', preview && 'runner--preview'], dataset: { testid: 'runner' } },
-    h('div', { class: 'runner-top' }, header, runnerBar, progressBar, previewBanner),
+    h('div', { class: 'runner-top' }, header, runnerBar, progressBar, previewBanner, netBanner?.el),
     refPane ? h('div', { class: 'runner-split', dataset: { testid: 'runner-split' } }, mainEl, refPane.el) : mainEl,
     footer,
     h('div', { class: 'nav-host' }, overlay, drawer),
@@ -781,5 +841,7 @@ export function render(root, ctx, params = {}) {
     submitModal?.close();
     shortcutsModal?.close();
     refPane?.destroy();
+    netBanner?.destroy();
+    stopSpeaking();
   };
 }

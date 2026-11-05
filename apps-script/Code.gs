@@ -26,12 +26,12 @@ var SUBMISSION_HEADERS = [
   'Score Achieved', 'Total Score', 'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted',
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-  'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At'
+  'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
@@ -236,8 +236,17 @@ function normalizeSubmission_(body) {
     flags: parseJson_(d.flags_json !== undefined ? d.flags_json : d.flags, {}) || {},
     needs_grading: d.needs_grading === true || d.needs_grading === 'true',
     single_submission: d.single_submission === true || d.single_submission === 'true',
-    submitted_at: d.submitted_at || ''
+    submitted_at: d.submitted_at || '',
+    seed: seedOf_(d)
   };
+}
+
+// v4 (S10): the per-student instance seed (payload.instance.seed, or instance_json / instance_seed form fields). Text, max 200 chars.
+function seedOf_(d) {
+  var inst = d.instance;
+  if (typeof d.instance_json === 'string' && d.instance_json) inst = parseJson_(d.instance_json, null);
+  var seed = inst && typeof inst === 'object' && inst.seed !== undefined ? inst.seed : d.instance_seed;
+  return seed === undefined || seed === null ? '' : String(seed).slice(0, 200);
 }
 
 function round2_(n) {
@@ -318,7 +327,10 @@ function handleSubmission_(body) {
       '',
       '',
       '',
-      ''
+      '',
+      '',
+      '',
+      text_(s.seed)
     ]);
     return extra ? { result: 'success', extra_attempt: true } : { result: 'success' };
   });

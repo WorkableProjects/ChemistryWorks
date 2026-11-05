@@ -1,7 +1,7 @@
 // Admin "Grading" tab: review every submission from the Google Sheet, grade open-ended answers,
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
 import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
-import { CONFIG } from '../../config.js';
+import { CONFIG, feature } from '../../config.js';
 import { load, save as saveLocal } from '../../lib/storage.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { fetchResults, saveGrade, releaseAll, allowRetake } from '../../lib/api.js';
@@ -16,7 +16,17 @@ import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from '.
 import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
 
 // Module state: remembered while switching tabs in the session.
-const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false };
+const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false };
+
+/** Dashboard "Grade next": filter to what needs grading (optionally one test) and open the oldest submission once rows load. */
+export function setGradingFocus({ code = 'all', openFirst = true } = {}) {
+  G.testCode = code || 'all';
+  G.status = STATUS.NEEDS_GRADING;
+  G.query = '';
+  G.mode = 'student';
+  G.selectedId = null;
+  G.openFirst = !!openFirst;
+}
 
 // Test definitions (for sections + answer diagrams), cached per code. A failed lookup is cached as null.
 const testCache = new Map();
@@ -64,11 +74,19 @@ export function renderGrading(root, ctx, { goSettings }) {
       G.rawRows = res.rows;
       rows = G.rawRows.map(normalizeRow);
     }
+    if (G.openFirst) {
+      G.openFirst = false;
+      const first = visibleRows()[0];
+      if (first) G.selectedId = first.submission_id;
+    }
     draw();
   }
 
   let gbqCleanup = null;
   const stopGbq = () => { try { gbqCleanup?.(); } catch (e) { console.error(e); } gbqCleanup = null; };
+  // V4-01 split view: J/K and number keys live on the document while one submission is open.
+  let keysOff = null;
+  const stopKeys = () => { try { keysOff?.(); } catch (e) { console.error(e); } keysOff = null; };
 
   // "By student | By question" switch shown above both list views.
   const modeToggle = () => h('div', { class: 'adm-seg', role: 'tablist', 'aria-label': 'Grade by', dataset: { testid: 'grading-mode' } },
@@ -92,6 +110,7 @@ export function renderGrading(root, ctx, { goSettings }) {
   function draw() {
     if (!alive) return;
     stopGbq();
+    stopKeys();
     const selected = G.selectedId && rows.find((r) => r.submission_id === G.selectedId);
     if (selected) {
       if (testCache.has(selected.test_code)) drawGrader(selected);
@@ -281,8 +300,10 @@ export function renderGrading(root, ctx, { goSettings }) {
     const qById = new Map((test?.questions || []).map((q) => [q.id, q]));
     const inputs = new Map();   // questionId -> { input, res, possible, errorEl, overrideEl }
     const comments = new Map(); // questionId -> textarea
+    let currentQid = null;      // last question the teacher touched (number keys set its points)
     const totalEl = h('strong', { dataset: { testid: 'grade-total' } });
     const warnEl = h('span', { class: 'field-error', role: 'alert' });
+    const savedEl = h('span', { class: 'grd2-saved', hidden: true, role: 'status', dataset: { testid: 'grade-saved' } }, icon('check', { size: 16 }), 'Saved');
 
     const check = (qid) => {
       const { input, possible } = inputs.get(qid);
@@ -324,7 +345,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         'aria-label': `Points for question ${i + 1} (out of ${possible})`, 'aria-describedby': `points-error-${res.questionId}`, dataset: { testid: `points-${res.questionId}` },
         on: { input: () => refreshPoints() } });
       errorEl.id = `points-error-${res.questionId}`;
-      inputs.set(res.questionId, { input, res, possible, errorEl, overrideEl });
+      inputs.set(res.questionId, { input, res, possible, errorEl, overrideEl, set: (v) => set(v) });
       const refreshPoints = () => {
         const v = validatePoints(input.value, possible);
         if (v.ok) { input.removeAttribute('aria-invalid'); input.classList.remove('is-invalid'); errorEl.textContent = ''; } else {
@@ -369,7 +390,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       renderPreview();
 
       const quick = (name, val, text) => h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `grade-${name}-${res.questionId}` }, on: { click: () => set(val) } }, text);
-      const card = h('li', { class: ['adm-resp', 'adm-grade', res.needsGrading && 'is-pending'], dataset: { testid: 'grade-item', question: res.questionId } },
+      const card = h('li', { class: ['adm-resp', 'adm-grade', res.needsGrading && 'is-pending'], dataset: { testid: 'grade-item', question: res.questionId }, on: { focusin: () => { currentQid = res.questionId; } } },
         h('div', { class: 'adm-resp__head' },
           h('strong', {}, `Q${i + 1}`),
           h('span', { class: 'faint' }, TYPE_LABELS[res.type] || res.type || ''),
@@ -433,6 +454,7 @@ export function renderGrading(root, ctx, { goSettings }) {
     let baseline = '';
     const isDirty = () => snapshot() !== baseline;
 
+    const split = feature('adminShell');
     const list = visibleRows();
     const pos = list.findIndex((r) => r.submission_id === row.submission_id);
     const neighbor = (d) => (pos >= 0 ? list[pos + d] : null);
@@ -474,10 +496,35 @@ export function renderGrading(root, ctx, { goSettings }) {
       }
       rows = G.rawRows.map(normalizeRow);
       toast(`Saved grade for ${row.student_name || row.student_email}`, { type: 'success' });
+      if (split && !next) G.justSaved = row.submission_id;
       if (next) {
         if (following) go(following);
         else { toast('That was the last one in this list.', { type: 'info' }); go(null); }
       } else draw();
+    }
+
+    // J / K = next / previous student; a digit sets the points of the question you last touched (clamped to its maximum).
+    function bindGradingKeys() {
+      const onKey = (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+        const t = e.target;
+        if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+        if (document.querySelector('.modal')) return;
+        const k = e.key.toLowerCase();
+        if (k === 'j' || k === 'k') {
+          const target = neighbor(k === 'j' ? 1 : -1);
+          if (target) { e.preventDefault(); go(target); }
+        } else if (/^[0-9]$/.test(e.key)) {
+          const qid = currentQid || [...inputs.entries()].find(([, v]) => v.res.needsGrading && v.input.value === '')?.[0] || [...inputs.keys()][0];
+          const entry = qid && inputs.get(qid);
+          if (!entry) return;
+          e.preventDefault();
+          entry.set(Math.min(entry.possible, Number(e.key)));
+          currentQid = qid;
+        }
+      };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
     }
 
     const exportBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'export-pdf' }, on: { click: async () => {
@@ -509,7 +556,7 @@ export function renderGrading(root, ctx, { goSettings }) {
     const prevBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', disabled: !neighbor(-1), on: { click: () => go(neighbor(-1)) } }, icon('left', { size: 16 }), 'Previous');
     const nextBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', disabled: !neighbor(1), on: { click: () => go(neighbor(1)) } }, 'Next', icon('right', { size: 16 }));
 
-    mount(content,
+    const detail = [
       h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-back' }, on: { click: () => go(null) } }, icon('left', { size: 16 }), 'All submissions'),
         h('span', { class: 'spacer' }),
@@ -527,9 +574,25 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Graded by'), gradedBy),
         note),
       h('div', { class: 'adm-grade__bar card' },
-        h('span', {}, 'Final score: ', totalEl), warnEl, h('span', { class: 'spacer' }),
+        h('span', {}, 'Final score: ', totalEl), warnEl, split ? savedEl : null, h('span', { class: 'spacer' }),
         h('label', { class: 'adm-inline adm-release', for: 'release-grade' }, releaseBox, 'Release grade & comments to student'),
-        releaseStatus, saveNextBtn, saveBtn));
+        releaseStatus, saveNextBtn, saveBtn)];
+    if (!split) mount(content, ...detail);
+    else {
+      // V4-01 split view: student list on the left, the open submission on the right (list hidden on phones).
+      const shown = pos >= 0 ? list : [row, ...list];
+      const listPane = h('aside', { class: 'grd2__list', 'aria-label': 'Students', dataset: { testid: 'grading-split-list' } },
+        h('p', { class: 'grd2__listhead' }, G.testCode === 'all' ? 'Students' : `Students · ${G.testCode}`, h('span', { class: 'faint' }, ` (${shown.length})`)),
+        h('ul', { class: 'grd2__rows' }, shown.map((r) => h('li', {}, h('button', {
+          class: 'grd2__row', type: 'button', 'aria-current': r.submission_id === row.submission_id ? 'true' : null, dataset: { testid: 'grading-split-row', id: r.submission_id },
+          on: { click: () => { if (r.submission_id !== row.submission_id) go(r); } },
+        }, h('span', { class: 'grd2__name' }, r.student_name || r.student_email || 'Student'),
+        h('span', { class: ['pill', r.status === STATUS.NEEDS_GRADING ? 'pill--warning' : r.status === STATUS.GRADED ? 'pill--success' : ''] }, r.status === STATUS.NEEDS_GRADING ? 'To grade' : formatPercent(r.percentage)))))));
+      mount(content, h('div', { class: 'grd2', dataset: { testid: 'grading-split' } }, listPane, h('div', { class: ['grd2__detail', 'stack'], dataset: { testid: 'grading-detail' } }, ...detail)));
+      listPane.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+      if (G.justSaved === row.submission_id) { G.justSaved = null; savedEl.hidden = false; setTimeout(() => { savedEl.hidden = true; }, 2200); }
+      keysOff = bindGradingKeys();
+    }
     updateTotal();
     baseline = snapshot();
     renderMath(content);
@@ -538,5 +601,5 @@ export function renderGrading(root, ctx, { goSettings }) {
   }
 
   loadRows();
-  return () => { alive = false; stopGbq(); cleanups.forEach((fn) => fn()); };
+  return () => { alive = false; stopGbq(); stopKeys(); cleanups.forEach((fn) => fn()); };
 }

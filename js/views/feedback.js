@@ -16,6 +16,8 @@ import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
 import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
+import { feature } from '../config.js';
+import { ensureToolsCss } from './tools/settings.js';
 
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -140,6 +142,15 @@ export function render(root, ctx, params = {}) {
       on: { click: () => ctx.navigate('mode-select', { test, source: params.source, studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
   }
 
+  // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
+  function mistakeReviewButton() {
+    if (!feature('studentTools') || test?.gameMode !== true) return null;
+    ensureToolsCss();
+    return h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'review-mistakes' },
+      on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'mistakes', studyBlocked: true }) } },
+    icon('refresh', { size: 16 }), 'Review my mistakes');
+  }
+
   async function download(row, t) {
     try { await printSubmission({ row, test: t, includeComments: true }); } catch (e) { toast('Could not create the PDF: ' + (e?.message || 'unavailable'), { type: 'error' }); }
   }
@@ -153,6 +164,8 @@ export function render(root, ctx, params = {}) {
   function show(fb, others) {
     setMeta(fb.submitted_at || payload?.submitted_at);
     mount(content, reviewView(fb, test, { onDownload: download }), otherAttempts(others));
+    const rm = mistakeReviewButton();
+    if (rm && !actions.querySelector('[data-testid="review-mistakes"]')) actions.appendChild(rm);
     renderMath(root);
   }
 

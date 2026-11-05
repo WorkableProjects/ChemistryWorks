@@ -134,8 +134,17 @@ function panelContent(ref) {
 
 /* ------------------------------------------------------------------ pane */
 
-export function referencePane(test, { storageKey } = {}) {
-  const refs = (Array.isArray(test?.references) ? test.references : []).filter((r) => r && r.id);
+/**
+ * `extraTabs` (V4-05 student tools): [{ id, title, build() -> Node }] shown after the test's own references, e.g. the
+ * calculator. A pane with only extra tabs is still built. Ids must be unique and are used in the test ids
+ * (`ref-tab-<id>`, `ref-panel-<id>`).
+ */
+export function referencePane(test, { storageKey, extraTabs = [] } = {}) {
+  const own = (Array.isArray(test?.references) ? test.references : []).filter((r) => r && r.id);
+  const refs = [
+    ...own.map((r) => ({ id: r.id, title: referenceTitle(r), build: () => panelContent(r) })),
+    ...(Array.isArray(extraTabs) ? extraTabs : []).filter((t) => t && t.id && typeof t.build === 'function'),
+  ];
   if (!refs.length) return null;
 
   const wide = typeof matchMedia === 'function' ? matchMedia(WIDE_QUERY) : null;
@@ -169,7 +178,7 @@ export function referencePane(test, { storageKey } = {}) {
         type: 'button', class: 'ref-tab', role: 'tab', id: `ref-tab-el-${r.id}`, 'aria-controls': `ref-panel-${r.id}`,
         'aria-selected': 'false', tabindex: '-1', dataset: { testid: `ref-tab-${r.id}` },
         on: { click: () => selectTab(r.id) },
-      }, referenceTitle(r));
+      }, r.title);
       tabs.set(r.id, t);
       return t;
     }))
@@ -177,8 +186,8 @@ export function referencePane(test, { storageKey } = {}) {
   for (const r of refs) {
     panels.set(r.id, h('div', {
       class: 'ref-panel', role: multi ? 'tabpanel' : 'region', id: `ref-panel-${r.id}`,
-      'aria-label': referenceTitle(r), dataset: { testid: `ref-panel-${r.id}` },
-    }, multi ? null : h('h3', { class: 'ref-panel__title' }, referenceTitle(r)), panelContent(r)));
+      'aria-label': r.title, dataset: { testid: `ref-panel-${r.id}` },
+    }, multi ? null : h('h3', { class: 'ref-panel__title' }, r.title), r.build()));
     if (multi) panels.get(r.id).setAttribute('aria-labelledby', `ref-tab-el-${r.id}`);
     if (multi) panels.get(r.id).removeAttribute('aria-label');
   }

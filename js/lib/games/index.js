@@ -13,9 +13,13 @@ import { tower } from './tower.js';
 import { mistakes } from './mistakes.js';
 import { boss } from './boss.js';
 import { unitdash } from './unitdash.js';
+import { reactionlab } from './reactionlab.js';
+import { molbuilder } from './molbuilder.js';
+import { periodicpuzzle } from './periodicpuzzle.js';
+import { dailyelement } from './dailyelement.js';
 import { normalizeGameOptions, gameTest } from './options.js';
 
-export const GAMES = [classic, survival, lightning, elementhunt, matchup, flashcards, tower, mistakes, boss, unitdash];
+export const GAMES = [classic, survival, lightning, elementhunt, matchup, flashcards, tower, mistakes, boss, unitdash, reactionlab, molbuilder, periodicpuzzle, dailyelement];
 
 export const getGame = (id) => GAMES.find((g) => g.id === id) || null;
 

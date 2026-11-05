@@ -22,6 +22,14 @@ function toDate(v) {
   return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
+/** Keep only { id: note } string entries (note trimmed to 200 chars); null when nothing is left. */
+export function cleanFlagNotes(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = {};
+  for (const [id, note] of Object.entries(raw)) if (id) out[String(id)] = String(note ?? '').trim().slice(0, 200);
+  return Object.keys(out).length ? out : null;
+}
+
 export function buildPayload({ test, grade, user, startedAt, submittedAt, flags } = {}) {
   const end = toDate(submittedAt);
   const start = toDate(startedAt ?? end);
@@ -46,6 +54,8 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
       tab_switches: Number(f.tab_switches ?? f.tabSwitches) || 0,
       auto_submitted: Boolean(f.auto_submitted ?? f.autoSubmitted),
       mode: f.mode === 'scroll' ? 'scroll' : 'focus',
+      // V4-05: { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
+      ...(cleanFlagNotes(f.questions) ? { questions: cleanFlagNotes(f.questions) } : {}),
     },
   };
 }

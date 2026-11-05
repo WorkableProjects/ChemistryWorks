@@ -114,9 +114,9 @@ test('first submission creates both sheets with formatted headers', () => {
     'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)',
     'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-    'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At',
+    'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed',
   ]);
-  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 24));
+  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 25));
   assert.ok(s.formats.some((f) => f.bg === '#E2E8F0'));
 });
 
@@ -347,7 +347,7 @@ test('older 14-column sheets get the new grading headers added', () => {
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)']);
   sheets.set('Submissions', s);
   post(sample());
-  assert.equal(s.rows[0].length, 24);
+  assert.equal(s.rows[0].length, 25);
   assert.equal(s.rows[0][14], 'Status');
   assert.equal(s.rows[0][19], 'Teacher Note');
   assert.equal(s.rows[0][21], 'Released At');
@@ -410,4 +410,19 @@ test('v4: the admin key path works as before and does not need the Admins sheet'
   assert.equal(post({ action: 'listTests', adminKey: 'secret' }).result, 'success');
   assert.equal(sheets.has('Admins'), false);
   assert.equal(get({ action: 'ping' }).version, '4.0.0');
+});
+
+test('v4 S10: payload.instance.seed is stored in the Seed column (also instance_json / instance_seed)', () => {
+  post(sample({ submission_id: 'seed-1', instance: { seed: 'ada@example.org|CHEM101' } }));
+  post(sample({ submission_id: 'seed-2', instance_json: JSON.stringify({ seed: 'b@x.org|T' }) }));
+  post(sample({ submission_id: 'seed-3', instance_seed: '=evil' }));
+  post(sample({ submission_id: 'seed-4' }));
+  const rows = sheets.get('Submissions').rows;
+  const col = rows[0].indexOf('Seed');
+  assert.equal(col, 24);
+  const by = (id) => rows.find((r) => r[1] === id);
+  assert.equal(by('seed-1')[col], 'ada@example.org|CHEM101');
+  assert.equal(by('seed-2')[col], 'b@x.org|T');
+  assert.equal(by('seed-3')[col], "'=evil", 'stored as literal text');
+  assert.equal(by('seed-4')[col], '');
 });

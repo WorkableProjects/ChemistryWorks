@@ -16,6 +16,7 @@ import { balanceEditor } from './balance.js';
 import { econfigEditor } from './econfig.js';
 import { ptableEditor } from './ptable.js';
 import { sigfigsEditor } from './sigfigs.js';
+import { variablesEditor } from '../variables-editor.js';
 import { categorizeEditor } from './categorize.js';
 import { hotspotEditor } from './hotspot.js';
 import { graphEditor } from './graph.js';
@@ -47,11 +48,17 @@ function parseSci(raw) {
 }
 
 // ---------- per-type editors ----------
+/** V4-09: numeric / sigfigs editors get the "Randomize with variables" panel underneath. */
+function withVariables(q, editor, redraw, changed) {
+  const panel = variablesEditor(q, redraw, changed);
+  return panel ? h('div', { class: 'stack' }, editor, panel) : editor;
+}
+
 export function typeEditor(q, redraw, changed, uid) {
   switch (q.type) {
     case 'mcq':
     case 'multi': return choiceEditor(q, redraw, changed, uid);
-    case 'numeric': return numericEditor(q, changed);
+    case 'numeric': return withVariables(q, numericEditor(q, changed), redraw, changed);
     case 'formula': return formulaEditor(q, changed);
     case 'truefalse': return tfEditor(q, changed);
     case 'matching': return matchingEditor(q, redraw, changed);
@@ -65,7 +72,7 @@ export function typeEditor(q, redraw, changed, uid) {
     case 'balance': return balanceEditor(q, redraw, changed);
     case 'econfig': return econfigEditor(q, changed);
     case 'ptable': return ptableEditor(q, changed, redraw);
-    case 'sigfigs': return sigfigsEditor(q, changed);
+    case 'sigfigs': return withVariables(q, sigfigsEditor(q, changed), redraw, changed);
     case 'categorize': return categorizeEditor(q, redraw, changed);
     case 'hotspot': return hotspotEditor(q, redraw, changed);
     case 'graph': return graphEditor(q, redraw, changed);

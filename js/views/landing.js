@@ -6,6 +6,10 @@ import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn 
 import { keys, load } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
 import { SITE_VERSION } from '../version.js';
+import { feature } from '../config.js';
+import { dashboardSection } from './tools/dashboard.js';
+import { networkBanner } from './tools/banner.js';
+import { ensureToolsCss } from './tools/settings.js';
 
 function signInCard(ctx, params) {
   const { config } = ctx;
@@ -172,6 +176,10 @@ function heroPattern() {
 
 export function render(root, ctx, params = {}) {
   const user = getUser();
+  // V4-05: "My dashboard" and the waiting-submission banner (student tools flag).
+  const tools = !!user && feature('studentTools');
+  if (tools) ensureToolsCss();
+  const banner = tools ? networkBanner({ config: ctx.config }) : null;
   mount(root,
     h('main', { class: 'landing' },
       h('div', { class: 'landing__topbar' },
@@ -186,7 +194,10 @@ export function render(root, ctx, params = {}) {
       ),
       h('div', { class: 'landing__inner' },
         h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
-        user ? h('div', { class: 'landing__lists' }, resumeBlock(ctx, user), pastCard(ctx, user)) : null,
+        banner ? banner.el : null,
+        user ? h('div', { class: 'landing__lists' },
+          tools ? dashboardSection(ctx, { progress: inProgress(user), results: pastResults(user) }) : null,
+          resumeBlock(ctx, user), pastCard(ctx, user)) : null,
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),
@@ -201,4 +212,5 @@ export function render(root, ctx, params = {}) {
     const idle = !document.activeElement || document.activeElement === document.body;
     if (idle && !document.querySelector('#modal-root .modal-overlay')) focusEl?.focus();
   }, 60);
+  return () => banner?.destroy();
 }

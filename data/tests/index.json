@@ -13,5 +13,10 @@
     "code": "DEMOV4B",
     "title": "V4 Question Types Demo B",
     "description": "One question of each of five more V4 types: dimensional analysis, nuclear notation, predicting products, molecular shape, and completing a table."
+  },
+  {
+    "code": "DEMOV4C",
+    "title": "V4 Question Types Demo C",
+    "description": "Molar mass, picture choice, particle diagram, titration and estimate questions, plus algorithmic questions where every student gets their own numbers."
   }
 ]
