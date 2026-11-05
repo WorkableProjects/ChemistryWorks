@@ -141,8 +141,8 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   /* ---- top bar ---- */
   const toggle = h('button', { class: 'ash-icon-btn', type: 'button', 'aria-label': 'Toggle navigation menu', 'aria-controls': 'ash-sidebar', 'aria-expanded': 'true', dataset: { testid: 'admin-nav-toggle' },
     on: { click: () => toggleNav() } }, icon('menu', { size: 22 }));
-  const brand = h('button', { class: 'ash-brand', type: 'button', 'aria-label': 'ChemWorks home', dataset: { testid: 'brand' }, on: { click: () => onHome?.() } },
-    brandLogo('mark', { className: 'ash-brand__mark' }), h('span', { class: 'ash-brand__name' }, 'ChemWorks'));
+  const brand = h('button', { class: 'brand ash-brand', type: 'button', 'aria-label': 'ChemWorks home', dataset: { testid: 'brand' }, on: { click: () => onHome?.() } },
+    brandLogo('mark', { className: 'ash-brand__mark' }), h('span', { class: 'ash-brand__name' }, h('span', { class: 'brand-logo__chem' }, 'Chem'), h('span', { class: 'brand-logo__works' }, 'Works')));
   const crumbs = h('ol', { class: 'ash-crumbs' });
   const crumbNav = h('nav', { class: 'ash-crumbnav', 'aria-label': 'Breadcrumb', dataset: { testid: 'admin-breadcrumb' } }, crumbs);
 
