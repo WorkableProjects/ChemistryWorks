@@ -8,6 +8,8 @@ import { isSoundOn, setSoundOn, playTone } from '../lib/games/sound.js';
 import { normalizeGameOptions, gameTest, isUntimed } from '../lib/games/options.js';
 import { recordRound } from '../lib/games/mistakes.js';
 import { load, save } from '../lib/storage.js';
+import { awardRound, factsFromEnd } from '../lib/xp.js';
+import { xpPanel, endLeaderboard } from './games/progress.js';
 
 const RELAXED_KEY = 'gameRelaxed';
 
@@ -197,6 +199,10 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
       if (score !== null) best = saveBest(user.email, test.code, game.id, score);
       const stat = (s) => h('div', { class: 'game-stat' }, h('span', { class: 'game-stat__v', dataset: { testid: s.testid } }, s.value), h('span', { class: 'game-stat__l' }, s.label));
       const again = h('button', { class: 'btn btn--primary btn--lg', type: 'button', dataset: { testid: 'game-again' }, on: { click: () => onAgain() } }, game.againLabel || (game.scored === false ? 'Study again' : 'Play again'));
+      // V4-04: XP, badges and cosmetics (this device) + the class leaderboard when the test turns it on.
+      let xp = null;
+      try { xp = awardRound(user.email, factsFromEnd({ gameId: game.id, code: test.code, score, stats, results })); } catch (e) { console.error(e); }
+      const board = endLeaderboard(shell, { score, info: { test, results } });
       shell.setStage(h('section', { class: 'game-card game-card--end', dataset: { testid: 'game-end' } },
         h('h1', { class: 'game-card__title', tabindex: '-1' }, title),
         score === null ? null : h('p', { class: 'game-score-big', dataset: { testid: 'game-final-score' } }, score.toLocaleString()),
@@ -211,6 +217,8 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
           h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-back' }, on: { click: () => shell.back() } }, 'Back to games'),
           studyBlocked ? null : h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-to-study' }, on: { click: () => shell.toStudy() } }, 'Switch to Study mode'),
           h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-home' }, on: { click: () => ctx.navigate('landing') } }, 'Home')),
+        xpPanel(user.email, xp),
+        board,
         review ? [h('h2', { class: 'game-review__title' }, 'Review'), review] : null));
       shell.announce(announce || (score === null ? `${title}.` : `${title}. Score ${score}.`));
       if (score !== null && score > 0) shell.sound('win');

@@ -274,3 +274,53 @@
 :root[data-motion="reduce"] .tower__stack.is-wobbling, :root[data-motion="reduce"] .tower__stack.is-fallen,
 :root[data-motion="reduce"] .boss__art.is-hit, :root[data-motion="reduce"] .boss__art.is-striking { animation: none; }
 :root[data-motion="reduce"] .boss__fill { transition: none; }
+
+/* ---------- V4-04 progress: XP, badges, leaderboard, practice ---------- */
+.xp-panel { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 14px 16px; border-radius: var(--radius); background: var(--bg-sunken); text-align: left; }
+.xp-head { display: flex; align-items: center; gap: 14px; }
+.xp-head__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.xp-level { margin: 0; font-family: var(--font-display); }
+.xp-gain { margin: 0; color: var(--success-ink); font-weight: 600; font-size: 14px; }
+.xp-meter { height: 8px; border-radius: 999px; background: var(--bg-elev); overflow: hidden; }
+.xp-meter__fill { display: block; height: 100%; background: var(--brand-teal); transform-origin: left; transition: transform var(--dur-slow) var(--ease-out); }
+.xp-new, .xp-badges { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.xp-badge { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }
+.xp-badge.is-new { color: var(--primary-ink); animation: rise var(--dur-slow) var(--ease-out) both; }
+.xp-unlocks { margin: 0; font-size: 14px; color: var(--text-muted); }
+.xp-more summary { cursor: pointer; font-weight: 600; min-height: var(--touch); display: flex; align-items: center; }
+.xp-picks { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.xp-pick { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.lb-slot { width: 100%; }
+.lb { text-align: left; }
+.lb ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; }
+.lb .is-me { font-weight: 700; color: var(--primary-ink); }
+.practice-card { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.practice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.practice-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); }
+.practice-item__main { flex: 1; min-width: 180px; }
+
+/* ---------- V4-04 games II boards ---------- */
+.lab-bench { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.lab-eq { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: 22px; margin: 0; }
+.lab-term { display: inline-flex; align-items: center; gap: 4px; }
+.lab-coef { width: 3.6em; height: var(--touch); text-align: center; font-family: var(--font-mono); font-size: 18px; padding: 0 6px; }
+.lab-plus, .lab-arrow { color: var(--text-muted); font-weight: 700; }
+.mol-palette { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 8px 0; }
+.mol-atom { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elev); }
+.mol-symbol { font-family: var(--font-display); font-weight: 800; font-size: 20px; min-width: 1.6em; text-align: center; color: var(--primary-ink); }
+.mol-count { font-family: var(--font-mono); min-width: 1.4em; text-align: center; font-weight: 600; }
+.mol-built { margin: 6px 0 12px; font-size: 18px; }
+.pp-tiles { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.pp-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 88px; min-height: var(--touch); padding: 6px 10px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-control); background: var(--bg-elev); color: var(--text); cursor: pointer; font: inherit; }
+.pp-tile strong { font-family: var(--font-display); font-size: 20px; }
+.pp-tile__clue { font-size: 11px; color: var(--text-muted); text-align: center; }
+.pp-tile[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px var(--primary-ring); }
+.pp-table-wrap { overflow-x: auto; max-width: 100%; }
+.pp-table { display: grid; grid-template-columns: repeat(18, minmax(30px, 1fr)); grid-template-rows: repeat(5, 34px); gap: 3px; min-width: 600px; }
+.pp-cell { display: grid; place-items: center; border-radius: 4px; font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
+.pp-cell--given { background: var(--bg-sunken); color: var(--text-faint); }
+.pp-cell--empty { border: 1.5px dashed var(--border-control); background: var(--bg-elev); cursor: pointer; padding: 0; }
+.pp-cell--empty:hover { border-color: var(--primary); background: var(--hover-tint); }
+.pp-cell--placed { background: var(--brand-teal-soft); color: var(--primary-ink); border: 1.5px solid var(--brand-teal); animation: rise var(--dur-base) var(--ease-out) both; }
+.daily-clues { margin: 0 0 12px; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.daily-clues li { animation: rise var(--dur-base) var(--ease-out) both; }

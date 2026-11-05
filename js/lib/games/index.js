@@ -19,9 +19,7 @@ import { periodicpuzzle } from './periodicpuzzle.js';
 import { dailyelement } from './dailyelement.js';
 import { normalizeGameOptions, gameTest } from './options.js';
 
-export const GAMES = [classic, survival, lightning, elementhunt, matchup, flashcards, tower, mistakes, boss, unitdash];
-// S15 games (reactionlab, molbuilder, periodicpuzzle, dailyelement) join GAMES once their boards exist in js/views/games/.
-export const GAMES_S15 = [reactionlab, molbuilder, periodicpuzzle, dailyelement];
+export const GAMES = [classic, survival, lightning, elementhunt, matchup, flashcards, tower, mistakes, boss, unitdash, reactionlab, molbuilder, periodicpuzzle, dailyelement];
 
 export const getGame = (id) => GAMES.find((g) => g.id === id) || null;
 

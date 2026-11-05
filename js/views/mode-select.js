@@ -8,6 +8,7 @@ import { h, mount, icon, richText, renderMath, appHeader, userBadge } from '../u
 import { splitGameQuestions } from '../lib/game.js';
 import { playableGames, loadBest } from '../lib/games/index.js';
 import { getLocalResults } from '../lib/submit.js';
+import { pickerLeaderboard } from './games/progress.js';
 
 export function render(root, ctx, params = {}) {
   const { test, source } = params;
@@ -75,6 +76,7 @@ export function render(root, ctx, params = {}) {
         h('h1', { class: 'mode-select__title', tabindex: '-1' }, 'Choose a game'),
         h('p', { class: 'muted' }, test.title || test.code)),
       h('div', { class: 'mode-select__grid game-picker__grid' }, cards),
+      pickerLeaderboard({ ctx, test, user, games: games.filter((g) => g.playable && g.game.scored !== false).map((g) => g.game) }),
       h('div', { class: 'game-actions' },
         h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-picker-back' }, on: { click: showModes } }, 'Back'),
         params.studyBlocked ? null : h('button', { class: 'btn btn--ghost', type: 'button', on: { click: () => ctx.navigate('runner', { test, source, cleared: !!params.cleared }) } }, 'Study mode instead')),
