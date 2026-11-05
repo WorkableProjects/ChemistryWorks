@@ -56,7 +56,6 @@ Built from **this device's** localStorage (`progress:*` keys and `getLocalResult
 - An **empty white card** under the dashboard list (the practice-card slot / a block with no content).
 - Odd numbers: "17.5%" on an in-progress test, "0 released", "0 answered" rows that were opened once and never started.
 - Version label shows `v4.0.0` (cached JS or a stale label) while the site is 4.1.0.
-- Dark circles clipped on the right edge (decor bubbles overflowing the page).
 - No grades over time, no due dates, no class, no teacher-assigned work, nothing that follows the student to another device.
 
 ### Insights and Mastery
@@ -132,7 +131,7 @@ Replace the landing's stacked lists with a real **student home**, backed by the 
 5. **Practice:** Mistake Review across all tests, recent game bests, badges shelf.
 6. **Profile page** (`?view=profile` or avatar → Profile): stats (tests done, average, accuracy by topic from released results only), badges, history, appearance prefs, sign out.
 
-Fixes from the screenshot go in here: no empty card, no duplicates, correct version label, decor stays inside the page.
+Fixes from the screenshot go in here: no empty card, no duplicates, correct version label.
 
 ## V5-03 — Remove Insights and Mastery
 
@@ -226,7 +225,7 @@ Same rules as v4 (`docs/v3/v4.0plan.md` → "Running v4 across sessions"): branc
 
 | # | Session | Covers | Depends on |
 |---|---|---|---|
-| S01 | Clean-up | V5-03 remove Insights/Mastery; screenshot fixes (duplicates, empty card, version label, overflow) | — |
+| S01 | Clean-up | V5-03 remove Insights/Mastery; screenshot fixes (duplicates, empty card, version label) | — |
 | S02 | Attempt model | Shared attempt store used by runner and games; runner mode switcher | S01 |
 | S03 | Game modes I | Classic, Lightning, Survival, Flashcards, Mistake Review on the attempt + runner widgets | S02 |
 | S04 | Game modes II | Tower, Boss, Match-Up rework, Quiz Show, Race, Bingo; remove the six independent games | S03 |
