@@ -222,7 +222,7 @@ export async function noHorizontalScroll(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 }
 
-export async function unlockAdmin(page, baseUrl, { path = '/?admin=true' } = {}) {
+export async function unlockAdmin(page, baseUrl, { path = '/?admin=true', dashboard = false } = {}) {
   await page.goto(baseUrl + path);
   await page.locator(tid('admin-gate')).waitFor();
   // The landing view (rendered under the gate) moves focus 60ms after render; let that settle before typing.
@@ -231,6 +231,17 @@ export async function unlockAdmin(page, baseUrl, { path = '/?admin=true' } = {})
   await page.locator(tid('admin-code-input')).fill(ADMIN_CODE);
   await page.locator(tid('admin-unlock')).click();
   await page.locator(tid('admin')).waitFor();
+  // V4-01: the admin shell opens on the Dashboard; tests written for the classic panel start on the Library.
+  if (!/features=/.test(path) && !dashboard && await page.locator(tid('dashboard')).count()) {
+    const phone = (await page.locator(tid('admin')).getAttribute('data-nav')) === 'drawer';
+    if (phone) { // phone: open the drawer, wait for it to finish sliding in
+      await page.locator(tid('admin-nav-toggle')).click();
+      await page.waitForFunction(() => document.querySelector('[data-testid="admin-sidebar"]')?.inert === false);
+      await page.waitForTimeout(400);
+    }
+    await page.locator(tid('tab-library')).click({ force: phone });
+    await page.locator(tid('library-sections')).first().waitFor();
+  }
 }
 
 /** Minimal valid ad-hoc test object. */

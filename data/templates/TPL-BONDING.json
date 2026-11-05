@@ -1,0 +1,168 @@
+{
+  "code": "TPL-BONDING",
+  "title": "Chemical bonding (starter)",
+  "description": "Starter test from the ChemistryWorks templates. Duplicate it, then edit.",
+  "timeLimitMinutes": null,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "text": "What type of bond forms between Na and Cl in table salt?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Ionic"
+        },
+        {
+          "id": "b",
+          "text": "Nonpolar covalent"
+        },
+        {
+          "id": "c",
+          "text": "Polar covalent"
+        },
+        {
+          "id": "d",
+          "text": "Metallic"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": ""
+    },
+    {
+      "id": "q2",
+      "type": "mcq",
+      "text": "Which molecule has a nonpolar covalent bond?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "HCl"
+        },
+        {
+          "id": "b",
+          "text": "H2O"
+        },
+        {
+          "id": "c",
+          "text": "Cl2"
+        },
+        {
+          "id": "d",
+          "text": "NH3"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": ""
+    },
+    {
+      "id": "q3",
+      "type": "formula",
+      "text": "Write the formula for the compound formed by Mg\u00b2\u207a and Cl\u207b.",
+      "points": 1,
+      "correctAnswer": "MgCl2",
+      "caseSensitive": true,
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q4",
+      "type": "truefalse",
+      "text": "Metals tend to lose electrons to form cations.",
+      "points": 1,
+      "correctAnswer": true,
+      "explanation": ""
+    },
+    {
+      "id": "q5",
+      "type": "mcq",
+      "text": "How many valence electrons does oxygen have?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "2"
+        },
+        {
+          "id": "b",
+          "text": "4"
+        },
+        {
+          "id": "c",
+          "text": "6"
+        },
+        {
+          "id": "d",
+          "text": "8"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": ""
+    },
+    {
+      "id": "q6",
+      "type": "formula",
+      "text": "Write the formula for aluminum oxide.",
+      "points": 1,
+      "correctAnswer": "Al2O3",
+      "caseSensitive": true,
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q7",
+      "type": "mcq",
+      "text": "Which element has the highest electronegativity?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Oxygen"
+        },
+        {
+          "id": "b",
+          "text": "Fluorine"
+        },
+        {
+          "id": "c",
+          "text": "Chlorine"
+        },
+        {
+          "id": "d",
+          "text": "Nitrogen"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q8",
+      "type": "mcq",
+      "text": "A bond with shared electrons pulled toward one atom is\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "ionic"
+        },
+        {
+          "id": "b",
+          "text": "polar covalent"
+        },
+        {
+          "id": "c",
+          "text": "nonpolar covalent"
+        },
+        {
+          "id": "d",
+          "text": "metallic"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    }
+  ]
+}

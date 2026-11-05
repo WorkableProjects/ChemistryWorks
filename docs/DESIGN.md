@@ -1,116 +1,112 @@
-# ChemistryWorks design system: "Lab notebook" (V2-09)
+# ChemistryWorks design system: "ChemWorks Lab" (V4-00)
 
-Warm paper surfaces, ink-blue text, faint graph-paper accents, monospace for formulas, numbers and scores,
-and a highly legible body face. Everything is driven by custom properties in `css/base.css`; view CSS only
-references tokens. `css/print.css` is intentionally excluded (print stays black on white).
+One look, built from the logo: navy `#00224F` and teal `#01A9AE` on cool off-white (light) or deep navy (dark).
+It replaces the v2 "Lab notebook" theme (warm paper, ink blue, graph paper). Everything is driven by custom
+properties in `css/base.css`; view CSS only references tokens (a unit test fails on hex colours in any CSS file
+except `base.css` and `print.css`). Print stays black on white (`css/print.css`).
 
-## Intensity levels
+## Name
 
-`js/lib/theme.js` sets `<html data-role="student|admin">` on every view change (and `index.html` sets it
-before first paint).
+| Use | Name | Where |
+|---|---|---|
+| Full name | **ChemistryWorks** | `<title>`, landing intro, sign-in prompts, PDF title/footer, docs, `package.json`, CSV filenames |
+| Short name | **ChemWorks** | the wordmark, the compact header, toasts where space is tight |
 
-| Level | Applies to | `--texture-strength` | Treatment |
-|---|---|---|---|
-| Full | `data-role="student"`: landing, results, feedback | `1` | Graph paper on the page background and landing hero, notebook margin rule under the header, paper cards. |
-| Toned (runner) | `.runner` (student test screen) | `0.5` | Same paper, grid at half strength in the gutters only; static, no animation. |
-| Toned down | `data-role="admin"` (library, builder, grading, settings, previews) | `0` | No grid anywhere, flat solid surfaces, lighter card shadows. At most the decorative margin rule in the header. |
-| High contrast | `prefers-contrast: more` | `0` | Texture off, borders use the text colours. |
+Never mix both in one string (asserted by `test/unit/v4-brand.test.mjs`). Storage prefix (`cw:`) and backend names
+are unchanged.
+
+## Logo
+
+- Source: `assets/brand/source/chemworks-mark.svg` — plain paths (no filters, no embedded rasters), colours as CSS
+  variables with hex fallbacks. The older `main-*.svg` files are PNG exports wrapped in SVG; keep them only as
+  reference.
+- In the app: `brandLogo('wordmark' | 'mark', { mono })` (`js/ui.js`) renders the mark as inline SVG plus
+  "Chem"/"Works" set in the display face. Colours come from `--brand-navy`, `--brand-teal` and `--brand-mark-gap`
+  (the bubbles and the rim of the liquid), so the logo follows the theme, the navy header (where it turns white +
+  light teal) and print (all black).
+- Variants: wordmark, mark only (header under 480 px), mono (`{ mono: true }`: one colour, `currentColor`), and the
+  animated flask loader (`flaskLoader()`) as the one app-wide loading indicator.
+- PNGs (`assets/brand/*.png`) stay for the favicon, touch icon and social preview.
+- Placement: wordmark on the landing hero and admin sign-in; mark + "ChemWorks" in the app header; mark only under
+  480 px. Height drives the size (never stretched). Minimum clear space = one bubble diameter (≈ 8% of the mark height).
 
 ## Tokens
 
-Light values are the `:root` defaults; dark ("notebook at night") values come from `:root[data-theme="dark"]`.
-Contrast of the text tokens and the blue accent is asserted by `test/unit/v2-contrast.test.mjs`.
+Light values are the `:root` defaults; dark values come from `:root[data-theme="dark"]`. Contrast is asserted by
+`test/unit/v2-contrast.test.mjs` for every text/surface pair, every accent, status inks, toasts, header and game tiles.
 
 | Token | Light | Dark | Purpose |
 |---|---|---|---|
-| `--bg` (`--paper`) | `#F6F2E8` | `#1A1713` | Page background (paper) |
-| `--bg-elev` | `#FFFDF7` | `#231F19` | Cards, inputs, question cards, reference-pane panels (always solid) |
-| `--bg-sunken` | `#EEE8DA` | `#15120F` | Wells, reference pane, table headers, chips |
-| `--border` | `#DCD3C0` | `#3A342A` | Hairlines, card edges |
-| `--border-strong` | `#C3B79F` | `#50483A` | Hover edges, separators |
-| `--border-control` | `#8A8372` | `#7C7565` | Form-control and interactive-diagram boundaries (>= 3:1, WCAG 1.4.11) |
-| `--text` (`--ink`) | `#1B2A4A` | `#E6EAF5` | Body text (ink blue) |
-| `--text-muted` | `#3F4B66` | `#B4BCD0` | Secondary text |
-| `--text-faint` | `#596381` | `#939CB5` | Hints, labels (still >= 4.5:1) |
-| `--grid-ink` | `27 42 74` | `230 234 245` | RGB triplet used for grid lines |
-| `--grid-line` | ink at 5% x strength | same ink triplet | Minor graph-paper lines |
-| `--grid-major` | ink at 10% x strength | same | Every 5th line |
-| `--grid-size` | `24px` | `24px` | Graph-paper cell |
-| `--margin-rule` | `#C9707A` | `#8F4B53` | Decorative notebook margin line (header bottom edge) |
-| `--texture` | composed gradients | composed gradients | Use as `background: var(--texture), var(--bg)` |
-| `--texture-strength` | `1` / `0.5` / `0` | same | Intensity multiplier (see levels) |
-| `--primary` | `#2348A4` (ink blue) | `#7B9AF5` | Accent: buttons, links, focus, selection |
-| `--primary-hover`, `-soft`, `-line`, `-ink`, `-ring` | derived | derived | Accent family |
-| `--on-primary` | `#FFFFFF` | `#0E1422` | Text on accent / success / danger fills |
-| `--success`, `--danger`, `--warning` (+ `-soft`, `-ink`, `-line`) | AA on paper | lighter | Status fills and text |
-| `--toast-bg/-fg/-ok/-err/-warn` | ink / white | paper / ink | Toasts |
-| `--font-body` (`--font`) | Atkinson Hyperlegible | same | Body text |
-| `--font-display` | Atkinson Hyperlegible (700) | same | Headings, brand name |
-| `--font-mono` (`--mono`) | IBM Plex Mono | same | Formulas, numbers, scores, codes |
-| `--space-1 … --space-8` | 4, 8, 12, 16, 24, 32, 48, 64 px | same | Spacing scale |
-| `--radius-sm/-/-lg/-xl` | 8 / 12 / 18 / 24 px | same | Corners |
-| `--shadow-sm/-/-lg` | ink-tinted | black-tinted | Elevation |
+| `--brand-navy` | `#00224F` | `#E7EDF7` | Logo glass, headings accent |
+| `--brand-teal` | `#01A9AE` | `#2CC5C9` | Fills, highlights, progress, score ring, game accents. **Never text on light surfaces** (2.9:1) |
+| `--brand-teal-ink` | `#00797D` | `#2CC5C9` | Teal text, links, control edges (≥ 4.5:1) |
+| `--brand-teal-soft` | teal 14% | teal 16% | Tinted icon circles, decorative bubbles |
+| `--bg` | `#F5F8FB` | `#0B1424` | Page |
+| `--bg-elev` | `#FFFFFF` | `#14213A` | Cards, inputs, question cards (always solid) |
+| `--bg-sunken` | `#EAF0F6` | `#08101D` | Wells, table headers, chips, ring track |
+| `--border` / `--border-strong` | `#D8E1EB` / `#B9C6D6` | `#22314D` / `#31446A` | Hairlines / hover edges |
+| `--border-control` | `#718299` | `#6F82A3` | Form controls and interactive diagrams (≥ 3:1) |
+| `--text` / `--text-muted` / `--text-faint` | `#0B1F3A` / `#3A4D68` / `#53647D` | `#E7EDF7` / `#B3C0D6` / `#91A1BB` | Text (all ≥ 4.5:1 on every surface) |
+| `--primary` (+ `-hover`, `-soft`, `-line`, `-ink`, `-ring`) | navy | teal | Buttons, links, focus ring, selection |
+| `--on-primary` | `#FFFFFF` | `#04121F` | Text on primary/success/danger fills |
+| `--success` / `--danger` / `--warning` (+ `-soft`, `-ink`, `-line`) | `#08704F` / `#C42B2B` / `#97460C` | `#34D399` / `#F87171` / `#F5A524` | Status; always with an icon or text |
+| `--header-bg` / `--header-fg` | `#00224F` / white | `#08101D` / `#E7EDF7` | Slim navy app bar (admin: a darker navy) |
+| `--toast-*`, `--overlay`, `--glass*`, `--skeleton-hi`, `--img-mat` | | | Toasts, modal backdrop, skeletons, picture mat |
+| `--game-tile-0…3`, `--game-tile-fg` | red / blue / amber / green, white | same | Game answer tiles (≥ 4.5:1) |
+| `--font-display` | Plus Jakarta Sans 600–800 | | Headings, buttons, scores, wordmark |
+| `--font-body` | Atkinson Hyperlegible | | Body text |
+| `--font-mono` | IBM Plex Mono | | Formulas, numbers, codes, timer |
+| `--space-1 … --space-8` | 4, 8, 12, 16, 24, 32, 48, 64 px | | Spacing |
+| `--radius-sm/-/-lg/-xl` | 8 / 12 / 16 / 22 px | | Corners |
+| `--shadow-sm/-/-lg` | navy-tinted | black-tinted | Elevation |
+| `--dur-fast` / `--dur-base` / `--dur-slow` | 120 / 200 / 320 ms | | Motion durations |
+| `--ease`, `--ease-out`, `--ease-enter`, `--ease-spring` | | | Standard / enter / playful easing |
+| `--header-h`, `--touch` | 60 px, 44 px | | Header height, minimum touch target |
 
-Accent palettes (`data-accent`): `blue` (student default, ink blue), `violet` (admin default), `teal`, `green`,
-`orange`, `rose`. Light accents are tuned so white text on them is >= 4.5:1; dark accents are lighter and use
-dark `--on-primary`.
+The v2 texture variables (`--texture`, `--texture-strength`, `--grid-*`, `--margin-rule`) still exist so older
+rules keep working, but resolve to nothing: there is no graph paper in v4.
 
-## Typography scale
+**Display font choice.** Plus Jakarta Sans, Outfit and Lexend were compared with the wordmark; Plus Jakarta Sans
+800 is closest to its round "C", open "W" and short-armed "k".
 
-Google Fonts: Atkinson Hyperlegible 400/700 + italic 400, IBM Plex Mono 400/500/600 (`display=swap`, system fallbacks).
+## Accent palettes
 
-| Use | Size / weight |
-|---|---|
-| Body | 16px / 400, line-height 1.55 |
-| Question text | 20px / 400 (17px on phones) |
-| Page titles (results, feedback) | 26-28px / 700 display |
-| Card titles | 22px / 700 |
-| Labels, hints, pills | 12-14px / 600-700 |
-| Monospace | formulas, formula inputs, numeric inputs, scores/points (`score-points`, `score-percentage`, `results-item__pts`, grading points, `feedback-score`, `submission-count-*`), the timer, periodic-table numbers/masses, orbital sublevel labels, test codes |
-
-## Spacing scale
-
-Use `--space-1 … --space-8` (4, 8, 12, 16, 24, 32, 48, 64 px) in new or edited rules. Admin density must not
-increase: padding and row heights in admin tables and lists stay at or below the existing values.
-
-## Texture rules
-
-- Graph paper only on the page background and decorative areas: landing hero, page gutters around the runner,
-  empty states.
-- Never behind question text, answers, inputs, tables or form fields. Question cards, inputs, reference-pane
-  panels and tables are solid `--bg-elev` / `--bg-sunken`. (`.card--glass` is solid on purpose.)
-- In the runner the grid is faint (effective alpha <= 0.05) and static: no animation.
-- Admin: no texture at all.
-- `prefers-reduced-motion` disables animation globally; `prefers-contrast: more` removes texture and
-  strengthens borders.
-- Because custom properties resolve where they are declared, `--grid-line`, `--grid-major` and `--texture` are
-  declared on `:root, .runner`; a new container that sets its own `--texture-strength` must be added to that selector.
+`data-accent` on `<html>` (`js/lib/theme.js`): `navy` (default for students and admins), `blue`, `violet`, `teal`,
+`green`, `orange`, `rose`. In dark mode navy becomes teal. Choices saved by v3 users still apply. Each light accent
+keeps white text ≥ 4.5:1; dark accents are lighter and use dark `--on-primary`.
 
 ## Components
 
-- **Cards** (`.card`, `.q-card`, `.adm-section`): solid `--bg-elev`, 1px `--border`, `--shadow`; admin uses `--shadow-sm`.
-- **Buttons**: pill shape; `.btn--primary` (accent fill, `--on-primary` text), `--ghost`, `--subtle`, `--success`, `--danger`. Disabled = 50% opacity.
-- **Pills / chips**: soft fill + ink text; status pills always carry text (and an icon where the view provides one).
-- **Inputs**: `--bg-elev`, 1.5px `--border-control`, hover darkens, focus adds the accent border and ring plus the global outline. Invalid inputs use a dashed border and are paired with error text.
-- **Tables** (`.adm-table`): solid, hairline rows, sticky header on `--bg-elev`.
-- **Reference pane**: `--bg-sunken` panel, `--border-strong` 1.5px edge, tabs on `--bg-elev`; periodic table tints are secondary to the symbol, number and legend text.
-- **Diagrams**: orbital boxes, Lewis dot buttons and answer-board elements use `--border-control` edges; bonds and atoms get a 2px primary outline/stroke on `:focus-visible`.
-- **Navigator tiles**: answered = check glyph, flagged = dashed border + dot, current = filled + underlined number.
+- **App header** (`appHeader()`): slim navy bar, mark + "ChemWorks", the page title, any extra controls, and one
+  **Settings** popover (theme, reduce motion, accent). Widgets on the bar re-point their tokens to the header colours.
+- **Icons**: one sprite (`icon(name)` in `js/ui.js`), Lucide-style 2 px strokes on a 24 px grid.
+- **Buttons**: pill shape, sizes `--sm` / default / `--lg`, ≥ 44 px touch area on phones; `--primary`, `--ghost`,
+  `--subtle`, `--success`, `--danger`. Press = scale 0.97.
+- **Cards**: solid `--bg-elev`, 1 px `--border`, `--shadow`; hover lift 1–2 px where the card is clickable.
+- **Pills / chips**: soft fill + ink text, always with text.
+- **Inputs**: `--bg-elev`, 1.5 px `--border-control`, focus ring in the accent.
+- **Loader**: the animated flask (`flaskLoader`) for full-page waits; skeleton shimmer for lists.
+
+## Motion
+
+Calm and quick: only `transform` and `opacity`, nothing longer than about 400 ms, durations and easings from the
+tokens. `prefers-reduced-motion` and the in-app switch (`:root[data-motion="reduce"]`) zero the duration tokens and
+all animations globally; JS-driven animation checks `prefersReducedMotion()`. Nothing flashes more than 3 times per
+second and no animation blocks input.
 
 ## Accessibility rules
 
-- Text contrast >= 4.5:1 for all text tokens on all three surfaces in both themes; interactive boundaries >= 3:1.
-- One focus style: `:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px }`, never removed. Hidden-input patterns (radio dots, switches) draw it on the visible sibling.
-- No information by colour alone: correct/incorrect/partial/pending have an icon and text label; overrides, released state and validation errors have text; flagged/answered navigator tiles have glyph or border cues; the Lewis electron count shows a check when it matches.
-- Responsive from 320px; nothing hides or overlaps clickable controls.
-- Nothing animated or decorative competes with the question during a test.
+- Text ≥ 4.5:1 on all surfaces in both themes; interactive boundaries ≥ 3:1. Teal is decoration on light surfaces.
+- One focus style: `:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px }`, never removed.
+- No information by colour alone: status has an icon and text.
+- `prefers-contrast: more`: stronger borders, logo teal turns navy, decorative patterns off.
+- Works from 360 px with no horizontal scroll.
 
 ## Adding a new view
 
-1. Use only tokens from `css/base.css`; no hex or rgb literals.
-2. Put page surfaces on `--bg`, content surfaces on `--bg-elev` / `--bg-sunken` (never leave text directly on the grid except page titles in student screens).
-3. Use `--font-mono` for any formula, number or score; `--font-display` for headings.
-4. Rely on the global `:focus-visible`; do not set `outline: none` on focusable elements.
+1. Use only tokens from `css/base.css`; no hex or rgb colour literals.
+2. Page on `--bg`; content on `--bg-elev` / `--bg-sunken`.
+3. `--font-display` for headings, `--font-mono` for formulas, numbers and scores.
+4. Rely on the global `:focus-visible`.
 5. Pair every status colour with an icon or text.
-6. Admin-only views get no texture (role handles it); student views inherit it from `body`.
-7. Check light and dark, 390px and 1280px, and `prefers-contrast: more`.
+6. Check light and dark at 360, 768 and 1366 px, plus `prefers-contrast: more` and reduced motion.

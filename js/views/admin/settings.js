@@ -1,9 +1,12 @@
 // Admin "Settings" tab: admin key, backend ping, setup checklist, current config.
 import { h, mount, icon, toast } from '../../ui.js';
-import { CONFIG, netlifyFormsEnabled } from '../../config.js';
+import { CONFIG, netlifyFormsEnabled, feature } from '../../config.js';
 import { load, save, remove } from '../../lib/storage.js';
 import { pingBackend } from '../../lib/api.js';
+import { hasAdminAuth } from '../../lib/admin-session.js';
+import { renderAdmins, renderActivityLog } from './admins.js';
 import { field } from './common.js';
+import { platformPanel } from './platform.js';
 
 const truncate = (s, n = 18) => (s && s.length > n + 6 ? `${s.slice(0, n)}…${s.slice(-6)}` : s || '');
 
@@ -18,7 +21,7 @@ export function setupChecks(config = CONFIG) {
   ];
 }
 
-export function renderSettings(root, ctx, { onKeyChange } = {}) {
+export function renderSettings(root, ctx, { onKeyChange, go } = {}) {
   let alive = true;
   const keyInput = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'ADMIN_KEY script property', value: load('adminKey', '', 'session'), dataset: { testid: 'admin-key-input' } });
   const status = h('p', { class: 'adm-status', role: 'status', dataset: { testid: 'backend-status' } }, CONFIG.GAS_WEB_APP_URL ? 'Not checked yet' : 'No Apps Script URL configured');
@@ -66,5 +69,14 @@ export function renderSettings(root, ctx, { onKeyChange } = {}) {
         h('p', { class: 'field__hint' }, 'Edit js/config.js (or define window.CHEMISTRYWORKS_CONFIG) to change these.'))),
     h('section', { class: 'card stack', 'aria-label': 'Setup checklist' },
       h('h3', { class: 'adm-h3' }, 'Setup checklist'), checklist)));
-  return () => { alive = false; };
+  // V4-08: platform settings, backup / restore, errors (needs a connected backend + admin auth).
+  if (hasAdminAuth()) root.querySelector('.adm-settings-tab')?.append(platformPanel(ctx, { go }));
+  // V4-07: Admins (owner only) and Activity log, behind the adminAccounts flag.
+  const cleanups = [];
+  if (feature('adminAccounts') && hasAdminAuth()) {
+    const extra = h('div', { class: 'stack', dataset: { testid: 'admin-accounts' } });
+    root.querySelector('.adm-settings-tab')?.append(extra);
+    cleanups.push(renderAdmins(extra, ctx), renderActivityLog(extra));
+  }
+  return () => { alive = false; cleanups.forEach((fn) => { try { fn?.(); } catch (e) { console.error(e); } }); };
 }

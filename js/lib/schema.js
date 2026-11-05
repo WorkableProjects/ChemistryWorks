@@ -8,6 +8,10 @@ import { AUFBAU, ORBITAL_TYPES, DEFAULT_MAX_SUBLEVEL, DEFAULT_ORBITAL_TYPES, val
 import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { ELEMENTS } from './elements.js';
 import { parseConfig } from './qtypes/econfig.js';
+import { typeDef, registeredTypes } from './qtypes/registry.js';
+import { cleanGameOptions, validateGameOptions } from './games/options.js';
+import { feature } from '../config.js';
+import './qtypes/v4-types.js'; // V4-03: registers the v4 question types
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
 // Types a teacher always grades by hand in the admin Grading tab.
@@ -18,6 +22,7 @@ export const MANUAL_TYPES = ['short', 'open', 'orbital'];
  * also draws brackets and charges (`studentCharges: true`, V2-06). Use this instead of MANUAL_TYPES.includes().
  */
 export function isManualQuestion(q) {
+  if (q && typeDef(q.type)) return typeDef(q.type).manual === true;
   return !!q && (MANUAL_TYPES.includes(q.type) || (q.type === 'structure' && q.studentCharges === true));
 }
 export const TYPE_LABELS = {
@@ -41,6 +46,24 @@ export const TYPE_LABELS = {
   categorize: 'Sort into groups',
   hotspot: 'Label the diagram',
   graph: 'Read or plot a graph',
+};
+// V4-03: registered v4 types join the type list and labels (js/lib/qtypes/registry.js).
+// Hidden until FEATURES.v4Types is on (S08/S09 widgets and editors unfinished).
+for (const t of feature('v4Types') ? registeredTypes() : []) {
+  if (!QUESTION_TYPES.includes(t)) QUESTION_TYPES.push(t);
+  TYPE_LABELS[t] = typeDef(t).label || t;
+  if (typeDef(t).manual === true && !MANUAL_TYPES.includes(t)) MANUAL_TYPES.push(t);
+}
+
+/** Helpers handed to v4 type definitions (so they never import this module). */
+const SCHEMA_HELPERS = {
+  normalizeQuestion: (raw) => normalizeQuestion(raw),
+  /** Validate a nested question (e.g. a multipart part); messages are prefixed with `where`. */
+  validateQuestion: (q, where, errors) => {
+    const errs = [];
+    validateQuestion(q, 0, new Set(), errs);
+    for (const e of errs) errors.push(e.replace(/^Question 1 \([^)]*\)/, where));
+  },
 };
 
 const CODE_RE = /^[A-Z0-9_-]{2,32}$/;
@@ -85,6 +108,16 @@ function normalizeQuestion(raw) {
   } else delete q.image;
   if (q.section === undefined || q.section === null || str(q.section).trim() === '') delete q.section;
   else q.section = str(q.section).trim();
+  // V4-03 per-question extras (all optional, off by default): confidence switch and a point-costing hint.
+  if (q.confidence !== undefined) {
+    if (bool(q.confidence, false)) q.confidence = true; else delete q.confidence;
+  }
+  if (q.hint !== undefined) {
+    const src = typeof q.hint === 'string' ? { text: q.hint } : q.hint;
+    if (isObj(src) && str(src.text).trim() !== '') {
+      q.hint = { text: str(src.text), cost: src.cost === undefined || src.cost === null || src.cost === '' ? 0 : Number(src.cost) };
+    } else delete q.hint;
+  }
   switch (q.type) {
     case 'mcq':
       q.options = normOptions(q.options);
@@ -242,6 +275,7 @@ function normalizeQuestion(raw) {
       break;
     }
     default:
+      if (typeDef(q.type)?.normalize) typeDef(q.type).normalize(q, SCHEMA_HELPERS);
       break;
   }
   if (['formula', 'numeric', 'fillblank'].includes(q.type)) {
@@ -270,6 +304,14 @@ export function normalizeTest(raw) {
   t.singleSubmission = bool(t.singleSubmission, false);
   t.requireAllQuestions = bool(t.requireAllQuestions, false);
   if (t.games !== undefined) t.games = Array.isArray(t.games) ? t.games.map((g) => str(g).trim()).filter(Boolean) : undefined;
+  if (t.gameOptions !== undefined) t.gameOptions = cleanGameOptions(t.gameOptions); // V4-04
+  // V4-02 / V4-07 test settings (all optional): window, late work, announcement, classes / roster, tools, practice.
+  for (const k of ['opensAt', 'closesAt']) { if (t[k] === '' || t[k] === null) delete t[k]; else if (t[k] !== undefined) t[k] = str(t[k]).trim(); }
+  if (t.announcement !== undefined) { t.announcement = str(t.announcement).trim(); if (!t.announcement) delete t.announcement; }
+  if (t.late !== undefined && t.late !== null && !isObj(t.late)) delete t.late;
+  if (t.late === null || (isObj(t.late) && !str(t.late.until).trim())) delete t.late;
+  if (t.classes !== undefined) t.classes = Array.isArray(t.classes) ? [...new Set(t.classes.map((x) => str(x).trim()).filter(Boolean))] : [];
+  if (t.rosterOnly !== undefined) t.rosterOnly = t.rosterOnly === true;
   t.defaultMode = t.defaultMode === undefined || t.defaultMode === null || t.defaultMode === '' ? null : t.defaultMode;
   t.passingPercent = nullableNum(t.passingPercent);
   t.sections = Array.isArray(t.sections) ? t.sections.map((x) => {
@@ -339,6 +381,16 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   if (!isNum(q.points) || q.points <= 0) errors.push(`${where}: points must be a number greater than 0.`);
   if (q.section !== undefined && q.section !== null && q.section !== '' && !sectionIdSet.has(q.section)) {
     errors.push(`${where}: section "${q.section}" does not exist. Add it under sections or remove the question's section.`);
+  }
+
+  if (q.confidence !== undefined && typeof q.confidence !== 'boolean') errors.push(`${where}: confidence must be true or false.`);
+  if (q.hint !== undefined) {
+    if (!isObj(q.hint)) errors.push(`${where}: hint must be an object with text and cost.`);
+    else {
+      if (!nonEmptyStr(q.hint.text)) errors.push(`${where}: hint text is required.`);
+      if (!isNum(q.hint.cost) || q.hint.cost < 0) errors.push(`${where}: hint cost must be a number of points, 0 or more.`);
+      else if (isNum(q.points) && q.points > 0 && q.hint.cost > q.points) errors.push(`${where}: hint cost (${q.hint.cost}) cannot be more than the question's points (${q.points}).`);
+    }
   }
 
   if (!QUESTION_TYPES.includes(q.type)) {
@@ -546,6 +598,7 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
       break;
     }
     default:
+      if (typeDef(q.type)?.validate) typeDef(q.type).validate(q, where, errors, SCHEMA_HELPERS);
       break;
   }
   if (q.formatHelp !== undefined && ['formula', 'numeric', 'fillblank'].includes(q.type) && !FORMAT_HELP_MODES.includes(q.formatHelp)) {
@@ -608,6 +661,28 @@ export function validateTest(test) {
   } else {
     const seen = new Set();
     test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet));
+  }
+  errors.push(...validateGameOptions(test)); // V4-04
+  const badDate = (v) => v !== undefined && v !== '' && !Number.isFinite(Date.parse(v));
+  for (const k of ['opensAt', 'closesAt']) if (badDate(test[k])) errors.push(`Test: ${k} must be a date and time (e.g. 2026-11-10T08:00).`);
+  if (test.opensAt && test.closesAt && Date.parse(test.closesAt) <= Date.parse(test.opensAt)) errors.push('Test: closesAt must be after opensAt.');
+  if (isObj(test.late)) {
+    if (badDate(test.late.until)) errors.push('Test: late.until must be a date and time.');
+    if (!test.closesAt) errors.push('Test: late work needs a closesAt date.');
+    else if (Date.parse(test.late.until) <= Date.parse(test.closesAt)) errors.push('Test: late.until must be after closesAt.');
+    const p = test.late.penalty;
+    if (p !== undefined && p !== null && (!isObj(p) || !['percentPerDay', 'flat'].includes(p.type) || !isNum(p.value) || p.value < 0 || p.value > 100)) {
+      errors.push('Test: late.penalty must be { "type": "percentPerDay" | "flat", "value": 0-100 }.');
+    }
+  }
+  if (test.rosterOnly === true && (!Array.isArray(test.classes) || !test.classes.length)) errors.push('Test: a roster-only test needs at least one class.');
+  if (test.practice !== undefined && (!Array.isArray(test.practice) || test.practice.some((p) => !isObj(p) || !nonEmptyStr(p.game)))) errors.push('Test: practice must be a list of { "game", "target", "due" }.');
+  for (const sec of Array.isArray(test.sections) ? test.sections : []) {
+    if (!isObj(sec) || sec.pool === undefined) continue;
+    const pool = sec.pool;
+    const n = Array.isArray(test.questions) ? test.questions.filter((q) => q && q.section === sec.id).length : 0;
+    if (!isObj(pool) || !Number.isInteger(pool.draw) || pool.draw < 1) errors.push(`Section "${sec.title || sec.id}": pool.draw must be a whole number of at least 1.`);
+    else if (pool.draw > n) errors.push(`Section "${sec.title || sec.id}": pool draws ${pool.draw} but the section has only ${n} questions.`);
   }
   return { valid: errors.length === 0, errors };
 }
@@ -689,6 +764,8 @@ export function blankQuestion(type, id = 'q1') {
         chart: { xLabel: 'x', yLabel: 'y', xMin: 0, xMax: 10, yMin: 0, yMax: 10, series: [{ points: [[0, 0], [10, 10]] }] },
       };
     default:
+      // v4 templates come out already normalized, so normalizing them again is a no-op (like the built-ins).
+      if (typeDef(type)?.blank) return normalizeQuestion(typeDef(type).blank(base));
       throw new RangeError(`Unknown question type: ${type}`);
   }
 }

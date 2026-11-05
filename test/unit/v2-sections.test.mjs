@@ -93,7 +93,10 @@ test('safeImageUrl', () => {
   assert.equal(safeImageUrl('  https://example.com/a.png '), 'https://example.com/a.png');
   assert.equal(safeImageUrl('img/chart.png'), 'img/chart.png');
   assert.equal(safeImageUrl('/img/chart.png'), '/img/chart.png');
-  for (const bad of ['http://example.com/a.png', 'javascript:alert(1)', 'data:image/png;base64,AAAA', '//evil.com/a.png', 'ftp://x/y', '', '   ', null, undefined]) {
+  // FIX-3: http:// is upgraded to https://; raster data: URLs are allowed, SVG data: URLs are not.
+  assert.equal(safeImageUrl('http://example.com/a.png'), 'https://example.com/a.png');
+  assert.equal(safeImageUrl('data:image/png;base64,AAAA'), 'data:image/png;base64,AAAA');
+  for (const bad of ['javascript:alert(1)', 'data:image/svg+xml;base64,AAAA', '//evil.com/a.png', 'ftp://x/y', '', '   ', null, undefined]) {
     assert.equal(safeImageUrl(bad), '', String(bad));
   }
 });

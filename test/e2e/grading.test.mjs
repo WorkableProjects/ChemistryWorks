@@ -90,7 +90,7 @@ test('grading tab: grade an open-ended answer, save, and export grades', () => w
   await page.locator(tid('grading-table')).waitFor();
   assert.equal(await page.locator(tid('grading-row')).count(), 0);
   await page.locator(tid('grading-status-filter')).selectOption('all');
-  await waitText(page.locator(tid('grading-row')).first().locator('td').nth(4), /^4 \/ 5/);
+  await waitText(page.locator(tid('grading-row')).first().locator('td').nth(5), /^4 \/ 5/); // column 0 is the S07 bulk-select checkbox
 
   const [download] = await Promise.all([page.waitForEvent('download'), page.locator(tid('export-grades')).click()]);
   const csv = await (await download.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString('utf8'));

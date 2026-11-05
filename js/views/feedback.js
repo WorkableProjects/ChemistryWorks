@@ -16,6 +16,8 @@ import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
 import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
+import { feature } from '../config.js';
+import { ensureToolsCss } from './tools/settings.js';
 
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -66,6 +68,29 @@ export function feedbackRow(fb, test) {
   };
 }
 
+/** Header card: score, tally pills (icon + text) and who graded. */
+function summaryCard(row, fb) {
+  const c = { correct: 0, partial: 0, incorrect: 0, pending: 0 };
+  for (const r of row.responses || []) {
+    if (r.needsGrading) c.pending += 1;
+    else if (r.isCorrect) c.correct += 1;
+    else if (r.answered !== false && Number(r.pointsEarned) > 0) c.partial += 1;
+    else c.incorrect += 1;
+  }
+  const fmt = (n) => (Number.isFinite(Number(n)) ? String(Math.round(Number(n) * 100) / 100) : '—');
+  const defs = [['correct', 'Correct', 'check', 'pill--success'], ['partial', 'Partial', 'minus', 'pill--warning'],
+    ['incorrect', 'Incorrect', 'x', 'pill--danger'], ['pending', 'Pending', 'hourglass', 'pill--primary']];
+  return h('section', { class: 'card feedback-summary', 'aria-label': 'Score summary', dataset: { testid: 'feedback-summary' } },
+    h('div', { class: 'feedback-summary__score' },
+      h('span', { class: 'feedback-summary__pct' }, `${fmt(row.percentage)}%`),
+      h('span', { class: 'feedback-summary__pts muted' }, `${fmt(row.score_achieved)} / ${fmt(row.score_total)} points`)),
+    h('div', { class: 'feedback-summary__side' },
+      h('div', { class: 'feedback-summary__chips' },
+        defs.filter(([k]) => k !== 'pending' || c.pending > 0).map(([k, label, ic, cls]) => h('span', { class: ['pill', cls] },
+          icon(ic, { size: 14 }), ` ${c[k]} ${label}`))),
+      row.graded_by ? h('span', { class: 'feedback-summary__by faint' }, `Graded by ${row.graded_by}`) : null));
+}
+
 function reviewView(fb, test, { onDownload } = {}) {
   const { row, test: t } = feedbackRow(fb, test);
   const model = buildExportModel({ row, test: t, includeComments: true });
@@ -74,6 +99,7 @@ function reviewView(fb, test, { onDownload } = {}) {
       fb.released_at ? h('span', { class: 'muted' }, `Released ${fmtWhen(fb.released_at)}`) : null,
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'feedback-download-pdf' },
         on: { click: () => onDownload?.(row, t) } }, icon('download', { size: 16 }), 'Download PDF')),
+    summaryCard(row, fb),
     h('section', { class: 'card feedback-doc', 'aria-label': 'Your reviewed test' }, exportDocument(model)));
 }
 
@@ -101,7 +127,9 @@ export function render(root, ctx, params = {}) {
       appHeader({ title: 'ChemistryWorks', subtitle: 'Feedback', onHome: goBack, right: userBadge(user) }),
       h('main', { class: 'feedback' },
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: goBack }, dataset: { testid: 'feedback-back' } }, icon('left', { size: 14 }), 'Back'),
-        title, meta, content, actions)));
+        title, meta,
+        test?.announcement ? h('div', { class: 'notice notice--info', role: 'note', dataset: { testid: 'feedback-announcement' } }, icon('info'), h('span', {}, String(test.announcement))) : null,
+        content, actions)));
 
   const setMeta = (submittedAt) => { meta.textContent = [code, submittedAt ? `Submitted ${fmtWhen(submittedAt)}` : ''].filter(Boolean).join(' · '); };
   setMeta(payload?.submitted_at || params.status?.latest?.submitted_at);
@@ -114,6 +142,15 @@ export function render(root, ctx, params = {}) {
   if (params.practiceOnly && test?.gameMode === true) {
     actions.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'practice-game' },
       on: { click: () => ctx.navigate('mode-select', { test, source: params.source, studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
+  }
+
+  // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
+  function mistakeReviewButton() {
+    if (!feature('studentTools') || test?.gameMode !== true) return null;
+    ensureToolsCss();
+    return h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'review-mistakes' },
+      on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'mistakes', studyBlocked: true }) } },
+    icon('refresh', { size: 16 }), 'Review my mistakes');
   }
 
   async function download(row, t) {
@@ -129,6 +166,8 @@ export function render(root, ctx, params = {}) {
   function show(fb, others) {
     setMeta(fb.submitted_at || payload?.submitted_at);
     mount(content, reviewView(fb, test, { onDownload: download }), otherAttempts(others));
+    const rm = mistakeReviewButton();
+    if (rm && !actions.querySelector('[data-testid="review-mistakes"]')) actions.appendChild(rm);
     renderMath(root);
   }
 

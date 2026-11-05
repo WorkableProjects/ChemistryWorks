@@ -1,0 +1,60 @@
+{
+  "code": "DEMOV4B",
+  "title": "V4 Question Types Demo B",
+  "description": "One question of each of five more V4 types: dimensional analysis, nuclear notation, predicting products, molecular shape, and completing a table.",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "allowModeToggle": true,
+  "passingPercent": 70,
+  "questions": [
+    {
+      "id": "q1", "type": "dimensional", "points": 2,
+      "text": "How many moles of sodium chloride are in 117 g of NaCl? (Molar mass 58.5 g/mol.)",
+      "given": { "value": 117, "unit": "g" },
+      "answer": { "value": 2, "unit": "mol" },
+      "tolerance": 1, "toleranceType": "percent", "chainCredit": 0.5,
+      "factors": [ { "top": { "value": 1, "unit": "mol" }, "bottom": { "value": 58.5, "unit": "g" } } ],
+      "explanation": "Multiply by 1 mol / 58.5 g so the grams cancel: 117 g x (1 mol / 58.5 g) = 2 mol."
+    },
+    {
+      "id": "q2", "type": "nuclear", "points": 2, "mode": "equation",
+      "text": "Complete the alpha decay of uranium-238.",
+      "left": [ { "A": 238, "Z": 92, "symbol": "U" } ],
+      "right": [ { "A": 234, "Z": 90, "symbol": "Th", "missing": true }, { "name": "alpha" } ],
+      "explanation": "An alpha particle carries away 4 mass units and 2 protons, leaving thorium-234 (Z = 90)."
+    },
+    {
+      "id": "q3", "type": "reaction", "points": 2,
+      "text": "Predict the products of this double-displacement reaction.",
+      "reactants": "AgNO3(aq) + NaCl(aq)",
+      "products": [ "AgCl(s)", "NaNO3(aq)" ],
+      "requireStates": true, "requireCoefficients": false, "netIonic": false,
+      "explanation": "Silver chloride is insoluble, so it precipitates; sodium nitrate stays dissolved."
+    },
+    {
+      "id": "q4", "type": "vsepr", "points": 3,
+      "text": "Describe the shape of the ammonia molecule.",
+      "formula": "NH3", "electronGeometry": "tetrahedral", "molecularGeometry": "trigonal pyramidal", "bondAngle": "107",
+      "fields": [ "electron", "molecular", "angle" ],
+      "explanation": "Four electron groups (three bonds, one lone pair) give a tetrahedral arrangement and a trigonal pyramidal shape."
+    },
+    {
+      "id": "q5", "type": "datatable", "points": 4,
+      "text": "Complete the table of subatomic particles.",
+      "columns": [
+        { "id": "species", "label": "Species", "type": "text" },
+        { "id": "p", "label": "Protons", "type": "number" },
+        { "id": "n", "label": "Neutrons", "type": "number" },
+        { "id": "e", "label": "Electrons", "type": "number" }
+      ],
+      "rows": [
+        { "id": "r1", "cells": { "species": { "value": "Na", "given": true }, "p": { "value": 11, "given": true }, "n": { "value": 12, "given": false }, "e": { "value": 11, "given": false } } },
+        { "id": "r2", "cells": { "species": { "value": "Cl-", "given": true }, "p": { "value": 17, "given": true }, "n": { "value": 18, "given": false }, "e": { "value": 18, "given": false } } }
+      ],
+      "explanation": "Neutrons = mass number - protons; an anion has more electrons than protons."
+    }
+  ]
+}

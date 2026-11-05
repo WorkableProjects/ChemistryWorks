@@ -1,0 +1,142 @@
+{
+  "code": "TPL-ACIDS",
+  "title": "Acids and bases (starter)",
+  "description": "Starter test from the ChemistryWorks templates. Duplicate it, then edit.",
+  "timeLimitMinutes": null,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "numeric",
+      "text": "pH of 0.010 M HCl?",
+      "points": 1,
+      "correctAnswer": 2.0,
+      "tolerance": 0.02,
+      "toleranceType": "absolute",
+      "unit": "",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q2",
+      "type": "mcq",
+      "text": "A Br\u00f8nsted\u2013Lowry acid is a\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "proton donor"
+        },
+        {
+          "id": "b",
+          "text": "proton acceptor"
+        },
+        {
+          "id": "c",
+          "text": "electron donor"
+        },
+        {
+          "id": "d",
+          "text": "hydroxide donor"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": ""
+    },
+    {
+      "id": "q3",
+      "type": "numeric",
+      "text": "pOH of a solution with pH 4.0?",
+      "points": 1,
+      "correctAnswer": 10.0,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "unit": "",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q4",
+      "type": "mcq",
+      "text": "Which is a strong base?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "NH3"
+        },
+        {
+          "id": "b",
+          "text": "NaOH"
+        },
+        {
+          "id": "c",
+          "text": "CH3COOH"
+        },
+        {
+          "id": "d",
+          "text": "HF"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q5",
+      "type": "truefalse",
+      "text": "A solution with pH 9 is basic.",
+      "points": 1,
+      "correctAnswer": true,
+      "explanation": ""
+    },
+    {
+      "id": "q6",
+      "type": "numeric",
+      "text": "[H\u207a] of a solution with pH 3.00 (M)?",
+      "points": 1,
+      "correctAnswer": 0.001,
+      "tolerance": 2e-05,
+      "toleranceType": "absolute",
+      "unit": "M",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q7",
+      "type": "formula",
+      "text": "Write the formula of the conjugate base of HNO3.",
+      "points": 1,
+      "correctAnswer": "NO3^-",
+      "caseSensitive": true,
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q8",
+      "type": "mcq",
+      "text": "Neutralization of an acid with a base produces water and a\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "salt"
+        },
+        {
+          "id": "b",
+          "text": "gas"
+        },
+        {
+          "id": "c",
+          "text": "metal"
+        },
+        {
+          "id": "d",
+          "text": "oxide"
+        }
+      ],
+      "correctAnswer": "a",
+      "explanation": ""
+    }
+  ]
+}

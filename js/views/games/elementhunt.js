@@ -76,9 +76,9 @@ export function play(shell) {
 
   function intro() {
     shell.intro({
-      rules: [
-        `${ROUNDS} prompts like "Click the element in group 17, period 3". ${HUNT_SECONDS} seconds each.`,
-        'One click per prompt. Faster correct clicks score more (up to 1000); streaks add a bonus.',
+      rules: () => [
+        `${ROUNDS} prompts like "Click the element in group 17, period 3". ${shell.untimed() ? 'No clock.' : `${HUNT_SECONDS} seconds each.`}`,
+        shell.untimed() ? 'One click per prompt. No speed points; streaks add a bonus.' : 'One click per prompt. Faster correct clicks score more (up to 1000); streaks add a bonus.',
         'Keyboard: Tab to the table, arrow keys move between elements, Enter or Space chooses.',
       ],
       onStart: begin,
@@ -87,7 +87,7 @@ export function play(shell) {
 
   function begin() {
     round++;
-    g = { prompts: buildPrompts(ROUNDS), i: 0, streak: 0, score: 0, results: [] };
+    g = { prompts: buildPrompts(ROUNDS), i: 0, streak: 0, score: 0, results: [], untimed: shell.untimed() };
     prompt();
   }
 
@@ -95,7 +95,7 @@ export function play(shell) {
     shell.clearTimer();
     const p = g.prompts[g.i];
     const st = { locked: false, startedAt: performance.now() };
-    const hud = shell.hud({ label: `Prompt ${g.i + 1} of ${g.prompts.length}`, ring: true });
+    const hud = shell.hud({ label: `Prompt ${g.i + 1} of ${g.prompts.length}`, ring: !g.untimed });
     hud.setScore(g.score); hud.setStreak(g.streak);
     const ask = h('div', { class: 'game-q hunt-ask', tabindex: '-1', dataset: { testid: 'game-question' } }, h('p', { class: 'game-q__text' }, p.text));
     const feedbackSlot = h('div', { class: 'game-feedback-slot' });
@@ -106,8 +106,10 @@ export function play(shell) {
       hud.setTime(rem / limitMs, String(Math.ceil(rem / 1000)), rem <= 5000);
       return rem;
     };
-    paint();
-    shell.setTimer(() => { if (!st.locked && paint() <= 0) finish(null, true); }, shell.reduced() ? 500 : 100);
+    if (!g.untimed) {
+      paint();
+      shell.setTimer(() => { if (!st.locked && paint() <= 0) finish(null, true); }, shell.reduced() ? 500 : 100);
+    }
 
     function finish(el, timedOut) {
       if (st.locked) return;
@@ -115,7 +117,7 @@ export function play(shell) {
       shell.clearTimer();
       const ok = !!el && p.accepts(el);
       const elapsedMs = Math.min(performance.now() - st.startedAt, limitMs);
-      const s = scoreHunt({ correct: ok, elapsedMs, streak: g.streak });
+      const s = scoreHunt({ correct: ok, elapsedMs, streak: g.streak, untimed: g.untimed });
       g.streak = s.streak; g.score += s.points;
       g.results.push({ correct: ok, points: s.points, prompt: p.text, picked: el ? el.name : null });
       hud.setScore(g.score); hud.setStreak(g.streak);

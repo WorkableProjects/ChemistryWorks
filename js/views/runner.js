@@ -8,40 +8,31 @@ import {
   h, mount, icon, richText, renderMath, toast, openModal,
   formatDuration, formatDurationLong, appHeader, userBadge, seededShuffle, prefersReducedMotion,
 } from '../ui.js';
-import { gradeTest, isAnswered, parseNumber } from '../lib/grading.js';
-import { formulaToHTML } from '../lib/formula.js';
+import { gradeTest, isAnswered } from '../lib/grading.js';
 import { TYPE_LABELS, isRequired } from '../lib/schema.js';
-import { groupQuestions, safeImageUrl } from '../lib/sections.js';
+import { groupQuestions } from '../lib/sections.js';
 import { buildPayload, submitResults } from '../lib/submit.js';
+import { CONFIDENCE_LEVELS, validConfidence, hintButtonText } from '../lib/extras.js';
 import { preSubmitBlocked } from '../lib/student-status.js';
 import { load, save, remove } from '../lib/storage.js';
-import { lewisWidget } from './lewis-view.js';
-import { structureWidget } from './structure-view.js';
-import { orbitalWidget } from './orbital-view.js';
-import { balanceWidget } from './widgets/balance.js';
-import { econfigWidget } from './widgets/econfig.js';
-import { ptableWidget } from './widgets/ptable.js';
-import { sigfigsWidget } from './widgets/sigfigs.js';
-import { categorizeWidget } from './widgets/categorize.js';
-import { hotspotWidget } from './widgets/hotspot.js';
-import { graphWidget } from './widgets/graph.js';
 import { referencePane } from './reference-pane.js';
-import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../lib/hints.js';
-import { splitBlanks, wordBankChoices } from '../lib/blanks.js';
+import { feature } from '../config.js';
+import { toolsFor } from './tools/tools-config.js';
+import { calculatorPanel } from './tools/calculator.js';
+import { constantsPanel } from './tools/constants-tab.js';
+import { scratchpad } from './tools/scratchpad.js';
+import { normalizeScratch, normalizeScratchMap, isEmptyScratch } from './tools/scratch-model.js';
+import { marksBar } from './tools/marks.js';
+import { readAloudButton, stopSpeaking } from './tools/readaloud.js';
+import { questionSpeech } from './tools/speech.js';
+import { networkBanner } from './tools/banner.js';
+import { ensureToolsCss } from './tools/settings.js';
+import { buildWidget, pointsLabel } from './runner/widgets.js';
+import { publicCall } from '../lib/api.js';
+import { getIdToken } from '../lib/auth.js';
 
-const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻', '+': '⁺' };
-
-/** 1.204e24 -> "1.204 × 10²⁴"; plain numbers are shown without float noise. */
-export function formatInterpreted(x) {
-  if (!Number.isFinite(x)) return String(x);
-  const abs = Math.abs(x);
-  if (abs !== 0 && (abs >= 1e5 || abs < 1e-3)) {
-    const [mant, exp] = x.toExponential().split('e');
-    const e = String(parseInt(exp, 10));
-    return `${mant} × 10${[...e].map((c) => SUP[c] ?? c).join('')}`;
-  }
-  return String(Number(x.toPrecision(12)));
-}
+// Re-exported so results.js, export-view.js and unit tests keep importing these from runner.js.
+export { formatInterpreted, optionImageEl, choiceImagesEl } from './runner/widgets.js';
 
 /** "Part A: Bonding" -> "Part A"; titles without a colon are shown whole (shortened when very long). */
 function sectionPillText(title) {
@@ -50,481 +41,6 @@ function sectionPillText(title) {
   return head.length > 24 ? `${head.slice(0, 23)}…` : head;
 }
 
-const letter = (i) => String.fromCharCode(65 + i);
-const pointsLabel = (p) => `${p} ${Number(p) === 1 ? 'pt' : 'pts'}`;
-
-/** Optional picture on a choice / item (option.image = { url, alt }); null when there is none or the url is unsafe. */
-export function optionImageEl(o, className = '') {
-  const url = o && o.image && safeImageUrl(o.image.url);
-  if (!url) return null;
-  return h('img', { class: ['opt-img', className].filter(Boolean).join(' '), src: url, alt: String(o.image.alt || ''), loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', dataset: { testid: 'opt-img' } });
-}
-/**
- * Pictures of the choices named by `answer` (an option id, a list of ids, or an ordering), for results and exports.
- * Returns a row element, or null when none of the chosen options has an image.
- */
-export function choiceImagesEl(q, answer, className = 'opt-imgs') {
-  if (!q || !(q.type === 'mcq' || q.type === 'multi' || q.type === 'ordering')) return null;
-  const list = q.type === 'ordering' ? q.items : q.options;
-  const ids = Array.isArray(answer) ? answer : answer == null ? [] : [answer];
-  const imgs = ids.map((id) => (Array.isArray(list) ? list.find((o) => o && String(o.id) === String(id)) : null))
-    .map((o) => optionImageEl(o, 'opt-img--sm')).filter(Boolean);
-  return imgs.length ? h('span', { class: className }, imgs) : null;
-}
-/** Plain-text name of a choice, for aria-labels: its text, else its image description. */
-const optLabel = (o) => (o && String(o.text || '').trim()) || (o && o.image && o.image.alt) || (o && o.id) || '';
-
-/* ------------------------------------------------------------------ widgets */
-// Every widget returns { el, refresh(answer), focus?(), shortcut?(key) }. Widgets never own state: they call
-// api.set(questionId, value, { debounce }) and the runner calls refresh() with the stored answer.
-
-function choiceBody(o) {
-  const img = optionImageEl(o);
-  if (!img) return richText(o.text, 'span', 'opt__text');
-  return h('span', { class: 'opt__body' }, img, String(o.text).trim() ? richText(o.text, 'span', 'opt__text') : null);
-}
-
-function choiceWidget(q, api, multi) {
-  const n = q.options.length;
-  const btns = q.options.map((o, idx) => {
-    const b = h('button', {
-      type: 'button',
-      class: 'opt',
-      role: multi ? 'checkbox' : 'radio',
-      'aria-checked': 'false',
-      tabindex: multi || idx === 0 ? '0' : '-1',
-      dataset: { testid: `option-${o.id}`, optionId: o.id },
-      on: {
-        click: () => choose(o.id),
-        keydown: (e) => {
-          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-          e.preventDefault();
-          const j = (idx + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
-          btns[j].focus();
-          if (!multi) api.set(q.id, q.options[j].id);
-        },
-      },
-    },
-      h('span', { class: 'opt__badge', 'aria-hidden': 'true' }, letter(idx)),
-      choiceBody(o),
-      h('span', { class: 'opt__check' }, icon('check', { size: 15 })),
-    );
-    return b;
-  });
-
-  function choose(id) {
-    if (!multi) return api.set(q.id, id);
-    const cur = new Set(Array.isArray(api.get(q.id)) ? api.get(q.id) : []);
-    if (cur.has(id)) cur.delete(id); else cur.add(id);
-    api.set(q.id, q.options.map((o) => o.id).filter((x) => cur.has(x)));
-  }
-
-  return {
-    el: h('div', { class: 'q-choices' },
-      multi ? h('p', { class: 'q-hint', id: `hint-${q.id}` }, 'Select all that apply') : null,
-      h('div', { class: 'q-choices__list', role: multi ? 'group' : 'radiogroup', 'aria-labelledby': `qt-${q.id}` }, btns),
-    ),
-    refresh(answer) {
-      const sel = multi ? new Set(Array.isArray(answer) ? answer : []) : new Set(answer == null ? [] : [answer]);
-      const firstSel = q.options.findIndex((o) => sel.has(o.id));
-      btns.forEach((b, i) => {
-        const on = sel.has(q.options[i].id);
-        b.classList.toggle('is-selected', on);
-        b.setAttribute('aria-checked', String(on));
-        if (!multi) b.tabIndex = i === (firstSel >= 0 ? firstSel : 0) ? 0 : -1;
-      });
-    },
-    shortcut(key) {
-      let idx = -1;
-      if (/^[1-9]$/.test(key)) idx = Number(key) - 1;
-      else if (/^[a-z]$/.test(key) && key !== 'g' && key !== 'n') idx = key.charCodeAt(0) - 97;
-      if (idx < 0 || idx >= n) return false;
-      btns[idx].focus({ preventScroll: true });
-      choose(q.options[idx].id);
-      return true;
-    },
-  };
-}
-
-/* ---- "how to type it" help for charges and exponents */
-
-/** Insert text at the caret of an input and fire its input handler. */
-function insertAtCaret(input, text, caretBack = 0) {
-  const start = input.selectionStart ?? input.value.length;
-  const end = input.selectionEnd ?? input.value.length;
-  input.value = input.value.slice(0, start) + text + input.value.slice(end);
-  const pos = start + text.length - caretBack;
-  input.focus();
-  input.setSelectionRange(pos, pos);
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function helpBox(kind, testid) {
-  const charges = kind === 'charges';
-  const rows = (charges ? CHARGE_EXAMPLES : EXPONENT_EXAMPLES).map(([typed, means]) => h('li', {},
-    h('kbd', { class: 'q-help__kbd' }, typed), h('span', { class: 'q-help__arrow', 'aria-hidden': 'true' }, '→'), h('span', {}, means)));
-  return h('div', { class: ['q-help', charges ? 'q-help--charges' : 'q-help--exp'], role: 'note', dataset: { testid } },
-    h('p', { class: 'q-help__title' }, icon('info', { size: 16 }), charges ? 'How to type charges' : 'How to type powers of ten'),
-    h('p', { class: 'q-help__lead' }, charges
-      ? 'Type the formula with normal numbers for subscripts (H2O). For a charge, type ^ then the number, then the sign. Leave out the number for a charge of 1.'
-      : 'Type e (or x10^) before the exponent. The preview under the box shows how your number was read, so check it before moving on.'),
-    h('ul', { class: 'q-help__list' }, rows));
-}
-
-/** Small buttons that type ^, +, −, etc. into an input (helpful on phones and tablets). */
-function insertBar(input, keys) {
-  return h('div', { class: 'q-insert', role: 'group', 'aria-label': 'Insert symbol' },
-    keys.map(([label, text, back = 0, title]) => h('button', {
-      type: 'button', class: 'q-insert__btn', title: title || `Insert ${text}`, 'aria-label': title || `Insert ${text}`,
-      dataset: { testid: `insert-${label}` },
-      on: { mousedown: (e) => e.preventDefault(), click: () => insertAtCaret(input, text, back) },
-    }, label)));
-}
-
-const CHARGE_KEYS = [['^', '^', 0, 'Insert ^ (start a charge)'], ['+', '+', 0, 'Insert + sign'], ['−', '-', 0, 'Insert − sign'], ['( )', '()', 1, 'Insert parentheses'], ['·', '.', 0, 'Insert hydrate dot']];
-const EXP_KEYS = [['×10^', 'x10^', 0, 'Insert ×10^'], ['e', 'e', 0, 'Insert e (exponent)'], ['−', '-', 0, 'Insert minus sign']];
-
-function numericWidget(q, api) {
-  const previewId = `np-${q.id}`;
-  const preview = h('p', { class: 'q-preview', id: previewId, 'aria-live': 'polite', dataset: { testid: 'numeric-preview' } });
-  const updatePreview = () => {
-    const v = input.value.trim();
-    preview.classList.remove('is-error');
-    if (!v) { preview.textContent = 'Scientific notation works: 6.02e23 or 6.02 × 10^23'; return; }
-    const x = parseNumber(v, { unit: q.unit || '' });
-    if (Number.isNaN(x)) { preview.textContent = 'Not a number yet'; preview.classList.add('is-error'); return; }
-    preview.textContent = `Interpreted as ${formatInterpreted(x)}`;
-  };
-  const input = h('input', {
-    class: 'input q-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false',
-    autocapitalize: 'off', placeholder: 'Enter a number', 'aria-label': 'Your answer', 'aria-describedby': previewId,
-    dataset: { testid: 'numeric-input' },
-    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updatePreview(); } },
-  });
-  updatePreview();
-  const help = formatHelpFor(q);
-  return {
-    el: h('div', { class: 'q-numeric' },
-      help.exponents ? helpBox('exponents', 'exponent-help') : null,
-      h('div', { class: 'q-field' }, input, q.unit ? h('span', { class: 'q-unit' }, q.unit) : null),
-      help.exponents ? insertBar(input, EXP_KEYS) : null,
-      preview),
-    refresh(answer) {
-      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : answer == null ? '' : String(answer);
-      updatePreview();
-    },
-    focus: () => input.focus(),
-  };
-}
-
-function formulaWidget(q, api) {
-  const preview = h('div', { class: 'q-formula-preview', 'aria-live': 'polite', dataset: { testid: 'formula-preview' } });
-  const updatePreview = () => {
-    const v = input.value.trim();
-    if (!v) {
-      preview.classList.add('is-empty');
-      preview.textContent = 'Formatted preview appears here';
-    } else {
-      preview.classList.remove('is-empty');
-      // formulaToHTML escapes its input; this is the only HTML string rendered from student input.
-      preview.innerHTML = `<span class="formula">${formulaToHTML(input.value)}</span>`;
-    }
-  };
-  const input = h('input', {
-    class: 'input q-input q-input--formula', type: 'text', autocomplete: 'off', spellcheck: 'false',
-    autocapitalize: 'off', autocorrect: 'off', placeholder: 'e.g. H2SO4', 'aria-label': 'Your answer (chemical formula)',
-    dataset: { testid: 'formula-input' },
-    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updatePreview(); } },
-  });
-  updatePreview();
-  const help = formatHelpFor(q);
-  return {
-    el: h('div', { class: 'q-formula' },
-      help.charges ? helpBox('charges', 'charge-help') : null,
-      input,
-      help.charges ? insertBar(input, CHARGE_KEYS)
-        : h('p', { class: 'q-hint' }, 'Subscripts are plain numbers: H2O, Ca(OH)2, CuSO4.5H2O. Charges: SO4^2-, Na^+'),
-      preview),
-    refresh(answer) {
-      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
-      updatePreview();
-    },
-    focus: () => input.focus(),
-  };
-}
-
-function trueFalseWidget(q, api) {
-  const mk = (val, label, ic) => h('button', {
-    type: 'button', class: 'q-tf__btn', role: 'radio', 'aria-checked': 'false', tabindex: '0',
-    dataset: { testid: val ? 'tf-true' : 'tf-false' },
-    on: { click: () => api.set(q.id, val) },
-  }, h('span', { class: 'q-tf__icon' }, icon(ic, { size: 22 })), h('span', {}, label));
-  const t = mk(true, 'True', 'check');
-  const f = mk(false, 'False', 'x');
-  return {
-    el: h('div', { class: 'q-tf', role: 'radiogroup', 'aria-labelledby': `qt-${q.id}` }, t, f),
-    refresh(answer) {
-      t.classList.toggle('is-selected', answer === true);
-      f.classList.toggle('is-selected', answer === false);
-      t.setAttribute('aria-checked', String(answer === true));
-      f.setAttribute('aria-checked', String(answer === false));
-    },
-    shortcut(key) {
-      if (key === 't') { api.set(q.id, true); return true; }
-      if (key === 'f') { api.set(q.id, false); return true; }
-      return false;
-    },
-  };
-}
-
-function matchingWidget(q, api) {
-  const inputs = {}; // `${l}|${r}` -> input
-  const head = h('tr', {}, h('td', { class: 'q-match__corner' }),
-    q.right.map((r) => h('th', { scope: 'col', class: 'q-match__col' }, optionImageEl(r, 'opt-img--sm'), r.text ? richText(r.text) : null)));
-  const rows = q.left.map((l) => h('tr', {},
-    h('th', { scope: 'row', class: 'q-match__row' }, optionImageEl(l, 'opt-img--sm'), l.text ? richText(l.text) : null),
-    q.right.map((r) => {
-      const input = h('input', {
-        type: 'radio', class: 'q-dot__input', name: `m-${q.id}-${l.id}`, value: r.id,
-        'aria-label': `${optLabel(l)} matches ${optLabel(r)}`,
-        dataset: { testid: `match-${l.id}-${r.id}` },
-        on: { change: () => api.set(q.id, { ...(api.get(q.id) || {}), [l.id]: r.id }) },
-      });
-      inputs[`${l.id}|${r.id}`] = input;
-      return h('td', { class: 'q-match__cell' }, h('label', { class: 'q-dot' }, input, h('span', { class: 'q-dot__mark', 'aria-hidden': 'true' })));
-    }),
-  ));
-  return {
-    el: h('div', { class: 'q-matching' },
-      h('p', { class: 'q-hint' }, 'Match each item on the left with one option. Options can be used more than once.'),
-      h('div', { class: 'q-match', role: 'group', 'aria-labelledby': `qt-${q.id}` },
-        h('table', {}, h('thead', {}, head), h('tbody', {}, rows)))),
-    refresh(answer) {
-      const a = answer && typeof answer === 'object' ? answer : {};
-      for (const l of q.left) for (const r of q.right) inputs[`${l.id}|${r.id}`].checked = a[l.id] === r.id;
-    },
-  };
-}
-
-function shortWidget(q, api) {
-  const countId = `sc-${q.id}`;
-  const count = h('p', { class: 'q-hint q-short__count', id: countId, 'aria-live': 'polite' });
-  const updateCount = () => {
-    const n = input.value.trim() ? input.value.trim().split(/\s+/).length : 0;
-    count.textContent = `${n} ${n === 1 ? 'word' : 'words'} · Your teacher will grade this answer`;
-  };
-  const input = h('textarea', {
-    class: 'textarea q-short', rows: 6, maxlength: '5000', spellcheck: 'true', placeholder: 'Type your answer',
-    'aria-label': 'Your answer', 'aria-describedby': countId, dataset: { testid: 'short-input' },
-    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updateCount(); } },
-  });
-  updateCount();
-  return {
-    el: h('div', { class: 'q-short-wrap' }, input, count),
-    refresh(answer) {
-      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
-      updateCount();
-    },
-    focus: () => input.focus(),
-  };
-}
-
-function orderingWidget(q, api) {
-  // q.items is already in this student's shuffled display order (see render()).
-  const startOrder = q.items.map((it) => it.id);
-  const itemOf = new Map(q.items.map((it) => [it.id, it]));
-  const textOf = { get: (id) => optLabel(itemOf.get(id)) };
-  const list = h('ol', { class: 'q-order__list', 'aria-labelledby': `qt-${q.id}` });
-  const status = h('p', { class: 'sr-only', 'aria-live': 'polite' });
-  const current = () => {
-    const a = api.get(q.id);
-    return Array.isArray(a) && a.length === startOrder.length && startOrder.every((id) => a.includes(id)) ? a.slice() : startOrder.slice();
-  };
-  const move = (from, to) => {
-    const order = current();
-    if (to < 0 || to >= order.length) return;
-    const [id] = order.splice(from, 1);
-    order.splice(to, 0, id);
-    api.set(q.id, order);
-    status.textContent = `${textOf.get(id)} moved to position ${to + 1} of ${order.length}`;
-    requestAnimationFrame(() => list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__btn--${to < from ? 'up' : 'down'}`)?.focus()
-      || list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__handle`)?.focus());
-  };
-  let dragFrom = -1;
-  let firstPaint = true; // only the first render animates; later re-renders (after a move) must not flash
-  // Touch / pen: HTML5 drag and drop never fires on touch screens, so the handle also supports pointer dragging.
-  function touchDrag(e, from, li) {
-    if (e.pointerType === 'mouse' || e.button > 0) return; // mouse uses native drag and drop on the row
-    e.preventDefault();
-    const handle = e.currentTarget;
-    handle.setPointerCapture?.(e.pointerId);
-    let over = from;
-    li.classList.add('is-dragging');
-    const rowAt = (x, y) => document.elementFromPoint(x, y)?.closest?.('.q-order__item');
-    const mark = (row) => {
-      list.querySelectorAll('.is-over').forEach((n) => n.classList.remove('is-over'));
-      if (row && list.contains(row) && row !== li) row.classList.add('is-over');
-    };
-    const onMove = (ev) => {
-      const row = rowAt(ev.clientX, ev.clientY);
-      if (row && list.contains(row)) over = [...list.children].indexOf(row);
-      mark(row);
-    };
-    const end = (ev) => {
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', end);
-      handle.removeEventListener('pointercancel', end);
-      li.classList.remove('is-dragging');
-      mark(null);
-      if (ev.type === 'pointerup' && over !== from) move(from, over);
-    };
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', end);
-    handle.addEventListener('pointercancel', end);
-  }
-  const keepBtn = h('button', { type: 'button', class: 'btn btn--subtle btn--sm q-order__keep', dataset: { testid: 'ordering-keep' },
-    on: { click: () => api.set(q.id, current()) } }, icon('check', { size: 14 }), 'Use this order');
-
-  function refresh(answer) {
-    const order = Array.isArray(answer) && answer.length ? current() : startOrder;
-    list.replaceChildren(...order.map((id, i) => {
-      const it = itemOf.get(id);
-      const li = h('li', { class: ['q-order__item', firstPaint && 'is-new'], draggable: 'true', dataset: { item: id, testid: `ordering-item-${id}` },
-        on: {
-          dragstart: (e) => { dragFrom = i; li.classList.add('is-dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); },
-          dragend: () => li.classList.remove('is-dragging'),
-          dragover: (e) => { e.preventDefault(); li.classList.add('is-over'); },
-          dragleave: () => li.classList.remove('is-over'),
-          drop: (e) => { e.preventDefault(); li.classList.remove('is-over'); if (dragFrom >= 0 && dragFrom !== i) move(dragFrom, i); dragFrom = -1; },
-        } },
-      h('span', { class: 'q-order__pos', 'aria-hidden': 'true' }, String(i + 1)),
-      h('span', { class: 'q-order__handle', tabindex: '-1', 'aria-hidden': 'true', on: { pointerdown: (e) => touchDrag(e, i, li) } }, icon('grid', { size: 16 })),
-      h('span', { class: 'q-order__content' }, optionImageEl(it, 'opt-img--sm'), String(it.text).trim() || !it.image ? richText(it.text, 'span', 'q-order__text') : null),
-      h('span', { class: 'q-order__btns' },
-        h('button', { type: 'button', class: 'icon-btn q-order__btn q-order__btn--up', disabled: i === 0, 'aria-label': `Move ${textOf.get(id)} up`, dataset: { testid: `ordering-up-${id}` }, on: { click: () => move(i, i - 1) } }, icon('up', { size: 16 })),
-        h('button', { type: 'button', class: 'icon-btn q-order__btn q-order__btn--down', disabled: i === order.length - 1, 'aria-label': `Move ${textOf.get(id)} down`, dataset: { testid: `ordering-down-${id}` }, on: { click: () => move(i, i + 1) } }, icon('down', { size: 16 }))));
-      return li;
-    }));
-    renderMath(list);
-    firstPaint = false;
-    keepBtn.hidden = Array.isArray(answer) && answer.length > 0;
-  }
-  refresh(api.get(q.id));
-  return {
-    el: h('div', { class: 'q-order' },
-      h('p', { class: 'q-hint' }, 'Drag items, or use the arrow buttons, to put them in order.'),
-      q.topLabel ? h('p', { class: 'q-order__label' }, icon('up', { size: 14 }), q.topLabel) : null,
-      list,
-      q.bottomLabel ? h('p', { class: 'q-order__label' }, icon('down', { size: 14 }), q.bottomLabel) : null,
-      keepBtn, status),
-    refresh,
-  };
-}
-
-function fillBlankWidget(q, api) {
-  const byId = new Map((q.blanks || []).map((b, i) => [b.id, { ...b, n: i + 1 }]));
-  const bank = q.wordBank ? seededShuffle(wordBankChoices(q), `bank${q.id}`) : null;
-  const inputs = new Map();
-  const update = (id, value, debounce) => {
-    const next = { ...(api.get(q.id) || {}) };
-    if (value === '' || value == null) delete next[id]; else next[id] = value;
-    api.set(q.id, Object.keys(next).length ? next : undefined, { debounce });
-  };
-  const textEl = h('div', { class: 'q-text q-fill' }, splitBlanks(q.text).map((part) => {
-    if (part.text !== undefined) return richText(part.text, 'span');
-    const b = byId.get(part.blank);
-    if (!b) return h('span', {}, '____');
-    const label = `Blank ${b.n}`;
-    let el;
-    if (bank) {
-      el = h('select', { class: 'select q-fill__select', 'aria-label': label, dataset: { testid: `blank-${b.id}` },
-        on: { change: () => update(b.id, el.value, false) } },
-      h('option', { value: '' }, `(${b.n}) choose…`), bank.map((w) => h('option', { value: w }, w)));
-    } else {
-      const longest = Math.max(4, ...(b.answers || []).map((a) => String(a).length));
-      el = h('input', {
-        class: ['input', 'q-fill__input', b.kind === 'formula' && 'q-input--formula'], type: 'text', autocomplete: 'off', spellcheck: b.kind === 'text' ? 'true' : 'false',
-        autocapitalize: 'off', 'aria-label': label, placeholder: `(${b.n})`, inputmode: b.kind === 'number' ? 'decimal' : 'text',
-        style: `--chars:${Math.min(24, longest + 3)}`, dataset: { testid: `blank-${b.id}` },
-        on: { input: () => update(b.id, el.value, true) },
-      });
-    }
-    inputs.set(b.id, el);
-    return h('span', { class: 'q-fill__slot' }, el, b.kind === 'number' && b.unit ? h('span', { class: 'q-fill__unit' }, b.unit) : null);
-  }));
-  const help = formatHelpFor(q);
-  return {
-    textEl,
-    el: h('div', { class: 'q-fillwrap' },
-      bank ? h('div', { class: 'q-bank', 'aria-label': 'Word bank' }, h('span', { class: 'q-bank__label' }, 'Word bank'), bank.map((w) => h('span', { class: 'q-bank__chip' }, w))) : null,
-      help.charges ? helpBox('charges', 'charge-help') : null,
-      help.exponents ? helpBox('exponents', 'exponent-help') : null,
-      h('p', { class: 'q-hint' }, bank ? 'Choose a word for each blank. Words may be used more than once.' : 'Type your answer in each blank.')),
-    refresh(answer) {
-      const a = answer && typeof answer === 'object' ? answer : {};
-      for (const [id, el] of inputs) if (document.activeElement !== el) el.value = a[id] == null ? '' : String(a[id]);
-    },
-    focus: () => inputs.values().next().value?.focus(),
-  };
-}
-
-function openWidget(q, api) {
-  const countId = `oc-${q.id}`;
-  const count = h('p', { class: 'q-hint q-short__count', id: countId, 'aria-live': 'polite' });
-  const min = Number(q.minWords) || 0;
-  const max = Number(q.maxWords) || 0;
-  const target = min && max ? `aim for ${min}–${max} words` : min ? `at least ${min} words` : max ? `up to ${max} words` : '';
-  const updateCount = () => {
-    const n = input.value.trim() ? input.value.trim().split(/\s+/).length : 0;
-    count.textContent = `${n} ${n === 1 ? 'word' : 'words'}${target ? ` · ${target}` : ''} · Your teacher will grade this answer`;
-    count.classList.toggle('is-warn', (min && n > 0 && n < min) || (max && n > max));
-  };
-  const input = h('textarea', {
-    class: 'textarea q-short q-open', rows: 10, maxlength: '20000', spellcheck: 'true', placeholder: 'Write your response',
-    'aria-label': 'Your answer', 'aria-describedby': countId, dataset: { testid: 'open-input' },
-    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updateCount(); } },
-  });
-  updateCount();
-  const rubric = q.showRubric !== false && Array.isArray(q.rubric) && q.rubric.length
-    ? h('div', { class: 'q-rubric', dataset: { testid: 'open-rubric' } },
-      h('p', { class: 'q-rubric__title' }, 'How this will be graded'),
-      h('ul', {}, q.rubric.map((r) => h('li', {}, richText(r.text, 'span'), h('span', { class: 'pill' }, pointsLabel(r.points))))))
-    : null;
-  return {
-    el: h('div', { class: 'q-short-wrap' }, rubric, input, count),
-    refresh(answer) {
-      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
-      updateCount();
-    },
-    focus: () => input.focus(),
-  };
-}
-
-function buildWidget(q, api) {
-  switch (q.type) {
-    case 'mcq': return choiceWidget(q, api, false);
-    case 'multi': return choiceWidget(q, api, true);
-    case 'numeric': return numericWidget(q, api);
-    case 'formula': return formulaWidget(q, api);
-    case 'truefalse': return trueFalseWidget(q, api);
-    case 'matching': return matchingWidget(q, api);
-    case 'lewis': return lewisWidget(q, api);
-    case 'short': return shortWidget(q, api);
-    case 'ordering': return orderingWidget(q, api);
-    case 'fillblank': return fillBlankWidget(q, api);
-    case 'open': return openWidget(q, api);
-    case 'structure': return structureWidget(q, api);
-    case 'orbital': return orbitalWidget(q, api);
-    case 'balance': return balanceWidget(q, api);
-    case 'econfig': return econfigWidget(q, api);
-    case 'ptable': return ptableWidget(q, api);
-    case 'sigfigs': return sigfigsWidget(q, api);
-    case 'categorize': return categorizeWidget(q, api);
-    case 'hotspot': return hotspotWidget(q, api);
-    case 'graph': return graphWidget(q, api);
-    default: return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
-  }
-}
 
 /* ------------------------------------------------------------------ view */
 
@@ -571,15 +87,27 @@ export function render(root, ctx, params = {}) {
   const defaultMode = modeOk(test.defaultMode) || modeOk(ctx.config?.DEFAULT_MODE) || 'focus';
 
   const state = {
-    answers: {}, flagged: new Set(), index: 0, mode: defaultMode, startedAt: Date.now(),
+    answers: {}, confidence: {}, hints: new Set(), flagged: new Set(), index: 0, mode: defaultMode, startedAt: Date.now(),
     tabSwitches: 0, submitting: false, done: false,
+    scratch: {}, struck: {}, flagNotes: {}, // V4-05 student tools: saved with progress, never submitted
   };
+  // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
+  const toolsOn = feature('studentTools');
+  const tools = toolsFor(test, { enabled: toolsOn, accommodations: user.accommodations });
+  if (toolsOn) ensureToolsCss();
 
   // ---- restore
   const saved = preview ? null : load(progressKey, null);
   if (saved && typeof saved === 'object') {
     for (const [k, v] of Object.entries(saved.answers || {})) if (byId.has(k) && isAnswered(byId.get(k), v)) state.answers[k] = v;
     for (const k of saved.flagged || []) if (byId.has(k)) state.flagged.add(k);
+    for (const [k, v] of Object.entries(saved.confidence || {})) if (byId.get(k)?.confidence && validConfidence(v)) state.confidence[k] = Number(v);
+    for (const k of saved.hints || []) if (byId.get(k)?.hint) state.hints.add(k);
+    if (toolsOn) {
+      state.scratch = normalizeScratchMap(saved.scratch, [...byId.keys()]);
+      for (const [k, v] of Object.entries(saved.struck || {})) if (byId.has(k) && Array.isArray(v) && v.length) state.struck[k] = v.map(String);
+      for (const [k, v] of Object.entries(saved.flagNotes || {})) if (byId.has(k) && typeof v === 'string') state.flagNotes[k] = v.slice(0, 200);
+    }
     state.index = Math.min(Math.max(Number(saved.index) || 0, 0), total - 1);
     if (test.allowModeToggle !== false && modeOk(saved.mode)) state.mode = saved.mode;
     if (Number(saved.startedAt) > 0) state.startedAt = Number(saved.startedAt);
@@ -595,8 +123,9 @@ export function render(root, ctx, params = {}) {
     saveTimer = null;
     if (preview || state.done) return;
     save(progressKey, {
-      answers: state.answers, flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
+      answers: state.answers, confidence: state.confidence, hints: [...state.hints], flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
       tabSwitches: state.tabSwitches, mode: state.mode, updatedAt: Date.now(), title: test.title,
+      ...(toolsOn ? { scratch: state.scratch, struck: state.struck, flagNotes: state.flagNotes } : {}),
     });
     flashSaved();
   }
@@ -631,14 +160,19 @@ export function render(root, ctx, params = {}) {
 
   const navToggle = h('button', {
     type: 'button', class: 'btn btn--ghost btn--sm runner-hbtn', 'aria-expanded': 'false', 'aria-controls': 'runner-navigator',
-    dataset: { testid: 'navigator-toggle' }, on: { click: () => (drawerOpen ? closeDrawer() : openDrawer()) },
+    dataset: { testid: 'navigator-toggle' }, on: { click: () => (drawerOpen ? closeDrawer({ remember: true }) : openDrawer({ remember: true })) },
   }, icon('grid', { size: 16 }), h('span', { class: 'runner-hbtn__label' }, 'Questions'));
 
   const header = appHeader({
     subtitle: test.title,
     onHome: () => ctx.navigate(preview ? 'admin' : 'landing'),
-    right: [timerEl, timerAnnouncer, modeBtn, navToggle, userBadge(user)],
+    right: [modeBtn, navToggle, userBadge(user)],
   });
+  // Calm bar under the navy header: test title, timer, and the progress bar along its bottom edge.
+  const runnerBar = h('div', { class: 'runner-bar' },
+    h('div', { class: 'runner-bar__inner' },
+      h('span', { class: 'runner-bar__title', title: test.title }, test.title),
+      timerEl, timerAnnouncer));
 
   const progressFill = h('div', { class: 'runner-progress__fill' });
   const progressBar = h('div', {
@@ -646,6 +180,7 @@ export function render(root, ctx, params = {}) {
     'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': '0', dataset: { testid: 'progress-bar' },
   }, progressFill);
 
+  const netBanner = toolsOn && !preview ? networkBanner({ config: ctx.config }) : null;
   const previewBanner = preview
     ? h('div', { class: 'runner-preview', dataset: { testid: 'preview-banner' } },
       icon('eye', { size: 16 }),
@@ -671,17 +206,77 @@ export function render(root, ctx, params = {}) {
       h('span', { class: 'q-section__pts' }, `${points} pts`));
   }
 
+  /** Per-question extras (V4-03): a point-costing hint and the "How sure are you?" row. Both are off unless the question asks. */
+  function buildExtras(q) {
+    if (!q.hint && !q.confidence) return { el: null, refresh() {} };
+    let hintBtn = null; let hintBox = null; let confRow = null; let confBtns = [];
+    if (q.hint) {
+      const hintId = `hint-${q.id}`;
+      hintBox = h('div', { class: 'q-hintbox', id: hintId, role: 'note', hidden: true, dataset: { testid: 'hint-text' } },
+        h('span', { class: 'q-hintbox__label' }, 'Hint'), richText(q.hint.text, 'div', 'q-hintbox__text'));
+      hintBtn = h('button', {
+        type: 'button', class: 'btn btn--ghost btn--sm q-hintbtn', 'aria-controls': hintId, dataset: { testid: 'hint-btn' },
+        on: { click: () => {
+          if (state.done || state.submitting) return;
+          state.hints.add(q.id);
+          refreshQuestion(q.id);
+          hintBox.focus({ preventScroll: true });
+        } },
+      }, hintButtonText(q));
+      hintBox.tabIndex = -1;
+    }
+    if (q.confidence) {
+      confBtns = CONFIDENCE_LEVELS.map((l) => h('button', {
+        type: 'button', class: 'q-conf__btn', role: 'radio', 'aria-checked': 'false', dataset: { testid: `confidence-${l.value}` },
+        on: { click: () => { if (state.done || state.submitting) return; state.confidence[q.id] = l.value; refreshQuestion(q.id); } },
+      }, l.label));
+      confRow = h('div', { class: 'q-conf', hidden: true, dataset: { testid: 'confidence-row' } },
+        h('span', { class: 'q-conf__label', id: `conf-${q.id}` }, 'How sure are you?'),
+        h('div', { class: 'q-conf__opts', role: 'radiogroup', 'aria-labelledby': `conf-${q.id}` }, confBtns));
+    }
+    return {
+      el: h('div', { class: 'q-extras' }, hintBtn, hintBox, confRow),
+      refresh(answered) {
+        if (hintBtn) {
+          const used = state.hints.has(q.id);
+          hintBtn.hidden = used;
+          hintBox.hidden = !used;
+        }
+        if (confRow) {
+          confRow.hidden = !answered;
+          confBtns.forEach((b, k) => {
+            const on = state.confidence[q.id] === CONFIDENCE_LEVELS[k].value;
+            b.setAttribute('aria-checked', String(on));
+            b.classList.toggle('is-selected', on);
+          });
+        }
+      },
+    };
+  }
+
   function buildCard(q, i) {
     const widget = buildWidget(q, api);
     const flagBtn = h('button', {
       type: 'button', class: 'q-flag', 'aria-pressed': 'false', title: 'Flag for review (G)',
-      dataset: { testid: 'flag-btn' }, on: { click: () => toggleFlag(q.id) },
+      dataset: { testid: 'flag-btn' }, on: { click: () => toggleFlag(q.id, { focusNote: true }) },
     }, icon('flag', { size: 16 }), h('span', { class: 'q-flag__label' }, 'Flag'));
     const clearBtn = h('button', {
       type: 'button', class: 'q-clear', dataset: { testid: 'clear-answer' },
-      on: { click: () => { delete state.answers[q.id]; refreshQuestion(q.id); card.el.focus({ preventScroll: true }); } },
+      on: { click: () => { delete state.answers[q.id]; delete state.confidence[q.id]; refreshQuestion(q.id); card.el.focus({ preventScroll: true }); } },
     }, 'Clear answer');
     const clearSlot = h('div', { class: 'q-clear-slot' });
+    const extras = buildExtras(q);
+    // V4-05: optional note to the teacher that goes with the flag.
+    const noteInput = toolsOn ? h('input', {
+      class: 'input q-flagnote__input', type: 'text', maxlength: '200', 'aria-label': 'Note for your teacher (optional)',
+      placeholder: 'Note for your teacher (optional)', dataset: { testid: 'flag-note' },
+      on: {
+        input: () => { state.flagNotes[q.id] = noteInput.value; persist(true); },
+        keydown: (e) => e.stopPropagation(), // typing here must not trigger runner shortcuts or Enter -> next question
+      },
+    }) : null;
+    const noteRow = noteInput ? h('div', { class: 'q-flagnote', hidden: true, dataset: { testid: 'flag-note-row' } }, noteInput) : null;
+    const readAloud = tools.readAloud ? readAloudButton({ getText: () => questionSpeech(q) }) : null;
     const el = h('section', {
       class: 'q-card', tabindex: '-1', 'aria-label': `Question ${i + 1} of ${total}`,
       dataset: { testid: 'question-card', questionId: q.id },
@@ -694,24 +289,44 @@ export function render(root, ctx, params = {}) {
         isRequired(test, q) ? h('span', { class: 'pill pill--warning q-required-pill', dataset: { testid: 'required-pill' } }, 'Required') : null,
         sectionOfQ(q) ? h('span', { class: 'pill q-section-pill', title: sectionOfQ(q).section.title, dataset: { testid: 'section-pill' } }, sectionPillText(sectionOfQ(q).section.title)) : null,
         h('span', { class: 'spacer' }),
+        readAloud?.el,
         flagBtn),
       // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
       withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
+      extras.el,
       clearSlot,
     );
     el.querySelector('.q-text').id = `qt-${q.id}`;
+    const marks = tools.highlighter ? marksBar({
+      card: el, qid: q.id, getStruck: () => state.struck[q.id] || [],
+      setStruck: (ids) => { if (ids.length) state.struck[q.id] = ids; else delete state.struck[q.id]; persist(true); },
+    }) : null;
+    if (marks) widget.el.before(marks.el);
+    const pad = tools.scratchpad ? scratchpad({
+      qid: q.id, get: () => state.scratch[q.id],
+      set: (v) => { const n = normalizeScratch(v); if (isEmptyScratch(n)) delete state.scratch[q.id]; else state.scratch[q.id] = n; persist(true); },
+    }) : null;
+    if (pad) clearSlot.before(pad.el);
+    if (noteRow) clearSlot.before(noteRow); // the optional note sits under the answer, not above it
     const card = {
       q, i, el, widget,
       refresh() {
         const ans = state.answers[q.id];
         widget.refresh(ans);
         const answered = isAnswered(q, ans);
+        extras.refresh(answered);
         if (answered && !clearBtn.isConnected) clearSlot.appendChild(clearBtn);
         else if (!answered) clearBtn.remove();
         const flagged = state.flagged.has(q.id);
         flagBtn.setAttribute('aria-pressed', String(flagged));
         flagBtn.classList.toggle('is-flagged', flagged);
+        if (noteRow) {
+          noteRow.hidden = !flagged;
+          if (noteInput.value !== (state.flagNotes[q.id] || '')) noteInput.value = state.flagNotes[q.id] || '';
+        }
+        marks?.refresh();
+        pad?.refresh();
       },
     };
     return card;
@@ -742,6 +357,10 @@ export function render(root, ctx, params = {}) {
       submitBtn));
 
   /* ---- navigator drawer */
+  // >= 1024px the navigator is a docked left rail (open/closed choice remembered per device in `cw:navRail`);
+  // below that it is a bottom sheet with a backdrop.
+  const railMq = typeof matchMedia === 'function' ? matchMedia('(min-width: 1024px)') : null;
+  const isRail = () => !!railMq?.matches;
   let drawerOpen = false;
   const tiles = new Map();
   const cntAnswered = h('b', {}), cntFlagged = h('b', {}), cntUnanswered = h('b', {});
@@ -750,7 +369,7 @@ export function render(root, ctx, params = {}) {
       type: 'button', class: 'nav-tile', dataset: { testid: `nav-item-${q.id}` },
       on: { click: () => {
         goTo(i, { focus: true });
-        if (matchMedia('(max-width: 720px)').matches) closeDrawer();
+        if (!isRail()) closeDrawer(); // bottom sheet closes on pick; the desktop rail stays docked
       } },
     }, String(i + 1));
     tiles.set(q.id, t);
@@ -772,8 +391,9 @@ export function render(root, ctx, params = {}) {
     }
     return wrap;
   })();
-  const drawerClose = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close navigator', on: { click: () => closeDrawer() } }, icon('x'));
+  const drawerClose = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Close navigator', on: { click: () => closeDrawer({ remember: true }) } }, icon('x'));
   const drawer = h('aside', { class: 'nav-drawer', id: 'runner-navigator', 'aria-label': 'Question navigator', dataset: { testid: 'navigator' } },
+    h('div', { class: 'nav-drawer__grip', 'aria-hidden': 'true' }),
     h('div', { class: 'nav-drawer__head' }, h('h2', {}, 'Questions'), drawerClose),
     h('div', { class: 'nav-drawer__body' },
       h('div', { class: 'nav-counts' },
@@ -788,20 +408,24 @@ export function render(root, ctx, params = {}) {
     h('div', { class: 'nav-drawer__foot' },
       h('button', { type: 'button', class: 'btn btn--primary btn--block', dataset: { testid: 'navigator-submit' }, on: { click: () => openSubmit() } }, 'Submit test')));
   drawer.inert = true;
-  const overlay = h('div', { class: 'nav-overlay', on: { click: () => closeDrawer() } });
+  const overlay = h('div', { class: 'nav-overlay', on: { click: () => closeDrawer({ remember: true }) } });
 
-  function openDrawer() {
+  // `remember: true` marks a deliberate open/close by the student (stored for the desktop rail); programmatic
+  // closes (submit, cleanup) never change the stored preference.
+  function openDrawer({ remember = false, restore = false } = {}) {
     if (drawerOpen) return;
+    if (remember && isRail()) save('navRail', { open: true });
     drawerOpen = true;
     drawer.inert = false;
     drawer.classList.add('is-open');
     runnerEl.classList.add('is-drawer-open');
     overlay.classList.add('is-open');
     navToggle.setAttribute('aria-expanded', 'true');
-    setTimeout(() => tiles.get(ordered[state.index].id)?.focus({ preventScroll: true }), 60);
+    if (!restore) setTimeout(() => tiles.get(ordered[state.index].id)?.focus({ preventScroll: true }), 60);
   }
-  function closeDrawer() {
+  function closeDrawer({ remember = false } = {}) {
     if (!drawerOpen) return;
+    if (remember && isRail()) save('navRail', { open: false });
     drawerOpen = false;
     const hadFocus = drawer.contains(document.activeElement);
     drawer.classList.remove('is-open');
@@ -817,7 +441,7 @@ export function render(root, ctx, params = {}) {
   function updateChrome() {
     const done = answeredCount();
     progressBar.setAttribute('aria-valuenow', String(done));
-    progressFill.style.width = `${total ? (done / total) * 100 : 0}%`;
+    progressFill.style.transform = `scaleX(${total ? done / total : 0})`;
     progressText.textContent = `${done} of ${total} answered`;
     cntAnswered.textContent = String(done);
     cntFlagged.textContent = String(state.flagged.size);
@@ -860,9 +484,11 @@ export function render(root, ctx, params = {}) {
     refreshQuestion(qid, debounce);
   }
 
-  function toggleFlag(qid) {
-    if (state.flagged.has(qid)) state.flagged.delete(qid); else state.flagged.add(qid);
+  // The note box gets focus only when the flag is clicked; the G shortcut leaves focus alone so G toggles again.
+  function toggleFlag(qid, { focusNote = false } = {}) {
+    if (state.flagged.has(qid)) { state.flagged.delete(qid); delete state.flagNotes[qid]; } else state.flagged.add(qid);
     refreshQuestion(qid);
+    if (toolsOn && focusNote && state.flagged.has(qid)) cardById.get(qid)?.el.querySelector('[data-testid="flag-note"]')?.focus({ preventScroll: true });
   }
 
   /* ---- navigation / modes */
@@ -1065,7 +691,7 @@ export function render(root, ctx, params = {}) {
     submitBtn.disabled = true;
     runnerEl.classList.add('is-submitting');
     try {
-      const grade = gradeTest(test, state.answers);
+      const grade = gradeTest(test, state.answers, { hintsUsed: state.hints, confidence: state.confidence });
       if (preview) {
         state.done = true;
         submitModal?.close();
@@ -1086,7 +712,11 @@ export function render(root, ctx, params = {}) {
         }
         const payload = buildPayload({
           test, grade, user, startedAt: state.startedAt, submittedAt: Date.now(),
-          flags: { tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode },
+          flags: {
+            tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode,
+            // V4-05: flagged questions with the student's optional note { qid: note }; scratchpads are never sent.
+            ...(toolsOn && state.flagged.size ? { questions: Object.fromEntries([...state.flagged].map((id) => [id, String(state.flagNotes[id] || '').trim().slice(0, 200)])) } : {}),
+          },
         });
         const submission = await submitResults(payload, { config: ctx.config });
         state.done = true;
@@ -1140,7 +770,7 @@ export function render(root, ctx, params = {}) {
   /* ---- global listeners */
   function onKeyDown(e) {
     if (e.defaultPrevented || state.submitting || state.done) return;
-    if (e.key === 'Escape' && drawerOpen) { closeDrawer(); return; }
+    if (e.key === 'Escape' && drawerOpen) { closeDrawer({ remember: true }); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('#modal-root .modal-overlay.is-open')) return;
     const t = e.target;
@@ -1158,7 +788,7 @@ export function render(root, ctx, params = {}) {
     if (key === '?') { e.preventDefault(); openShortcuts(); return; }
     const lower = key.length === 1 ? key.toLowerCase() : '';
     if (lower === 'g') { e.preventDefault(); toggleFlag(ordered[state.index].id); return; }
-    if (lower === 'n') { e.preventDefault(); drawerOpen ? closeDrawer() : openDrawer(); return; }
+    if (lower === 'n') { e.preventDefault(); drawerOpen ? closeDrawer({ remember: true }) : openDrawer({ remember: true }); return; }
     if (lower === 'r' && refPane) { e.preventDefault(); refPane.toggle(); return; }
     if (lower && cards[state.index].widget.shortcut?.(lower)) e.preventDefault();
   }
@@ -1178,15 +808,27 @@ export function render(root, ctx, params = {}) {
 
   /* ---- mount */
   // Built once: the pane is a sibling of the questions, so stage rerenders never rebuild or reset it.
-  const refPane = referencePane(test, { storageKey: `refpane:${test.code}` });
-  const mainEl = h('main', { class: 'runner-main' }, stage, actions, announcer);
+  const extraTabs = [];
+  if (tools.calculator) extraTabs.push({ id: 'tool-calc', title: 'Calculator', build: calculatorPanel });
+  if (tools.constants) extraTabs.push({ id: 'tool-constants', title: 'Units & constants', build: constantsPanel });
+  const refPane = referencePane(test, { storageKey: `refpane:${test.code}`, extraTabs });
+  // V4-02: teacher announcement shown above the questions (dismissible); late-work notice when in the late window.
+  const announceEl = test.announcement && String(test.announcement).trim()
+    ? h('div', { class: 'notice notice--info runner-announcement', role: 'note', dataset: { testid: 'test-announcement' } }, icon('info'),
+      h('span', { class: 'runner-announcement__text' }, String(test.announcement)),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Dismiss announcement', on: { click: (e) => e.currentTarget.parentElement.remove() } }, icon('x', { size: 16 })))
+    : null;
+  const lateEl = test.instance?.late ? h('div', { class: 'notice notice--warning', role: 'note', dataset: { testid: 'late-notice' } }, icon('clock'),
+    h('span', {}, 'This test is past its due date. Your teacher accepts late work, but a late penalty may apply.')) : null;
+  const mainEl = h('main', { class: 'runner-main' }, announceEl, lateEl, stage, actions, announcer);
   const runnerEl = h('div', { class: ['runner', preview && 'runner--preview'], dataset: { testid: 'runner' } },
-    h('div', { class: 'runner-top' }, header, progressBar, previewBanner),
+    h('div', { class: 'runner-top' }, header, runnerBar, progressBar, previewBanner, netBanner?.el),
     refPane ? h('div', { class: 'runner-split', dataset: { testid: 'runner-split' } }, mainEl, refPane.el) : mainEl,
     footer,
     h('div', { class: 'nav-host' }, overlay, drawer),
   );
   mount(root, runnerEl);
+  if (isRail() && load('navRail', null)?.open === true) openDrawer({ restore: true });
   applyMode();
   tick(true);
   startTimer();
@@ -1195,7 +837,24 @@ export function render(root, ctx, params = {}) {
   cards.forEach((c) => c.refresh());
   updateChrome();
 
+  // V4-02 S13 live monitor: tell the backend how far along this student is, every 60 s (silently stops on older backends).
+  let pingTimer = null;
+  const ping = async (submitted = false) => {
+    if (preview || !ctx.config?.GAS_WEB_APP_URL || !user) return;
+    const idToken = user.provider === 'google' ? getIdToken() : null;
+    const res = await publicCall('progressPing', {
+      testCode: test.code, name: user.name || '', answered: answeredCount(), total, submitted,
+      timeLeft: limitSec ? Math.max(0, Math.round(limitSec - (Date.now() - state.startedAt) / 1000)) : null,
+      ...(idToken ? { idToken } : { studentEmail: user.email }),
+    }, { gasUrl: ctx.config.GAS_WEB_APP_URL });
+    if (!res.ok && (res.unavailable || /identity|unauthorized/.test(res.error || ''))) { clearInterval(pingTimer); pingTimer = null; }
+  };
+  const live = !preview && test.instance?.live === true;
+  if (live) { ping(); pingTimer = setInterval(() => ping(), 60000); }
+
   return function cleanup() {
+    if (pingTimer) clearInterval(pingTimer);
+    if (live && state.done) ping(true);
     stopTimer();
     clearTimeout(savedT);
     document.removeEventListener('keydown', onKeyDown);
@@ -1210,5 +869,7 @@ export function render(root, ctx, params = {}) {
     submitModal?.close();
     shortcutsModal?.close();
     refPane?.destroy();
+    netBanner?.destroy();
+    stopSpeaking();
   };
 }

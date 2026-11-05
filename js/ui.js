@@ -3,6 +3,8 @@
 
 import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange,
   prefersReducedMotion, getReduceMotionPref, setReduceMotion } from './lib/theme.js';
+import { feature } from './config.js';
+import { FONT_STEPS, FONT_LABELS, loadSettings, saveSettings, applySettings, applyStoredSettings } from './views/tools/settings.js';
 
 /**
  * Create an element.
@@ -92,12 +94,46 @@ const ICONS = {
   monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   sort: '<path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/>',
   keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  // V4-01 additions (Lucide-style 2px strokes on a 24px grid)
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+  play: '<polygon points="7 4 20 12 7 20 7 4"/>',
+  gamepad: '<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3M15 12h.01M18 13.5h.01"/>',
+  pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  layers: '<path d="M12 2l10 5-10 5L2 7l10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>',
+  send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+  award: '<circle cx="12" cy="8" r="6"/><path d="M8.2 13.4L7 22l5-3 5 3-1.2-8.6"/>',
+  hourglass: '<path d="M6 2h12M6 22h12M7 2v4a5 5 0 0 0 10 0V2M7 22v-4a5 5 0 0 1 10 0v4"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
+  sidebar: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+  panel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  type: '<path d="M4 7V4h16v3M9 20h6M12 4v16"/>',
+  sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  minus: '<path d="M5 12h14"/>',
+  external: '<path d="M14 4h6v6M20 4L10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
 };
+export const ICON_NAMES = Object.keys(ICONS);
+/**
+ * One icon set (V4-01): every icon is a <symbol> in a single hidden SVG sprite injected once into <body>; icon()
+ * returns a small <svg><use href="#i-name"></svg>. Unknown names render empty.
+ */
+function ensureSprite() {
+  if (typeof document === 'undefined' || document.getElementById('cw-icon-sprite')) return;
+  const holder = document.createElement('div');
+  holder.innerHTML = `<svg id="cw-icon-sprite" xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">${
+    Object.entries(ICONS).map(([n, d]) => `<symbol id="i-${n}" viewBox="0 0 24 24">${d}</symbol>`).join('')}</svg>`;
+  (document.body || document.documentElement).prepend(holder.firstChild);
+}
 export function icon(name, { size = 18, className = '' } = {}) {
+  ensureSprite();
   const span = document.createElement('span');
   span.className = `icon ${className}`.trim();
   span.setAttribute('aria-hidden', 'true');
-  span.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
+  span.innerHTML = ICONS[name]
+    ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-${name}"/></svg>`
+    : `<svg width="${size}" height="${size}" viewBox="0 0 24 24"></svg>`;
   return span;
 }
 
@@ -359,7 +395,7 @@ export function stagger(listEl, { step = 40 } = {}) {
  */
 export function themeControl({ floating = false } = {}) {
   const btnIcon = h('span', { class: 'theme-ctl__icon' });
-  const drawIcon = () => btnIcon.replaceChildren(icon(resolvedTheme() === 'dark' ? 'moon' : 'sun', { size: 18 }));
+  const drawIcon = () => btnIcon.replaceChildren(icon('settings', { size: 18 }));
   const LABELS = { system: ['monitor', 'System'], light: ['sun', 'Light'], dark: ['moon', 'Dark'] };
   const segBtns = THEMES.map((t) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `theme-${t}` },
     on: { click: () => setThemePref(t) } }, icon(LABELS[t][0], { size: 16 }), LABELS[t][1]));
@@ -368,6 +404,12 @@ export function themeControl({ floating = false } = {}) {
     'aria-label': `${name} accent`, dataset: { testid: `accent-${name}` }, on: { click: () => setAccent(name) },
   }));
   const roleNote = h('p', { class: 'theme-ctl__note' });
+  // V4-05 student tools: font size (3 steps) + dyslexia-friendly spacing, saved on this device.
+  const toolsOn = feature('studentTools');
+  const fontBtns = toolsOn ? FONT_STEPS.map((f) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `font-${f}` },
+    on: { click: () => { applySettings(saveSettings({ ...loadSettings(), font: f })); sync(); } } }, FONT_LABELS[f])) : [];
+  const spacingBox = toolsOn ? h('input', { type: 'checkbox', dataset: { testid: 'dyslexia-spacing' }, 'aria-label': 'Dyslexia-friendly spacing',
+    on: { change: () => { applySettings(saveSettings({ ...loadSettings(), spacing: spacingBox.checked })); } } }) : null;
   const motionBox = h('input', { type: 'checkbox', dataset: { testid: 'reduce-motion' }, 'aria-label': 'Reduce motion',
     on: { change: () => setReduceMotion(motionBox.checked) } });
   const sync = () => {
@@ -375,18 +417,27 @@ export function themeControl({ floating = false } = {}) {
     motionBox.checked = getReduceMotionPref();
     const pref = getThemePref();
     segBtns.forEach((b, i) => b.setAttribute('aria-checked', String(THEMES[i] === pref)));
+    if (toolsOn) {
+      const st = loadSettings();
+      fontBtns.forEach((b, i) => b.setAttribute('aria-checked', String(FONT_STEPS[i] === st.font)));
+      spacingBox.checked = st.spacing;
+    }
     const acc = getAccent();
     swatches.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.testid === `accent-${acc}`)));
     roleNote.textContent = getRole() === 'admin' ? 'Accent for the teacher panel. Students have their own.' : 'Accent for the student view. The teacher panel has its own.';
   };
-  const pop = h('div', { class: 'theme-ctl__pop', role: 'dialog', 'aria-label': 'Appearance', hidden: true, dataset: { testid: 'theme-menu' } },
+  const pop = h('div', { class: 'theme-ctl__pop', role: 'dialog', 'aria-label': 'Settings', hidden: true, dataset: { testid: 'theme-menu' } },
+    h('p', { class: 'theme-ctl__title' }, 'Settings'),
     h('span', { class: 'theme-ctl__label' }, 'Theme'),
     h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Theme' }, segBtns),
     h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Reduce motion'), motionBox),
+    toolsOn ? h('span', { class: 'theme-ctl__label' }, 'Text size') : null,
+    toolsOn ? h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Text size' }, fontBtns) : null,
+    toolsOn ? h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Dyslexia-friendly spacing'), spacingBox) : null,
     h('span', { class: 'theme-ctl__label' }, 'Accent colour'),
     h('div', { class: 'theme-swatches', role: 'radiogroup', 'aria-label': 'Accent colour' }, swatches),
     roleNote);
-  const btn = h('button', { type: 'button', class: 'theme-ctl__btn', 'aria-label': 'Appearance: theme and accent colour', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', title: 'Appearance',
+  const btn = h('button', { type: 'button', class: 'theme-ctl__btn', 'aria-label': 'Settings: theme, motion and accent colour', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', title: 'Settings',
     dataset: { testid: 'theme-toggle' }, on: { click: (e) => { e.stopPropagation(); setOpen(pop.hidden); } } }, btnIcon);
   const wrap = h('div', { class: ['theme-ctl', floating && 'theme-float'] }, btn, pop);
   function setOpen(open) {
@@ -412,14 +463,30 @@ export function themeControl({ floating = false } = {}) {
 /* ---------- Brand: logo images + animated flask loader ---------- */
 
 /**
- * Brand logo (assets/brand). kind: 'mark' (flask) or 'wordmark' (flask + name). Renders a light-theme and a
- * dark-theme image; CSS shows the one that matches :root[data-theme].
+ * Brand logo (V4-00): inline SVG built from assets/brand/source/chemworks-mark.svg, so it is sharp at any size and
+ * recolours through CSS variables (--brand-navy, --brand-teal, --brand-mark-gap; dark mode and the navy header swap
+ * them). kind: 'mark' (flask only) or 'wordmark' (flask + "ChemWorks"). mono: one colour (currentColor) for print and
+ * high contrast. The PNGs in assets/brand stay for the favicon, touch icon and PDF.
  */
-export function brandLogo(kind = 'mark', { className = '', alt = '' } = {}) {
-  const file = kind === 'wordmark' ? 'wordmark' : 'mark';
-  return h('span', { class: ['brand-logo', `brand-logo--${file}`, className].filter(Boolean).join(' '), role: alt ? 'img' : null, 'aria-label': alt || null, 'aria-hidden': alt ? null : 'true' },
-    h('img', { class: 'brand-logo__img brand-logo__img--light', src: `assets/brand/${file}.png`, alt: '', decoding: 'async', draggable: 'false' }),
-    h('img', { class: 'brand-logo__img brand-logo__img--dark', src: `assets/brand/${file}-dark.png`, alt: '', decoding: 'async', draggable: 'false' }));
+export const MARK_PATHS = `<path class="brand-mark__neck" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" d="M29 24 H51 M35 24 V54 M45 24 V50"/>
+<path class="brand-mark__glass" d="M31 50 H48 L91 113 Q99 128 82 128 H40 C16 128 2 114 2 95 C2 76 14 61 31 52 Z"/>
+<path class="brand-mark__liquid" stroke-width="4" d="M22 86 H67 L80 105 Q86 116 74 116 H42 C29 116 20 108 20 97 C20 92 20 89 22 86 Z"/>
+<circle class="brand-mark__gap" cx="37" cy="73" r="4.2"/><circle class="brand-mark__gap" cx="47" cy="64" r="3.2"/><circle class="brand-mark__gap" cx="50" cy="77" r="2.6"/>
+<path class="brand-mark__bond" fill="none" stroke-width="5" stroke-linecap="round" d="M54 12 L80 44"/>
+<circle class="brand-mark__atom" cx="53" cy="11" r="8"/><circle class="brand-mark__atom" cx="81" cy="46" r="6.5"/>`;
+
+export function brandMarkSvg() {
+  return `<svg class="brand-mark" viewBox="0 0 100 132" aria-hidden="true" focusable="false">${MARK_PATHS}</svg>`;
+}
+
+export function brandLogo(kind = 'mark', { className = '', alt = '', mono = false } = {}) {
+  const word = kind === 'wordmark';
+  return h('span', {
+    class: ['brand-logo', `brand-logo--${word ? 'wordmark' : 'mark'}`, mono && 'brand-logo--mono', className].filter(Boolean).join(' '),
+    role: alt ? 'img' : null, 'aria-label': alt || null, 'aria-hidden': alt ? null : 'true',
+  },
+  h('span', { class: 'brand-logo__mark', html: brandMarkSvg() }),
+  word ? h('span', { class: 'brand-logo__word' }, h('span', { class: 'brand-logo__chem' }, 'Chem'), h('span', { class: 'brand-logo__works' }, 'Works')) : null);
 }
 
 let loaderSeq = 0;
@@ -445,16 +512,20 @@ export function flaskLoader({ size = 64, label = '', className = '', testid } = 
     label ? h('span', { class: 'cw-loader__label' }, label) : h('span', { class: 'sr-only' }, 'Loading'));
 }
 
+/**
+ * App shell header (V4-01): slim navy bar with the ChemWorks mark + short name, the current title, any `right`
+ * nodes and one settings popover (theme, motion, accent). Under 480 px only the mark shows.
+ *   appHeader({ title, subtitle, right, onHome })   title 'ChemistryWorks' (default) means "no page title".
+ */
 export function appHeader({ title = 'ChemistryWorks', subtitle = '', right = null, onHome = null } = {}) {
+  const pageTitle = title !== 'ChemistryWorks' ? title : '';
   return h('header', { class: 'app-header' },
     h('button', { class: 'brand', type: 'button', 'aria-label': 'ChemistryWorks home', on: { click: onHome }, dataset: { testid: 'brand' } },
-      // Full wordmark top-left; narrow screens swap to the flask mark (CSS).
-      h('span', { class: 'brand__logo' }, brandLogo('wordmark', { className: 'brand__wordmark' }), brandLogo('mark', { className: 'brand__mark' })),
-      title !== 'ChemistryWorks' || subtitle ? h('span', { class: 'brand__text' },
-        title !== 'ChemistryWorks' ? h('span', { class: 'brand__name' }, title) : null,
-        subtitle ? h('span', { class: 'brand__sub' }, subtitle) : null,
-      ) : null,
-    ),
+      h('span', { class: 'brand__logo' }, brandLogo('wordmark', { className: 'brand__wordmark' }), brandLogo('mark', { className: 'brand__mark' }))),
+    pageTitle || subtitle ? h('div', { class: 'brand__text' },
+      pageTitle ? h('span', { class: 'brand__name' }, pageTitle) : null,
+      subtitle ? h('span', { class: 'brand__sub' }, subtitle) : null,
+    ) : null,
     h('div', { class: 'app-header__right' }, right, themeControl()),
   );
 }
@@ -491,3 +562,6 @@ export function seededShuffle(array, seedString) {
   }
   return out;
 }
+
+// V4-05: re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).
+applyStoredSettings();

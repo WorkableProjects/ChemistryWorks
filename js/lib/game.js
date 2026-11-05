@@ -4,6 +4,10 @@ import { isManualQuestion } from './schema.js';
 
 /** Question types that can be played one-at-a-time with instant auto-grading. */
 export const GAME_TYPES = ['mcq', 'multi', 'truefalse', 'numeric', 'formula'];
+/** V4 auto-graded types that also play in Classic, Survival and Lightning Round through the type registry's widgets. */
+export const V4_GAME_TYPES = ['naming', 'nuclear', 'vsepr', 'dropdown'];
+export const CLASSIC_TYPES = [...GAME_TYPES, ...V4_GAME_TYPES];
+export const UNTIMED_POINTS = 750; // flat points for a correct answer when the clock is off (no speed bonus)
 
 export const BASE_POINTS = 1000;
 export const MIN_CORRECT_POINTS = 500; // a correct answer at the buzzer still earns half the base
@@ -15,7 +19,7 @@ export const STREAK_CAP = 1.5;
 
 /** True when the question can be played in game mode. */
 export function isGameQuestion(q) {
-  return !!q && GAME_TYPES.includes(q.type) && !isManualQuestion(q);
+  return !!q && CLASSIC_TYPES.includes(q.type) && !isManualQuestion(q);
 }
 
 /** { playable, skipped } preserving the test's order. */
@@ -52,12 +56,12 @@ export function streakMultiplier(streak) {
  * Wrong or timed-out answers earn 0 and reset the streak.
  * Returns { points, streak, multiplier, speed }.
  */
-export function scoreAnswer({ correct, elapsedMs, limitMs, streak = 0 }) {
+export function scoreAnswer({ correct, elapsedMs, limitMs, streak = 0, untimed = false }) {
   if (!correct) return { points: 0, streak: 0, multiplier: 1, speed: 0 };
   const next = (Number(streak) || 0) + 1;
-  const speed = speedFactor(elapsedMs, limitMs);
+  const speed = untimed ? 1 : speedFactor(elapsedMs, limitMs);
   const multiplier = streakMultiplier(next);
-  const raw = Math.max(MIN_CORRECT_POINTS, Math.round(BASE_POINTS * speed));
+  const raw = untimed ? UNTIMED_POINTS : Math.max(MIN_CORRECT_POINTS, Math.round(BASE_POINTS * speed));
   return { points: Math.round(raw * multiplier), streak: next, multiplier, speed };
 }
 

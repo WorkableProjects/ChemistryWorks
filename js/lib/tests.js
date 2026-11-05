@@ -5,7 +5,7 @@
 // Every test is passed through normalizeTest() and validateTest() before use.
 
 import { normalizeTest, validateTest } from './schema.js';
-import { fetchPublishedTest } from './api.js';
+import { fetchPublishedTestResult } from './api.js';
 import { load, save } from './storage.js';
 
 export function normalizeCode(code) {
@@ -52,7 +52,7 @@ export async function loadCatalog(fetchImpl = fetch) {
  * Resolve a test by code.
  * Returns { test, source: 'bundled'|'published'|'draft' } or throws Error with a student-friendly message.
  */
-export async function loadTest(code, { config, includeDrafts = false, fetchImpl = fetch } = {}) {
+export async function loadTest(code, { config, includeDrafts = false, fetchImpl = fetch, idToken = null } = {}) {
   const c = normalizeCode(code);
   if (!c) throw new Error('Enter a test code.');
 
@@ -60,11 +60,14 @@ export async function loadTest(code, { config, includeDrafts = false, fetchImpl 
   if (includeDrafts && getDrafts()[c]) { raw = getDrafts()[c]; source = 'draft'; }
   if (!raw) { raw = await fetchBundled(c, fetchImpl); source = raw ? 'bundled' : null; }
   if (!raw && config?.GAS_WEB_APP_URL) {
-    try {
-      raw = await fetchPublishedTest(c, { gasUrl: config.GAS_WEB_APP_URL, fetchImpl });
-      source = raw ? 'published' : null;
-    } catch {
-      raw = null;
+    let r = await fetchPublishedTestResult(c, { gasUrl: config.GAS_WEB_APP_URL, fetchImpl });
+    // Closed for everyone? A signed-in Google student may still have an extension: ask again with the verified token.
+    if ((r.error === 'closed' || r.error === 'not_on_roster') && idToken) r = await fetchPublishedTestResult(c, { gasUrl: config.GAS_WEB_APP_URL, fetchImpl, idToken });
+    if (r.test) { raw = r.test; source = 'published'; }
+    else if (['not_open', 'closed', 'not_on_roster'].includes(r.error)) {
+      const err = new Error(r.error === 'not_open' ? 'This test is not open yet.' : r.error === 'closed' ? 'This test is closed.' : 'This test is only for students on the class roster.');
+      Object.assign(err, { code: r.error, opensAt: r.opensAt, closesAt: r.closesAt, title: r.title, testCode: c });
+      throw err;
     }
   }
   if (!raw) throw new Error(`No test found with code “${c}”. Check the code with your teacher.`);

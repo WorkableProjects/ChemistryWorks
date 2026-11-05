@@ -2,12 +2,17 @@
 
 import { h, icon, richText, renderMath, seededShuffle } from '../../ui.js';
 import { gradeQuestion, correctAnswerText } from '../../lib/grading.js';
-import { START_LIVES, STREAK_FOR_LIFE, SURVIVAL_TYPES, applySurvivalAnswer, sortSurvival } from '../../lib/games/survival.js';
-import { makeRng, questionsOfTypes } from '../../lib/games/common.js';
+import { STREAK_FOR_LIFE, SURVIVAL_TYPES, applySurvivalAnswer, sortSurvival } from '../../lib/games/survival.js';
+import { makeRng, questionsOfTypes, shuffle } from '../../lib/games/common.js';
+import { limitCount } from '../../lib/games/options.js';
 import { questionBoard, numberKeys, shuffleOptions } from './question-ui.js';
+import { powerBar } from './powerups.js';
 
 export function play(shell) {
-  const { test, user } = shell;
+  const { user, opts } = shell;
+  const test = shell.gtest;
+  const START_LIVES = opts.lives;
+  const pu = opts.powerUps;
   const playable = questionsOfTypes(test, SURVIVAL_TYPES);
   let round = 0;
   let g = null;
@@ -15,11 +20,13 @@ export function play(shell) {
   function intro() {
     shell.intro({
       rules: [
-        `No clock. You have ${START_LIVES} lives; a wrong answer costs one.`,
+        `No clock. You have ${START_LIVES} ${START_LIVES === 1 ? 'life' : 'lives'}; a wrong answer costs one.`,
+        opts.questions ? `${Math.min(opts.questions, playable.length)} questions.` : null,
+        pu.fifty || pu.skip || pu.hint ? `Power-ups, once per game: ${[pu.fifty && '50/50 (multiple choice)', pu.skip && 'Skip', pu.hint && 'Hint'].filter(Boolean).join(', ')}.` : null,
         `Every ${STREAK_FOR_LIFE} correct answers in a row earns a life back (never more than ${START_LIVES}).`,
         'Questions get harder as you go. How far can you get?',
         'Keyboard: press 1–4 to pick an answer. Other question types have their own Submit button.',
-      ],
+      ].filter(Boolean),
       onStart: begin,
     });
   }
@@ -27,8 +34,9 @@ export function play(shell) {
   function begin() {
     round++;
     const seed = `${user.email}${test.code}${Date.now()}${round}`;
-    const qs = sortSurvival(playable, makeRng(seed)).map((q) => shuffleOptions(q, seededShuffle, seed));
-    g = { qs, i: 0, lives: START_LIVES, streak: 0, score: 0, results: [] };
+    const pool = limitCount(shuffle(playable, makeRng(`${seed}pick`)), opts.questions || playable.length);
+    const qs = sortSurvival(pool, makeRng(seed)).map((q) => shuffleOptions(q, seededShuffle, seed));
+    g = { qs, i: 0, lives: START_LIVES, streak: 0, score: 0, results: [], fifty: true, skip: true, hint: true };
     question();
   }
 
@@ -44,11 +52,12 @@ export function play(shell) {
       if (locked) return;
       locked = true;
       const grade = gradeQuestion(q, answer);
-      const r = applySurvivalAnswer({ lives: g.lives, streak: g.streak }, { correct: !!grade.isCorrect, points: q.points });
+      const r = applySurvivalAnswer({ lives: g.lives, streak: g.streak, maxLives: START_LIVES }, { correct: !!grade.isCorrect, points: q.points });
       g.lives = r.lives; g.streak = r.streak; g.score += r.points;
       g.results.push({ q, answer, correct: !!grade.isCorrect, points: r.points });
       hud.setScore(g.score); hud.setStreak(g.streak); hud.setLives(g.lives);
       board.lock(answer);
+      powers.draw();
       shell.flash(!!grade.isCorrect);
       shell.sound(grade.isCorrect ? (r.lifeGained ? 'life' : 'correct') : 'wrong');
       if (grade.isCorrect) hud.pop(`+${r.points}`);
@@ -71,8 +80,20 @@ export function play(shell) {
       shell.later(() => next.focus());
     }
 
+    const powers = powerBar({
+      shell, q, board, state: g, seedKey: g.i, locked: () => locked,
+      allow: { fifty: pu.fifty, freeze: false, skip: pu.skip, hint: pu.hint },
+      onFreeze: () => {},
+      onSkip: () => {
+        if (locked) return;
+        locked = true;
+        g.results.push({ q, answer: null, correct: false, points: 0, skipped: true });
+        shell.announce('Question skipped.');
+        if (g.i === g.qs.length - 1) end(true); else { g.i++; question(); }
+      },
+    });
     shell.setKeys(numberKeys(board, () => locked));
-    shell.setStage(h('section', { class: 'game-play', 'aria-label': `Question ${g.i + 1}` }, hud.el, board.heading, board.answerArea, board.submitRow, feedbackSlot));
+    shell.setStage(h('section', { class: 'game-play', 'aria-label': `Question ${g.i + 1}` }, hud.el, board.heading, board.answerArea, board.submitRow, powers.el, feedbackSlot));
     shell.later(() => (board.startsWithTiles ? board.heading.focus({ preventScroll: true }) : board.focusFirst()));
   }
 
@@ -83,6 +104,7 @@ export function play(shell) {
     shell.end({
       title: clearedAll ? 'You survived!' : 'Out of lives',
       score: g.score,
+      results: g.results,
       stats: [
         { label: 'Answered', value: String(g.results.length), testid: 'game-answered' },
         { label: 'Correct', value: `${correct} / ${g.results.length}`, testid: 'game-correct' },

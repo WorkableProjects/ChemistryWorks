@@ -4,31 +4,19 @@
 
 import { h, mount, icon, richText, renderMath, toast, openModal, prefersReducedMotion } from '../../ui.js';
 import { resourcesTable } from '../reference-pane.js';
-import { CONFIG } from '../../config.js';
+import { CONFIG, feature } from '../../config.js';
 import { load, save } from '../../lib/storage.js';
 import { saveDraft } from '../../lib/tests.js';
 import { QUESTION_TYPES, TYPE_LABELS, MANUAL_TYPES, normalizeTest, validateTest, blankQuestion, nextQuestionId, blankTest } from '../../lib/schema.js';
-import { formulaToHTML } from '../../lib/formula.js';
-import { normalizeSymbol, valenceOf, canonicalDots } from '../../lib/lewis.js';
-import { lewisDiagram } from '../lewis-view.js';
-import { structureDiagram } from '../structure-view.js';
-import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds, MAX_CHARGE } from '../../lib/structure.js';
 import { groupQuestions, orderQuestions, sectionPoints, nextSectionId, nextReferenceId, REFERENCE_TYPES, REFERENCE_LABELS, DEFAULT_RESOURCES, safeImageUrl } from '../../lib/sections.js';
-import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../lib/orbital.js';
-import { ELEMENTS } from '../../lib/elements.js';
-import { orbitalWidget } from '../orbital-view.js';
-import { balanceEditor } from './editors/balance.js';
-import { econfigEditor } from './editors/econfig.js';
-import { ptableEditor } from './editors/ptable.js';
-import { sigfigsEditor } from './editors/sigfigs.js';
-import { categorizeEditor } from './editors/categorize.js';
-import { hotspotEditor } from './editors/hotspot.js';
-import { graphEditor } from './editors/graph.js';
 import { withQuestionImage } from '../question-image.js';
-import { formatHelpFor } from '../../lib/hints.js';
-import { BLANK_KINDS, markerIds } from '../../lib/blanks.js';
 import { publishTest } from '../../lib/api.js';
+import { hasAdminAuth } from '../../lib/admin-session.js';
 import { testLink } from './library.js';
+import { typeEditor } from './editors/core.js';
+import { gameOptionsPanel } from './game-options.js';
+import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
+import { testExtrasPanel } from './test-extras.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
 const GUIDE_SOURCES = [
@@ -109,28 +97,32 @@ function safeValidate(test) {
 function totalPoints(test) {
   return Math.round(test.questions.reduce((s, q) => s + (Number(q.points) || 0), 0) * 100) / 100;
 }
+/** "Extras" disclosure in the common question settings (V4-03): confidence switch and a point-costing hint. */
+function extrasPanel(q, changed) {
+  const text = h('textarea', { class: 'textarea', rows: 2, placeholder: 'Hint shown when the student asks for it (leave empty for no hint)', dataset: { testid: 'q-hint-text' } });
+  text.value = q.hint?.text || '';
+  const cost = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: q.hint?.cost ?? 0, dataset: { testid: 'q-hint-cost' } });
+  const syncHint = () => {
+    if (text.value.trim() === '') delete q.hint;
+    else q.hint = { text: text.value, cost: cost.value.trim() === '' ? 0 : Number(cost.value) };
+    changed();
+  };
+  text.addEventListener('input', syncHint);
+  cost.addEventListener('input', syncHint);
+  const open = !!(q.confidence || q.hint);
+  const d = h('details', { class: 'adm-extras', open, dataset: { testid: 'q-extras' } },
+    h('summary', {}, 'Extras'),
+    h('div', { class: 'stack adm-extras__body' },
+      switchEl({ label: 'Ask “How sure are you?”', hint: 'After answering, students rate Guessing / Fairly sure / Certain. Shown in results and Insights.',
+        checked: !!q.confidence, testid: 'q-confidence', onChange: (v) => { if (v) q.confidence = true; else delete q.confidence; changed(); } }),
+      field('Hint', text, 'Students can reveal it; revealing it costs points.'),
+      field('Hint cost (points)', cost, 'Deducted from the points earned (never below 0); at most the question\'s points.')));
+  return d;
+}
+
 function previewText(q) {
   const t = String(q.text || '').replace(/\s+/g, ' ').trim();
   return t ? (t.length > 90 ? `${t.slice(0, 90)}…` : t) : '(no text yet)';
-}
-function uniqueId(prefix, items) {
-  const used = new Set(items.map((i) => i.id));
-  let n = 1;
-  while (used.has(`${prefix}${n}`)) n++;
-  return `${prefix}${n}`;
-}
-function letterId(options) {
-  const used = new Set(options.map((o) => o.id));
-  for (const c of 'abcdefghijklmnopqrstuvwxyz') if (!used.has(c)) return c;
-  return uniqueId('o', options);
-}
-/** Parse "6.022e23", "6.02x10^23", "6.02 × 10^23", "-3". NaN when unparseable. */
-function parseSci(raw) {
-  const s = String(raw).trim().replace(/−/g, '-').replace(/,/g, '');
-  if (!s) return NaN;
-  const m = s.match(/^(-?\d*\.?\d+)\s*[x×*]\s*10\s*\^?\s*([+-]?\d+)$/i);
-  if (m) return Number(`${m[1]}e${m[2]}`);
-  return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s) ? Number(s) : NaN;
 }
 function confirmDialog({ title, body, confirmLabel = 'Delete', testid = 'confirm-dialog', onConfirm }) {
   openModal({
@@ -153,8 +145,26 @@ function jsonErrorMessage(err, text) {
 }
 
 // ---------- render ----------
+// V4-01: icon + one-line description per question type (type picker, outline).
+export const TYPE_ICONS = {
+  mcq: 'list', multi: 'check', truefalse: 'flag', numeric: 'type', short: 'pencil', open: 'pen',
+  matching: 'layers', ordering: 'sort', fillblank: 'minus', categorize: 'grid',
+  formula: 'flask', balance: 'refresh', econfig: 'sparkle', sigfigs: 'type', ptable: 'grid', orbital: 'panel',
+  lewis: 'user', structure: 'layers', hotspot: 'eye', graph: 'chart',
+};
+export const TYPE_DESCRIPTIONS = {
+  mcq: 'One correct answer from a list.', multi: 'Select every correct answer.', truefalse: 'A statement that is true or false.',
+  numeric: 'A number, with optional tolerance and units.', short: 'A short typed answer matched to accepted answers.', open: 'Free-text answer that you grade by hand.',
+  matching: 'Pair items from two columns.', ordering: 'Put steps or items in the right order.', fillblank: 'Type the missing words in a sentence.',
+  categorize: 'Drag items into the right groups.', formula: 'A chemical formula such as H2SO4.', balance: 'Balance a chemical equation.',
+  econfig: 'An electron configuration.', sigfigs: 'Count or round to significant figures.', ptable: 'Click elements on the periodic table.',
+  orbital: 'Fill in an orbital diagram.', lewis: 'Draw a Lewis dot symbol.', structure: 'Draw a Lewis structure; teacher graded.',
+  hotspot: 'Label places on a picture.', graph: 'Plot or read a graph.',
+};
+
 export function renderBuilder(root, ctx) {
   ensure();
+  const v2 = feature('adminShell');
   const cleanups = [];
   const gasUrl = CONFIG.GAS_WEB_APP_URL;
 
@@ -212,15 +222,16 @@ export function renderBuilder(root, ctx) {
       buttons[k].disabled = !valid;
       buttons[k].title = reason || (k === 'save' ? 'Save a draft on this device' : 'Preview as a student');
     }
-    const adminKey = load('adminKey', '', 'session');
-    const canPublish = valid && !!gasUrl && !!adminKey;
+    const hasAuth = hasAdminAuth();
+    const canPublish = valid && !!gasUrl && hasAuth;
     buttons.publish.disabled = !canPublish;
     const why = !gasUrl ? 'Set GAS_WEB_APP_URL in js/config.js to publish to the Google Sheet.'
-      : !adminKey ? 'Enter your admin key in Settings to publish.' : !valid ? reason : '';
+      : !hasAuth ? 'Enter your admin key in Settings to publish.' : !valid ? reason : '';
     buttons.publish.title = why || 'Publish to the Google Sheet';
     publishNote.textContent = why && valid ? why : '';
   }
-  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); };
+  // The admin shell listens for this to refresh the breadcrumb and in-test tabs (test code changes).
+  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); if (v2) drawOutline(); document.dispatchEvent(new CustomEvent('cw:builder-change')); };
 
   const normalizedOrNull = () => { try { return normalizeTest(S.test); } catch { return null; } };
 
@@ -271,7 +282,7 @@ export function renderBuilder(root, ctx) {
       buttons.publish.classList.add('is-loading');
       buttons.publish.disabled = true;
       try {
-        const res = await publishTest(t, { gasUrl, adminKey: load('adminKey', '', 'session') });
+        const res = await publishTest(t, { gasUrl });
         toast(res.ok ? `Published ${t.code}` : `Publish failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error', timeout: res.ok ? 3200 : 6000 });
         if (res.ok) showLink(t.code);
       } catch (e) {
@@ -423,6 +434,8 @@ export function renderBuilder(root, ctx) {
         sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false),
         sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false),
         sw('requireAllQuestions', 'All questions required', 'Students must answer every question before they can submit. Or mark single questions Required below.', false)),
+      S.test.gameMode ? (gameOptionsPanel(S.test, changed) || null) : null,
+      testExtrasPanel(S.test, changed, ctx),
     );
   }
 
@@ -792,6 +805,7 @@ export function renderBuilder(root, ctx) {
       richPrev,
       typeSection,
       field('Explanation', expl),
+      extrasPanel(q, changed),
       switchEl({ label: 'Required', hint: 'The student must answer this question before submitting (all questions are required when “All questions required” is on).',
         checked: !!q.required, testid: 'q-required',
         onChange: (v) => { if (v) q.required = true; else delete q.required; updateHead(); changed(); } }));
@@ -835,6 +849,13 @@ export function renderBuilder(root, ctx) {
     orbital: 'Orbital diagram', short: 'Short answer', open: 'Open response', lewis: 'Lewis dots',
     structure: 'Lewis structure', hotspot: 'Label diagram', graph: 'Graph',
   };
+  // V4-03: registered v4 types join their group and bring their own short label.
+  for (const t of registeredTypes().filter((x) => QUESTION_TYPES.includes(x))) {
+    const d = typeDef(t);
+    const g = TYPE_GROUPS.find((x) => x.title === d.group);
+    if (g && !g.types.includes(t)) g.types.push(t);
+    if (d.shortLabel) SHORT_LABELS[t] = d.shortLabel;
+  }
   function addMenu() {
     let open = false;
     const grouped = new Set(TYPE_GROUPS.flatMap((g) => g.types));
@@ -843,10 +864,12 @@ export function renderBuilder(root, ctx) {
     const items = [];
     const groupEls = groups.map((g) => {
       const btns = g.types.map((t) => {
-        const b = h('button', { class: 'adm-menu__item', type: 'button', role: 'menuitem', title: TYPE_LABELS[t], dataset: { testid: `add-question-${t}` },
+        const b = h('button', { class: 'adm-menu__item', type: 'button', role: 'menuitem', title: v2 ? null : TYPE_LABELS[t], 'aria-label': v2 ? `${TYPE_LABELS[t]}. ${TYPE_DESCRIPTIONS[t] || ''}`.trim() : null, dataset: { testid: `add-question-${t}` },
           on: { click: () => { setOpen(false); addQuestion(t); } } },
-        h('span', {}, SHORT_LABELS[t] || TYPE_LABELS[t]),
-        MANUAL_TYPES.includes(t) ? h('span', { class: 'adm-menu__tag' }, 'Teacher') : null);
+        v2 ? h('span', { class: 'adm-menu__icon' }, icon(TYPE_ICONS[t] || 'sparkle', { size: 16 })) : null,
+        h('span', { class: 'adm-menu__name' }, SHORT_LABELS[t] || TYPE_LABELS[t]),
+        MANUAL_TYPES.includes(t) ? h('span', { class: 'adm-menu__tag' }, 'Teacher') : null,
+        v2 ? h('span', { class: 'adm-menu__desc', role: 'tooltip' }, TYPE_DESCRIPTIONS[t] || typeDef(t)?.description || TYPE_LABELS[t]) : null);
         b._search = `${TYPE_LABELS[t]} ${SHORT_LABELS[t] || ''} ${t} ${g.title}`.toLowerCase();
         items.push(b);
         return b;
@@ -893,6 +916,178 @@ export function renderBuilder(root, ctx) {
     return wrap;
   }
 
+
+  // ----- V4-01: outline (left pane), drag + keyboard reorder, preview as student -----
+  const outlineEl = v2 ? h('aside', { class: 'bld2__outline', 'aria-label': 'Test outline', dataset: { testid: 'builder-outline' } }) : null;
+  let dragging = false;
+  let outlineFocus = null; // question object to re-focus after a redraw
+  const prevTops = new WeakMap();
+
+  /** Move question i to index j inside its own section; used by drag and drop. */
+  function reorderTo(i, j) {
+    const qs = S.test.questions;
+    if (!listEl || i === j || i < 0 || j < 0 || i >= qs.length || j >= qs.length || sectionKey(qs[i]) !== sectionKey(qs[j])) return false;
+    const [q] = qs.splice(i, 1);
+    qs.splice(j, 0, q);
+    outlineFocus = q;
+    renderList();
+    changed();
+    return true;
+  }
+
+  function drawOutline() {
+    if (!outlineEl || dragging) return;
+    const qs = S.test.questions;
+    const secs = S.test.sections || [];
+    // FLIP: remember where every row was, rebuild, then slide rows from the old spot to the new one.
+    outlineEl.querySelectorAll('[data-qi]').forEach((li) => { if (li._q) prevTops.set(li._q, li.getBoundingClientRect().top); });
+    const items = [];
+    const addItem = (q) => {
+      const i = qs.indexOf(q);
+      const li = h('li', { class: 'bld2-ol__item', tabindex: '0', dataset: { testid: 'outline-item', qi: String(i), qid: q.id },
+        'aria-label': `Question ${i + 1}: ${previewText(q) || TYPE_LABELS[q.type] || q.type}. Enter opens it. Alt plus arrow up or down moves it.`,
+        on: {
+          click: () => { focusQuestion(qs.indexOf(q)); },
+          keydown: (e) => {
+            const at = qs.indexOf(q);
+            if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+              e.preventDefault();
+              if (!listEl) return;
+              outlineFocus = q;
+              moveQuestion(at, e.key === 'ArrowUp' ? -1 : 1);
+              drawOutline();
+              outlineEl.querySelector(`[data-qi="${qs.indexOf(q)}"]`)?.focus({ preventScroll: true });
+            } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); focusQuestion(at); }
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              const rows = [...outlineEl.querySelectorAll('.bld2-ol__item')];
+              rows[rows.indexOf(li) + (e.key === 'ArrowUp' ? -1 : 1)]?.focus();
+            }
+          },
+        } },
+      h('span', { class: 'bld2-ol__grip', 'aria-hidden': 'true', title: 'Drag to reorder', style: 'touch-action:none', on: { pointerdown: (e) => startDrag(e, li, q) } }, icon('sort', { size: 16 })),
+      h('span', { class: 'bld2-ol__num' }, `Q${i + 1}`),
+      icon(TYPE_ICONS[q.type] || 'sparkle', { size: 16 }),
+      h('span', { class: 'bld2-ol__text' }, previewText(q) || TYPE_LABELS[q.type] || q.type));
+      li._q = q;
+      items.push(li);
+    };
+    if (secs.length) {
+      for (const g of groupQuestions(S.test)) {
+        const i = g.section ? secs.findIndex((x) => x.id === g.section.id) : -1;
+        items.push(h('li', { class: 'bld2-ol__sec', role: 'presentation' }, g.section ? sectionTitleOf(g.section, i) : 'No section'));
+        g.questions.forEach(addItem);
+      }
+    } else qs.forEach(addItem);
+    mount(outlineEl,
+      h('h3', { class: 'adm-h3' }, icon('list', { size: 16 }), 'Outline'),
+      qs.length ? h('ol', { class: 'bld2-ol', dataset: { testid: 'outline-list' } }, items) : h('p', { class: 'faint' }, 'Questions appear here as you add them.'),
+      h('p', { class: 'bld2-ol__hint' }, 'Drag the handle, or press Alt + arrow up/down on a row, to reorder.'));
+    if (!prefersReducedMotion()) {
+      for (const li of items) {
+        if (!li._q || !prevTops.has(li._q)) continue;
+        const dy = prevTops.get(li._q) - li.getBoundingClientRect().top;
+        if (Math.abs(dy) < 2) continue;
+        li.style.transition = 'none';
+        li.style.transform = `translateY(${dy}px)`;
+        void li.offsetWidth;
+        li.style.transition = '';
+        li.style.transform = '';
+      }
+    }
+    if (outlineFocus) {
+      const li = items.find((x) => x._q === outlineFocus);
+      outlineFocus = null;
+      if (li && outlineEl.contains(document.activeElement) === false && document.activeElement !== document.body && !document.activeElement?.closest?.('.bld2__outline')) { /* focus stays where the user is typing */ }
+      else li?.focus({ preventScroll: true });
+    }
+  }
+
+  function startDrag(e, li, q) {
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    if (!listEl) return;
+    const from = S.test.questions.indexOf(q);
+    const rows = [...outlineEl.querySelectorAll('.bld2-ol__item')].filter((r) => r._q && sectionKey(r._q) === sectionKey(q));
+    // Finish any FLIP move still running (e.g. right after a keyboard reorder) so the measured rows are where they land.
+    rows.forEach((r) => r.getAnimations?.().forEach((a) => { try { a.finish(); } catch { /* ignore */ } }));
+    const mids = rows.map((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
+    const startY = e.clientY;
+    const grip = e.currentTarget;
+    dragging = true;
+    li.classList.add('is-dragging');
+    try { grip.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    const target = (y) => {
+      let k = rows.indexOf(li);
+      const mine = mids[k] + (y - startY);
+      let best = 0;
+      mids.forEach((m, idx) => { if (Math.abs(m - mine) < Math.abs(mids[best] - mine)) best = idx; });
+      return rows[best] ? S.test.questions.indexOf(rows[best]._q) : S.test.questions.indexOf(q);
+    };
+    const move = (ev) => { li.style.transform = `translateY(${ev.clientY - startY}px)`; };
+    const end = (ev) => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', end);
+      grip.removeEventListener('pointercancel', end);
+      try { grip.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      const to = ev.type === 'pointercancel' ? from : target(ev.clientY);
+      dragging = false;
+      li.classList.remove('is-dragging');
+      li.style.transform = '';
+      outlineFocus = null;
+      if (!reorderTo(from, to)) drawOutline();
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', end);
+    grip.addEventListener('pointercancel', end);
+  }
+
+  // Preview as student: the real runner widgets (not wired to any submission) on a per-student instance of the test.
+  let previewOn = false;
+  const previewBtn = v2 ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-pressed': 'false', dataset: { testid: 'builder-preview-toggle' },
+    on: { click: () => { previewOn = !previewOn; previewBtn.setAttribute('aria-pressed', String(previewOn)); renderMain(); } } }, icon('eye', { size: 16 }), 'Preview as student') : null;
+  async function renderPreview() {
+    const email = h('input', { class: 'input', type: 'email', value: load('builderPreviewEmail', 'student@example.org'), autocomplete: 'off', 'aria-label': 'Fake student email for the preview', dataset: { testid: 'preview-email' } });
+    const seedNote = h('span', { class: 'faint', dataset: { testid: 'preview-seed' } });
+    const cards = h('div', { class: 'bld2-preview', dataset: { testid: 'builder-preview' } });
+    const draw = async () => {
+      save('builderPreviewEmail', email.value);
+      const t = normalizedOrNull();
+      if (!t || !t.questions.length) { mount(cards, h('p', { class: 'muted' }, 'Add at least one valid question to preview the test.')); seedNote.textContent = ''; return; }
+      let inst = t;
+      try { inst = (await import('../../lib/instantiate.js')).instantiateTest(t, { email: email.value }); } catch (err) { console.error(err); }
+      const { buildWidget } = await import('../runner/widgets.js');
+      const answers = {};
+      const api = { get: (id) => answers[id], set: (id, val) => { answers[id] = val; } };
+      seedNote.textContent = inst.instance && inst.instance.seed ? `Seed: ${inst.instance.seed}` : '';
+      const nodes = [];
+      let n = 0;
+      for (const g of groupQuestions(inst)) {
+        if (g.section) nodes.push(h('h4', { class: 'adm-grade__sectionhead' }, g.section.title || 'Section'));
+        for (const q of g.questions) {
+          let w;
+          try { w = buildWidget(q, api); } catch (err) { w = { el: h('p', { class: 'muted' }, 'Could not draw this question.'), refresh() {} }; }
+          nodes.push(h('section', { class: 'bld2-preview__card', inert: true, dataset: { testid: 'preview-card', question: q.id } },
+            h('div', { class: 'bld2-preview__head' }, h('strong', {}, `Question ${++n}`), h('span', { class: 'pill pill--primary' }, TYPE_LABELS[q.type] || q.type), h('span', { class: 'pill' }, `${q.points ?? 1} pt${Number(q.points ?? 1) === 1 ? '' : 's'}`)),
+            withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, w.textEl || richText(q.text, 'div', 'q-text')), w.el));
+          try { w.refresh(undefined); } catch { /* ignore */ }
+        }
+      }
+      mount(cards, nodes);
+      renderMath(cards);
+    };
+    const drawSoon = debounce(draw, 250);
+    cleanups.push(() => drawSoon.cancel());
+    email.addEventListener('input', drawSoon);
+    const wrap = h('div', { class: 'stack' },
+      h('div', { class: 'bld2-preview__email' }, h('label', { class: 'field__label', for: 'preview-email-input' }, 'Preview as'), email, seedNote,
+        h('span', { class: 'field__hint' }, 'Enter any email to see that student’s random numbers and drawn questions. Nothing is submitted.')),
+      cards);
+    email.id = 'preview-email-input';
+    draw();
+    return wrap;
+  }
+
   function renderVisual() {
     listEl = h('div', { class: 'adm-qlist' });
     emptyHint = h('div', { class: 'adm-qempty', hidden: S.test.questions.length > 0 },
@@ -912,11 +1107,20 @@ export function renderBuilder(root, ctx) {
   }
 
   function renderMain() {
+    if (v2 && previewOn && S.mode === 'visual') {
+      listEl = null; // the visual editor is not on screen while previewing
+      mount(mainEl, h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'This is what a student sees. Switch the preview off to keep editing.')));
+      renderPreview().then((node) => { if (previewOn) mainEl.appendChild(node); });
+      drawOutline();
+      return;
+    }
     mount(mainEl, S.mode === 'json' ? renderJson() : renderVisual());
+    drawOutline();
   }
 
-  mount(root, h('div', { class: 'adm-builder', dataset: { testid: 'builder' } },
-    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), guideBtn), mainEl),
+  mount(root, h('div', { class: v2 ? 'adm-builder bld2' : 'adm-builder', dataset: { testid: 'builder' } },
+    v2 ? outlineEl : null,
+    h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), previewBtn, guideBtn), mainEl),
     side));
   renderMain();
   refreshValidation();
@@ -926,625 +1130,4 @@ export function renderBuilder(root, ctx) {
     persistNow();
     cleanups.forEach((fn) => fn());
   };
-}
-
-// ---------- per-type editors ----------
-function typeEditor(q, redraw, changed, uid) {
-  switch (q.type) {
-    case 'mcq':
-    case 'multi': return choiceEditor(q, redraw, changed, uid);
-    case 'numeric': return numericEditor(q, changed);
-    case 'formula': return formulaEditor(q, changed);
-    case 'truefalse': return tfEditor(q, changed);
-    case 'matching': return matchingEditor(q, redraw, changed);
-    case 'lewis': return lewisEditor(q, changed);
-    case 'short': return shortEditor(q, changed);
-    case 'ordering': return orderingEditor(q, redraw, changed);
-    case 'fillblank': return fillBlankEditor(q, redraw, changed);
-    case 'structure': return structureEditor(q, redraw, changed);
-    case 'open': return openEditor(q, redraw, changed);
-    case 'orbital': return orbitalEditor(q, redraw, changed);
-    case 'balance': return balanceEditor(q, redraw, changed);
-    case 'econfig': return econfigEditor(q, changed);
-    case 'ptable': return ptableEditor(q, changed, redraw);
-    case 'sigfigs': return sigfigsEditor(q, changed);
-    case 'categorize': return categorizeEditor(q, redraw, changed);
-    case 'hotspot': return hotspotEditor(q, redraw, changed);
-    case 'graph': return graphEditor(q, redraw, changed);
-    default: return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
-  }
-}
-
-/**
- * Optional picture for one choice / item: a small "Add image" toggle revealing URL + alt text inputs.
- * Writes o.image = { url, alt } (removed again when the URL is cleared). `tag` names the test ids, e.g. "option-0".
- */
-function optionImageControl(o, changed, tag) {
-  const url = h('input', { class: 'input', value: o.image?.url || '', placeholder: 'https://… or images/pic.png', 'aria-label': `${tag} image URL`, autocomplete: 'off', spellcheck: 'false', dataset: { testid: `${tag}-image-url` } });
-  const alt = h('input', { class: 'input', value: o.image?.alt || '', placeholder: 'Describe the image for screen readers', 'aria-label': `${tag} image description`, dataset: { testid: `${tag}-image-alt` } });
-  const prev = h('div', { class: 'adm-optimg__prev' });
-  const sync = () => {
-    const u = url.value.trim();
-    if (u) o.image = { url: u, alt: alt.value }; else delete o.image;
-    const safe = safeImageUrl(u);
-    mount(prev, safe ? h('img', { src: safe, alt: alt.value, class: 'adm-optimg__img', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null);
-    changed();
-  };
-  url.addEventListener('input', sync);
-  alt.addEventListener('input', sync);
-  const body = h('div', { class: 'adm-optimg__body' }, url, alt, prev);
-  const toggle = h('button', { type: 'button', class: 'btn btn--ghost btn--sm adm-optimg__toggle', 'aria-expanded': 'false', dataset: { testid: `${tag}-image-toggle` } });
-  const setOpen = (open) => {
-    body.hidden = !open;
-    toggle.setAttribute('aria-expanded', String(open));
-    mount(toggle, icon('plus', { size: 14 }), o.image?.url ? 'Image' : 'Add image');
-  };
-  toggle.addEventListener('click', () => setOpen(body.hidden));
-  setOpen(!!o.image?.url);
-  if (o.image?.url) { const safe = safeImageUrl(o.image.url); if (safe) mount(prev, h('img', { src: safe, alt: o.image.alt || '', class: 'adm-optimg__img', loading: 'lazy', referrerpolicy: 'no-referrer' })); }
-  return h('div', { class: 'adm-optimg' }, toggle, body);
-}
-
-function choiceEditor(q, redraw, changed, uid) {
-  const multi = q.type === 'multi';
-  q.options = Array.isArray(q.options) ? q.options : [];
-  if (multi && !Array.isArray(q.correctAnswer)) q.correctAnswer = q.correctAnswer ? [q.correctAnswer] : [];
-  const rows = q.options.map((o, i) => {
-    const checked = multi ? q.correctAnswer.includes(o.id) : q.correctAnswer === o.id;
-    const mark = h('input', { type: multi ? 'checkbox' : 'radio', name: `correct-${uid}`, checked, 'aria-label': `Option ${i + 1} is correct`, dataset: { testid: `option-correct-${i}` },
-      on: { change: () => {
-        if (multi) {
-          const set = new Set(q.correctAnswer);
-          if (mark.checked) set.add(o.id); else set.delete(o.id);
-          q.correctAnswer = q.options.map((x) => x.id).filter((id) => set.has(id));
-        } else {
-          q.correctAnswer = o.id;
-        }
-        changed();
-      } } });
-    const txt = h('input', { class: 'input', value: o.text || '', placeholder: `Option ${i + 1}`, 'aria-label': `Option ${i + 1} text`, dataset: { testid: `option-text-${i}` },
-      on: { input: () => { o.text = txt.value; changed(); } } });
-    const rm = iconButton('x', 'Remove option', () => {
-      q.options.splice(i, 1);
-      if (multi) q.correctAnswer = q.correctAnswer.filter((id) => id !== o.id);
-      else if (q.correctAnswer === o.id) q.correctAnswer = q.options[0]?.id ?? '';
-      redraw();
-      changed();
-    }, { testid: `option-remove-${i}` });
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt' }, mark, txt, rm), optionImageControl(o, changed, `option-${i}`));
-  });
-  return h('div', { class: 'stack' },
-    h('div', { class: 'field__label' }, multi ? 'Options (tick every correct one)' : 'Options (select the correct one)'),
-    h('div', { class: 'adm-opts' }, rows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-option' }, on: { click: (e) => {
-        const sec = e.currentTarget.closest('.adm-typesec');
-        q.options.push({ id: letterId(q.options), text: '' });
-        redraw();
-        changed();
-        sec?.querySelector(`[data-testid="option-text-${q.options.length - 1}"]`)?.focus();
-      } } }, icon('plus', { size: 16 }), 'Add option'),
-      multi ? switchEl({ label: 'Partial credit', checked: !!q.partialCredit, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }) : null));
-}
-
-function numericEditor(q, changed) {
-  const parsedEl = h('span', { class: 'field__hint' });
-  const showParsed = () => {
-    const n = q.correctAnswer;
-    parsedEl.textContent = typeof n === 'number' && Number.isFinite(n) ? `Parsed value: ${n}` : ans.value.trim() ? 'Not a valid number yet' : '';
-  };
-  const ans = h('input', { class: 'input', value: q.correctAnswer ?? '', placeholder: 'e.g. 18.02 or 6.022e23', inputmode: 'text', autocomplete: 'off', dataset: { testid: 'numeric-answer' },
-    on: { input: () => { const n = parseSci(ans.value); q.correctAnswer = Number.isNaN(n) ? '' : n; showParsed(); changed(); } } });
-  const tol = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: q.tolerance ?? 0, dataset: { testid: 'numeric-tolerance' },
-    on: { input: () => { q.tolerance = tol.value.trim() === '' ? 0 : Number(tol.value); changed(); } } });
-  const type = h('select', { class: 'select', dataset: { testid: 'numeric-tolerance-type' }, on: { change: () => { q.toleranceType = type.value; changed(); } } },
-    h('option', { value: 'absolute' }, 'Absolute (±)'), h('option', { value: 'percent' }, 'Percent (±%)'));
-  type.value = q.toleranceType || 'absolute';
-  const unit = h('input', { class: 'input', value: q.unit || '', placeholder: 'e.g. g/mol', dataset: { testid: 'numeric-unit' }, on: { input: () => { q.unit = unit.value; changed(); } } });
-  showParsed();
-  return h('div', { class: 'stack' },
-    h('div', { class: 'adm-grid adm-grid--4' },
-      field('Correct answer', ans, null), field('Tolerance', tol), field('Tolerance type', type), field('Unit', unit, 'Optional, shown to students'),
-      h('div', { class: 'adm-span-all' }, parsedEl)),
-    formatHelpField(q, changed));
-}
-
-function formulaEditor(q, changed) {
-  const accepted = Array.isArray(q.correctAnswer) ? q.correctAnswer : q.correctAnswer ? [q.correctAnswer] : [];
-  const chips = h('div', { class: 'adm-chips', 'aria-label': 'Accepted answers preview' });
-  const drawChips = () => {
-    const list = Array.isArray(q.correctAnswer) ? q.correctAnswer : q.correctAnswer ? [q.correctAnswer] : [];
-    mount(chips, list.length ? list.map((f) => h('span', { class: 'adm-chip formula', html: formulaToHTML(f) })) : h('span', { class: 'faint' }, 'Accepted formulas preview here'));
-  };
-  const inp = h('input', { class: 'input', value: accepted.join(', '), placeholder: 'e.g. H2SO4, H₂SO₄', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'formula-answers' },
-    on: { input: () => {
-      const parts = inp.value.split(',').map((s) => s.trim()).filter(Boolean);
-      q.correctAnswer = parts.length > 1 ? parts : parts[0] || '';
-      drawChips();
-      changed();
-    } } });
-  drawChips();
-  return h('div', { class: 'stack' },
-    field('Accepted answers (comma-separated)', inp, 'Subscripts and charges are normalized when grading: SO4^2- = SO₄²⁻'),
-    chips,
-    switchEl({ label: 'Case sensitive', hint: 'Off lets "nacl" match "NaCl"', checked: q.caseSensitive !== false, testid: 'case-sensitive', onChange: (v) => { q.caseSensitive = v; changed(); } }),
-    formatHelpField(q, changed));
-}
-
-function lewisEditor(q, changed) {
-  const previewEl = h('div', { class: 'adm-lewis-preview', dataset: { testid: 'lewis-preview' } });
-  const hintEl = h('span', { class: 'field__hint' });
-  const drawPreview = () => {
-    const sym = normalizeSymbol(q.element);
-    const n = Number(q.correctAnswer);
-    const known = valenceOf(sym);
-    hintEl.textContent = !sym ? 'Enter an element symbol, e.g. O, Cl, Mg'
-      : known === null ? 'Not a main-group element: enter its valence electrons yourself'
-        : known === n ? `${sym} has ${known} valence electrons` : `Note: ${sym} normally has ${known} valence electrons`;
-    mount(previewEl, sym && Number.isInteger(n) && n >= 1 && n <= 8
-      ? [lewisDiagram(sym, canonicalDots(n, sym), { size: 'lg' }), h('span', { class: 'faint' }, 'Correct diagram')]
-      : h('span', { class: 'faint' }, 'Diagram preview appears here'));
-  };
-  const el = h('input', { class: 'input', value: q.element || '', placeholder: 'e.g. O', maxlength: '3', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'lewis-element' },
-    on: { input: () => {
-      const sym = normalizeSymbol(el.value);
-      q.element = sym || el.value.trim();
-      const v = valenceOf(sym);
-      if (v !== null) { q.correctAnswer = v; ve.value = String(v); }
-      drawPreview();
-      changed();
-    } } });
-  const ve = h('input', { class: 'input', type: 'number', min: '1', max: '8', step: '1', value: q.correctAnswer ?? '', dataset: { testid: 'lewis-valence' },
-    on: { input: () => { q.correctAnswer = ve.value.trim() === '' ? '' : Number(ve.value); drawPreview(); changed(); } } });
-  drawPreview();
-  return h('div', { class: 'stack' },
-    h('div', { class: 'adm-grid adm-grid--4' },
-      field('Element symbol', el, null), field('Valence electrons (dots)', ve, 'Filled in automatically for main-group elements')),
-    hintEl,
-    previewEl,
-    switchEl({ label: 'Check dot placement', hint: 'On: one dot per side before pairing (He may be a pair). Off: only the number of dots is graded.',
-      checked: q.checkPlacement !== false, testid: 'lewis-placement', onChange: (v) => { q.checkPlacement = v; changed(); } }));
-}
-
-function shortEditor(q, changed) {
-  const ta = h('textarea', { class: 'textarea', rows: 3, placeholder: 'Model answer or rubric (optional)', dataset: { testid: 'short-sample' },
-    on: { input: () => { q.sampleAnswer = ta.value; changed(); } } });
-  ta.value = q.sampleAnswer || '';
-  return h('div', { class: 'stack' },
-    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Not auto-graded. Students’ answers appear in the Grading tab, where you assign points.')),
-    field('Sample answer', ta, 'Shown to you while grading. Students see it in the review only if “Show correct answers” is on.'));
-}
-
-function tfEditor(q, changed) {
-  const sel = h('select', { class: 'select', dataset: { testid: 'tf-answer' }, on: { change: () => { q.correctAnswer = sel.value === 'true'; changed(); } } },
-    h('option', { value: 'true' }, 'True'), h('option', { value: 'false' }, 'False'));
-  sel.value = q.correctAnswer === false ? 'false' : 'true';
-  if (typeof q.correctAnswer !== 'boolean') q.correctAnswer = true;
-  return field('Correct answer', sel, null, { className: 'adm-narrow' });
-}
-
-function matchingEditor(q, redraw, changed) {
-  q.left = Array.isArray(q.left) ? q.left : [];
-  q.right = Array.isArray(q.right) ? q.right : [];
-  if (!q.correctAnswer || typeof q.correctAnswer !== 'object' || Array.isArray(q.correctAnswer)) q.correctAnswer = {};
-  const selects = [];
-  const rightLabel = (r, i) => (r.text ? r.text : `(item ${i + 1})`);
-  const fillSelect = (sel, leftId) => {
-    const cur = q.correctAnswer[leftId] ?? '';
-    mount(sel, h('option', { value: '' }, 'Choose…'), q.right.map((r, i) => h('option', { value: r.id }, rightLabel(r, i))));
-    sel.value = q.right.some((r) => r.id === cur) ? cur : '';
-  };
-  const refreshSelects = () => selects.forEach(({ sel, id }) => fillSelect(sel, id));
-
-  const leftRows = q.left.map((l, i) => {
-    const txt = h('input', { class: 'input', value: l.text || '', placeholder: `Left item ${i + 1}`, 'aria-label': `Left item ${i + 1}`, dataset: { testid: `match-left-${i}` }, on: { input: () => { l.text = txt.value; changed(); } } });
-    const sel = h('select', { class: 'select', 'aria-label': `Correct match for left item ${i + 1}`, dataset: { testid: `match-correct-${i}` }, on: { change: () => { q.correctAnswer[l.id] = sel.value; changed(); } } });
-    selects.push({ sel, id: l.id });
-    fillSelect(sel, l.id);
-    const rm = iconButton('x', 'Remove left item', () => { q.left.splice(i, 1); delete q.correctAnswer[l.id]; redraw(); changed(); }, { testid: `match-left-remove-${i}` });
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-match-row' }, txt, h('span', { class: 'adm-match-arrow', 'aria-hidden': 'true' }, icon('right', { size: 16 })), sel, rm), optionImageControl(l, changed, `match-left-${i}`));
-  });
-  const rightRows = q.right.map((r, i) => {
-    const txt = h('input', { class: 'input', value: r.text || '', placeholder: `Right item ${i + 1}`, 'aria-label': `Right item ${i + 1}`, dataset: { testid: `match-right-${i}` },
-      on: { input: () => { r.text = txt.value; refreshSelects(); changed(); } } });
-    const rm = iconButton('x', 'Remove right item', () => {
-      q.right.splice(i, 1);
-      for (const l of q.left) if (q.correctAnswer[l.id] === r.id) q.correctAnswer[l.id] = q.right[0]?.id ?? '';
-      redraw();
-      changed();
-    }, { testid: `match-right-remove-${i}` });
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt adm-opt--plain' }, txt, rm), optionImageControl(r, changed, `match-right-${i}`));
-  });
-  return h('div', { class: 'stack' },
-    h('div', { class: 'field__label' }, 'Left items and their correct match'),
-    h('div', { class: 'adm-opts' }, leftRows),
-    h('button', { class: 'btn btn--ghost btn--sm adm-self-start', type: 'button', dataset: { testid: 'add-match-left' }, on: { click: () => {
-      const id = uniqueId('l', q.left);
-      q.left.push({ id, text: '' });
-      q.correctAnswer[id] = q.right[0]?.id ?? '';
-      redraw();
-      changed();
-    } } }, icon('plus', { size: 16 }), 'Add left item'),
-    h('div', { class: 'field__label' }, 'Right items (distractors allowed; each can be reused)'),
-    h('div', { class: 'adm-opts' }, rightRows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-match-right' }, on: { click: () => {
-        q.right.push({ id: uniqueId('r', q.right), text: '' });
-        redraw();
-        changed();
-      } } }, icon('plus', { size: 16 }), 'Add right item'),
-      switchEl({ label: 'Partial credit', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })));
-}
-
-/**
- * "Typing help" setting for formula / numeric / fill-in questions plus a live note of what students will see.
- * Auto shows charge help when an answer has a charge (or the text mentions ions) and exponent help when the
- * answer needs scientific notation.
- */
-function formatHelpField(q, changed) {
-  const note = h('p', { class: 'adm-helpnote', dataset: { testid: 'format-help-note' } });
-  const update = () => {
-    const help = formatHelpFor(q);
-    const parts = [help.charges && 'how to type charges (^2-, ^+)', help.exponents && 'how to type powers of ten (6.02e23)'].filter(Boolean);
-    note.hidden = !parts.length;
-    mount(note, icon('info', { size: 14 }), h('span', {}, `Students will see a help box on ${parts.join(' and ')}, with insert buttons.`));
-  };
-  const sel = h('select', { class: 'select', dataset: { testid: 'format-help' }, on: { change: () => { q.formatHelp = sel.value; update(); changed(); } } },
-    h('option', { value: 'auto' }, 'Auto (when the answer has a charge or exponent)'),
-    h('option', { value: 'always' }, 'Always show'),
-    h('option', { value: 'never' }, 'Never show'));
-  sel.value = ['auto', 'always', 'never'].includes(q.formatHelp) ? q.formatHelp : 'auto';
-  const wrap = h('div', { class: 'stack' }, field('Typing help for students', sel, 'Explains how to type charges / exponents'), note);
-  update();
-  // Re-check whenever anything in this question changes (answer, text, blank kinds).
-  requestAnimationFrame(() => wrap.closest('.adm-q')?.addEventListener('input', update));
-  requestAnimationFrame(() => wrap.closest('.adm-q')?.addEventListener('change', update));
-  return wrap;
-}
-
-function orderingEditor(q, redraw, changed) {
-  q.items = Array.isArray(q.items) ? q.items : [];
-  const sync = () => { q.correctAnswer = q.items.map((it) => it.id); };
-  sync();
-  const rows = q.items.map((it, i) => {
-    const txt = h('input', { class: 'input', value: it.text || '', placeholder: `Item ${i + 1}`, 'aria-label': `Item ${i + 1} (correct position ${i + 1})`, dataset: { testid: `order-item-${i}` },
-      on: { input: () => { it.text = txt.value; changed(); } } });
-    const mv = (d) => { const j = i + d; if (j < 0 || j >= q.items.length) return; [q.items[i], q.items[j]] = [q.items[j], q.items[i]]; sync(); redraw(); changed(); };
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt adm-opt--order' },
-      h('span', { class: 'adm-blank__num' }, String(i + 1)), txt,
-      iconButton('up', 'Move up', () => mv(-1), { testid: `order-up-${i}` }),
-      iconButton('down', 'Move down', () => mv(1), { testid: `order-down-${i}` }),
-      iconButton('x', 'Remove item', () => { q.items.splice(i, 1); sync(); redraw(); changed(); }, { testid: `order-remove-${i}` })),
-    optionImageControl(it, changed, `order-item-${i}`));
-  });
-  const top = h('input', { class: 'input', value: q.topLabel || '', placeholder: 'e.g. Lowest', dataset: { testid: 'order-top-label' }, on: { input: () => { q.topLabel = top.value; changed(); } } });
-  const bottom = h('input', { class: 'input', value: q.bottomLabel || '', placeholder: 'e.g. Highest', dataset: { testid: 'order-bottom-label' }, on: { input: () => { q.bottomLabel = bottom.value; changed(); } } });
-  return h('div', { class: 'stack' },
-    h('div', { class: 'field__label' }, 'Items in the CORRECT order (students see them scrambled)'),
-    h('div', { class: 'adm-opts' }, rows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-order-item' }, on: { click: () => {
-        q.items.push({ id: uniqueId('i', q.items), text: '' }); sync(); redraw(); changed();
-      } } }, icon('plus', { size: 16 }), 'Add item'),
-      switchEl({ label: 'Partial credit', hint: 'Points for each item in the right position', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })),
-    h('div', { class: 'adm-grid adm-grid--4' }, field('Label above the list', top, 'Optional'), field('Label below the list', bottom, 'Optional')));
-}
-
-function fillBlankEditor(q, redraw, changed) {
-  q.blanks = Array.isArray(q.blanks) ? q.blanks : [];
-  const textArea = () => document.activeElement?.closest?.('.adm-q')?.querySelector('[data-testid="q-text"]');
-  const markers = h('p', { class: 'field__hint', dataset: { testid: 'blank-markers' } });
-  const checkMarkers = () => {
-    const marks = markerIds(q.text);
-    const missing = q.blanks.filter((b) => !marks.includes(b.id)).map((b) => `{{${b.id}}}`);
-    markers.textContent = missing.length ? `Add ${missing.join(', ')} to the question text where each blank goes.` : 'Each {{id}} in the question text becomes a blank for students.';
-    markers.classList.toggle('field-error', missing.length > 0);
-  };
-  const rows = q.blanks.map((b, i) => {
-    const list = Array.isArray(b.answers) ? b.answers : [];
-    const ans = h('input', { class: 'input', value: list.join(', '), placeholder: 'Accepted answers, comma-separated', 'aria-label': `Blank ${i + 1} accepted answers`, dataset: { testid: `blank-answers-${i}` },
-      on: { input: () => { b.answers = ans.value.split(',').map((x) => x.trim()).filter(Boolean); changed(); } } });
-    const kind = h('select', { class: 'select', 'aria-label': `Blank ${i + 1} kind`, dataset: { testid: `blank-kind-${i}` }, on: { change: () => {
-      b.kind = kind.value;
-      if (b.kind === 'number') { b.tolerance ??= 0; b.toleranceType ??= 'absolute'; b.unit ??= ''; }
-      redraw(); changed();
-    } } }, BLANK_KINDS.map((k) => h('option', { value: k }, { text: 'Word / text', number: 'Number', formula: 'Formula' }[k])));
-    kind.value = b.kind || 'text';
-    const rm = iconButton('x', 'Remove blank', () => { q.blanks.splice(i, 1); redraw(); changed(); }, { testid: `blank-remove-${i}` });
-    const row = h('div', { class: 'adm-blank' }, h('span', { class: 'adm-blank__num' }, `{{${b.id}}}`), ans, kind, rm);
-    if (b.kind !== 'number') return row;
-    const tol = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: b.tolerance ?? 0, 'aria-label': `Blank ${i + 1} tolerance`, on: { input: () => { b.tolerance = tol.value.trim() === '' ? 0 : Number(tol.value); changed(); } } });
-    const tt = h('select', { class: 'select', 'aria-label': `Blank ${i + 1} tolerance type`, on: { change: () => { b.toleranceType = tt.value; changed(); } } },
-      h('option', { value: 'absolute' }, 'Absolute (±)'), h('option', { value: 'percent' }, 'Percent (±%)'));
-    tt.value = b.toleranceType || 'absolute';
-    const unit = h('input', { class: 'input', value: b.unit || '', placeholder: 'Unit (optional)', 'aria-label': `Blank ${i + 1} unit`, on: { input: () => { b.unit = unit.value; changed(); } } });
-    return h('div', { class: 'stack' }, row, h('div', { class: 'adm-grid adm-grid--4' }, field('Tolerance', tol), field('Tolerance type', tt), field('Unit', unit)));
-  });
-  const distractors = h('input', { class: 'input', value: (q.distractors || []).join(', '), placeholder: 'Extra wrong words, comma-separated', dataset: { testid: 'blank-distractors' },
-    on: { input: () => { q.distractors = distractors.value.split(',').map((x) => x.trim()).filter(Boolean); changed(); } } });
-  checkMarkers();
-  requestAnimationFrame(() => markers.closest('.adm-q')?.addEventListener('input', checkMarkers));
-  return h('div', { class: 'stack' },
-    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Write the sentence in the question text and put {{b1}}, {{b2}}, … where each blank goes.')),
-    h('div', { class: 'field__label' }, 'Blanks'),
-    h('div', { class: 'adm-opts' }, rows),
-    markers,
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-blank' }, on: { click: (e) => {
-        const id = uniqueId('b', q.blanks);
-        q.blanks.push({ id, answers: [], kind: 'text' });
-        const ta = e.currentTarget.closest('.adm-q')?.querySelector('[data-testid="q-text"]') || textArea();
-        if (ta && !markerIds(ta.value).includes(id)) {
-          ta.value = `${ta.value.replace(/\s+$/, '')} {{${id}}}`;
-          ta.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        redraw(); changed();
-      } } }, icon('plus', { size: 16 }), 'Add blank'),
-      switchEl({ label: 'Partial credit', hint: 'Points for each correct blank', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }),
-      switchEl({ label: 'Case sensitive (text blanks)', checked: !!q.caseSensitive, testid: 'case-sensitive', onChange: (v) => { q.caseSensitive = v; changed(); } }),
-      switchEl({ label: 'Word bank', hint: 'Students pick from a list instead of typing', checked: !!q.wordBank, testid: 'word-bank', onChange: (v) => { q.wordBank = v; redraw(); changed(); } })),
-    q.wordBank ? field('Distractors (word bank only)', distractors, 'Wrong choices mixed into the word bank') : null,
-    formatHelpField(q, changed));
-}
-
-function structureEditor(q, redraw, changed) {
-  q.atoms = Array.isArray(q.atoms) ? q.atoms : [];
-  q.bonds = Array.isArray(q.bonds) ? q.bonds.map((b) => bondEnds(b) || ['', '']) : [];
-  if (!acceptedStructures(q).length) q.correctAnswer = { bonds: q.bonds.map(() => 1), lonePairs: {} };
-  const forms = () => acceptedStructures(q);
-  const key = () => forms()[0];
-  for (const f of forms()) { f.bonds = Array.isArray(f.bonds) ? f.bonds : []; f.lonePairs = f.lonePairs && typeof f.lonePairs === 'object' ? f.lonePairs : {}; }
-
-  const preview = h('div', { class: 'adm-structure-preview', dataset: { testid: 'structure-preview' } });
-  const check = h('p', { class: 'field__hint', dataset: { testid: 'structure-electrons' } });
-  const drawPreview = () => {
-    const total = valenceTotal(q);
-    const drawn = electronsDrawn(q, key());
-    check.textContent = total === null ? `Correct structure uses ${drawn} electrons (electron total not checked for non-main-group atoms).`
-      : drawn === total ? `✓ Correct structure uses all ${total} valence electrons.` : `Correct structure uses ${drawn} electrons, but the atoms have ${total} valence electrons. Adjust bonds or lone pairs.`;
-    check.classList.toggle('field-error', total !== null && drawn !== total);
-    try {
-      mount(preview, forms().map((f, i) => h('div', { class: 'stack' }, h('span', { class: 'faint' }, forms().length > 1 ? `Correct form ${i + 1}` : 'Correct structure'), structureDiagram(q, f))));
-    } catch {
-      mount(preview, h('span', { class: 'faint' }, 'Preview appears once atoms and bonds are filled in'));
-    }
-  };
-  const update = () => { drawPreview(); changed(); };
-
-  const atomRows = q.atoms.map((a, i) => {
-    const id = h('input', { class: 'input', value: a.id, 'aria-label': `Atom ${i + 1} id`, spellcheck: 'false', dataset: { testid: `atom-id-${i}` }, on: { change: () => {
-      const old = a.id; const next = id.value.trim();
-      if (!next || next === old) { id.value = old; return; }
-      a.id = next;
-      q.bonds = q.bonds.map((b) => b.map((x) => (x === old ? next : x)));
-      for (const f of forms()) {
-        if (old in f.lonePairs) { f.lonePairs[next] = f.lonePairs[old]; delete f.lonePairs[old]; }
-        if (f.formalCharges && old in f.formalCharges) { f.formalCharges[next] = f.formalCharges[old]; delete f.formalCharges[old]; }
-      }
-      redraw(); changed();
-    } } });
-    const sym = h('input', { class: 'input', value: a.symbol || '', maxlength: '3', 'aria-label': `Atom ${i + 1} element`, spellcheck: 'false', dataset: { testid: `atom-symbol-${i}` },
-      on: { input: () => { a.symbol = normalizeSymbol(sym.value) || sym.value.trim(); update(); } } });
-    const num = (k, label) => {
-      const inp = h('input', { class: 'input', type: 'number', step: '0.5', value: a[k] ?? '', placeholder: 'auto', 'aria-label': `Atom ${i + 1} ${label}`, dataset: { testid: `atom-${k}-${i}` },
-        on: { input: () => { if (inp.value.trim() === '') delete a[k]; else a[k] = Number(inp.value); update(); } } });
-      return inp;
-    };
-    const lp = h('select', { class: 'select', 'aria-label': `Atom ${i + 1} lone pairs (correct)`, dataset: { testid: `atom-lp-${i}` },
-      on: { change: () => { key().lonePairs[a.id] = Number(lp.value); update(); } } }, [0, 1, 2, 3, 4].map((n) => h('option', { value: String(n) }, String(n))));
-    lp.value = String(key().lonePairs[a.id] ?? 0);
-    const rm = iconButton('x', 'Remove atom', () => {
-      q.atoms.splice(i, 1);
-      const keepIdx = q.bonds.map((b, j) => (b.includes(a.id) ? -1 : j)).filter((j) => j >= 0);
-      q.bonds = keepIdx.map((j) => q.bonds[j]);
-      for (const f of forms()) { f.bonds = keepIdx.map((j) => f.bonds[j] ?? 1); delete f.lonePairs[a.id]; if (f.formalCharges) delete f.formalCharges[a.id]; }
-      redraw(); changed();
-    }, { testid: `atom-remove-${i}` });
-    return h('div', { class: 'adm-atom' }, id, sym, num('x', 'column (x)'), num('y', 'row (y)'), lp, rm);
-  });
-
-  const atomOptions = () => q.atoms.map((a) => h('option', { value: a.id }, `${a.symbol || '?'} (${a.id})`));
-  const bondRows = q.bonds.map((b, i) => {
-    const mk = (end) => {
-      const sel = h('select', { class: 'select', 'aria-label': `Bond ${i + 1} atom ${end + 1}`, dataset: { testid: `bond-${end ? 'b' : 'a'}-${i}` },
-        on: { change: () => { b[end] = sel.value; update(); } } }, h('option', { value: '' }, 'Atom…'), atomOptions());
-      sel.value = b[end] || '';
-      return sel;
-    };
-    const order = h('select', { class: 'select', 'aria-label': `Bond ${i + 1} correct order`, dataset: { testid: `bond-order-${i}` },
-      on: { change: () => { key().bonds[i] = Number(order.value); update(); } } },
-    h('option', { value: '1' }, 'Single'), h('option', { value: '2' }, 'Double'), h('option', { value: '3' }, 'Triple'));
-    order.value = String(key().bonds[i] ?? 1);
-    const rm = iconButton('x', 'Remove bond', () => {
-      q.bonds.splice(i, 1);
-      for (const f of forms()) f.bonds.splice(i, 1);
-      redraw(); changed();
-    }, { testid: `bond-remove-${i}` });
-    return h('div', { class: 'adm-bondrow' }, mk(0), mk(1), order, rm);
-  });
-
-  const charge = h('input', { class: 'input', type: 'number', step: '1', value: q.charge ?? 0, dataset: { testid: 'structure-charge' },
-    on: { input: () => { q.charge = charge.value.trim() === '' ? 0 : Number(charge.value); update(); } } });
-  drawPreview();
-
-  // Student-drawn brackets & charges (V2-06): the key lives in forms()[0]; zero values are omitted.
-  const chargeInput = (value, label, testid, onValue) => {
-    const inp = h('input', { class: 'input', type: 'number', min: String(-MAX_CHARGE), max: String(MAX_CHARGE), step: '1', value: String(value || 0), 'aria-label': label, dataset: { testid },
-      on: { input: () => {
-        const n = Math.max(-MAX_CHARGE, Math.min(MAX_CHARGE, Math.trunc(Number(inp.value)) || 0));
-        onValue(n);
-        update();
-      } } });
-    return inp;
-  };
-  const chargeEditor = () => {
-    if (!q.studentCharges) return null;
-    const k = key();
-    const bracket = h('input', { type: 'checkbox', checked: k.bracket === true, dataset: { testid: 'structure-key-bracket' },
-      on: { change: () => { if (bracket.checked) k.bracket = true; else delete k.bracket; update(); } } });
-    const keyCharge = chargeInput(k.charge, 'Key overall charge', 'structure-key-charge', (n) => { if (n) k.charge = n; else delete k.charge; });
-    const fcRows = q.atoms.map((a, i) => field(`${a.symbol || '?'} (${a.id})`, chargeInput(k.formalCharges?.[a.id], `Atom ${i + 1} formal charge (correct)`, `atom-fc-${i}`, (n) => {
-      if (n) { k.formalCharges = k.formalCharges && typeof k.formalCharges === 'object' ? k.formalCharges : {}; k.formalCharges[a.id] = n; }
-      else if (k.formalCharges) { delete k.formalCharges[a.id]; if (!Object.keys(k.formalCharges).length) delete k.formalCharges; }
-    })));
-    return h('div', { class: 'stack adm-chargekey', dataset: { testid: 'structure-charge-key' } },
-      h('div', { class: 'field__label' }, 'Correct brackets and charges (the key)'),
-      h('label', { class: 'adm-check' }, bracket, h('span', {}, 'Structure is drawn in brackets')),
-      h('div', { class: 'adm-grid adm-grid--4' }, field(`Overall charge on the bracket (−${MAX_CHARGE} to ${MAX_CHARGE})`, keyCharge, 'Leave 0 for none')),
-      h('div', { class: 'field__label' }, `Formal charge on each atom (−${MAX_CHARGE} to ${MAX_CHARGE}, 0 = none)`),
-      h('div', { class: 'adm-fcgrid' }, fcRows));
-  };
-  return h('div', { class: 'stack' },
-    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {},
-      'Give the skeleton (atoms and which atoms are bonded) and the correct bond order and lone pairs. Students set bond orders and lone pairs themselves. ',
-      'x/y place atoms on a grid (column, row); leave them empty for an automatic layout. Resonance forms can be added in JSON mode (correctAnswer as a list).')),
-    forms().length > 1 ? h('p', { class: 'notice notice--warning' }, icon('alert'), h('span', {}, `This question accepts ${forms().length} resonance forms. The fields below edit form 1; edit the others in JSON mode.`)) : null,
-    h('div', { class: 'field__label' }, 'Atoms'),
-    h('div', { class: 'adm-atom adm-colhead', 'aria-hidden': 'true' }, h('span', {}, 'Id'), h('span', {}, 'Element'), h('span', {}, 'x'), h('span', {}, 'y'), h('span', {}, 'Lone pairs'), h('span', {})),
-    h('div', { class: 'adm-opts' }, atomRows),
-    h('button', { class: 'btn btn--ghost btn--sm adm-self-start', type: 'button', dataset: { testid: 'add-atom' }, on: { click: () => {
-      const id = uniqueId('a', q.atoms);
-      const maxX = q.atoms.reduce((m, a) => (Number.isFinite(Number(a.x)) && a.x !== '' ? Math.max(m, Number(a.x)) : m), -1);
-      const atom = { id, symbol: 'H' };
-      if (q.atoms.length && q.atoms.every((a) => a.x !== undefined && a.y !== undefined)) { atom.x = maxX + 1; atom.y = 0; }
-      q.atoms.push(atom);
-      redraw(); changed();
-    } } }, icon('plus', { size: 16 }), 'Add atom'),
-    h('div', { class: 'field__label' }, 'Bonds (skeleton) and the correct bond order'),
-    h('div', { class: 'adm-opts' }, bondRows),
-    h('button', { class: 'btn btn--ghost btn--sm adm-self-start', type: 'button', dataset: { testid: 'add-bond' }, on: { click: () => {
-      q.bonds.push([q.atoms[0]?.id || '', q.atoms[1]?.id || '']);
-      for (const f of forms()) f.bonds.push(1);
-      redraw(); changed();
-    } } }, icon('plus', { size: 16 }), 'Add bond'),
-    h('div', { class: 'adm-grid adm-grid--4' }, field('Overall charge', charge, 'e.g. -1 for NO₃⁻, +1 for NH₄⁺')),
-    h('div', { class: 'adm-switches' },
-      switchEl({ label: 'Partial credit', hint: 'Credit for each correct bond and lone-pair count', checked: !!q.partialCredit, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }),
-      switchEl({ label: 'Show electron total to students', hint: 'Counter shows “14 of 16 valence electrons drawn”', checked: !!q.showElectronCount, testid: 'structure-show-count', onChange: (v) => { q.showElectronCount = v; changed(); } })),
-    switchEl({ label: 'Student draws brackets & charges (teacher graded)', hint: 'Students add brackets, an overall charge and formal charges themselves. The question then moves to the Grading tab.', checked: !!q.studentCharges, testid: 'structure-student-charges',
-      onChange: (v) => { q.studentCharges = v; redraw(); changed(); } }),
-    chargeEditor(),
-    check,
-    preview);
-}
-
-function orbitalEditor(q, redraw, changed) {
-  q.orbitalTypes = Array.isArray(q.orbitalTypes) ? q.orbitalTypes : ['s', 'p'];
-  const note = h('p', { class: 'field__hint', dataset: { testid: 'orbital-sublevels' } });
-  const sampleBox = h('div', { class: 'adm-orbsample' });
-  const drawSample = () => {
-    // The widget never redraws itself (the runner calls refresh after each set), so refresh here too.
-    let w = null;
-    w = orbitalWidget(q, { get: () => q.sampleAnswer, set: (_, v) => { q.sampleAnswer = v ?? null; w?.refresh(q.sampleAnswer ?? undefined); changed(); } });
-    mount(sampleBox, w.el);
-    w.refresh(q.sampleAnswer ?? undefined);
-  };
-  const update = () => {
-    const subs = sublevelsFor(q);
-    note.textContent = subs.length ? `Sublevels shown: ${subs.join(' ')}` : 'No sublevels shown. Tick a type that appears at or below the highest sublevel.';
-    note.classList.toggle('field-error', !subs.length);
-  };
-  // After the range changes keep only boxes that still exist; drop the sample when nothing is left.
-  const renormalize = () => {
-    if (q.sampleAnswer && typeof q.sampleAnswer === 'object') {
-      const next = normalizeOrbitalAnswer(q, q.sampleAnswer);
-      q.sampleAnswer = isOrbitalAnswered(q, next) ? next : null;
-    }
-    update();
-    drawSample();
-    changed();
-  };
-  const max = h('select', { class: 'select', dataset: { testid: 'orbital-max' }, on: { change: () => { q.maxSublevel = max.value; renormalize(); } } },
-    AUFBAU.map((s) => h('option', { value: s }, `Up to ${s}`)));
-  max.value = AUFBAU.includes(q.maxSublevel) ? q.maxSublevel : '2p';
-  const typeBoxes = ORBITAL_TYPES.map((t) => {
-    const cb = h('input', { type: 'checkbox', checked: q.orbitalTypes.includes(t), dataset: { testid: `orbital-type-${t}` },
-      on: { change: () => { q.orbitalTypes = ORBITAL_TYPES.filter((x) => (x === t ? cb.checked : q.orbitalTypes.includes(x))); renormalize(); } } });
-    return h('label', { class: 'adm-check' }, cb, h('span', {}, `${t} sublevels`));
-  });
-  const clear = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'orbital-sample-clear' }, on: { click: () => { q.sampleAnswer = null; drawSample(); changed(); } } }, 'Clear sample');
-  // Element symbol or configuration -> range + reference diagram (like Lewis questions).
-  const srcHint = h('p', { class: 'field__hint', dataset: { testid: 'orbital-source-hint' } });
-  const applySource = () => {
-    const text = src.value.trim();
-    q.element = text;
-    if (!text) { srcHint.textContent = 'Type a symbol (N) or a configuration (1s2 2s2 2p3, [Ne] 3s1) to draw the reference diagram.'; srcHint.classList.remove('field-error'); changed(); return; }
-    const r = resolveOrbitalSource(text, ELEMENTS);
-    if (r.error) { srcHint.textContent = r.error; srcHint.classList.add('field-error'); changed(); return; }
-    srcHint.classList.remove('field-error');
-    const need = rangeForCounts(r.counts);
-    if (AUFBAU.indexOf(need.maxSublevel) > AUFBAU.indexOf(q.maxSublevel)) q.maxSublevel = need.maxSublevel;
-    max.value = AUFBAU.includes(q.maxSublevel) ? q.maxSublevel : '2p';
-    q.orbitalTypes = ORBITAL_TYPES.filter((t) => q.orbitalTypes.includes(t) || need.orbitalTypes.includes(t));
-    typeBoxes.forEach((l, k) => { l.querySelector('input').checked = q.orbitalTypes.includes(ORBITAL_TYPES[k]); });
-    const sample = normalizeOrbitalAnswer(q, diagramFromCounts(r.counts));
-    q.sampleAnswer = isOrbitalAnswered(q, sample) ? sample : null;
-    srcHint.textContent = `${r.label ? `${r.label}: ` : ''}${configurationText(r.counts)}. You can still click boxes below to adjust.`;
-    update();
-    drawSample();
-    changed();
-  };
-  const src = h('input', { class: 'input', value: q.element || '', placeholder: 'e.g. N or 1s2 2s2 2p3', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'orbital-source' },
-    on: { input: debounce(applySource, 250), change: applySource } });
-  srcHint.textContent = q.element ? '' : 'Type a symbol (N) or a configuration (1s2 2s2 2p3, [Ne] 3s1) to draw the reference diagram.';
-
-  update();
-  drawSample();
-  return h('div', { class: 'stack' },
-    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Orbital diagrams are graded by the teacher.')),
-    h('div', { class: 'field' }, h('label', { class: 'field__label' }, 'Element or electron configuration'), src, srcHint),
-    h('div', { class: 'adm-grid adm-grid--4' }, field('Highest sublevel', max, 'In filling (Aufbau) order')),
-    h('div', { class: 'field__label' }, 'Sublevel types included'),
-    h('div', { class: 'row row--wrap' }, typeBoxes),
-    note,
-    h('div', { class: 'field__label' }, 'Sample answer (optional, for graders)'),
-    sampleBox,
-    h('div', { class: 'row' }, clear));
-}
-
-function openEditor(q, redraw, changed) {
-  q.rubric = Array.isArray(q.rubric) ? q.rubric : [];
-  const sumEl = h('p', { class: 'field__hint', dataset: { testid: 'rubric-total' } });
-  const fixBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: 'rubric-set-points' }, on: { click: (e) => {
-    const sum = rubricSum();
-    q.points = sum;
-    const pts = e.currentTarget.closest('.adm-q')?.querySelector('[data-testid="q-points"]');
-    if (pts) { pts.value = String(sum); pts.dispatchEvent(new Event('input', { bubbles: true })); }
-    showSum(); changed();
-  } } }, 'Set question points to rubric total');
-  const rubricSum = () => Math.round(q.rubric.reduce((s, r) => s + (Number(r.points) || 0), 0) * 100) / 100;
-  const showSum = () => {
-    const sum = rubricSum();
-    const ok = !q.rubric.length || sum === Number(q.points);
-    sumEl.textContent = q.rubric.length ? `Rubric total: ${sum} pt${sum === 1 ? '' : 's'}${ok ? ' ✓' : ` (question is worth ${q.points})`}` : 'No rubric: you will type points freely while grading.';
-    sumEl.classList.toggle('field-error', !ok);
-    fixBtn.hidden = ok;
-  };
-  const rows = q.rubric.map((r, i) => {
-    const txt = h('input', { class: 'input', value: r.text || '', placeholder: `Criterion ${i + 1}`, 'aria-label': `Rubric criterion ${i + 1}`, dataset: { testid: `rubric-text-${i}` },
-      on: { input: () => { r.text = txt.value; changed(); } } });
-    const pts = h('input', { class: 'input adm-points', type: 'number', min: '0', step: 'any', value: r.points ?? 1, 'aria-label': `Rubric criterion ${i + 1} points`, dataset: { testid: `rubric-points-${i}` },
-      on: { input: () => { r.points = pts.value.trim() === '' ? '' : Number(pts.value); showSum(); changed(); } } });
-    return h('div', { class: 'adm-opt adm-opt--plain' }, txt, pts, iconButton('x', 'Remove criterion', () => { q.rubric.splice(i, 1); redraw(); changed(); }, { testid: `rubric-remove-${i}` }));
-  });
-  const words = (k, label) => {
-    const inp = h('input', { class: 'input', type: 'number', min: '0', step: '1', value: q[k] ?? '', placeholder: 'None', dataset: { testid: `open-${k}` },
-      on: { input: () => { q[k] = inp.value.trim() === '' ? null : Number(inp.value); changed(); } } });
-    return field(label, inp);
-  };
-  const ta = h('textarea', { class: 'textarea', rows: 3, placeholder: 'Model answer (optional)', dataset: { testid: 'open-sample' }, on: { input: () => { q.sampleAnswer = ta.value; changed(); } } });
-  ta.value = q.sampleAnswer || '';
-  requestAnimationFrame(() => sumEl.closest('.adm-q')?.querySelector('[data-testid="q-points"]')?.addEventListener('input', showSum));
-  showSum();
-  return h('div', { class: 'stack' },
-    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Not auto-graded. In the Grading tab you tick rubric criteria (or type points) for each student.')),
-    h('div', { class: 'field__label' }, 'Rubric criteria'),
-    h('div', { class: 'adm-opts' }, rows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-rubric' }, on: { click: () => { q.rubric.push({ text: '', points: 1 }); redraw(); changed(); } } }, icon('plus', { size: 16 }), 'Add criterion'),
-      fixBtn),
-    sumEl,
-    switchEl({ label: 'Show rubric to students', hint: 'Students see the criteria above the answer box', checked: q.showRubric !== false, testid: 'open-show-rubric', onChange: (v) => { q.showRubric = v; changed(); } }),
-    h('div', { class: 'adm-grid adm-grid--4' }, words('minWords', 'Minimum words'), words('maxWords', 'Maximum words')),
-    field('Sample answer', ta, 'Shown to you while grading, and to students in the review if “Show correct answers” is on.'));
 }

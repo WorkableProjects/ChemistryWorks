@@ -13,10 +13,13 @@ import { sigfigsWidget } from '../widgets/sigfigs.js';
 import { categorizeWidget } from '../widgets/categorize.js';
 import { hotspotWidget } from '../widgets/hotspot.js';
 import { graphWidget } from '../widgets/graph.js';
+import '../qtypes/index.js'; // V4-03 widgets (naming, nuclear, vsepr, dropdown, ...)
+import { typeUI } from '../qtypes/registry.js';
 
 // V3-05 types played with the same widgets as the test runner (plus a Submit button).
 const WIDGETS = { balance: balanceWidget, econfig: econfigWidget, ptable: ptableWidget, sigfigs: sigfigsWidget, categorize: categorizeWidget, hotspot: hotspotWidget, graph: graphWidget };
-export const isWidgetType = (type) => Object.prototype.hasOwnProperty.call(WIDGETS, type);
+const widgetFor = (type) => (Object.prototype.hasOwnProperty.call(WIDGETS, type) ? WIDGETS[type] : (typeUI(type) && typeUI(type).widget) || null);
+export const isWidgetType = (type) => !!widgetFor(type);
 
 const SHAPES = ['▲', '◆', '●', '■'];
 
@@ -66,7 +69,7 @@ export function questionBoard(q, { onAnswer }) {
     let value;
     const submit = h('button', { class: 'btn btn--primary btn--lg', type: 'button', disabled: true, dataset: { testid: 'game-submit' }, on: { click: () => { if (isAnswered(q, value)) onAnswer(value); } } }, 'Submit answer');
     const api = { get: () => value, set: (_id, v) => { value = v; widget.refresh(v); submit.disabled = !isAnswered(q, v); } };
-    const widget = WIDGETS[q.type](q, api);
+    const widget = widgetFor(q.type)(q, api);
     widget.refresh(undefined);
     answerArea.append(widget.el);
     answerArea.classList.add('game-answers--widget');

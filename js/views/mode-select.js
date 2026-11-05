@@ -7,6 +7,8 @@
 import { h, mount, icon, richText, renderMath, appHeader, userBadge } from '../ui.js';
 import { splitGameQuestions } from '../lib/game.js';
 import { playableGames, loadBest } from '../lib/games/index.js';
+import { getLocalResults } from '../lib/submit.js';
+import { pickerLeaderboard } from './games/progress.js';
 
 export function render(root, ctx, params = {}) {
   const { test, source } = params;
@@ -14,7 +16,7 @@ export function render(root, ctx, params = {}) {
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
   const { skipped } = splitGameQuestions(test);
-  const games = playableGames(test);
+  const games = playableGames(test, { email: user.email, localResults: getLocalResults() });
   const anyPlayable = games.some((g) => g.playable);
   const view = h('div', { class: 'mode-view' });
   let timer = null;
@@ -36,12 +38,12 @@ export function render(root, ctx, params = {}) {
         test.description ? richText(test.description, 'p', 'muted') : null,
         h('p', { class: 'muted' }, 'How do you want to work through this test?')),
       h('div', { class: 'mode-select__grid' },
-        params.studyBlocked ? null : choice('study', 'pen', 'Study mode',
+        params.studyBlocked ? null : choice('study', 'book', 'Study mode',
           'The normal test: every question, at your own pace. Your answers are submitted when you finish.',
           h('span', { class: 'mode-choice__go' }, 'Start studying'),
           () => ctx.navigate('runner', { test, source, cleared: !!params.cleared })),
-        choice('game', 'flag', 'Game mode',
-          `${games.length} game${games.length === 1 ? '' : 's'} to choose from: race the clock, survive, hunt elements, match pairs or use flashcards.`,
+        choice('game', 'gamepad', 'Game mode',
+          `${games.length} game${games.length === 1 ? '' : 's'} to choose from: race the clock, survive, stack a tower, fight a boss, match pairs, drill units or use flashcards.`,
           h('span', { class: 'mode-choice__go' }, anyPlayable ? 'Choose a game' : 'No playable games'),
           showPicker, !anyPlayable)),
       h('p', { class: 'mode-select__note', dataset: { testid: 'game-practice-note' } }, icon('info', { size: 16 }),
@@ -74,6 +76,7 @@ export function render(root, ctx, params = {}) {
         h('h1', { class: 'mode-select__title', tabindex: '-1' }, 'Choose a game'),
         h('p', { class: 'muted' }, test.title || test.code)),
       h('div', { class: 'mode-select__grid game-picker__grid' }, cards),
+      pickerLeaderboard({ ctx, test, user, games: games.filter((g) => g.playable && g.game.scored !== false).map((g) => g.game) }),
       h('div', { class: 'game-actions' },
         h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-picker-back' }, on: { click: showModes } }, 'Back'),
         params.studyBlocked ? null : h('button', { class: 'btn btn--ghost', type: 'button', on: { click: () => ctx.navigate('runner', { test, source, cleared: !!params.cleared }) } }, 'Study mode instead')),

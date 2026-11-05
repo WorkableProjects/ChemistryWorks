@@ -5,6 +5,13 @@
 import { h, mount, icon, renderMath, appHeader, userBadge, prefersReducedMotion } from '../ui.js';
 import { loadBest, saveBest } from '../lib/games/index.js';
 import { isSoundOn, setSoundOn, playTone } from '../lib/games/sound.js';
+import { normalizeGameOptions, gameTest, isUntimed } from '../lib/games/options.js';
+import { recordRound } from '../lib/games/mistakes.js';
+import { load, save } from '../lib/storage.js';
+import { awardRound, factsFromEnd } from '../lib/xp.js';
+import { xpPanel, endLeaderboard } from './games/progress.js';
+
+const RELAXED_KEY = 'gameRelaxed';
 
 const RING_R = 18;
 const RING_C = 2 * Math.PI * RING_R;
@@ -27,10 +34,13 @@ export function motionReduced() {
  *   shell.stage / setStage(...nodes) / announce(text) / later(fn, ms)
  *   shell.setTimer(fn, ms) / clearTimer() / setKeys(fn) / clearKeys()   (one slot each; cleared on cleanup)
  *   shell.hud({ label, lives, ring, scored }) -> hud controller
+ *   shell.opts (normalized gameOptions) / shell.gtest (test limited to allowed types) / shell.untimed() / shell.sound(name)
  *   shell.flash(ok) / shell.intro({...}) / shell.end({...}) / shell.back() / shell.cleanup()
  */
 export function createShell(root, ctx, { test, source, game, studyBlocked = false, cleared = false }) {
   const user = ctx.user;
+  const opts = normalizeGameOptions(test);
+  const gtest = gameTest(test, opts); // the test as games see it: only the allowed question types
   let timer = null;
   let keyFn = null;
   let focusTimer = null;
@@ -43,8 +53,10 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
   mount(root, h('div', { class: 'game', dataset: { testid: 'game', game: game.id } }, header, stage, live));
 
   const shell = {
-    user, test, source, game, ctx, stage, live,
+    user, test, source, game, ctx, stage, live, opts, gtest,
     reduced: motionReduced,
+    /** True when the clock is off for this player (teacher forced it, or the student chose relaxed mode and it is allowed). */
+    untimed: () => game.timed === true && isUntimed(opts, load(RELAXED_KEY, false) === true),
 
     setStage(...nodes) { mount(stage, ...nodes); renderMath(stage); },
     announce(text) { live.textContent = ''; live.textContent = text; },
@@ -64,7 +76,7 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
     back() { ctx.navigate('mode-select', { test, source, picker: true, studyBlocked, cleared }); },
     toStudy() { ctx.navigate('runner', { test, source, cleared: cleared && !studyBlocked }); },
     best: () => loadBest(user.email, test.code, game.id),
-    sound: playTone,
+    sound: (name) => { if (opts.sound) playTone(name); },
 
     /** Correct / wrong flash over the stage (opacity only). */
     flash(ok) {
@@ -77,14 +89,23 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
     },
 
     /** Intro card. { title, rules[], notes[], startLabel, onStart, canStart } */
-    intro({ title = 'Ready?', rules = [], notes = [], startLabel = 'Start game', onStart }) {
+    intro(args) {
+      const { title = 'Ready?', notes = [], startLabel = 'Start game', onStart } = args;
+      const rules = typeof args.rules === 'function' ? args.rules() : (args.rules || []);
       shell.clearTimer(); shell.clearKeys();
+      const relaxedRow = game.timed !== true ? null
+        : opts.untimed ? h('p', { class: 'game-note', dataset: { testid: 'game-relaxed-note' } }, icon('clock', { size: 16 }), ' Relaxed mode is on for this test: no clock and no speed points.')
+          : opts.allowUntimed ? h('label', { class: 'game-relaxed' },
+            h('input', { type: 'checkbox', checked: load(RELAXED_KEY, false) === true, dataset: { testid: 'game-relaxed-toggle' },
+              on: { change: (e) => { save(RELAXED_KEY, e.target.checked); shell.intro(args); shell.later(() => stage.querySelector('[data-testid="game-relaxed-toggle"]')?.focus()); } } }),
+            h('span', {}, 'Relaxed mode: no clock, no speed points')) : null;
       const start = h('button', { class: 'btn btn--primary btn--lg', type: 'button', dataset: { testid: 'game-start' }, on: { click: () => onStart() } }, startLabel);
       shell.setStage(h('section', { class: 'game-card game-card--intro', dataset: { testid: 'game-intro' } },
         h('h1', { class: 'game-card__title', tabindex: '-1' }, title),
         h('ul', { class: 'game-rules' }, rules.map((r) => h('li', {}, r))),
+        relaxedRow,
         notes.filter(Boolean).map((n) => (typeof n === 'string' ? h('p', { class: 'game-note' }, n) : n)),
-        h('p', { class: 'game-note' }, icon('info', { size: 16 }), game.scored === false ? ' Flashcards are for studying: nothing is scored or submitted.' : ' Game mode is practice — your score is not submitted.'),
+        h('p', { class: 'game-note' }, icon('info', { size: 16 }), game.scored === false ? ' This is for studying: nothing is scored or submitted.' : ' Game mode is practice — your score is not submitted.'),
         h('div', { class: 'game-actions' },
           start,
           h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-back-intro' }, on: { click: () => shell.back() } }, 'Back to games'),
@@ -125,7 +146,7 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
       sound.addEventListener('click', () => { setSoundOn(!isSoundOn()); paintSound(); if (isSoundOn()) playTone('correct'); });
       paintSound();
 
-      const el = h('div', { class: 'game-hud' }, q, streakEl, scoreWrap, heartsEl, ringEl, sound);
+      const el = h('div', { class: 'game-hud' }, q, streakEl, scoreWrap, heartsEl, ringEl, opts.sound ? sound : null);
       let prevLives = lives;
       const ctl = {
         el,
@@ -167,15 +188,21 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
     },
 
     /**
-     * End screen. { title, score (null when unscored), stats [{label, value, testid}], review (node), onAgain, note }
+     * End screen. { title, score (null when unscored), stats [{label, value, testid}], review (node), onAgain, note,
+     *   results ([{ q, correct, skipped }] — wrong ones are remembered for Mistake Review) }
      * Saves the best score when `score` is a number.
      */
-    end({ title = 'Game over', score = null, stats = [], review = null, onAgain, note = '', announce = '' }) {
+    end({ title = 'Game over', score = null, stats = [], review = null, onAgain, note = '', announce = '', results = null }) {
       shell.clearTimer(); shell.clearKeys();
+      if (results) recordRound(user.email, test.code, results); // wrong answers feed Mistake Review (device-local only)
       let best = null;
       if (score !== null) best = saveBest(user.email, test.code, game.id, score);
       const stat = (s) => h('div', { class: 'game-stat' }, h('span', { class: 'game-stat__v', dataset: { testid: s.testid } }, s.value), h('span', { class: 'game-stat__l' }, s.label));
-      const again = h('button', { class: 'btn btn--primary btn--lg', type: 'button', dataset: { testid: 'game-again' }, on: { click: () => onAgain() } }, game.scored === false ? 'Study again' : 'Play again');
+      const again = h('button', { class: 'btn btn--primary btn--lg', type: 'button', dataset: { testid: 'game-again' }, on: { click: () => onAgain() } }, game.againLabel || (game.scored === false ? 'Study again' : 'Play again'));
+      // V4-04: XP, badges and cosmetics (this device) + the class leaderboard when the test turns it on.
+      let xp = null;
+      try { xp = awardRound(user.email, factsFromEnd({ gameId: game.id, code: test.code, score, stats, results })); } catch (e) { console.error(e); }
+      const board = endLeaderboard(shell, { score, info: { test, results } });
       shell.setStage(h('section', { class: 'game-card game-card--end', dataset: { testid: 'game-end' } },
         h('h1', { class: 'game-card__title', tabindex: '-1' }, title),
         score === null ? null : h('p', { class: 'game-score-big', dataset: { testid: 'game-final-score' } }, score.toLocaleString()),
@@ -190,6 +217,8 @@ export function createShell(root, ctx, { test, source, game, studyBlocked = fals
           h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-back' }, on: { click: () => shell.back() } }, 'Back to games'),
           studyBlocked ? null : h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-to-study' }, on: { click: () => shell.toStudy() } }, 'Switch to Study mode'),
           h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'game-home' }, on: { click: () => ctx.navigate('landing') } }, 'Home')),
+        xpPanel(user.email, xp),
+        board,
         review ? [h('h2', { class: 'game-review__title' }, 'Review'), review] : null));
       shell.announce(announce || (score === null ? `${title}.` : `${title}. Score ${score}.`));
       if (score !== null && score > 0) shell.sound('win');

@@ -3,26 +3,36 @@
 import { h, icon, richText, renderMath, seededShuffle } from '../../ui.js';
 import { gradeQuestion, formatAnswer } from '../../lib/grading.js';
 import {
-  splitGameQuestions, scoreAnswer, summarizeGame, fiftyFiftyRemovals, QUESTION_SECONDS, FREEZE_SECONDS,
+  splitGameQuestions, scoreAnswer, summarizeGame, QUESTION_SECONDS, FREEZE_SECONDS, UNTIMED_POINTS,
 } from '../../lib/game.js';
+import { limitCount } from '../../lib/games/options.js';
 import { questionBoard, numberKeys, shuffleOptions } from './question-ui.js';
+import { powerBar } from './powerups.js';
 
 export function play(shell) {
-  const { test, user } = shell;
+  const { user, opts } = shell;
+  const test = shell.gtest;
   const { playable, skipped } = splitGameQuestions(test);
-  const limitMs = QUESTION_SECONDS * 1000;
+  const count = Math.min(playable.length, opts.questions || playable.length);
+  const seconds = opts.timePerQuestion || QUESTION_SECONDS;
+  const limitMs = seconds * 1000;
+  const pu = opts.powerUps;
   let round = 0;
   let g = null;
 
   function intro() {
     shell.intro({
-      rules: [
-        `${playable.length} question${playable.length === 1 ? '' : 's'}, ${QUESTION_SECONDS} seconds each.`,
-        'Faster correct answers score more (up to 1000). Wrong or late answers score 0.',
-        'Three right in a row starts a streak bonus.',
-        `Power-ups, once per game: 50/50 (multiple choice) and Freeze (+${FREEZE_SECONDS} seconds).`,
-        'Keyboard: press 1–4 to pick an answer.',
-      ],
+      rules: () => {
+        const untimed = shell.untimed();
+        const names = [pu.fifty && '50/50 (multiple choice)', pu.freeze && !untimed && `Freeze (+${FREEZE_SECONDS} seconds)`, pu.skip && 'Skip', pu.hint && 'Hint'].filter(Boolean);
+        return [
+          `${count} question${count === 1 ? '' : 's'}${untimed ? ', no clock.' : `, ${seconds} seconds each.`}`,
+          untimed ? `No speed points: every correct answer scores ${UNTIMED_POINTS}.` : 'Faster correct answers score more (up to 1000). Wrong or late answers score 0.',
+          'Three right in a row starts a streak bonus.',
+          names.length ? `Power-ups, once per game: ${names.join(', ')}.` : 'Power-ups are off for this test.',
+          'Keyboard: press 1–4 to pick an answer.',
+        ];
+      },
       notes: [skipped.length ? h('p', { class: 'game-note', dataset: { testid: 'game-skipped' } }, `${skipped.length} question${skipped.length === 1 ? '' : 's'} skipped in game mode.`) : null],
       onStart: begin,
     });
@@ -31,8 +41,8 @@ export function play(shell) {
   function begin() {
     round++;
     const seed = `${user.email}${test.code}${Date.now()}${round}`;
-    const qs = seededShuffle(playable, seed).map((q) => shuffleOptions(q, seededShuffle, seed));
-    g = { qs, i: 0, streak: 0, results: [], fifty: true, freeze: true, score: 0 };
+    const qs = limitCount(seededShuffle(playable, seed), count).map((q) => shuffleOptions(q, seededShuffle, seed));
+    g = { qs, i: 0, streak: 0, results: [], fifty: true, freeze: true, skip: true, hint: true, score: 0, untimed: shell.untimed() };
     question();
   }
 
@@ -42,21 +52,21 @@ export function play(shell) {
     const total = g.qs.length;
     const st = { locked: false, startedAt: performance.now(), extraMs: 0 };
 
-    const hud = shell.hud({ label: `Question ${g.i + 1} of ${total}`, ring: true });
+    const hud = shell.hud({ label: `Question ${g.i + 1} of ${total}`, ring: !g.untimed });
     hud.setScore(g.score);
     hud.setStreak(g.streak);
     const board = questionBoard(q, { onAnswer: (a) => finish(a) });
     const feedbackSlot = h('div', { class: 'game-feedback-slot' });
-    const powerBar = h('div', { class: 'game-powers' });
-
     const remaining = () => limitMs + st.extraMs - (performance.now() - st.startedAt);
     const paint = () => {
       const rem = Math.max(0, remaining());
       hud.setTime(Math.min(1, rem / (limitMs + st.extraMs || limitMs)), `${Math.ceil(rem / 1000)}`, rem <= 5000);
       return rem;
     };
-    paint();
-    shell.setTimer(() => { if (!st.locked && paint() <= 0) finish(null, true); }, shell.reduced() ? 500 : 100);
+    if (!g.untimed) {
+      paint();
+      shell.setTimer(() => { if (!st.locked && paint() <= 0) finish(null, true); }, shell.reduced() ? 500 : 100);
+    }
 
     function finish(answer, timedOut = false) {
       if (st.locked) return;
@@ -64,15 +74,15 @@ export function play(shell) {
       shell.clearTimer();
       const elapsedMs = Math.min(performance.now() - st.startedAt - st.extraMs, limitMs);
       const grade = timedOut || answer === null ? { isCorrect: false } : gradeQuestion(q, answer);
-      const s = scoreAnswer({ correct: !!grade.isCorrect, elapsedMs, limitMs, streak: g.streak });
+      const s = scoreAnswer({ correct: !!grade.isCorrect, elapsedMs, limitMs, streak: g.streak, untimed: g.untimed });
       g.streak = s.streak;
       g.score += s.points;
       g.results.push({ q, answer: timedOut ? null : answer, correct: !!grade.isCorrect, points: s.points, timedOut });
       hud.setScore(g.score);
       hud.setStreak(g.streak);
-      paint();
+      if (!g.untimed) paint();
       board.lock(answer);
-      powerBar.replaceChildren();
+      powers.draw();
       shell.flash(!!grade.isCorrect);
       shell.sound(grade.isCorrect ? 'correct' : 'wrong');
       if (grade.isCorrect) hud.pop(`+${s.points.toLocaleString()}`);
@@ -98,37 +108,28 @@ export function play(shell) {
       shell.later(() => next.focus());
     }
 
-    const drawPowers = () => {
-      powerBar.replaceChildren();
-      if (st.locked) return;
-      if (g.fifty && q.type === 'mcq' && fiftyFiftyRemovals(q).length > 0) {
-        powerBar.append(h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'game-fifty' }, on: { click: () => {
-          g.fifty = false;
-          const order = seededShuffle(q.options.map((o) => o.id), `${q.id}${st.startedAt}`);
-          for (const id of fiftyFiftyRemovals(q, order)) board.hide(id);
-          shell.announce('Two wrong answers removed.');
-          drawPowers();
-        } } }, '50/50'));
-      }
-      if (g.freeze) {
-        powerBar.append(h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'game-freeze' }, on: { click: () => {
-          g.freeze = false; st.extraMs += FREEZE_SECONDS * 1000; paint();
-          shell.announce(`Time frozen: ${FREEZE_SECONDS} seconds added.`);
-          drawPowers();
-        } } }, `Freeze +${FREEZE_SECONDS}s`));
-      }
-    };
-    drawPowers();
+    const powers = powerBar({
+      shell, q, board, state: g, seedKey: st.startedAt, locked: () => st.locked,
+      allow: { fifty: pu.fifty, freeze: pu.freeze && !g.untimed, skip: pu.skip, hint: pu.hint },
+      onFreeze: () => { st.extraMs += FREEZE_SECONDS * 1000; paint(); },
+      onSkip: () => {
+        if (st.locked) return;
+        st.locked = true; shell.clearTimer();
+        g.results.push({ q, answer: null, correct: false, points: 0, skipped: true });
+        shell.announce('Question skipped.');
+        if (g.i === total - 1) end(); else { g.i++; question(); }
+      },
+    });
     shell.setKeys(numberKeys(board, () => st.locked));
 
-    shell.setStage(h('section', { class: 'game-play', 'aria-label': `Question ${g.i + 1}` }, hud.el, board.heading, board.answerArea, board.submitRow, powerBar, feedbackSlot));
+    shell.setStage(h('section', { class: 'game-play', 'aria-label': `Question ${g.i + 1}` }, hud.el, board.heading, board.answerArea, board.submitRow, powers.el, feedbackSlot));
     shell.later(() => (board.startsWithTiles ? board.heading.focus({ preventScroll: true }) : board.focusFirst()));
   }
 
   function end() {
     const sum = summarizeGame(g.results);
     const review = h('ol', { class: 'game-review', dataset: { testid: 'game-review' } }, g.results.map((r) => h('li', { class: ['game-review__item', r.correct ? 'is-correct' : 'is-wrong'], dataset: { correct: String(r.correct) } },
-      h('span', { class: 'game-review__mark', 'aria-label': r.correct ? 'Correct' : r.timedOut ? 'Timed out' : 'Incorrect' }, icon(r.correct ? 'check' : 'x', { size: 16 })),
+      h('span', { class: 'game-review__mark', 'aria-label': r.correct ? 'Correct' : r.skipped ? 'Skipped' : r.timedOut ? 'Timed out' : 'Incorrect' }, icon(r.correct ? 'check' : 'x', { size: 16 })),
       h('div', { class: 'game-review__body' },
         richText(r.q.text, 'p', 'game-review__q'),
         h('p', { class: 'game-review__a' }, 'Your answer: ', r.answer === null ? '—' : formatAnswer(r.q, r.answer),
@@ -143,6 +144,7 @@ export function play(shell) {
       ],
       note: skipped.length ? `${skipped.length} question${skipped.length === 1 ? '' : 's'} skipped in game mode.` : '',
       review,
+      results: g.results,
       onAgain: begin,
       announce: `Game over. Score ${sum.score}. Accuracy ${sum.accuracy} percent.`,
     });

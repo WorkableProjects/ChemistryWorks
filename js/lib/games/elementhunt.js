@@ -53,8 +53,8 @@ export function buildPrompts(count = ROUNDS, rand = Math.random) {
 }
 
 /** Score a click, reusing the classic speed/streak scoring over HUNT_SECONDS. */
-export function scoreHunt({ correct, elapsedMs, streak }) {
-  return scoreAnswer({ correct, elapsedMs, limitMs: HUNT_SECONDS * 1000, streak });
+export function scoreHunt({ correct, elapsedMs, streak, untimed = false }) {
+  return scoreAnswer({ correct, elapsedMs, limitMs: HUNT_SECONDS * 1000, streak, untimed });
 }
 
 export const elementhunt = {
@@ -65,5 +65,6 @@ export const elementhunt = {
   playableTypes: [],
   minQuestions: 0,
   scored: true,
+  timed: true,
   availability: () => ({ playable: true, reason: '', questions: [] }),
 };

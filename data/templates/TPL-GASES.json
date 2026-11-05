@@ -1,0 +1,130 @@
+{
+  "code": "TPL-GASES",
+  "title": "Gases (starter)",
+  "description": "Starter test from the ChemistryWorks templates. Duplicate it, then edit.",
+  "timeLimitMinutes": null,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "numeric",
+      "text": "A gas at 2.00 atm is compressed to half its volume at constant T. New pressure (atm)?",
+      "points": 1,
+      "correctAnswer": 4.0,
+      "tolerance": 0.02,
+      "toleranceType": "absolute",
+      "unit": "atm",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "text": "Volume of 1.00 mol ideal gas at STP (L)?",
+      "points": 1,
+      "correctAnswer": 22.4,
+      "tolerance": 0.1,
+      "toleranceType": "absolute",
+      "unit": "L",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q3",
+      "type": "mcq",
+      "text": "At constant pressure, gas volume is directly proportional to\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "moles only"
+        },
+        {
+          "id": "b",
+          "text": "absolute temperature"
+        },
+        {
+          "id": "c",
+          "text": "pressure"
+        },
+        {
+          "id": "d",
+          "text": "density"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q4",
+      "type": "numeric",
+      "text": "Convert 25 \u00b0C to kelvin.",
+      "points": 1,
+      "correctAnswer": 298,
+      "tolerance": 1,
+      "toleranceType": "absolute",
+      "unit": "K",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q5",
+      "type": "truefalse",
+      "text": "Gas particles are assumed to have no volume in the ideal gas model.",
+      "points": 1,
+      "correctAnswer": true,
+      "explanation": ""
+    },
+    {
+      "id": "q6",
+      "type": "numeric",
+      "text": "n = PV/RT: moles in 2.46 L at 1.00 atm and 300 K (R = 0.0821)?",
+      "points": 1,
+      "correctAnswer": 0.1,
+      "tolerance": 0.002,
+      "toleranceType": "absolute",
+      "unit": "mol",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q7",
+      "type": "mcq",
+      "text": "Which law relates P and V at constant T?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Charles's"
+        },
+        {
+          "id": "b",
+          "text": "Boyle's"
+        },
+        {
+          "id": "c",
+          "text": "Avogadro's"
+        },
+        {
+          "id": "d",
+          "text": "Gay-Lussac's"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q8",
+      "type": "numeric",
+      "text": "Total pressure of He 0.40 atm + Ne 0.60 atm (atm)?",
+      "points": 1,
+      "correctAnswer": 1.0,
+      "tolerance": 0.01,
+      "toleranceType": "absolute",
+      "unit": "atm",
+      "formatHelp": "auto",
+      "explanation": ""
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 132" role="img" aria-label="ChemWorks">
+  <!-- ChemWorks flask mark (V4-00), redrawn as plain paths. Colours are CSS variables with the brand hex values as
+       fallbacks: --brand-navy (glass), --brand-teal (liquid + molecule), --brand-mark-gap (bubbles + liquid rim). -->
+  <path fill="none" stroke="var(--brand-navy, #00224F)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" d="M29 24 H51 M35 24 V54 M45 24 V50"/>
+  <path fill="var(--brand-navy, #00224F)" d="M31 50 H48 L91 113 Q99 128 82 128 H40 C16 128 2 114 2 95 C2 76 14 61 31 52 Z"/>
+  <path fill="var(--brand-teal, #01A9AE)" stroke="var(--brand-mark-gap, #FFFFFF)" stroke-width="4" d="M22 86 H67 L80 105 Q86 116 74 116 H42 C29 116 20 108 20 97 C20 92 20 89 22 86 Z"/>
+  <circle fill="var(--brand-mark-gap, #FFFFFF)" cx="37" cy="73" r="4.2"/>
+  <circle fill="var(--brand-mark-gap, #FFFFFF)" cx="47" cy="64" r="3.2"/>
+  <circle fill="var(--brand-mark-gap, #FFFFFF)" cx="50" cy="77" r="2.6"/>
+  <path fill="none" stroke="var(--brand-teal, #01A9AE)" stroke-width="5" stroke-linecap="round" d="M54 12 L80 44"/>
+  <circle fill="var(--brand-teal, #01A9AE)" cx="53" cy="11" r="8"/>
+  <circle fill="var(--brand-teal, #01A9AE)" cx="81" cy="46" r="6.5"/>
+</svg>

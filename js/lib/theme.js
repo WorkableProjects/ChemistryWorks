@@ -2,20 +2,24 @@
 // Choices are saved on this device. js/app.js calls applyRole() on every view change; the inline script in
 // index.html applies the saved theme before first paint so there is no flash.
 //
-//   <html data-theme="light|dark" data-accent="blue|violet|teal|rose|orange|green" data-role="student|admin">
+//   <html data-theme="light|dark" data-accent="navy|blue|violet|teal|rose|orange|green" data-role="student|admin">
 
 import { load, save } from './storage.js';
 
 export const THEMES = ['system', 'light', 'dark'];
+/** Browser UI colour (<meta name="theme-color">): the header bar colour per theme. */
+export const THEME_COLOR = { light: '#00224F', dark: '#08101D' };
 export const ACCENTS = {
+  navy: '#00224F',
   blue: '#2348A4',
   violet: '#6D28D9',
-  teal: '#0D6B64',
+  teal: '#00797D',
   green: '#166534',
   orange: '#B03A0A',
   rose: '#BE123C',
 };
-export const DEFAULT_ACCENT = { student: 'blue', admin: 'violet' };
+// V4-00: navy/teal for everyone (dark mode turns navy into teal). Older saved choices still apply.
+export const DEFAULT_ACCENT = { student: 'navy', admin: 'navy' };
 
 const root = () => (typeof document !== 'undefined' ? document.documentElement : null);
 const media = () => (typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null);
@@ -33,8 +37,8 @@ export function resolvedTheme(pref = getThemePref()) {
 }
 
 export function getAccent(r = role) {
-  const a = load(`accent:${r}`, DEFAULT_ACCENT[r] || 'blue');
-  return Object.prototype.hasOwnProperty.call(ACCENTS, a) ? a : DEFAULT_ACCENT[r] || 'blue';
+  const a = load(`accent:${r}`, DEFAULT_ACCENT[r] || 'navy');
+  return Object.prototype.hasOwnProperty.call(ACCENTS, a) ? a : DEFAULT_ACCENT[r] || 'navy';
 }
 
 export function getRole() { return role; }
@@ -69,7 +73,7 @@ export function applyTheme() {
   el.dataset.accent = getAccent(role);
   el.dataset.role = role;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', el.dataset.theme === 'dark' ? '#1A1713' : '#F6F2E8');
+  if (meta) meta.setAttribute('content', el.dataset.theme === 'dark' ? THEME_COLOR.dark : THEME_COLOR.light);
   listeners.forEach((fn) => fn());
 }
 

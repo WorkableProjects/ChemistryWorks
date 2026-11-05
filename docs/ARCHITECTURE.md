@@ -368,3 +368,107 @@ excluded from counts, from `getStudentStatus`, and from the default grading list
 `requireAllQuestions` (test, default false) and `required` (question, optional). `isRequired(test, q)` in `js/lib/schema.js`.
 The runner tags them (`required-pill`) and the submit modal lists unanswered required questions (`required-warning`) without a
 **Submit test** button. A timer auto-submit is never blocked. Builder: `opt-requireAllQuestions`, `q-required`.
+
+## V4 contracts (docs/v3/v4.0plan.md)
+
+### Feature flags (V4-08, S01)
+- `js/config.js` `CONFIG.FEATURES` = `{ adminShell, adminAccounts, teacherTools, studentTools }` (all `false`).
+  Read with `feature(name)`. Turn on per page with `window.CHEMISTRYWORKS_CONFIG = { FEATURES: { name: true } }` or the
+  URL `?features=name1,name2` / `?features=all`. Unknown names are always off. Half-done v4 features ship behind a flag.
+
+### Site version (S01)
+- `js/version.js` `SITE_VERSION` (`4.0.0`) — kept equal to `package.json` `version` (unit test). Shown under the
+  landing card; compared with the backend's `?action=ping` in S06.
+
+### Module layout (S01)
+- `js/views/runner.js` = the runner view; per-type answer widgets live in `js/views/runner/widgets.js`
+  (`buildWidget(q, api)`); `runner.js` re-exports `formatInterpreted`, `optionImageEl`, `choiceImagesEl`.
+- `js/views/admin/builder.js` = the builder view; built-in per-type editors live in `js/views/admin/editors/core.js`
+  (`typeEditor(q, redraw, changed, uid)`).
+
+### Brand + shell (S02/S03)
+- Tokens and logo: see `docs/DESIGN.md`. `brandLogo('wordmark'|'mark', { mono })` and `brandMarkSvg()` in `js/ui.js`.
+- `icon(name)` renders from one hidden SVG sprite (`#cw-icon-sprite`, symbols `#i-<name>`); `ICON_NAMES` lists them.
+- `appHeader({ title, subtitle, right, onHome })`: navy bar + one Settings popover (testids unchanged: `brand`,
+  `theme-toggle`, `theme-menu`, `theme-<pref>`, `accent-<name>`, `reduce-motion`).
+- Accents: `navy` added and default for both roles (`DEFAULT_ACCENT`).
+- CSS files: `results.css` (results + feedback cards, split from runner.css), `landing.css`, `status.css`
+  (status pages + mode select), `export.css` (PDF screen header).
+
+### Label the diagram (FIX-3)
+- `js/views/widgets/hotspot-stage.js` `hotspotDiagram(q, points|null, { size, showTargets, marks, label })`: read-only
+  picture + pins used by results, grading and export. `points = null` draws the answer key.
+
+### Admin accounts + backend 4.0 base (V4-07 / V4-08, S06)
+- **Version**: `Code.gs` `VERSION = '4.0.0'`; `?action=ping` -> `{ result, version }`. `js/lib/version-check.js`
+  (`compareVersions`, `isBackendOutdated`, `checkBackendVersion`, `versionBanner`) shows an admin-only banner (behind
+  `feature('adminAccounts')`) when the backend is older than `SITE_VERSION`. Never shown to students; a failed ping shows nothing.
+- **Admin auth** `requireAdmin_(body)` guards every admin action. Request fields: `idToken` (Google ID token, verified like a
+  student's: audience = `GOOGLE_CLIENT_ID`, Google issuer, not expired, `email_verified`, `ALLOWED_DOMAINS`), or the legacy
+  `adminKey`. With `idToken` the verified lower-cased email must be on the `Admins` sheet; the key is NOT consulted as a fallback.
+  Result: `{ ok, email, role, via: 'google' | 'key' }`. Key callers are `role: 'admin'` and count as owner for admin
+  management only while the Admins sheet has no owner.
+- **Error codes** (`{ result: 'error', error }`): `invalid_token`, `not_admin`, `identity_not_configured` (no `GOOGLE_CLIENT_ID`),
+  `unauthorized` (bad/missing key), `admin_key_not_configured` (no key and no token), `owner_only`, `last_owner`,
+  `cannot_remove_self`, `invalid_email`, `invalid_role`, `not_found`.
+- **Sheets**: `Admins` = `Email | Role | Added by | Added at` (roles `owner` / `admin`; anything else reads as `admin`;
+  emails trimmed + lower-cased, blanks and duplicates ignored; created and seeded from `ADMIN_EMAILS` (first = owner) when
+  missing or empty). `Log` = `Time | Admin | Action | Target | Details`, one row per successful admin write
+  (`publishTest`, `deleteTest`, `saveGrade`, `releaseAll`, `allowRetake`, `saveAdmin`, `removeAdmin`); Admin = the email, or `ADMIN_KEY`.
+- **Actions** (admin, POST): `whoami` -> `{ email, role, via }`; `listAdmins` -> `{ admins: [{ email, role, added_by, added_at }] }`;
+  `saveAdmin { email, role }` and `removeAdmin { email }` (owner only; refuse removing yourself and removing/demoting the last owner);
+  `getLog { limit }` -> `{ rows: [{ time, admin, action, target, details }] }` newest first (default 100, max 500).
+  `saveGrade` by a Google admin that sends no `gradedBy` records the admin's email. All existing actions keep their shapes with `adminKey`.
+- **Client**: `js/lib/admin-session.js` (`adminKey()`, `hasAdminAuth()`, `adminRequestAuth()`, `setAdminConfirmed(email)`,
+  `clearAdminConfirmed()`, `confirmedAdminEmail()`): a session flag `adminConfirmed` (the email `whoami` confirmed) counts only
+  while it matches the signed-in Google user and a token exists. `js/lib/api.js` merges `adminRequestAuth()` into every admin POST
+  (an explicit `adminKey` argument wins), retries once with `getFreshIdToken()` on `invalid_token`, and adds `whoAmI`,
+  `listAdmins`, `saveAdmin`, `removeAdmin`, `getLog`. Admin gate (`js/app.js`, behind `adminAccounts`): signed-in Google user ->
+  `whoAmI` -> panel with no prompt; otherwise Google button + "Use access code instead". UI: `js/views/admin/admins.js`
+  (Settings -> Admins for owners, Settings -> Activity log).
+
+### Question types III + algorithmic questions (V4-03 / V4-09, S10)
+- **New registry types** (`js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js`, styles in `css/qtypes-s10.css`):
+  - `molarmass` `{ formula, answer?, tolerance (0.05), toleranceType, showWork }`; answer `{ value, work: [{ symbol, count, mass }] }`; only `value` is graded (parsed with an optional "g/mol"); the key is `answer` or the molar mass computed from `formula`.
+  - `imagechoice` `{ multiple, options: [{ id, text?, image: { url, alt } }], correctAnswer: id | [ids], partialCredit }`; every option needs a picture (`safeImageUrl`) and alt text. Answer = id or array of ids.
+  - `particles` `{ species: [{ id, label, shape: circle|square|triangle|diamond, tone: 1-6 }], zones: [{ id, label }] (default one zone `box`, max 4), targets: { zoneId: { speciesId: count } }, maxPerZone (24), partialCredit }`; answer = `[{ s, z, x, y }]` (x, y are fractions; only the counts per zone and species are graded; `correctAnswer` is the key laid out as particles).
+  - `titration` `{ analyte: { type: acid|base, kind: strong|weak, conc, volumeMl, K? }, titrant: { conc }, ask: volume|ph|both, atVolume?, volumeTolerance (0.5 mL), phTolerance (0.2), maxVolume?, partialCredit }`; exact charge-balance simulation (`titrationPH(q, mL)`), answer `{ volume, ph }`.
+  - `estimate` `{ min, max, step, answer, tolerance, toleranceType, unit }`; answer = number.
+- **Chemistry functions** `js/lib/chemfuncs.js` (pure): `parseFormulaCounts`, `molarMass`, `molarMassBreakdown`, `moles`, `massFromMoles`, `convert(value, from, to)`, ideal gas (`idealGasP/V/N/T`), dilution (`dilutionC2/V2/V1`), `pH`, `pOH`, `hFromPH`, `pHStrongAcid/Base`, `pHWeakAcid/Base`, plus math (`sqrt`, `log`, `ln`, `exp`, `pow`, `round`, `min`, `max`). `CHEM_FUNCS` is the only set of functions a formula may call; `CHEM_CONSTANTS` = `pi`, `NA`, `R`, `Kw`.
+- **Algorithmic questions** `js/lib/algorithmic.js` (registers the `algorithmic` instantiate step). A `numeric`, `sigfigs`, `dimensional` or `multipart` question may carry
+  `variables: { name: { min, max, step?, sigFigs? } | { pick: [...] } | { formula, sigFigs? } }` and `answerFormula: "= m / molarMass(compound)"`.
+  `{name}` in any text field is replaced by the drawn value; the formula sets `numeric.correctAnswer`, `sigfigs.answer` (rounded to `sigFigs`) or `dimensional.answer.value`
+  (`answerSigFigs` rounds any type; dimensional `givenVariable: 'm'` sets `given.value`). Multipart: variables on the question, `answerFormula` (and optional extra `variables`) on each part.
+  Each question draws from its own stream seeded by `seed + '#alg#' + id`, so the same email gets the same numbers on every device. The step stores `q.drawn = { name: value }`
+  and skips questions that already have `drawn` (an instantiated copy is never redrawn, so regrading uses the stored key). A bad definition leaves the question untouched (logged).
+  The formula language is a hand-written parser (numbers, "text", variables, constants, `+ - * / ^ ** × ÷ −`, parentheses, unary minus, whitelisted calls); no `eval` / `Function`.
+  `validateVariables(q, where, errors)` (exported) dry-runs the definition; **hook for `schema.js validateQuestion`** (call it for every question, it is a no-op without algorithmic fields).
+  Builder: `js/views/admin/variables-editor.js` (`variablesEditor(q, redraw, changed)`), mounted under the numeric and sigfigs editors in `editors/core.js`.
+- **Backend**: `Submissions` column 25 `Seed` (`COL.SEED`) holds the student's instance seed. `handleSubmission_` reads `payload.instance.seed` (also `instance_json` / `instance_seed` form fields), text, max 200 characters; older sheets get the header appended by `getSheet_`.
+
+### Backend 4.0.0 additions (S11–S17)
+Sheets (created on first use): `Classes` (ID, Name, Period, Emails JSON, Updated By/At), `Bank` (ID, Question JSON, Tags JSON, Added/Edited By/At),
+`Accommodations` (Email, Test Code or blank = all, Extra Time, Extra Attempts, Reduced Choices, Read Aloud, Extension Until, Notes, Updated By/At),
+`Settings` (Key, Value: errorReports, releaseEmails), `Live` (one row per student per test, overwritten), `Leaderboard` (best score per student per game),
+`Errors`. Submissions columns 26–29: `Drawn Questions`, `Time Limit Applied`, `Late`, `Class`; statuses `Closed (not counted)` and `Not on roster`.
+
+Admin actions (via `requireAdmin_`, writes logged): `listClasses`, `saveClass {cls}`, `deleteClass {id}`, `listBank`, `saveBankItem {item:{id?,question,tags}}`,
+`deleteBankItem {id}`, `getAccommodations {testCode?}`, `saveAccommodation {email,testCode?,extraTime,extraAttempts,reducedChoices,readAloud,extensionUntil,notes,merge?}`,
+`deleteAccommodation`, `extendWindow {email,testCode,until}`, `applyRegrade {testCode, updates:[{submissionId,responses,scoreAchieved,scoreTotal,percentage}]}`,
+`getLive {testCode?}`, `clearLeaderboard {testCode,gameId?}`, `hideLeaderboardEntry {testCode,email,hidden}`, `getErrors {limit}`, `getSettings`, `saveSettings {settings}`.
+
+Public actions: `getTest` (GET refuses `not_open` / `closed`; POST with `idToken` applies the student's extension and the roster: `not_on_roster`),
+`progressPing {idToken|studentEmail,testCode,answered,total,timeLeft,submitted}`, `submitGameScore {testCode,gameId|game,score,name|displayName}`,
+`getLeaderboard {testCode,gameId|game}` (both only when `gameMode` and `gameOptions.leaderboard`; scores capped at 100,000), `reportError` (only when Settings
+errorReports is on; ≤ 60/hour). `getStudentStatus` also returns `accommodations`, `window {state,…}`, `roster {required,ok}`, `extraAttemptsLeft`.
+`submit` (no-cors) enforces roster + window, marks late work and applies the penalty; the client adds `idToken` at send time (never stored in the outbox)
+and `instance {seed,drawn}` + `time_limit_applied`.
+
+### Client (S10–S17)
+- `js/lib/instantiate.js` pipeline: `algorithmic.js` (variables + safe formula parser, no eval) and `pools.js` (per-student draw) steps.
+- `js/lib/schedule.js` (window / late / accommodations), `js/views/unavailable.js` (Opens on / Closed / Not on roster pages).
+- `js/lib/importers.js` (plain text, CSV, Google Forms, rosters), `data/templates/*.json` (6 starter tests), `js/lib/regrade.js`, `js/lib/mastery.js`,
+  `js/lib/backup.js` (bundle `kind: chemworks-backup`), `js/lib/errors.js` (scrubbed, rate-limited reports).
+- Admin views: `classes.js`, `accommodations.js`, `bank.js`, `import.js`, `live.js`, `mastery.js`, `platform.js`, `test-extras.js` (builder panel);
+  registered as classic tabs and as sidebar items (`registerNavItem`).
+- Flags (`js/config.js`): `adminShell`, `teacherTools`, `studentTools`, `v4Types` on; `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.

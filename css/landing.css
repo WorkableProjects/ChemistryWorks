@@ -1,0 +1,73 @@
+/* ChemistryWorks — landing (V4-01). Tokens come from base.css. */
+
+.landing { position: relative; overflow: hidden; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+
+/* Top-right controls, styled for the light page. */
+.landing__topbar { position: absolute; top: var(--space-3); right: var(--space-4); z-index: 60; display: flex; align-items: center; gap: var(--space-2); }
+.landing__topbar .theme-ctl__btn { min-width: var(--touch); min-height: var(--touch); text-decoration: none; }
+
+/* Hero */
+.landing__hero { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-8) var(--space-4) var(--space-4); text-align: center; animation: rise var(--dur-slow) var(--ease-out) both; }
+.landing__brand { display: block; height: 56px; }
+.landing__brand .brand-logo { height: 100%; }
+.landing__intro { margin: 0; font-family: var(--font-display); font-size: 17px; color: var(--text-muted); max-width: 40ch; }
+.landing__pattern { position: absolute; top: var(--space-4); left: 50%; width: min(520px, 90%); transform: translateX(-50%); z-index: -1; pointer-events: none; opacity: 0.5; }
+.landing__pattern polygon { fill: none; stroke: var(--brand-teal); stroke-width: 1.2; opacity: 0.35; }
+@media (prefers-contrast: more) { .landing__pattern, .landing__bubbles { display: none; } }
+
+/* Bubbles: subtle drifting decoration */
+.landing__bubbles { position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: 0.6; }
+.landing__bubbles span {
+  position: absolute; left: var(--x); bottom: -40px; width: var(--s); height: var(--s); border-radius: 50%;
+  background: var(--brand-teal-soft);
+  border: 1.5px solid color-mix(in srgb, var(--brand-teal) 30%, transparent);
+  animation: cw-drift var(--t) linear var(--d) infinite both;
+}
+@keyframes cw-drift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(14px, -55vh); }
+  90% { opacity: 1; }
+  100% { transform: translate(-8px, -110vh); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .landing__bubbles span { animation: none; opacity: 0; } }
+:root[data-motion="reduce"] .landing__bubbles span { animation: none; opacity: 0; }
+
+.landing__inner { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--space-6); padding: var(--space-4) var(--space-4) var(--space-7); }
+.landing__panel { width: min(520px, 100%); animation: rise var(--dur-slow) var(--ease-out) 60ms both; }
+.landing__lists { width: min(920px, 100%); display: flex; flex-direction: column; gap: var(--space-6); }
+.landing__footer { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: 12px; padding: var(--space-4); font-size: 13px; color: var(--text-faint); }
+
+/* Code / sign-in card: the visual focus */
+.signin-card, .code-card { position: relative; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); box-shadow: var(--shadow-lg); }
+.gsi-slot { min-height: 44px; display: flex; justify-content: center; }
+.code-card__top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.code-form { display: flex; gap: 10px; }
+.code-form .input--code { flex: 1; min-width: 0; }
+.code-form .btn { min-height: 56px; }
+.input--code { height: 56px; font-size: 24px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-family: var(--font-mono); }
+.input--code::placeholder { letter-spacing: 0.04em; font-weight: 500; color: var(--text-faint); text-transform: none; font-size: 18px; }
+.site-version { margin: 0; text-align: center; font-size: 12px; color: var(--text-faint); font-family: var(--font-mono); }
+
+/* Your tests / resume: card grids */
+.tests-block { display: flex; flex-direction: column; gap: var(--space-3); }
+.tests-block__title { margin: 0; font-family: var(--font-display); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.tests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); }
+.test-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-4); text-align: left; min-width: 0;
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+.test-card:hover { transform: translateY(-2px); border-color: var(--primary-line); box-shadow: var(--shadow); }
+button.test-card { cursor: pointer; font: inherit; color: inherit; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.test-card__top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); width: 100%; }
+.test-card__code { font-family: var(--font-mono); font-weight: 700; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--primary-soft); color: var(--primary-ink); }
+.test-card__name { font-family: var(--font-display); font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.test-card__meta { font-size: 12px; color: var(--text-faint); min-height: 1em; }
+.test-card__go { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); }
+.test-card .btn { margin-top: auto; min-height: var(--touch); }
+
+@media (max-width: 520px) {
+  .code-form { flex-direction: column; }
+  .signin-card, .code-card { padding: var(--space-5); }
+  .landing__brand { height: 44px; }
+  .landing__hero { padding-top: var(--space-7); }
+  .tests-grid { grid-template-columns: 1fr; }
+}

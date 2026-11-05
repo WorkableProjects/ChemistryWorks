@@ -10,8 +10,16 @@ import * as lightning from './games/lightning.js';
 import * as elementhunt from './games/elementhunt.js';
 import * as matchup from './games/matchup.js';
 import * as flashcards from './games/flashcards.js';
+import * as tower from './games/tower.js';
+import * as mistakes from './games/mistakes.js';
+import * as boss from './games/boss.js';
+import * as unitdash from './games/unitdash.js';
+import * as reactionlab from './games/reactionlab.js';
+import * as molbuilder from './games/molbuilder.js';
+import * as periodicpuzzle from './games/periodicpuzzle.js';
+import * as dailyelement from './games/dailyelement.js';
 
-const BOARDS = { classic, survival, lightning, elementhunt, matchup, flashcards };
+const BOARDS = { classic, survival, lightning, elementhunt, matchup, flashcards, tower, mistakes, boss, unitdash, reactionlab, molbuilder, periodicpuzzle, dailyelement };
 
 export function render(root, ctx, params = {}) {
   const { test, source, studyBlocked, cleared } = params;

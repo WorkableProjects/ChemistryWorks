@@ -1,0 +1,158 @@
+{
+  "code": "TPL-ATOMS",
+  "title": "Atomic structure (starter)",
+  "description": "Starter test from the ChemistryWorks templates. Duplicate it, then edit.",
+  "timeLimitMinutes": null,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "text": "Which particle determines the identity of an element?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Neutron"
+        },
+        {
+          "id": "b",
+          "text": "Proton"
+        },
+        {
+          "id": "c",
+          "text": "Electron"
+        },
+        {
+          "id": "d",
+          "text": "Photon"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": "The number of protons (atomic number) defines the element."
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "text": "How many neutrons are in carbon-14?",
+      "points": 1,
+      "correctAnswer": 8,
+      "tolerance": 0,
+      "toleranceType": "absolute",
+      "unit": "",
+      "formatHelp": "auto",
+      "explanation": "14 \u2212 6 = 8."
+    },
+    {
+      "id": "q3",
+      "type": "mcq",
+      "text": "Isotopes of an element differ in their number of\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "protons"
+        },
+        {
+          "id": "b",
+          "text": "electrons"
+        },
+        {
+          "id": "c",
+          "text": "neutrons"
+        },
+        {
+          "id": "d",
+          "text": "nuclei"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": ""
+    },
+    {
+      "id": "q4",
+      "type": "truefalse",
+      "text": "Electrons are found in the nucleus.",
+      "points": 1,
+      "correctAnswer": false,
+      "explanation": "Electrons occupy orbitals around the nucleus."
+    },
+    {
+      "id": "q5",
+      "type": "numeric",
+      "text": "How many electrons does a neutral magnesium atom have?",
+      "points": 1,
+      "correctAnswer": 12,
+      "tolerance": 0,
+      "toleranceType": "absolute",
+      "unit": "",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q6",
+      "type": "mcq",
+      "text": "Who proposed the nuclear model of the atom after the gold-foil experiment?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Dalton"
+        },
+        {
+          "id": "b",
+          "text": "Thomson"
+        },
+        {
+          "id": "c",
+          "text": "Rutherford"
+        },
+        {
+          "id": "d",
+          "text": "Bohr"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": ""
+    },
+    {
+      "id": "q7",
+      "type": "numeric",
+      "text": "An ion has 17 protons and 18 electrons. What is its charge? (enter \u22121 as -1)",
+      "points": 1,
+      "correctAnswer": -1,
+      "tolerance": 0,
+      "toleranceType": "absolute",
+      "unit": "",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q8",
+      "type": "mcq",
+      "text": "Which subatomic particle has the smallest mass?",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "Proton"
+        },
+        {
+          "id": "b",
+          "text": "Neutron"
+        },
+        {
+          "id": "c",
+          "text": "Electron"
+        },
+        {
+          "id": "d",
+          "text": "They are equal"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": ""
+    }
+  ]
+}

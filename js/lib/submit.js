@@ -2,6 +2,13 @@
 // submitResults / flushOutbox never throw.
 import { netlifyFormsEnabled } from '../config.js';
 import { load, save } from './storage.js';
+import { getIdToken } from './auth.js';
+
+function withToken(payload) {
+  let t = null;
+  try { t = getIdToken(); } catch { t = null; }
+  return t ? { ...payload, idToken: t } : payload;
+}
 
 const OUTBOX_KEY = 'outbox';
 const LOCAL_RESULTS_KEY = 'localResults';
@@ -22,6 +29,14 @@ function toDate(v) {
   return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
+/** Keep only { id: note } string entries (note trimmed to 200 chars); null when nothing is left. */
+export function cleanFlagNotes(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = {};
+  for (const [id, note] of Object.entries(raw)) if (id) out[String(id)] = String(note ?? '').trim().slice(0, 200);
+  return Object.keys(out).length ? out : null;
+}
+
 export function buildPayload({ test, grade, user, startedAt, submittedAt, flags } = {}) {
   const end = toDate(submittedAt);
   const start = toDate(startedAt ?? end);
@@ -38,6 +53,9 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
     responses: grade?.results || [],
     needs_grading: Number(grade?.pendingCount) > 0,
     single_submission: !!test?.singleSubmission,
+    // v4: per-student instance (seed, drawn pool questions) and the time limit actually applied (accommodations).
+    ...(test?.instance ? { instance: { seed: test.instance.seed || '', drawn: Array.isArray(test.instance.drawn) ? test.instance.drawn : [] } } : {}),
+    ...(test?.instance && test.instance.timeLimitApplied ? { time_limit_applied: test.instance.timeLimitApplied } : {}),
     started_at: start.toISOString(),
     submitted_at: end.toISOString(),
     duration_seconds: Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000)),
@@ -46,6 +64,8 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
       tab_switches: Number(f.tab_switches ?? f.tabSwitches) || 0,
       auto_submitted: Boolean(f.auto_submitted ?? f.autoSubmitted),
       mode: f.mode === 'scroll' ? 'scroll' : 'focus',
+      // V4-05: { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
+      ...(cleanFlagNotes(f.questions) ? { questions: cleanFlagNotes(f.questions) } : {}),
     },
   };
 }
@@ -77,7 +97,8 @@ async function sendGas(payload, config, fetchImpl) {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
+      // The verified ID token rides along at send time only (never stored in the outbox): roster / extension checks.
+      body: JSON.stringify(withToken(payload)),
     });
     return 'sent';
   } catch {

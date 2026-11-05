@@ -1,0 +1,101 @@
+/* ChemWorks — v4 question types (S09: dimensional, nuclear, reaction, vsepr, datatable). Tokens only. */
+
+/* ---------- dimensional ---------- */
+.q-dim { display: grid; gap: 12px; }
+.q-dim .q-hint { margin: 0; }
+.q-dim__given { margin: 0; font-size: 18px; }
+.q-dim__tiles { display: flex; flex-wrap: wrap; gap: 12px; }
+.q-dim__tile { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-control); border-radius: var(--radius); background: var(--bg-sunken); }
+.q-dim__fraction { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.q-dim__top, .q-dim__bottom { display: flex; gap: 6px; }
+.q-dim__bar { height: 2px; background: var(--text); border-radius: 1px; }
+.q-dim__in { width: 6.5em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); }
+.q-dim__top .q-dim__in:first-child, .q-dim__bottom .q-dim__in:first-child { width: 5em; }
+.q-dim__remove { min-height: var(--touch, 44px); }
+.q-dim__actions { display: flex; }
+.q-dim__units { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius); background: var(--bg-sunken); font-family: var(--font-mono); font-size: 18px; min-height: 52px; }
+.q-dim__term { display: inline-flex; gap: 4px; }
+.q-dim__frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.q-dim__units .q-dim__top { border-bottom: 2px solid var(--text); padding: 0 4px; justify-content: center; }
+.q-dim__units .q-dim__bottom { padding: 0 4px; justify-content: center; }
+.q-dim__units .q-dim__top:empty::before, .q-dim__units .q-dim__bottom:empty::before { content: "1"; color: var(--text-faint); }
+.q-dim__u.is-cancelled { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--text-faint); }
+.q-dim__x { color: var(--text-muted); }
+.q-dim__final { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.q-dim__eq { font-size: 22px; font-weight: 600; color: var(--text-muted); }
+.q-dim-review { display: inline-flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.q-dim-review .q-dim__units { font-size: 14px; min-height: 0; padding: 6px 10px; }
+.q-dim-ed__factor, .q-nuc-ed__particle { display: grid; gap: 10px; }
+
+/* ---------- nuclear ---------- */
+.q-nuclear { display: grid; gap: 12px; }
+.q-nuclear .q-hint { margin: 0; }
+.q-nuc__row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; border-radius: var(--radius); background: var(--bg-sunken); overflow-x: auto; }
+.q-nuc { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-weight: 600; }
+.q-nuc__nums { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.q-nuc:not(.q-nuc--blank) .q-nuc__nums { gap: 0; line-height: 1.1; font-size: 15px; color: var(--text-muted); }
+.q-nuc__sym { font-size: 26px; }
+.q-nuc__in { width: 3.6em; min-height: var(--touch, 44px); padding: 0 6px; text-align: center; font-family: var(--font-mono); font-weight: 600; }
+.q-nuc__in-sym { width: 4em; font-size: 22px; }
+.q-nuc__plus, .q-nuc__arrow { font-size: 24px; font-weight: 600; color: var(--text-muted); }
+.q-nuc__status.is-ok { color: var(--success-ink); }
+.q-nuc--sm .q-nuc__sym { font-size: 20px; }
+.q-nuc--sm.is-filled .q-nuc__sym { color: var(--primary-ink); text-decoration: underline; }
+.q-nuc-review { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+
+/* ---------- reaction ---------- */
+.q-reaction { display: grid; gap: 10px; }
+.q-reaction .q-hint { margin: 0; }
+.q-rxn__eq { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 20px; font-weight: 600; }
+.q-rxn__arrow { color: var(--text-muted); font-size: 24px; }
+.q-rxn__q { color: var(--text-faint); }
+.q-rxn__state { font-size: 0.8em; color: var(--text-muted); margin-left: 2px; }
+.q-rxn__coef { font-family: var(--font-mono); }
+.q-rxn__plus { color: var(--text-muted); }
+.q-rxn__preview { min-height: 48px; display: flex; flex-wrap: wrap; align-items: center; padding: 8px 14px; border-radius: var(--radius); background: var(--bg-sunken); font-size: 20px; font-weight: 600; }
+.q-rxn__preview.is-empty { font-size: 14px; font-weight: 500; color: var(--text-faint); }
+
+/* ---------- vsepr ---------- */
+.q-vsepr { display: grid; gap: 16px; }
+.q-vsepr__formula { margin: 0; font-size: 20px; }
+.q-vsepr__group { margin: 0; padding: 0; border: 0; min-width: 0; }
+.q-vsepr__legend { padding: 0; margin-bottom: 8px; font-weight: 700; }
+.q-vsepr__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.q-vsepr__card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: var(--touch, 44px); padding: 10px 6px;
+  text-align: center; cursor: pointer; background: var(--bg-elev); border: 1px solid var(--border-control); border-radius: var(--radius); color: var(--text); }
+.q-vsepr__card:hover { background: var(--hover-tint); }
+.q-vsepr__card:has(input:checked) { background: var(--selected-bg); border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.q-vsepr__card:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+.q-vsepr__radio { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.q-vsepr__name { font-size: 14px; font-weight: 600; }
+.q-vsepr__card--angle { font-family: var(--font-mono); }
+.q-vsepr__bond { stroke: var(--text-muted); stroke-width: 2.5; stroke-linecap: round; }
+.q-vsepr__bond--back { stroke-dasharray: 3 3; opacity: 0.7; }
+.q-vsepr__lig { fill: var(--accent-2); }
+.q-vsepr__core { fill: var(--primary); }
+.q-vsepr-review { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---------- datatable ---------- */
+.q-datatable { display: grid; gap: 8px; }
+.q-datatable .q-hint { margin: 0; }
+.q-dt__scroll { overflow-x: auto; border-radius: var(--radius); }
+.q-dt__scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.q-dt__table { border-collapse: collapse; width: 100%; background: var(--bg-elev); }
+.q-dt__table th, .q-dt__table td { padding: 8px 10px; border: 1px solid var(--border-control); text-align: center; }
+.q-dt__th, .q-dt__table thead th { background: var(--bg-sunken); font-size: 14px; font-weight: 700; }
+.q-dt__rowhead { font-weight: 700; background: var(--bg-sunken); }
+.q-dt__given { font-weight: 600; }
+.q-dt__in { width: 100%; min-width: 4.5em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); }
+.q-dt__table--sm th, .q-dt__table--sm td { padding: 4px 8px; font-size: 14px; }
+.q-dt__table td.is-right { background: var(--success-soft); color: var(--success-ink); }
+.q-dt__table td.is-wrong { background: var(--danger-soft); color: var(--danger-ink); }
+.q-dt__table td.is-key { background: var(--success-soft); color: var(--success-ink); font-weight: 600; }
+.q-dt-ed__cells { display: flex; flex-wrap: wrap; gap: 10px; }
+.q-dt-ed__cell { display: grid; gap: 4px; min-width: 7em; flex: 1; }
+.q-dt-ed__given { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; min-height: var(--touch, 44px); }
+
+@media (max-width: 720px) {
+  .q-dim__tile { width: 100%; }
+  .q-dim__in { width: 100%; }
+  .q-vsepr__cards { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+}

@@ -1,6 +1,9 @@
 // Apps Script Web App client. Every function resolves (never throws).
 // POST bodies are text/plain JSON so the browser treats them as simple CORS requests (no preflight).
 
+import { adminRequestAuth } from './admin-session.js';
+import { getFreshIdToken } from './auth.js';
+
 const TEXT_HEADERS = { 'Content-Type': 'text/plain;charset=utf-8' };
 
 function defaultFetch() {
@@ -28,6 +31,21 @@ async function post(gasUrl, body, fetchImpl) {
   return parse(await f(gasUrl, { method: 'POST', headers: TEXT_HEADERS, body: JSON.stringify(body) }));
 }
 
+// Admin POST (V4-07). The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
+// Google admin, { adminKey } when a key is set); an explicit `adminKey` argument wins. When the Google token has
+// expired mid-session ('invalid_token') it is refreshed silently once and the request retried, never a password.
+async function adminPost(gasUrl, body, adminKey, fetchImpl, { idToken } = {}) {
+  const full = { ...adminRequestAuth(), ...body };
+  if (adminKey !== undefined && adminKey !== null && adminKey !== '') full.adminKey = adminKey;
+  if (idToken) full.idToken = idToken;
+  const d = await post(gasUrl, full, fetchImpl);
+  if (d && d.result === 'error' && d.error === 'invalid_token' && full.idToken) {
+    const fresh = await getFreshIdToken();
+    if (fresh && fresh !== full.idToken) return post(gasUrl, { ...full, idToken: fresh }, fetchImpl);
+  }
+  return d;
+}
+
 const msg = (e) => (e && e.message) || String(e);
 const OUTDATED_BACKEND = 'unknown_action: the deployed Apps Script is out of date. Paste the latest apps-script/Code.gs, then Deploy > Manage deployments > Edit > New version > Deploy.';
 const failure = (data) => {
@@ -45,17 +63,25 @@ export async function pingBackend({ gasUrl, fetchImpl } = {}) {
 }
 
 export async function fetchPublishedTest(code, { gasUrl, fetchImpl } = {}) {
+  const r = await fetchPublishedTestResult(code, { gasUrl, fetchImpl });
+  return r.test || null;
+}
+
+// v4 S11/S12: { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
+// POST form is used, which applies the student's extension and roster check server-side.
+export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToken } = {}) {
   try {
-    const d = await get(gasUrl, { action: 'getTest', code }, fetchImpl);
-    return d && d.result === 'success' && d.test ? d.test : null;
-  } catch {
-    return null;
+    const d = idToken ? await post(gasUrl, { action: 'getTest', code, idToken }, fetchImpl) : await get(gasUrl, { action: 'getTest', code }, fetchImpl);
+    if (d && d.result === 'success' && d.test) return { test: d.test };
+    return { error: (d && d.error) || 'not_found', opensAt: d?.opensAt, closesAt: d?.closesAt, title: d?.title || '' };
+  } catch (e) {
+    return { error: 'network' };
   }
 }
 
 export async function publishTest(test, { gasUrl, adminKey, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'publishTest', adminKey, test }, fetchImpl);
+    const d = await adminPost(gasUrl, { action: 'publishTest', test }, adminKey, fetchImpl);
     return d && d.result === 'success' ? { ok: true } : { ok: false, error: failure(d) };
   } catch (e) {
     return { ok: false, error: msg(e) };
@@ -64,7 +90,7 @@ export async function publishTest(test, { gasUrl, adminKey, fetchImpl } = {}) {
 
 export async function listPublishedTests({ gasUrl, adminKey, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'listTests', adminKey }, fetchImpl);
+    const d = await adminPost(gasUrl, { action: 'listTests' }, adminKey, fetchImpl);
     return d && d.result === 'success'
       ? { ok: true, tests: Array.isArray(d.tests) ? d.tests : [] }
       : { ok: false, tests: [], error: failure(d) };
@@ -75,7 +101,7 @@ export async function listPublishedTests({ gasUrl, adminKey, fetchImpl } = {}) {
 
 export async function deletePublishedTest(code, { gasUrl, adminKey, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'deleteTest', adminKey, code }, fetchImpl);
+    const d = await adminPost(gasUrl, { action: 'deleteTest', code }, adminKey, fetchImpl);
     return d && d.result === 'success' ? { ok: true } : { ok: false, error: failure(d) };
   } catch (e) {
     return { ok: false, error: msg(e) };
@@ -84,9 +110,9 @@ export async function deletePublishedTest(code, { gasUrl, adminKey, fetchImpl } 
 
 export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
   try {
-    const body = { action: 'getResults', adminKey };
+    const body = { action: 'getResults' };
     if (testCode) body.testCode = testCode;
-    const d = await post(gasUrl, body, fetchImpl);
+    const d = await adminPost(gasUrl, body, adminKey, fetchImpl);
     return d && d.result === 'success'
       ? { ok: true, rows: Array.isArray(d.rows) ? d.rows : [] }
       : { ok: false, rows: [], error: failure(d) };
@@ -101,11 +127,11 @@ export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {
 // to the student, false = un-release, omitted = unchanged). grade also carries { comments, released_at }.
 export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', comments, release, gradedBy, fetchImpl } = {}) {
   try {
-    const body = { action: 'saveGrade', adminKey, submissionId, grades, note };
+    const body = { action: 'saveGrade', submissionId, grades, note };
     if (comments !== undefined) body.comments = comments;
     if (release !== undefined) body.release = !!release;
     if (gradedBy !== undefined) body.gradedBy = String(gradedBy);
-    const d = await post(gasUrl, body, fetchImpl);
+    const d = await adminPost(gasUrl, body, adminKey, fetchImpl);
     if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
     // A pre-2.0 backend saves grades but silently drops comments/release/gradedBy: its reply has no `comments`.
     if (comments !== undefined && !(d.grade && d.grade.comments && typeof d.grade.comments === 'object')) {
@@ -120,7 +146,7 @@ export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note =
 // Completed submissions per test code (admin). { ok, counts: { CODE: n }, error? }
 export async function fetchSubmissionCounts({ gasUrl, adminKey, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'getSubmissionCounts', adminKey }, fetchImpl);
+    const d = await adminPost(gasUrl, { action: 'getSubmissionCounts' }, adminKey, fetchImpl);
     return d && d.result === 'success' && d.counts && typeof d.counts === 'object'
       ? { ok: true, counts: d.counts }
       : { ok: false, counts: {}, error: failure(d) };
@@ -163,7 +189,7 @@ export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEma
 // V3-03 (admin): release every Graded / Auto-graded submission of a test. -> { ok, released: n, error? }
 export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'releaseAll', adminKey, testCode }, fetchImpl);
+    const d = await adminPost(gasUrl, { action: 'releaseAll', testCode }, adminKey, fetchImpl);
     return d && d.result === 'success' ? { ok: true, released: Number(d.released) || 0 } : { ok: false, error: failure(d) };
   } catch (e) {
     return { ok: false, error: msg(e) };
@@ -174,9 +200,84 @@ export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {})
 // -> { ok, retake_allowed_at, error? }
 export async function allowRetake({ gasUrl, adminKey, submissionId, allow = true, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'allowRetake', adminKey, submissionId, allow: !!allow }, fetchImpl);
+    const d = await adminPost(gasUrl, { action: 'allowRetake', submissionId, allow: !!allow }, adminKey, fetchImpl);
     return d && d.result === 'success' ? { ok: true, retake_allowed_at: d.retake_allowed_at || '' } : { ok: false, error: failure(d) };
   } catch (e) {
     return { ok: false, error: msg(e) };
+  }
+}
+
+// ---- V4-07 admin accounts ----
+
+// Who am I? Confirms the signed-in Google user is on the Admins sheet.
+// -> { ok: true, email, role, via } | { ok: false, error: 'not_admin' | 'invalid_token' | ... }
+export async function whoAmI({ gasUrl, idToken, adminKey, fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action: 'whoami' }, adminKey, fetchImpl, { idToken });
+    return d && d.result === 'success' ? { ok: true, email: d.email || '', role: d.role || 'admin', via: d.via || '' } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+// -> { ok, admins: [{ email, role, added_by, added_at }] }
+export async function listAdmins({ gasUrl, adminKey, fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action: 'listAdmins' }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, admins: Array.isArray(d.admins) ? d.admins : [] } : { ok: false, admins: [], error: failure(d) };
+  } catch (e) {
+    return { ok: false, admins: [], error: msg(e) };
+  }
+}
+
+// Owner only: add an admin or change a role. role: 'owner' | 'admin'. -> { ok, email, role, updated }
+export async function saveAdmin({ gasUrl, adminKey, email, role = 'admin', fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action: 'saveAdmin', email, role }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, email: d.email, role: d.role, updated: d.updated === true } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+// Owner only. Errors: 'cannot_remove_self', 'last_owner', 'not_found', 'owner_only'.
+export async function removeAdmin({ gasUrl, adminKey, email, fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action: 'removeAdmin', email }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+// Activity log, newest first. -> { ok, rows: [{ time, admin, action, target, details }] }
+export async function getLog({ gasUrl, adminKey, limit = 100, fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action: 'getLog', limit }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, rows: Array.isArray(d.rows) ? d.rows : [] } : { ok: false, rows: [], error: failure(d) };
+  } catch (e) {
+    return { ok: false, rows: [], error: msg(e) };
+  }
+}
+
+// ---------- v4 S11–S17 actions (generic helpers; every function resolves, never throws) ----------
+// adminCall('listClasses', {}, { gasUrl }) -> { ok: true, data } | { ok: false, error }   (admin credentials merged as above)
+export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action, ...payload }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, data: d } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+// Public (student) actions: progressPing, getTest (POST, with idToken), submitGameScore, getLeaderboard, reportError.
+// `unavailable` is true when the deployed backend does not know the action yet (older Code.gs) or is unreachable.
+export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action, ...payload }, fetchImpl);
+    if (d && d.result === 'success') return { ok: true, data: d };
+    return { ok: false, error: (d && d.error) || 'unknown_error', data: d, unavailable: !!d && d.error === 'unknown_action' };
+  } catch (e) {
+    return { ok: false, error: msg(e), unavailable: true };
   }
 }

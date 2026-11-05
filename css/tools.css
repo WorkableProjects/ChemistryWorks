@@ -1,0 +1,92 @@
+/* tools.css — V4-05 student tools: calculator, units & constants, scratchpad, marks, read-aloud, flag note,
+   offline banner, dashboard, text-size / spacing settings. Tokens only (base.css). Loaded on demand by
+   js/views/tools/settings.js ensureToolsCss(), so nothing here applies while the studentTools flag is off. */
+
+/* ---------- Settings: text size and dyslexia-friendly spacing ---------- */
+:root[data-cw-font="large"] { font-size: 112.5%; }
+:root[data-cw-font="xlarge"] { font-size: 125%; }
+:root[data-cw-spacing="wide"] body { letter-spacing: 0.04em; word-spacing: 0.12em; line-height: 1.75; }
+:root[data-cw-spacing="wide"] .q-text, :root[data-cw-spacing="wide"] .opt__text { line-height: 1.8; }
+
+/* ---------- Calculator ---------- */
+.calc { display: flex; flex-direction: column; gap: var(--space-3); }
+.calc__display { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius); }
+.calc__input { font-family: var(--font-mono); font-size: 16px; }
+.calc__row { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); min-height: 32px; }
+.calc__result { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--text); text-align: right; overflow-wrap: anywhere; }
+.calc__result.is-error { font-size: 14px; color: var(--danger-ink); font-family: var(--font-body); }
+.calc__mem { font-size: 12px; font-weight: 700; color: var(--primary-ink); background: var(--primary-soft); border-radius: var(--radius-sm); padding: 2px 8px; }
+.calc__tools { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: var(--space-2); }
+.calc__keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); }
+.calc__key { min-height: var(--touch); min-width: 0; padding: 0 4px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+.calc__key:hover { background: var(--hover-tint); }
+.calc__key:active { transform: scale(0.96); }
+.calc__key:focus-visible, .calc__action:focus-visible, .calc__angle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.calc__key--fn { background: var(--bg-sunken); font-size: 14px; }
+.calc__key--op { color: var(--primary-ink); background: var(--primary-soft); }
+.calc__key--mem { font-size: 13px; background: var(--bg-sunken); }
+.calc__actions { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: var(--space-2); }
+.calc__action { min-height: var(--touch); }
+.calc__angle { min-height: var(--touch); min-width: 64px; }
+.calc__hint { margin: 0; font-size: 13px; }
+
+/* ---------- Units & constants ---------- */
+.consts { display: flex; flex-direction: column; gap: var(--space-4); }
+.conv { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-sunken); }
+.conv__title { margin: 0; font-family: var(--font-display); font-size: 14px; }
+.conv__row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-2); align-items: center; }
+.conv__out { font-family: var(--font-mono); font-weight: 600; overflow-wrap: anywhere; }
+
+/* ---------- Scratchpad ---------- */
+.scratch { margin-top: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); }
+.scratch__summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch); padding: 0 var(--space-3); cursor: pointer; font-weight: 600; color: var(--text-muted); }
+.scratch__summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: var(--radius); }
+.scratch__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-teal); }
+.scratch__body { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-3) var(--space-3); }
+.scratch__text { min-height: 72px; }
+.scratch__canvas { width: 100%; aspect-ratio: 400 / 240; max-height: 280px; touch-action: none; cursor: crosshair; color: var(--text); background: var(--bg-sunken); border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); }
+.scratch__actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* ---------- Highlighter / strike-out ---------- */
+.tool-marks { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0; }
+.tool-btn { min-height: var(--touch); }
+.tool-btn.is-on { background: var(--primary-soft); color: var(--primary-ink); box-shadow: inset 0 0 0 1px var(--primary-line); }
+mark.tool-mark { background: var(--warning-soft); color: inherit; box-shadow: 0 0 0 1px var(--warning-line); border-radius: 2px; }
+.opt.is-struck .opt__body { text-decoration: line-through; text-decoration-thickness: 2px; opacity: 0.6; }
+.q-card.is-strike-mode .opt { cursor: not-allowed; outline: 1px dashed var(--border-strong); outline-offset: 2px; }
+
+/* ---------- Read aloud ---------- */
+.tool-read { min-height: var(--touch); }
+.tool-read.is-reading { background: var(--primary-soft); color: var(--primary-ink); }
+
+/* ---------- Flag note ---------- */
+.q-flagnote { margin: var(--space-2) 0; }
+.q-flagnote[hidden] { display: none; }
+.q-flagnote__input { width: 100%; }
+
+/* ---------- Offline / waiting banner ---------- */
+.net-banner { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-2) var(--space-4); background: var(--warning-soft); color: var(--warning-ink); border-bottom: 1px solid var(--warning-line); font-weight: 600; }
+.net-banner[hidden] { display: none; }
+.net-banner__text { flex: 1 1 240px; min-width: 0; }
+.landing .net-banner { position: relative; z-index: 1; margin: 0 auto var(--space-4); max-width: 880px; width: calc(100% - 2 * var(--space-4)); border: 1px solid var(--warning-line); border-radius: var(--radius); }
+
+/* ---------- My dashboard (landing) ---------- */
+.dash { margin-bottom: var(--space-5); }
+.dash__summary { margin: 0 0 var(--space-3); }
+.dash__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.dash__item { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+.dash__main { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; flex: 1 1 200px; min-width: 0; }
+.dash__title { font-weight: 700; overflow-wrap: anywhere; }
+.dash__meta { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; font-size: 14px; }
+.dash__score { font-family: var(--font-display); font-weight: 700; }
+.dash__practice { margin-top: var(--space-4); }
+.dash__practice[hidden] { display: none; }
+
+@media (max-width: 480px) {
+  .calc__keys, .calc__tools { gap: 6px; }
+  .conv__row { grid-template-columns: 1fr 1fr; }
+  .conv__row > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calc__key { transition: none; }
+}

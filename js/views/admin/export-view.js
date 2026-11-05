@@ -1,11 +1,13 @@
 // Printable view of one reviewed submission (V2-08). Renders into #print-root and calls window.print();
 // css/print.css hides the rest of the app while printing. Row data goes through h()/richText()/commentBody() only.
-import { h, richText, renderMath } from '../../ui.js';
+import { h, richText, renderMath, brandLogo } from '../../ui.js';
 import { buildExportModel } from '../../lib/export.js';
 import { commentBody } from '../comment-view.js';
 import { orbitalDiagram } from '../orbital-view.js';
 import { structureDiagram } from '../structure-view.js';
 import { lewisDiagram } from '../lewis-view.js';
+import { hotspotDiagram } from '../widgets/hotspot-stage.js';
+import { typeUI } from '../qtypes/registry.js';
 import { withQuestionImage } from '../question-image.js';
 import { choiceImagesEl } from '../runner.js';
 import { formulaToHTML } from '../../lib/formula.js';
@@ -25,6 +27,8 @@ function answerDiagram(item) {
   if (type === 'orbital') return diagram(() => orbitalDiagram(q, a, { size: 'md' }));
   if (type === 'structure') return diagram(() => structureDiagram(q, a, { size: 'md', label: 'Student Lewis structure' }));
   if (type === 'lewis') return diagram(() => lewisDiagram(q.element, a, { size: 'md' }));
+  if (type === 'hotspot') return diagram(() => hotspotDiagram(q, a, { size: 'md', marks: true }));
+  if (typeUI(type)?.review) return diagram(() => typeUI(type).review(q, a, { key: false, size: 'md' }));
   return null;
 }
 
@@ -39,6 +43,8 @@ function correctDiagram(item) {
     return els.length ? h('div', { class: 'export-diagram-row' }, els) : null;
   }
   if (type === 'lewis' && item.correctAnswer != null) return diagram(() => lewisDiagram(q.element, canonicalDots(item.correctAnswer, q.element), { size: 'md' }));
+  if (type === 'hotspot') return diagram(() => hotspotDiagram(q, null, { size: 'md', showTargets: true }));
+  if (typeUI(type)?.review) return diagram(() => typeUI(type).review(q, null, { key: true, size: 'md' }));
   return null;
 }
 
@@ -81,6 +87,8 @@ function itemEl(item) {
     item.comment ? h('div', { class: 'export-comment' }, h('span', { class: 'export-label' }, 'Teacher comment'), commentBody(item.comment)) : null);
 }
 
+const exportDate = () => new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
 /** The printable document for a model from buildExportModel(). */
 export function exportDocument(model) {
   const { score } = model;
@@ -88,9 +96,13 @@ export function exportDocument(model) {
   if (score.pending > 0) scoreText += ` · ${score.pending} answer${score.pending === 1 ? '' : 's'} not yet graded`;
   return h('article', { class: 'export-doc', dataset: { testid: 'export-doc' } },
     h('header', { class: 'export-head' },
+      h('div', { class: 'export-head__top' },
+        h('div', { class: 'export-head__logo' }, brandLogo('wordmark')),
+        h('div', { class: 'export-head__meta' },
+          h('h1', { class: 'export-title' }, model.testTitle || model.testCode || 'Assessment'),
+          h('p', { class: 'export-student' }, h('strong', {}, model.studentName || 'Student'), model.studentEmail ? ` · ${model.studentEmail}` : ''),
+          h('p', { class: 'export-date' }, exportDate()))),
       h('div', { class: 'export-brand' }, 'ChemistryWorks'),
-      h('h1', { class: 'export-title' }, model.testTitle || model.testCode || 'Assessment'),
-      h('p', { class: 'export-student' }, h('strong', {}, model.studentName || 'Student'), model.studentEmail ? ` · ${model.studentEmail}` : ''),
       h('p', { class: 'export-score', dataset: { testid: 'export-score' } }, scoreText),
       model.gradedBy ? h('p', { class: 'export-grader', dataset: { testid: 'export-graded-by' } }, `Graded by ${model.gradedBy}`) : null),
     h('hr', { class: 'export-rule' }),
@@ -121,7 +133,8 @@ export async function printSubmission({ row, test, includeComments }) {
   // thead/tfoot spacers give every printed page its top and bottom margin instead.
   root.replaceChildren(h('table', { class: 'print-frame', role: 'presentation' },
     h('thead', {}, h('tr', {}, h('td', {}, h('div', { class: 'print-frame__space' })))),
-    h('tfoot', {}, h('tr', {}, h('td', {}, h('div', { class: 'print-frame__space' })))),
+    h('tfoot', {}, h('tr', {}, h('td', {}, h('div', { class: 'print-frame__space export-foot' },
+      h('span', {}, ['ChemistryWorks', model.testCode].filter(Boolean).join(' · ')))))),
     h('tbody', {}, h('tr', {}, h('td', {}, exportDocument(model))))));
   await waitForKatex();
   renderMath(root);

@@ -2,10 +2,12 @@
 
 import { h, richText, renderMath } from '../../ui.js';
 import { splitGameQuestions } from '../../lib/game.js';
+import { shuffle } from '../../lib/games/common.js';
 import { buildCards, advanceQueue } from '../../lib/games/flashcards.js';
 
 export function play(shell) {
-  const { playable } = splitGameQuestions(shell.test);
+  const all = splitGameQuestions(shell.gtest).playable;
+  const playable = shell.opts.questions ? all.slice(0, shell.opts.questions) : all;
   let g = null;
 
   function intro() {
@@ -21,7 +23,7 @@ export function play(shell) {
   }
 
   function begin() {
-    g = { queue: buildCards(playable), total: playable.length, knew: 0, reviewed: 0, seen: 0 };
+    g = { queue: buildCards(shell.opts.questions ? shuffle(all).slice(0, shell.opts.questions) : playable), total: playable.length, knew: 0, reviewed: 0, seen: 0 };
     card();
   }
 
