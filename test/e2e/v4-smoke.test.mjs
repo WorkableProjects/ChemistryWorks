@@ -27,7 +27,9 @@ test('landing: v4 brand, version label, settings popover, dark theme, no horizon
   await poll(async () => (await page.locator('html').getAttribute('data-theme')) === 'dark', { message: 'dark theme' });
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(11, 20, 36)');
   await page.keyboard.press('Escape');
-  await signIn(page);
+  await page.locator(tid('demo-name')).fill('Ada Lovelace');
+  await page.locator(tid('demo-email')).fill('ada@example.org');
+  await page.locator(tid('demo-signin')).click();
   await page.locator(tid('site-version')).waitFor();
   assert.match(await page.locator(tid('site-version')).innerText(), new RegExp(pkg.version.replace(/\./g, '\\.')));
   assert.ok(await noHorizontalScroll(page), 'no horizontal scroll at 360 px');
@@ -60,6 +62,7 @@ test('student flow on a phone: bottom-sheet navigator and results without horizo
 test('admin: tabs incl. Insights, every v4 question type in the builder picker, version-check never blocks', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
   s.onGas = (b) => (b.action === 'getResults' ? { result: 'success', rows: [] } : null);
+  await s.context.addInitScript(() => { try { sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')); } catch { /* ignore */ } });
   await unlockAdmin(page, url);
   for (const t of ['library', 'builder', 'grading', 'insights', 'settings']) assert.equal(await page.locator(tid(`tab-${t}`)).count(), 1, `tab ${t}`);
   await page.locator(tid('tab-insights')).click();
@@ -69,14 +72,12 @@ test('admin: tabs incl. Insights, every v4 question type in the builder picker, 
   for (const t of V4_TYPES) assert.equal(await page.locator(tid(`add-question-${t}`)).count(), 1, `picker offers ${t}`);
 }));
 
-test('v4 question-type demo tests validate and open in the runner', () => withSession(env, {}, async (s) => {
-  for (const code of ['DEMOV4A', 'DEMOV4B']) {
-    const file = `data/tests/${code}.json`;
-    if (!fs.existsSync(file)) continue; // added by S08 / S09
-    s.serveTest(code, JSON.parse(fs.readFileSync(file, 'utf8')));
+for (const code of ['DEMOV4A', 'DEMOV4B', 'DEMOV4C']) {
+  test(`${code} opens in the runner with a widget for every question`, () => withSession(env, {}, async (s) => {
+    s.serveTest(code, JSON.parse(fs.readFileSync(`data/tests/${code}.json`, 'utf8')));
     s.onGas = (b) => (b.action === 'getStudentStatus' ? { result: 'success', submitted: false, blocking: false, attempts: 0, latest: null, others: [] } : null);
     await startTest(s, code);
     await s.page.locator(tid('question-card')).first().waitFor();
-    assert.equal(await s.page.locator('.q-card :text("Unsupported question type")').count(), 0, `${code}: every type has a widget`);
-  }
-}));
+    assert.equal(await s.page.getByText('Unsupported question type').count(), 0, `${code}: every type has a widget`);
+  }));
+}

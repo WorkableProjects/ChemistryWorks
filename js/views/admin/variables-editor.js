@@ -30,7 +30,7 @@ export function variablesEditor(q, redraw, changed) {
     sample.replaceChildren(
       h('p', { class: 'adm-vars__line' }, h('strong', {}, 'Sample values: '), res.values.map(([k, v]) => `${k} = ${v}`).join(', ')),
       res.text ? h('p', { class: 'adm-vars__line' }, h('strong', {}, 'Question: '), res.text) : null,
-      res.answers.map((a) => h('p', { class: 'adm-vars__line', dataset: { testid: 'variables-answer' } }, h('strong', {}, `${a.label}: `), String(a.value))));
+      ...res.answers.map((a) => h('p', { class: 'adm-vars__line', dataset: { testid: 'variables-answer' } }, h('strong', {}, `${a.label}: `), String(a.value))));
   };
   const reroll = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'variables-reroll' }, on: { click: () => { roll++; refresh(); } } }, 'Re-roll sample');
 

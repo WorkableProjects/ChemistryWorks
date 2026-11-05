@@ -46,7 +46,9 @@ const resolveView = (view) => loaded.get(view) || VIEWS[view];
 
 function setUrl(params) {
   const url = new URL(location.href);
+  const features = url.searchParams.get('features'); // keep ?features= (V4-08 flags) across navigation
   url.search = '';
+  if (features) url.searchParams.set('features', features);
   for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, v);
   if (url.pathname.endsWith('/test') && !params.code) url.pathname = url.pathname.replace(/test$/, '');
   history.replaceState(null, '', url);

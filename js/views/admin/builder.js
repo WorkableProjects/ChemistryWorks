@@ -229,7 +229,8 @@ export function renderBuilder(root, ctx) {
     buttons.publish.title = why || 'Publish to the Google Sheet';
     publishNote.textContent = why && valid ? why : '';
   }
-  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); if (v2) drawOutline(); };
+  // The admin shell listens for this to refresh the breadcrumb and in-test tabs (test code changes).
+  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); if (v2) drawOutline(); document.dispatchEvent(new CustomEvent('cw:builder-change')); };
 
   const normalizedOrNull = () => { try { return normalizeTest(S.test); } catch { return null; } };
 
@@ -1006,6 +1007,8 @@ export function renderBuilder(root, ctx) {
     if (!listEl) return;
     const from = S.test.questions.indexOf(q);
     const rows = [...outlineEl.querySelectorAll('.bld2-ol__item')].filter((r) => r._q && sectionKey(r._q) === sectionKey(q));
+    // Finish any FLIP move still running (e.g. right after a keyboard reorder) so the measured rows are where they land.
+    rows.forEach((r) => r.getAnimations?.().forEach((a) => { try { a.finish(); } catch { /* ignore */ } }));
     const mids = rows.map((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
     const startY = e.clientY;
     const grip = e.currentTarget;

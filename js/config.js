@@ -52,7 +52,10 @@ export const CONFIG = Object.freeze({
 });
 
 /** Flags switched on through the URL (?features=a,b or ?features=all) for this page load only. */
-export function urlFeatures(search = (typeof location !== 'undefined' ? location.search : '')) {
+// Read once at load: the router rewrites the URL (e.g. ?admin=true), which would otherwise drop ?features=.
+const INITIAL_SEARCH = typeof location !== 'undefined' ? location.search : '';
+
+export function urlFeatures(search = INITIAL_SEARCH) {
   const raw = new URLSearchParams(search).get('features');
   return raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
 }

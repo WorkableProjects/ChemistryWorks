@@ -501,6 +501,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .brand-mark__atom { fill: var(--brand-teal); }
 .brand-logo__word { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.035em; font-size: 0.62em; display: inline-flex; }
 .brand-logo--wordmark { font-size: var(--brand-size, 52px); height: 1em; }
+.brand-logo--mark { height: var(--brand-size, 100%); max-height: 100%; }
 .brand-logo__chem { color: var(--brand-navy); }
 .brand-logo__works { color: var(--brand-teal); }
 /* Mono: one colour for print and high contrast. */

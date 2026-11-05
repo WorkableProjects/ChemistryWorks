@@ -86,7 +86,7 @@ test('student answers every S10 type and the algorithmic questions; results show
   // ---- titration: buttons, slider, readout
   const read = card().locator(tid('titration-readout'));
   await card().locator(tid('titration-add-1')).click();
-  await waitText(read, /Added 1\.00 mL — pH 2\.\d\d/);
+  await waitText(read, /Added 1\.00 mL — pH 3\.\d\d/); // buffer region: pKa + log(0.1 / 2.4) ≈ 3.4
   for (let i = 0; i < 24; i++) await card().locator(tid('titration-add-1')).click();
   await waitText(read, /Added 25\.00 mL — pH 8\.7\d/);
   await card().locator(tid('titration-add-0.1')).click();

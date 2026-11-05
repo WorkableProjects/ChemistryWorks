@@ -129,7 +129,7 @@ export function ensureShellCss() {
  * `el` holds the whole page (top bar, sidebar, content). Mount it, then put views into `panel`.
  */
 export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNavigate, onTestTab, onHome, onSignOut, onRecent, getTestCode = () => '', newBtn = null, sheetLink = null, lockBtn = null } = {}) {
-  const st = { section: current, testTab: '', pref: load('adminNav', null), drawer: false, recent: [] };
+  const st = { section: current, testTab: '', pref: (() => { const v = load('adminNav', null); return typeof v === 'boolean' ? v : (v && typeof v.collapsed === 'boolean' ? v.collapsed : null); })(), drawer: false, recent: [] };
   if (st.pref && typeof st.pref === 'object') st.pref = typeof st.pref.collapsed === 'boolean' ? st.pref.collapsed : null;
   else if (typeof st.pref !== 'boolean') st.pref = null;
   const cleanups = [];
@@ -315,6 +315,9 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   drawCrumbs();
   applyLayout();
   refreshTabs();
+  const onBuilderChange = () => refreshTabs();
+  document.addEventListener('cw:builder-change', onBuilderChange);
+  cleanups.push(() => document.removeEventListener('cw:builder-change', onBuilderChange));
   ensureShellCss().then(() => {
     el.classList.remove('ash--wait');
     requestAnimationFrame(() => { placePill(); placeTabIndicator(); });

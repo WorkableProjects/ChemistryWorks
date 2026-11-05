@@ -508,9 +508,11 @@ export function renderGrading(root, ctx, { goSettings }) {
       const onKey = (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
         const t = e.target;
-        if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
-        if (document.querySelector('.modal')) return;
         const k = e.key.toLowerCase();
+        // J/K also work from a points box (letters mean nothing there; the view focuses it after moving).
+        const inNumber = t && t.tagName === 'INPUT' && (t.type === 'number' || t.inputMode === 'decimal') && (k === 'j' || k === 'k');
+        if (!inNumber && t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+        if (document.querySelector('.modal')) return;
         if (k === 'j' || k === 'k') {
           const target = neighbor(k === 'j' ? 1 : -1);
           if (target) { e.preventDefault(); go(target); }
