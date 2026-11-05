@@ -9,7 +9,7 @@ const DEFAULTS = {
   GOOGLE_CLIENT_ID: '179519385690-u3qo36gnublg8pmfve57uqtv0lm24e9r.apps.googleusercontent.com',
 
   // Google Apps Script Web App URL ending in /exec (DEPLOYMENT.md step 2).
-  GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbyrsebzdEcVLbvSw5HQbUTS5qY6RDWbDrSXXvcMMLIMcx0cNMuTx_Fv7AcoqBBdaGAa/exec',
+  GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx1ZXB00c8RFbGbY4R0eq4Vo0GrlISHKnv5qHHCJ0B3QVI9jA5mY-FgcBwxuuwwGyF3/exec',
 
   // Link to the Google Sheet that receives submissions (shown in the admin panel).
   SHEET_URL: 'https://docs.google.com/spreadsheets/d/1yYGaYJAW_dDIUwu73nvUbgE78HbEQAdfVqupW6eKSWQ/edit?gid=0#gid=0',
@@ -36,7 +36,7 @@ const DEFAULTS = {
   // (or ?features=all). Read flags with feature('name').
   FEATURES: {
     adminShell: true,      // S05: Classroom-style admin shell + dashboard
-    adminAccounts: false,  // S06: Google sign-in for admins — turn on after deploying Code.gs 4.0.0 and filling the Admins sheet
+    adminAccounts: true,  // S06: Google sign-in for admins — turn on after deploying Code.gs 4.0.0 and filling the Admins sheet
     teacherTools: true,    // S07: insights, grade by question, comment bank (always shown)
     studentTools: true,    // S16: calculator, scratchpad, read-aloud (per test: test.tools)
     v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
