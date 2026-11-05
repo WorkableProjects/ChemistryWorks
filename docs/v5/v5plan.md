@@ -22,6 +22,7 @@
 | V5-01 | Games become modes of the test's own questions | High |
 | V5-02 | Student dashboard + profile, synced through Google Sheets | High |
 | V5-10 | **Class Hub:** assignments, due dates, class stream, notifications | High |
+| V5-11 | **Performance overhaul:** no full reloads after an action | High |
 | V5-03 | Remove Insights and Mastery | High (small, first) |
 | V5-04 | Admin sidebar animation | Medium |
 | V5-05 | Motion pass (theme switch and everywhere still static) | Medium |
@@ -158,13 +159,58 @@ The one big feature next to the student dashboard. Today a teacher shares a code
 
 - New sheets: `Assignments` (`id, classId, testCode, title, instructions, opensAt, dueAt, lateAllowed, required, modesJson, publishAt, createdBy, createdAt`), `Stream` (`id, classId, type, body, pinned, createdBy, createdAt`), `Notifications` (`email, id, type, refId, createdAt, readAt`) — or notifications derived on read to save writes (see Open question 7).
 - Admin actions: `saveAssignment`, `deleteAssignment`, `listAssignments`, `postStream`, `deleteStreamPost`, `getAssignmentStatus` (roster × submissions × `Attempts`), `remindMissing`.
-- Student actions (ID token, own classes only): `getClassHub` (classes, stream, assignments with this student's status), `markNotificationsRead`. Folded into `getStudentProfile` where possible so the home makes one request.
+- Student actions (ID token, own classes only): `getClassHub` (classes, stream, assignments with this student's status), `markNotificationsRead`; V5-11 `listTests` summary fields, filtered/incremental `getResults`, `batch`, `CacheService`. Folded into `getStudentProfile` where possible so the home makes one request.
 - Grading view: "Late" tag and due date on submissions from an assignment.
 
 ### Tests
 
 - Unit: status calculation (missing/late/turned in at the due-date boundary, time zones, accommodations extending due dates).
 - E2E: teacher assigns → student sees it in Up next → opens without a code → submits late → teacher tracker shows Late.
+
+## V5-11 — Performance overhaul
+
+**Problem (teacher report):** every action reloads the whole view. Deleting a test — even a local draft — takes about 8 seconds before the list is back.
+
+### Why it is slow today (`js/views/admin/library.js` → `refresh()`)
+
+After any delete, publish or duplicate, `refresh()` throws the list away (skeleton) and rebuilds it from scratch:
+1. Fetches **every bundled test file** one by one (`loadCatalog` + `loadTest` per code).
+2. Calls `getSubmissionCounts` **and** `getResults` — the second downloads **every submission row of every test** only to find which tests need grading.
+3. Calls `listTests`, then **`getTest` once per published test** to show question counts.
+4. Each of those is a separate Apps Script request (≈0.5–2 s each, cold starts worse), and a draft delete waits for all of them even though nothing on the server changed.
+
+The same pattern is in grading (`fetchResults` for everything, then re-fetch after save), the dashboard and classes. The Apps Script side reads whole sheets on every call (`getRange(2, 1, last - 1, …)`) with no caching.
+
+### Fixes
+
+**Client: update in place, never rebuild after an action**
+- **Optimistic updates:** delete/rename/duplicate/publish change the list immediately (row animates out), the request runs in the background, and the row comes back with an error toast + "Retry" if it fails. A draft delete touches no network at all.
+- **Shared data store** (`js/lib/store.js`): one in-memory cache per resource (tests, counts, results, classes, bank, profile) with `get` (cached), `refresh` (background), `patch` (local change) and subscribers. Views re-render only the rows that changed.
+- **Stale-while-revalidate:** views paint instantly from cache / `sessionStorage`, then update quietly when fresh data arrives — no skeleton after the first load. Switching sidebar sections no longer refetches.
+- **No N+1 requests:** bundled tests come from one catalog file that already holds title + question count; published test metadata comes from one `listTests` call.
+- **Request de-duplication** (two views asking for the same thing share one request) and cancellation when leaving a view.
+
+**Backend (`Code.gs` 5.0.0)**
+- `listTests` returns summary fields (question count, points, updatedAt, status, needs-grading count, submission count) in one call — replaces `getTest`×N, `getSubmissionCounts` and the full `getResults` on the library.
+- `getResults` takes filters (`testCode`, `status`, `since`) and returns only changed rows after a timestamp (`since`) so grading refreshes are small.
+- `CacheService` for hot reads (tests list, settings, class rosters), cleared on writes. Read only the columns needed.
+- **Batch endpoint** (`batch: [{action, …}]`) so bulk grading / bulk delete is one request, not one per row.
+- Writes return the updated row so the client patches instead of re-reading.
+
+**App load**
+- Split `runner.js` (875 lines) and `builder.js` (1,133 lines); lazy-load question-type widgets and editors by type; lazy-load game modes.
+- Load only the CSS a view needs (19 stylesheets load on every page today).
+- Preload the next likely view (e.g. builder chunks when hovering a test).
+
+### Targets (measured in an e2e perf test with a slowed mock backend)
+
+| Action | Today | Target |
+|---|---|---|
+| Delete a draft | ~8 s | instant (<100 ms), no network |
+| Delete a published test | ~8 s | row gone instantly; confirmed in background |
+| Open Library (warm) | full reload | instant from cache, background refresh |
+| Save a grade → next student | refetch all results | instant; one small request |
+| Switch sidebar section and back | refetch | instant |
 
 ## V5-03 — Remove Insights and Mastery
 
@@ -228,13 +274,12 @@ Each is a definition in `js/lib/qtypes/<type>.js` + a widget in `js/views/qtypes
 
 Pick in Open question 5.
 
-(Assignments and notifications moved into V5-10.)
+(Assignments and notifications moved into V5-10; performance into V5-11.)
 
 1. **Teacher student view:** click a student in Classes → profile, all attempts, accommodations in one page.
 2. **PWA / install + offline answering:** service worker caches the app; answers queue offline and sync.
-3. **Performance:** split `runner.js` and `builder.js` further; lazy-load question-type widgets; Lighthouse ≥90 on landing and runner.
-4. **Accessibility audit** (WCAG 2.1 AA) of every game mode and the new types.
-5. **Practice sets:** teacher bundles bank questions into a practice that auto-reshuffles each attempt (no submission), ideal for game modes.
+3. **Accessibility audit** (WCAG 2.1 AA) of every game mode and the new types.
+4. **Practice sets:** teacher bundles bank questions into a practice that auto-reshuffles each attempt (no submission), ideal for game modes.
 
 ## V5-09 — Release
 
@@ -248,7 +293,7 @@ Pick in Open question 5.
 ## Backend changes summary (`apps-script/Code.gs` → 5.0.0)
 
 - New sheets: `Students`, `Attempts` (if Open question 3 = yes), `Assignments`, `Stream`, `Notifications` (V5-10).
-- New actions: `getStudentProfile`, `saveStudentProfile`, `syncProgress`; admin `getStudentProfileAdmin` (by email, admin only); V5-10 `saveAssignment`, `deleteAssignment`, `listAssignments`, `postStream`, `deleteStreamPost`, `getAssignmentStatus`, `remindMissing`, `getClassHub`, `markNotificationsRead`.
+- New actions: `getStudentProfile`, `saveStudentProfile`, `syncProgress`; admin `getStudentProfileAdmin` (by email, admin only); V5-10 `saveAssignment`, `deleteAssignment`, `listAssignments`, `postStream`, `deleteStreamPost`, `getAssignmentStatus`, `remindMissing`, `getClassHub`, `markNotificationsRead`; V5-11 `listTests` summary fields, filtered/incremental `getResults`, `batch`, `CacheService`.
 - `getLeaderboard` / `submitGameScore`: accept the new mode ids; ignore removed game ids.
 - No change to `submit`, grading or release.
 
@@ -265,14 +310,15 @@ Same rules as v4 (`docs/v3/v4.0plan.md` → "Running v4 across sessions"): branc
 | S05 | Backend 5.0 | `Students` / `Attempts` sheets, profile + sync actions, tests | — |
 | S06 | Student home | V5-02 layout, profile page, sync, offline fallback | S05, S02 |
 | S07 | Class Hub | V5-10 assignments, stream, tracker, notifications (backend + teacher + student) | S06 |
-| S08 | Motion + sidebar | V5-04, V5-05 | S01 |
-| S09 | Appearance | V5-06 Appearance panel, accent selector, saved to profile | S06, S08 |
-| S10 | Question types I | `ionicformula`, `ionbuilder`, `isotopemass` | S02 |
-| S11 | Question types II | `bohr`, `molbuild`, `gaslaw`, `oxidation`, `heatcurve`, `solubility` | S10 |
-| S12 | Big improvements | Chosen items from V5-08 | S06 |
-| S13 | Hardening + release | a11y, performance, every flag on, docs, 5.0.0 | all |
+| S08 | Performance overhaul | V5-11: data store, optimistic updates, no full reloads; backend summary/filtered/batch actions + caching; code splitting; perf e2e test | S05 |
+| S09 | Motion + sidebar | V5-04, V5-05 | S01 |
+| S10 | Appearance | V5-06 Appearance panel, accent selector, saved to profile | S06, S09 |
+| S11 | Question types I | `ionicformula`, `ionbuilder`, `isotopemass` | S02 |
+| S12 | Question types II | `bohr`, `molbuild`, `gaslaw`, `oxidation`, `heatcurve`, `solubility` | S11 |
+| S13 | Big improvements | Chosen items from V5-08 | S06 |
+| S14 | Hardening + release | a11y, performance, every flag on, docs, 5.0.0 | all |
 
-S05 can run in parallel with S02–S04; S08 and S10 can run in parallel with anything after S01–S02.
+S05 can run in parallel with S02–S04; S09 and S11 can run in parallel with anything after S01–S02.
 
 ## Open questions
 
