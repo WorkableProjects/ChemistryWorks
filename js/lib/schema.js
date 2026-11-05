@@ -305,6 +305,13 @@ export function normalizeTest(raw) {
   t.requireAllQuestions = bool(t.requireAllQuestions, false);
   if (t.games !== undefined) t.games = Array.isArray(t.games) ? t.games.map((g) => str(g).trim()).filter(Boolean) : undefined;
   if (t.gameOptions !== undefined) t.gameOptions = cleanGameOptions(t.gameOptions); // V4-04
+  // V4-02 / V4-07 test settings (all optional): window, late work, announcement, classes / roster, tools, practice.
+  for (const k of ['opensAt', 'closesAt']) { if (t[k] === '' || t[k] === null) delete t[k]; else if (t[k] !== undefined) t[k] = str(t[k]).trim(); }
+  if (t.announcement !== undefined) { t.announcement = str(t.announcement).trim(); if (!t.announcement) delete t.announcement; }
+  if (t.late !== undefined && t.late !== null && !isObj(t.late)) delete t.late;
+  if (t.late === null || (isObj(t.late) && !str(t.late.until).trim())) delete t.late;
+  if (t.classes !== undefined) t.classes = Array.isArray(t.classes) ? [...new Set(t.classes.map((x) => str(x).trim()).filter(Boolean))] : [];
+  if (t.rosterOnly !== undefined) t.rosterOnly = t.rosterOnly === true;
   t.defaultMode = t.defaultMode === undefined || t.defaultMode === null || t.defaultMode === '' ? null : t.defaultMode;
   t.passingPercent = nullableNum(t.passingPercent);
   t.sections = Array.isArray(t.sections) ? t.sections.map((x) => {
@@ -656,6 +663,27 @@ export function validateTest(test) {
     test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet));
   }
   errors.push(...validateGameOptions(test)); // V4-04
+  const badDate = (v) => v !== undefined && v !== '' && !Number.isFinite(Date.parse(v));
+  for (const k of ['opensAt', 'closesAt']) if (badDate(test[k])) errors.push(`Test: ${k} must be a date and time (e.g. 2026-11-10T08:00).`);
+  if (test.opensAt && test.closesAt && Date.parse(test.closesAt) <= Date.parse(test.opensAt)) errors.push('Test: closesAt must be after opensAt.');
+  if (isObj(test.late)) {
+    if (badDate(test.late.until)) errors.push('Test: late.until must be a date and time.');
+    if (!test.closesAt) errors.push('Test: late work needs a closesAt date.');
+    else if (Date.parse(test.late.until) <= Date.parse(test.closesAt)) errors.push('Test: late.until must be after closesAt.');
+    const p = test.late.penalty;
+    if (p !== undefined && p !== null && (!isObj(p) || !['percentPerDay', 'flat'].includes(p.type) || !isNum(p.value) || p.value < 0 || p.value > 100)) {
+      errors.push('Test: late.penalty must be { "type": "percentPerDay" | "flat", "value": 0-100 }.');
+    }
+  }
+  if (test.rosterOnly === true && (!Array.isArray(test.classes) || !test.classes.length)) errors.push('Test: a roster-only test needs at least one class.');
+  if (test.practice !== undefined && (!Array.isArray(test.practice) || test.practice.some((p) => !isObj(p) || !nonEmptyStr(p.game)))) errors.push('Test: practice must be a list of { "game", "target", "due" }.');
+  for (const sec of Array.isArray(test.sections) ? test.sections : []) {
+    if (!isObj(sec) || sec.pool === undefined) continue;
+    const pool = sec.pool;
+    const n = Array.isArray(test.questions) ? test.questions.filter((q) => q && q.section === sec.id).length : 0;
+    if (!isObj(pool) || !Number.isInteger(pool.draw) || pool.draw < 1) errors.push(`Section "${sec.title || sec.id}": pool.draw must be a whole number of at least 1.`);
+    else if (pool.draw > n) errors.push(`Section "${sec.title || sec.id}": pool draws ${pool.draw} but the section has only ${n} questions.`);
+  }
   return { valid: errors.length === 0, errors };
 }
 
