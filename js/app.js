@@ -34,6 +34,7 @@ import * as submitted from './views/submitted.js';
 const VIEWS = {
   landing, runner, results, feedback, submitted,
   'mode-select': () => import('./views/mode-select.js'),
+  unavailable: () => import('./views/unavailable.js'),
   game: () => import('./views/game.js'),
   admin: () => import('./views/admin.js'),
 };
@@ -121,13 +122,23 @@ function navigate(view, params = {}) {
 async function openTest(code) {
   const c = normalizeCode(code);
   try {
-    const loaded = await loadTest(c, { config: CONFIG });
+    const idToken = ctx.user?.provider === 'google' ? getIdToken() : null;
+    const loaded = await loadTest(c, { config: CONFIG, idToken });
     // V4-09 / V4-02: per-student instance (randomized numbers, drawn pool questions), stable across devices.
-    const test = instantiateTest(loaded.test, { email: ctx.user?.email || '' });
+    let test = instantiateTest(loaded.test, { email: ctx.user?.email || '' });
     const { source } = loaded;
     // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
     mount(root, h('div', { class: 'status-check' }, flaskLoader({ size: 88, label: 'Checking your submission…', testid: 'submission-status-check' })));
     const state = await checkSubmissionState(ctx, test);
+    // V4-02 S11/S12: roster-only and the open/close window (server state wins: it knows this student's extension).
+    if (state.roster && state.roster.required && state.roster.ok === false) return navigate('unavailable', { reason: 'not_on_roster', title: test.title, code: test.code });
+    const win = state.window || windowState(test, state.accommodations);
+    if (win.state === 'before') return navigate('unavailable', { reason: 'not_open', title: test.title, opensAt: win.opensAt, code: test.code });
+    if (win.state === 'closed') return navigate('unavailable', { reason: 'closed', title: test.title, closesAt: win.closesAt, code: test.code });
+    if (win.state === 'late') test = { ...test, instance: { ...(test.instance || {}), late: true } };
+    // A v4 backend answered (it sends the window): the runner may send live-monitor pings.
+    if (state.window) test = { ...test, instance: { ...(test.instance || {}), live: true } };
+    if (state.accommodations) test = applyAccommodations(test, state.accommodations, test.instance?.seed || ctx.user?.email || '');
     const single = test.singleSubmission === true;
     // Single-submission tests: one attempt, period — "Take again" only when the teacher allowed a retake.
     if (single && state.blocking) {
@@ -143,6 +154,7 @@ async function openTest(code) {
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
     navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
   } catch (err) {
+    if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });
     navigate('landing', { code: c, error: err.message });
   }
 }

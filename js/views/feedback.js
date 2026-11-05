@@ -127,7 +127,9 @@ export function render(root, ctx, params = {}) {
       appHeader({ title: 'ChemistryWorks', subtitle: 'Feedback', onHome: goBack, right: userBadge(user) }),
       h('main', { class: 'feedback' },
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: goBack }, dataset: { testid: 'feedback-back' } }, icon('left', { size: 14 }), 'Back'),
-        title, meta, content, actions)));
+        title, meta,
+        test?.announcement ? h('div', { class: 'notice notice--info', role: 'note', dataset: { testid: 'feedback-announcement' } }, icon('info'), h('span', {}, String(test.announcement))) : null,
+        content, actions)));
 
   const setMeta = (submittedAt) => { meta.textContent = [code, submittedAt ? `Submitted ${fmtWhen(submittedAt)}` : ''].filter(Boolean).join(' · '); };
   setMeta(payload?.submitted_at || params.status?.latest?.submitted_at);

@@ -28,6 +28,8 @@ import { questionSpeech } from './tools/speech.js';
 import { networkBanner } from './tools/banner.js';
 import { ensureToolsCss } from './tools/settings.js';
 import { buildWidget, pointsLabel } from './runner/widgets.js';
+import { publicCall } from '../lib/api.js';
+import { getIdToken } from '../lib/auth.js';
 
 // Re-exported so results.js, export-view.js and unit tests keep importing these from runner.js.
 export { formatInterpreted, optionImageEl, choiceImagesEl } from './runner/widgets.js';
@@ -809,7 +811,15 @@ export function render(root, ctx, params = {}) {
   if (tools.calculator) extraTabs.push({ id: 'tool-calc', title: 'Calculator', build: calculatorPanel });
   if (tools.constants) extraTabs.push({ id: 'tool-constants', title: 'Units & constants', build: constantsPanel });
   const refPane = referencePane(test, { storageKey: `refpane:${test.code}`, extraTabs });
-  const mainEl = h('main', { class: 'runner-main' }, stage, actions, announcer);
+  // V4-02: teacher announcement shown above the questions (dismissible); late-work notice when in the late window.
+  const announceEl = test.announcement && String(test.announcement).trim()
+    ? h('div', { class: 'notice notice--info runner-announcement', role: 'note', dataset: { testid: 'test-announcement' } }, icon('info'),
+      h('span', { class: 'runner-announcement__text' }, String(test.announcement)),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Dismiss announcement', on: { click: (e) => e.currentTarget.parentElement.remove() } }, icon('x', { size: 16 })))
+    : null;
+  const lateEl = test.instance?.late ? h('div', { class: 'notice notice--warning', role: 'note', dataset: { testid: 'late-notice' } }, icon('clock'),
+    h('span', {}, 'This test is past its due date. Your teacher accepts late work, but a late penalty may apply.')) : null;
+  const mainEl = h('main', { class: 'runner-main' }, announceEl, lateEl, stage, actions, announcer);
   const runnerEl = h('div', { class: ['runner', preview && 'runner--preview'], dataset: { testid: 'runner' } },
     h('div', { class: 'runner-top' }, header, runnerBar, progressBar, previewBanner, netBanner?.el),
     refPane ? h('div', { class: 'runner-split', dataset: { testid: 'runner-split' } }, mainEl, refPane.el) : mainEl,
@@ -826,7 +836,24 @@ export function render(root, ctx, params = {}) {
   cards.forEach((c) => c.refresh());
   updateChrome();
 
+  // V4-02 S13 live monitor: tell the backend how far along this student is, every 60 s (silently stops on older backends).
+  let pingTimer = null;
+  const ping = async (submitted = false) => {
+    if (preview || !ctx.config?.GAS_WEB_APP_URL || !user) return;
+    const idToken = user.provider === 'google' ? getIdToken() : null;
+    const res = await publicCall('progressPing', {
+      testCode: test.code, name: user.name || '', answered: answeredCount(), total, submitted,
+      timeLeft: limitSec ? Math.max(0, Math.round(limitSec - (Date.now() - state.startedAt) / 1000)) : null,
+      ...(idToken ? { idToken } : { studentEmail: user.email }),
+    }, { gasUrl: ctx.config.GAS_WEB_APP_URL });
+    if (!res.ok && (res.unavailable || /identity|unauthorized/.test(res.error || ''))) { clearInterval(pingTimer); pingTimer = null; }
+  };
+  const live = !preview && test.instance?.live === true;
+  if (live) { ping(); pingTimer = setInterval(() => ping(), 60000); }
+
   return function cleanup() {
+    if (pingTimer) clearInterval(pingTimer);
+    if (live && state.done) ping(true);
     stopTimer();
     clearTimeout(savedT);
     document.removeEventListener('keydown', onKeyDown);

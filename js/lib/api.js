@@ -63,11 +63,19 @@ export async function pingBackend({ gasUrl, fetchImpl } = {}) {
 }
 
 export async function fetchPublishedTest(code, { gasUrl, fetchImpl } = {}) {
+  const r = await fetchPublishedTestResult(code, { gasUrl, fetchImpl });
+  return r.test || null;
+}
+
+// v4 S11/S12: { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
+// POST form is used, which applies the student's extension and roster check server-side.
+export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToken } = {}) {
   try {
-    const d = await get(gasUrl, { action: 'getTest', code }, fetchImpl);
-    return d && d.result === 'success' && d.test ? d.test : null;
-  } catch {
-    return null;
+    const d = idToken ? await post(gasUrl, { action: 'getTest', code, idToken }, fetchImpl) : await get(gasUrl, { action: 'getTest', code }, fetchImpl);
+    if (d && d.result === 'success' && d.test) return { test: d.test };
+    return { error: (d && d.error) || 'not_found', opensAt: d?.opensAt, closesAt: d?.closesAt, title: d?.title || '' };
+  } catch (e) {
+    return { error: 'network' };
   }
 }
 
@@ -249,5 +257,27 @@ export async function getLog({ gasUrl, adminKey, limit = 100, fetchImpl } = {}) 
     return d && d.result === 'success' ? { ok: true, rows: Array.isArray(d.rows) ? d.rows : [] } : { ok: false, rows: [], error: failure(d) };
   } catch (e) {
     return { ok: false, rows: [], error: msg(e) };
+  }
+}
+
+// ---------- v4 S11–S17 actions (generic helpers; every function resolves, never throws) ----------
+// adminCall('listClasses', {}, { gasUrl }) -> { ok: true, data } | { ok: false, error }   (admin credentials merged as above)
+export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchImpl } = {}) {
+  try {
+    const d = await adminPost(gasUrl, { action, ...payload }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, data: d } : { ok: false, error: failure(d) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+// Public (student) actions: progressPing, getTest (POST, with idToken), submitGameScore, getLeaderboard, reportError.
+// `unavailable` is true when the deployed backend does not know the action yet (older Code.gs) or is unreachable.
+export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {}) {
+  try {
+    const d = await post(gasUrl, { action, ...payload }, fetchImpl);
+    if (d && d.result === 'success') return { ok: true, data: d };
+    return { ok: false, error: (d && d.error) || 'unknown_error', data: d, unavailable: !!d && d.error === 'unknown_action' };
+  } catch (e) {
+    return { ok: false, error: msg(e), unavailable: true };
   }
 }

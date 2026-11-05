@@ -51,6 +51,11 @@ export async function checkSubmissionState(ctx, test) {
       latest: res.latest || null,
       feedback: res.feedback || null,
       others: Array.isArray(res.others) ? res.others : [],
+      // v4 S11/S12: accommodations, window (with this student's extension) and roster from the backend.
+      accommodations: res.accommodations || null,
+      window: res.window || null,
+      roster: res.roster || null,
+      extraAttemptsLeft: res.extraAttemptsLeft || 0,
     };
   } catch {
     return local();
