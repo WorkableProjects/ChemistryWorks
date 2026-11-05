@@ -20,6 +20,8 @@ import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './l
 import { checkBackendVersion, versionBanner } from './lib/version-check.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { instantiateTest } from './lib/instantiate.js';
+import { windowState, applyAccommodations } from './lib/schedule.js';
+import { installErrorReporting } from './lib/errors.js';
 import { load, save } from './lib/storage.js';
 import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';

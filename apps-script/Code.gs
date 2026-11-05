@@ -1458,11 +1458,11 @@ function submitGameScore_(body) {
   var who = verifyStudent_(body);
   if (who.error) return { result: 'error', error: who.error };
   var code = normalizeCode_(body.testCode);
-  var game = String(body.gameId || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
+  var game = String(body.gameId || body.game || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
   if (!code || !game) return { result: 'error', error: 'missing_fields' };
   if (!boardAllowed_(code)) return { result: 'error', error: 'leaderboard_off' };
   var score = Math.max(0, Math.min(BOARD_MAX_SCORE, Math.floor(num_(body.score, 0))));
-  var name = String(body.name || '').trim().slice(0, 60);
+  var name = String(body.name || body.displayName || '').trim().slice(0, 60);
   return withLock_(function () {
     var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
     var last = sheet.getLastRow();
@@ -1482,7 +1482,7 @@ function getLeaderboard_(body) {
   var who = verifyStudent_(body);
   if (who.error) return { result: 'error', error: who.error };
   var code = normalizeCode_(body.testCode);
-  var game = String(body.gameId || '');
+  var game = String(body.gameId || body.game || '');
   if (!boardAllowed_(code)) return { result: 'error', error: 'leaderboard_off' };
   var r = sheetRows_(BOARD_SHEET, BOARD_HEADERS);
   var rows = r.values.filter(function (v) { return normalizeCode_(v[0]) === code && String(v[1]) === game && !(v[6] === true || v[6] === 'true'); })
@@ -1490,8 +1490,9 @@ function getLeaderboard_(body) {
     .sort(function (a, b) { return b.score - a.score; });
   var rank = 0;
   for (var i = 0; i < rows.length; i++) if (rows[i].email === who.email) { rank = i + 1; break; }
-  return { result: 'success', top: rows.slice(0, BOARD_TOP).map(function (x, k) { return { rank: k + 1, name: x.name, score: x.score, me: x.email === who.email }; }),
-    me: rank ? { rank: rank, score: rows[rank - 1].score } : null, total: rows.length };
+  var own = rank ? { rank: rank, score: rows[rank - 1].score } : null;
+  return { result: 'success', top: rows.slice(0, BOARD_TOP).map(function (x, k) { return { rank: k + 1, name: x.name, score: x.score, me: x.email === who.email, you: x.email === who.email }; }),
+    me: own, own: own, total: rows.length };
 }
 function clearLeaderboard_(body) {
   var code = normalizeCode_(body.testCode);

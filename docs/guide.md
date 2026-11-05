@@ -1328,3 +1328,127 @@ To give feedback, add a **comment** to any question (supports `**bold**`, `*ital
 ---
 
 Full technical reference (schema, scoring rules, module contracts): [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## v4 additions
+
+Everything below is new in ChemistryWorks v4. Fields are optional; old tests keep working unchanged.
+
+### multipart
+```json
+{ "id": "q1", "type": "multipart", "text": "Sodium reacts with water.", "stem": "Sodium is dropped into water.", "points": 3,
+  "parts": [
+    { "id": "a", "type": "mcq", "text": "Which gas is released?", "points": 1, "options": [{"id":"a","text":"Oxygen"},{"id":"b","text":"Hydrogen"}], "correctAnswer": "b" },
+    { "id": "b", "type": "numeric", "text": "Moles of H2 from 4 mol Na?", "points": 2, "correctAnswer": 2, "tolerance": 0, "toleranceType": "absolute", "unit": "mol" } ] }
+```
+One shared stem followed by parts (a), (b), (c), each a full question of any auto-graded type (not short, open, orbital or multipart). Students answer each part with that type's normal widget. The score is the points earned across the parts divided by the points available, so a student who gets (a) right and (b) wrong keeps credit for (a); the question is "correct" only when every part is. The question's points are always the sum of the parts' points. Hints and confidence belong to the whole question.
+
+### naming
+```json
+{ "id": "q2", "type": "naming", "text": "Name this compound.", "direction": "toName", "prompt": "CuSO4.5H2O", "points": 2,
+  "answers": ["copper(II) sulfate pentahydrate"] }
+```
+Students are given a formula and write the name (`toName`), or are given a name and write the formula (`toFormula`). Names are compared ignoring capitals, spaces, hyphens, "copper (II)" versus "copper(II)", and an optional leading "mono" on the first element. Old-style endings (-ic / -ous) are not converted, so list them as extra accepted answers. Formulas are compared as chemistry (subscripts, hydrate dots, group order) with a live formatted preview.
+
+### dropdown
+```json
+{ "id": "q4", "type": "dropdown", "text": "Sodium is a [[b1]] and chlorine is a [[b2]].", "points": 2, "partialCredit": true,
+  "blanks": [ {"id":"b1","options":["metal","nonmetal"],"answer":"metal"}, {"id":"b2","options":["metal","nonmetal"],"answer":"nonmetal"} ] }
+```
+A cloze passage where every `[[id]]` becomes a native drop-down menu, labelled "Blank 1 of 2" for screen readers and fully keyboard operable. Each blank lists its options and the correct one. With partial credit on (the default) every correct blank earns its share of the points.
+
+### Extra: confidence ("How sure are you?")
+```json
+{ "id": "q5", "type": "mcq", "confidence": true, "...": "..." }
+```
+After a student answers, a Guessing / Fairly sure / Certain row appears on the card. The choice is stored beside the answer (not inside it), sent with the submission, shown to the student in results (with a nudge when they were certain but wrong), and summarised in Insights as the average confidence per question plus the number of "certain but wrong" students, a quick way to spot misconceptions.
+
+### Extra: hint that costs points
+```json
+{ "id": "q5", "type": "mcq", "points": 2, "hint": { "text": "It orbits the nucleus.", "cost": 1 }, "...": "..." }
+```
+The card shows "Show hint (−1 pt)". Once revealed, the hint stays visible (even after a reload) and the cost is subtracted from the points earned on that question, never below zero. The cost cannot exceed the question's points. Results show "Hint used (−1 pt)". A cost of 0 gives a free hint.
+
+### Extra: explanation
+Every question type, including the new ones, accepts `"explanation"`; it is shown in the results review once results are released.
+
+### Dimensional analysis (`dimensional`, group Chemistry)
+```json
+{ "id": "q1", "type": "dimensional", "points": 2, "text": "How many moles are in 117 g of NaCl?",
+  "given": { "value": 117, "unit": "g" }, "answer": { "value": 2, "unit": "mol" },
+  "tolerance": 1, "toleranceType": "percent", "chainCredit": 0.5,
+  "factors": [ { "top": { "value": 1, "unit": "mol" }, "bottom": { "value": 58.5, "unit": "g" } } ] }
+```
+Students see the given quantity, add conversion-factor tiles (numerator and denominator, each a value and a unit), and watch units that cancel get struck through; then they enter the final value and unit. The value must be within the tolerance (percent or absolute) and the unit must match (symbols are case-sensitive, so mL is not ml; g/mol and g mol^-1 are the same). `factors` is your reference chain and is checked for consistency when you save. With `chainCredit` above 0, a student whose chain cancels to the right unit and multiplies out to the right number earns that fraction of the points even if the final entry is wrong.
+
+### Nuclear notation (`nuclear`, Chemistry)
+```json
+{ "id": "q2", "type": "nuclear", "points": 2, "mode": "equation", "text": "Complete the alpha decay of uranium-238.",
+  "left": [ { "A": 238, "Z": 92, "symbol": "U" } ],
+  "right": [ { "A": 234, "Z": 90, "symbol": "Th", "missing": true }, { "name": "alpha" } ] }
+```
+In `isotope` mode (`"isotope": { "A": 14, "Z": 6, "symbol": "C" }`) students fill in the mass number, atomic number and symbol of the isotope you describe. In `equation` mode each particle is either `{A, Z, symbol}` or a named particle (alpha, beta, positron, gamma, neutron, proton); mark the ones students must supply with `"missing": true`. Credit is per blank (symbols are case-insensitive, names like alpha accept He or α), and the editor refuses equations whose mass numbers or atomic numbers do not balance. Students see a live balanced / not balanced note.
+
+### Predict products (`reaction`, Chemistry)
+```json
+{ "id": "q3", "type": "reaction", "points": 2, "text": "Predict the products.",
+  "reactants": "AgNO3(aq) + NaCl(aq)", "products": ["AgCl(s)", "NaNO3(aq)"],
+  "requireStates": true, "requireCoefficients": false, "netIonic": false }
+```
+Students type the product side ("AgCl(s) + NaNO3(aq)") and see a formatted preview. Order does not matter; formulas are compared with the same rules as formula questions. States and coefficients are only checked when you require them. Partial credit is the share of products right, reduced by any invented extra species. `netIonic` only changes the instructions (write ions with charges) and does not alter grading.
+
+### Molecular shape (`vsepr`, Chemistry)
+```json
+{ "id": "q4", "type": "vsepr", "points": 3, "text": "Describe the shape of ammonia.", "formula": "NH3",
+  "electronGeometry": "tetrahedral", "molecularGeometry": "trigonal pyramidal", "bondAngle": "107",
+  "fields": ["electron", "molecular", "angle"] }
+```
+Students choose from picture cards for electron geometry and molecular geometry and from a list of bond angles (180, 120, <120, 109.5, <109.5, 107, 104.5, 90, <90, 90 & 120, <90 & 120). Each field you ask for is worth an equal share; list only some in `fields` to ask for fewer. Fully keyboard operable.
+
+### Complete the table (`datatable`, Basics)
+```json
+{ "id": "q5", "type": "datatable", "points": 4, "text": "Complete the table.",
+  "columns": [ { "id": "species", "label": "Species", "type": "text" }, { "id": "p", "label": "Protons", "type": "number" },
+               { "id": "n", "label": "Neutrons", "type": "number", "tolerance": 0 } ],
+  "rows": [ { "id": "r1", "cells": { "species": { "value": "Na", "given": true }, "p": { "value": 11, "given": true }, "n": { "value": 12 } } } ] }
+```
+Cells marked `"given": true` are shown; every other cell is a blank the student fills in, worth an equal share of the points. Number columns accept values within the column `tolerance` (absolute, default 0); text columns ignore case and extra spaces; a text column with `"formula": true` compares chemical formulas. Good for protons/neutrons/electrons tables and ICE tables. It renders as a real table with labelled inputs.
+
+### molarmass, imagechoice, particles, titration, estimate (S10)
+See `data/tests/DEMOV4C.json` for a complete example of each.
+- **molarmass**: `{ "formula": "Ca(OH)2", "tolerance": 0.05, "toleranceType": "absolute", "showWork": true }` — the student enters the molar mass (optionally with a work table: symbol × count × atomic mass); graded on the final value; the work is shown to the teacher.
+- **imagechoice**: like `mcq` / `multi` (`"multiple": true`) but every option has an `image: { url, alt }`. Alt text is required.
+- **particles**: `species` (id, label, shape, tone), `zones` (e.g. liquid / gas) and `targets` (`{ zone: { species: count } }`); students place particles by clicking or with the keyboard; graded per species and zone (`partialCredit`).
+- **titration**: `analyte: { type: "acid"|"base", kind: "strong"|"weak", conc, volumeMl, K }`, `titrant: { conc }`, `ask: "volume"|"ph"|"both"`, tolerances. Students add titrant (1.00 / 0.10 mL buttons or a slider), watch the curve and record the endpoint.
+- **estimate**: a slider with `min`, `max`, `step`, `answer`, `tolerance`.
+
+### Randomized (algorithmic) questions
+Add `variables` and an `answerFormula` to a `numeric`, `sigfigs`, `dimensional` or `multipart` question:
+```json
+{ "id": "q6", "type": "numeric", "text": "How many moles are in {m} g of {c}?", "points": 1, "correctAnswer": 1, "tolerance": 1, "toleranceType": "percent", "unit": "mol",
+  "variables": { "m": { "min": 10, "max": 100, "step": 5 }, "c": { "pick": ["NaCl", "KCl"] } }, "answerFormula": "= m / molarMass(c)" }
+```
+Each student gets their own numbers, the same on every device (seeded by email + test code), and the seed is stored with the submission. Functions: `molarMass`, `moles`, `convert`, `idealGasP`, `idealGasN`, `dilutionC2`, `pH`, `sqrt`, `log`, `ln`, `round`. The builder's "Randomize with variables" panel shows live sample values; **Preview as student** with a fake email shows that student's numbers.
+
+### Test settings (Builder → Test settings → Schedule, classes and tools)
+```json
+{ "opensAt": "2026-11-10T08:00:00-08:00", "closesAt": "2026-11-12T15:00:00-08:00",
+  "late": { "until": "2026-11-14T15:00:00-08:00", "penalty": { "type": "percentPerDay", "value": 10 } },
+  "announcement": "Calculators allowed. Show units.", "classes": ["class-…"], "rosterOnly": true,
+  "tools": { "calculator": true, "constants": true, "scratchpad": true, "highlighter": true, "readAloud": false },
+  "practice": [{ "game": "survival", "target": 2000, "due": "2026-11-20" }],
+  "sections": [{ "id": "s1", "title": "Stoichiometry", "pool": { "draw": 3 } }] }
+```
+- **Window**: before `opensAt` students see "Opens on …"; after `closesAt` (and any late window) the test is closed — checked by the backend, so it cannot be bypassed. Late submissions are marked **Late** and the penalty is applied to the stored score. Give one student more time with **Grading → Extend / accommodations**.
+- **Classes / roster only**: create classes under **Classes** (paste emails or import a Google Classroom / Aeries CSV). A roster-only test refuses students who are not on an assigned class (server-side).
+- **Pools**: a section with `pool.draw` gives each student that many of its questions, drawn per student and recorded with the submission.
+- **Accommodations** (Admin → Accommodations, or from a class roster): extra time (× 1.25–3), extra attempts, one wrong multiple-choice option removed, read-aloud, and an extended deadline. They follow the student to any device.
+- **Answer keys are still public** (grading happens in the browser). Pools and randomized numbers make copying harder, not impossible.
+
+### Teacher tools
+Insights, grade by question, comment bank, bulk release / retake, print test (A/B), duplicate / Version B, per-question gradebook CSV, **Regrade** (after fixing a key; overrides kept), **Question bank** (shared by all admins, tags, insert copies), **Import** (plain text, CSV, Google Forms) and **templates** per unit, **Live monitor** (who is working, idle or done; refreshes every 30 s), **Mastery** by topic (from question tags, bank tags or section titles) with student profiles, optional **release emails**, **backup / restore** (Settings → Platform).
+
+### Games
+`gameOptions` per test: games offered, number of questions, time, lives, power-ups (50/50, Freeze, Skip, Hint), relaxed (untimed) mode, question types, sound, and the optional class **leaderboard** (`"leaderboard": true`, names `"real"` or `"nicknames"`). New games: Tower, Boss Battle, Mistake Review, Unit Dash, Reaction Lab, Molecule Builder, Periodic Puzzle, Daily Element. XP, levels, badges and cosmetics are saved on the student's device. Game scores are computed in the browser and can be faked: the leaderboard is for fun, never for grades.
+
+### Student tools
+Per test (`tools`): scientific calculator, units & constants, scratchpad (saved with progress, never submitted), highlighter / strike-out, read-aloud (also an accommodation), flag a question with a note to the teacher (shown in Grading), offline banner, font size and dyslexia-friendly spacing (Settings popover), "My dashboard" on the landing page, and "Review my mistakes" after release (game-mode tests).

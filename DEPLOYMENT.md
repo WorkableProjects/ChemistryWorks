@@ -112,6 +112,25 @@ During the upgrade, `ADMIN_KEY` keeps working for anyone who is not on the list 
 
 Every admin write (publish, delete, grade, release, allow retake, add/remove admin) is recorded in the **Log** tab and in **Settings > Activity log**. Optionally sharing the Google Sheet with new admins automatically (`addEditor`) is not built; share the Sheet by hand if admins need to open it.
 
+### Upgrading to v4 (everything)
+
+The v4 site works against the 3.0 backend for taking tests, but schedules, classes, accommodations, the bank, live monitor, leaderboard, error reports and release emails need Code.gs **4.0.0**.
+
+1. Paste the new `apps-script/Code.gs` over the old one and **Save**.
+2. Script properties (Project Settings): keep `ADMIN_KEY` and `GOOGLE_CLIENT_ID`; add `ADMIN_EMAILS` (first = owner) for admin accounts; optionally `SITE_URL` (your site's address, used in release emails).
+3. Run `setup` once (or load the app once). New tabs are created on first use: **Admins, Log, Classes, Bank, Accommodations, Settings, Live, Leaderboard, Errors**. The Submissions sheet gets four new columns (Drawn Questions, Time Limit Applied, Late, Class) automatically.
+4. **Release emails only:** the first time you turn them on (Admin → Settings → Platform), run any function from the editor once and approve the new **Send email as you** (MailApp) permission. Gmail allows about 100 emails a day on consumer accounts (1,500 on Workspace).
+5. **Deploy > Manage deployments > Edit > Version: New version > Deploy** (same URL).
+6. Check `YOUR_EXEC_URL?action=ping` reports `4.0.0`.
+7. In `js/config.js`: `FEATURES.adminAccounts: true` once the Admins sheet is filled (the other v4 flags are already on). Push the site to Netlify.
+8. Optional: turn on **Error reports** and **Release emails** in Admin → Settings → Platform.
+
+**Rollback:** redeploy the previous Code.gs version (Manage deployments → Edit → pick the older version) and revert the site commit. New sheet tabs and columns are ignored by older versions.
+
+### Copy this deployment for a second teacher
+
+Make a copy of the Google Sheet (File → Make a copy: it copies the bound Apps Script too), set its script properties, deploy it as a Web App, and point a second copy of the site (`js/config.js` `GAS_WEB_APP_URL`, `SHEET_URL`) at it. Move tests across with **Settings → Platform → Download backup / Restore from backup**.
+
 ### Add or remove an admin
 
 Open your Google Sheet and go to the **Admins** tab. To **add** an admin, type their Google email in a new row (`Role`: `owner` or `admin`; leave `Added by` / `Added at` empty if you like). To **remove** one, delete their row. No redeploy is needed: the list is read on every request, emails are trimmed and lower-cased, and blank rows are ignored. Keep at least one `owner`. Owners can also do this in **Settings > Admins** in the admin panel (add by email, change role, remove). You cannot remove yourself or the last owner there.

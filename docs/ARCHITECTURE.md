@@ -445,3 +445,30 @@ The runner tags them (`required-pill`) and the submit modal lists unanswered req
   `validateVariables(q, where, errors)` (exported) dry-runs the definition; **hook for `schema.js validateQuestion`** (call it for every question, it is a no-op without algorithmic fields).
   Builder: `js/views/admin/variables-editor.js` (`variablesEditor(q, redraw, changed)`), mounted under the numeric and sigfigs editors in `editors/core.js`.
 - **Backend**: `Submissions` column 25 `Seed` (`COL.SEED`) holds the student's instance seed. `handleSubmission_` reads `payload.instance.seed` (also `instance_json` / `instance_seed` form fields), text, max 200 characters; older sheets get the header appended by `getSheet_`.
+
+### Backend 4.0.0 additions (S11–S17)
+Sheets (created on first use): `Classes` (ID, Name, Period, Emails JSON, Updated By/At), `Bank` (ID, Question JSON, Tags JSON, Added/Edited By/At),
+`Accommodations` (Email, Test Code or blank = all, Extra Time, Extra Attempts, Reduced Choices, Read Aloud, Extension Until, Notes, Updated By/At),
+`Settings` (Key, Value: errorReports, releaseEmails), `Live` (one row per student per test, overwritten), `Leaderboard` (best score per student per game),
+`Errors`. Submissions columns 26–29: `Drawn Questions`, `Time Limit Applied`, `Late`, `Class`; statuses `Closed (not counted)` and `Not on roster`.
+
+Admin actions (via `requireAdmin_`, writes logged): `listClasses`, `saveClass {cls}`, `deleteClass {id}`, `listBank`, `saveBankItem {item:{id?,question,tags}}`,
+`deleteBankItem {id}`, `getAccommodations {testCode?}`, `saveAccommodation {email,testCode?,extraTime,extraAttempts,reducedChoices,readAloud,extensionUntil,notes,merge?}`,
+`deleteAccommodation`, `extendWindow {email,testCode,until}`, `applyRegrade {testCode, updates:[{submissionId,responses,scoreAchieved,scoreTotal,percentage}]}`,
+`getLive {testCode?}`, `clearLeaderboard {testCode,gameId?}`, `hideLeaderboardEntry {testCode,email,hidden}`, `getErrors {limit}`, `getSettings`, `saveSettings {settings}`.
+
+Public actions: `getTest` (GET refuses `not_open` / `closed`; POST with `idToken` applies the student's extension and the roster: `not_on_roster`),
+`progressPing {idToken|studentEmail,testCode,answered,total,timeLeft,submitted}`, `submitGameScore {testCode,gameId|game,score,name|displayName}`,
+`getLeaderboard {testCode,gameId|game}` (both only when `gameMode` and `gameOptions.leaderboard`; scores capped at 100,000), `reportError` (only when Settings
+errorReports is on; ≤ 60/hour). `getStudentStatus` also returns `accommodations`, `window {state,…}`, `roster {required,ok}`, `extraAttemptsLeft`.
+`submit` (no-cors) enforces roster + window, marks late work and applies the penalty; the client adds `idToken` at send time (never stored in the outbox)
+and `instance {seed,drawn}` + `time_limit_applied`.
+
+### Client (S10–S17)
+- `js/lib/instantiate.js` pipeline: `algorithmic.js` (variables + safe formula parser, no eval) and `pools.js` (per-student draw) steps.
+- `js/lib/schedule.js` (window / late / accommodations), `js/views/unavailable.js` (Opens on / Closed / Not on roster pages).
+- `js/lib/importers.js` (plain text, CSV, Google Forms, rosters), `data/templates/*.json` (6 starter tests), `js/lib/regrade.js`, `js/lib/mastery.js`,
+  `js/lib/backup.js` (bundle `kind: chemworks-backup`), `js/lib/errors.js` (scrubbed, rate-limited reports).
+- Admin views: `classes.js`, `accommodations.js`, `bank.js`, `import.js`, `live.js`, `mastery.js`, `platform.js`, `test-extras.js` (builder panel);
+  registered as classic tabs and as sidebar items (`registerNavItem`).
+- Flags (`js/config.js`): `adminShell`, `teacherTools`, `studentTools`, `v4Types` on; `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.
