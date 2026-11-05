@@ -5,6 +5,8 @@ import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getR
   prefersReducedMotion, getReduceMotionPref, setReduceMotion } from './lib/theme.js';
 import { feature } from './config.js';
 import { FONT_STEPS, FONT_LABELS, loadSettings, saveSettings, applySettings, applyStoredSettings } from './views/tools/settings.js';
+import { hasUnseenChangelog } from './lib/changelog.js';
+import { SITE_VERSION } from './version.js';
 
 /**
  * Create an element.
@@ -395,7 +397,8 @@ export function stagger(listEl, { step = 40 } = {}) {
  */
 export function themeControl({ floating = false } = {}) {
   const btnIcon = h('span', { class: 'theme-ctl__icon' });
-  const drawIcon = () => btnIcon.replaceChildren(icon('settings', { size: 18 }));
+  const newDot = h('span', { class: 'theme-ctl__dot', 'aria-hidden': 'true', dataset: { testid: 'changelog-dot' } });
+  const drawIcon = () => { btnIcon.replaceChildren(icon('settings', { size: 18 })); newDot.hidden = !hasUnseenChangelog(); };
   const LABELS = { system: ['monitor', 'System'], light: ['sun', 'Light'], dark: ['moon', 'Dark'] };
   const segBtns = THEMES.map((t) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `theme-${t}` },
     on: { click: () => setThemePref(t) } }, icon(LABELS[t][0], { size: 16 }), LABELS[t][1]));
@@ -436,9 +439,13 @@ export function themeControl({ floating = false } = {}) {
     toolsOn ? h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Dyslexia-friendly spacing'), spacingBox) : null,
     h('span', { class: 'theme-ctl__label' }, 'Accent colour'),
     h('div', { class: 'theme-swatches', role: 'radiogroup', 'aria-label': 'Accent colour' }, swatches),
-    roleNote);
+    roleNote,
+    // Release notes for every version (changelog/*.md), one collapsible section each.
+    h('button', { type: 'button', class: 'theme-ctl__news', dataset: { testid: 'open-changelog' },
+      on: { click: () => { setOpen(false); import('./views/changelog.js').then((m) => m.openChangelog({ onSeen: drawIcon })); } } },
+      icon('sparkle', { size: 16 }), h('span', {}, "What's new"), h('span', { class: 'theme-ctl__ver' }, `v${SITE_VERSION}`)));
   const btn = h('button', { type: 'button', class: 'theme-ctl__btn', 'aria-label': 'Settings: theme, motion and accent colour', 'aria-expanded': 'false', 'aria-haspopup': 'dialog', title: 'Settings',
-    dataset: { testid: 'theme-toggle' }, on: { click: (e) => { e.stopPropagation(); setOpen(pop.hidden); } } }, btnIcon);
+    dataset: { testid: 'theme-toggle' }, on: { click: (e) => { e.stopPropagation(); setOpen(pop.hidden); } } }, btnIcon, newDot);
   const wrap = h('div', { class: ['theme-ctl', floating && 'theme-float'] }, btn, pop);
   function setOpen(open) {
     pop.hidden = !open;
