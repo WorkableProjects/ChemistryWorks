@@ -26,16 +26,19 @@ var SUBMISSION_HEADERS = [
   'Score Achieved', 'Total Score', 'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted',
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-  'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed'
+  'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed',
+  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
 var STATUS_GRADED = 'Graded';
+var STATUS_CLOSED = 'Closed (not counted)'; // v4 S12: arrived after the window (and late window) closed
+var STATUS_NOT_ROSTER = 'Not on roster';      // v4 S11: roster-only test, student on no assigned class
 var STATUS_EXTRA = 'Extra attempt'; // v3: a second submission to a single-submission test (stored, never counted)
 var TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
 var TOKEN_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
@@ -91,7 +94,34 @@ function doPost(e) {
       case 'saveAdmin':
       case 'removeAdmin':
       case 'getLog':
+      case 'listClasses':
+      case 'saveClass':
+      case 'deleteClass':
+      case 'listBank':
+      case 'saveBankItem':
+      case 'deleteBankItem':
+      case 'getAccommodations':
+      case 'saveAccommodation':
+      case 'deleteAccommodation':
+      case 'extendWindow':
+      case 'applyRegrade':
+      case 'getLive':
+      case 'clearLeaderboard':
+      case 'hideLeaderboardEntry':
+      case 'getErrors':
+      case 'getSettings':
+      case 'saveSettings':
         return json_(handleAdmin_(body));
+      case 'getTest':
+        return json_(getTestFor_(body));
+      case 'progressPing':
+        return json_(progressPing_(body));
+      case 'submitGameScore':
+        return json_(submitGameScore_(body));
+      case 'getLeaderboard':
+        return json_(getLeaderboard_(body));
+      case 'reportError':
+        return json_(reportError_(body));
       case 'getFeedback':
         return json_(getFeedback_(body));
       case 'getStudentStatus':
@@ -237,7 +267,10 @@ function normalizeSubmission_(body) {
     needs_grading: d.needs_grading === true || d.needs_grading === 'true',
     single_submission: d.single_submission === true || d.single_submission === 'true',
     submitted_at: d.submitted_at || '',
-    seed: seedOf_(d)
+    seed: seedOf_(d),
+    drawn: drawnOf_(d),
+    time_limit_applied: d.time_limit_applied === undefined || d.time_limit_applied === null ? '' : d.time_limit_applied,
+    id_token: d.idToken || d.id_token || ''
   };
 }
 
@@ -301,6 +334,8 @@ function handleSubmission_(body) {
     if (findRow_(sheet, 2, s.submission_id)) return { result: 'success', duplicate: true };
     // v3 backstop: a second submission to a single-submission test is stored (never lost) but marked Extra attempt.
     var extra = false;
+    // v4 S11/S12: roster-only tests and the open/close window are enforced here too (the row is kept, never counted).
+    var gate = submissionGate_(s, body);
     if (s.single_submission || testIsSingleSubmission_(s.test_code)) {
       var prior = findRowsByEmailCode_(sheet, s.student_email, s.test_code);
       for (var p = 0; p < prior.length; p++) if (!prior[p].retake_allowed_at) { extra = true; break; }
@@ -320,9 +355,9 @@ function handleSubmission_(body) {
       s.flags.auto_submitted === true || s.flags.auto_submitted === 'true',
       responsesJson,
       flagsJson,
-      extra ? STATUS_EXTRA : (pending ? STATUS_NEEDS_GRADING : STATUS_AUTO),
-      pending ? '' : s.score_achieved,
-      pending ? '' : s.percentage,
+      gate.status || (extra ? STATUS_EXTRA : (pending ? STATUS_NEEDS_GRADING : STATUS_AUTO)),
+      pending || gate.status ? '' : gate.penalized ? gate.score : s.score_achieved,
+      pending || gate.status ? '' : gate.penalized ? gate.percentage : s.percentage,
       '',
       '',
       '',
@@ -330,8 +365,13 @@ function handleSubmission_(body) {
       '',
       '',
       '',
-      text_(s.seed)
+      text_(s.seed),
+      text_(s.drawn),
+      s.time_limit_applied === '' ? '' : num_(s.time_limit_applied),
+      gate.late ? true : '',
+      text_(gate.classId || '')
     ]);
+    if (gate.status) return { result: 'success', not_counted: gate.status };
     return extra ? { result: 'success', extra_attempt: true } : { result: 'success' };
   });
 }
@@ -340,14 +380,23 @@ function handleSubmission_(body) {
 // Tests (public read, admin write)
 // ---------------------------------------------------------------------------
 
-function getTest_(code) {
+// The stored test JSON, whatever its window (server-side checks use this; students go through getTest_).
+function readTest_(code) {
   var c = normalizeCode_(code);
-  if (!c) return { result: 'error', error: 'not_found' };
+  if (!c) return null;
   var sheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
   var row = findRow_(sheet, 1, c);
-  if (!row) return { result: 'error', error: 'not_found' };
-  var test = parseJson_(sheet.getRange(row, 4).getValue(), null);
-  return test ? { result: 'success', test: test } : { result: 'error', error: 'not_found' };
+  return row ? parseJson_(sheet.getRange(row, 4).getValue(), null) : null;
+}
+
+function getTest_(code) {
+  var test = readTest_(code);
+  if (!test) return { result: 'error', error: 'not_found' };
+  // v4 S12: before it opens / after it closes (and after any late window) the test itself is not served.
+  var w = windowState_(test, null, new Date());
+  if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
+  if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
+  return { result: 'success', test: test };
 }
 
 // ---------------------------------------------------------------------------
@@ -439,7 +488,9 @@ function appendLog_(auth, action, target, details) {
   } catch (err) { /* logging never blocks the action */ }
 }
 
-var LOGGED_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll: 1, allowRetake: 1, saveAdmin: 1, removeAdmin: 1 };
+var LOGGED_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll: 1, allowRetake: 1, saveAdmin: 1, removeAdmin: 1,
+  saveClass: 1, deleteClass: 1, saveBankItem: 1, deleteBankItem: 1, saveAccommodation: 1, deleteAccommodation: 1, extendWindow: 1,
+  applyRegrade: 1, clearLeaderboard: 1, hideLeaderboardEntry: 1, saveSettings: 1 };
 
 function logTarget_(body) {
   switch (body.action) {
@@ -450,6 +501,15 @@ function logTarget_(body) {
     case 'allowRetake': return body.submissionId ? String(body.submissionId) : '';
     case 'saveAdmin':
     case 'removeAdmin': return body.email ? String(body.email).trim().toLowerCase() : '';
+    case 'saveClass':
+    case 'deleteClass': return String(body.id || (body.cls && body.cls.id) || '');
+    case 'saveBankItem':
+    case 'deleteBankItem': return String(body.id || (body.item && body.item.id) || '');
+    case 'saveAccommodation':
+    case 'deleteAccommodation':
+    case 'extendWindow': return String(body.email || '').trim().toLowerCase() + (body.testCode ? ' · ' + normalizeCode_(body.testCode) : '');
+    case 'applyRegrade':
+    case 'clearLeaderboard': return normalizeCode_(body.testCode);
   }
   return '';
 }
@@ -491,6 +551,23 @@ function dispatchAdmin_(body, auth) {
     case 'saveAdmin': return saveAdmin_(body, auth);
     case 'removeAdmin': return removeAdmin_(body, auth);
     case 'getLog': return getLog_(body);
+    case 'listClasses': return listClasses_();
+    case 'saveClass': return saveClass_(body, auth);
+    case 'deleteClass': return deleteClass_(body);
+    case 'listBank': return listBank_();
+    case 'saveBankItem': return saveBankItem_(body, auth);
+    case 'deleteBankItem': return deleteBankItem_(body);
+    case 'getAccommodations': return getAccommodations_(body);
+    case 'saveAccommodation': return saveAccommodation_(body, auth);
+    case 'deleteAccommodation': return deleteAccommodation_(body);
+    case 'extendWindow': return saveAccommodation_({ email: body.email, testCode: body.testCode, extensionUntil: body.until, merge: true }, auth);
+    case 'applyRegrade': return applyRegrade_(body);
+    case 'getLive': return getLive_(body);
+    case 'clearLeaderboard': return clearLeaderboard_(body);
+    case 'hideLeaderboardEntry': return hideLeaderboardEntry_(body);
+    case 'getErrors': return getErrors_(body);
+    case 'getSettings': return { result: 'success', settings: readSettings_() };
+    case 'saveSettings': return saveSettings_(body);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -854,8 +931,7 @@ function verifyIdToken_(token, clientId) {
 
 // Published test settings (bundled tests are not in the sheet -> null).
 function publishedTest_(code) {
-  var r = getTest_(code);
-  return r && r.result === 'success' ? r.test : null;
+  return readTest_(code);
 }
 
 function testIsSingleSubmission_(code) {
@@ -917,6 +993,19 @@ function getStudentStatus_(body) {
     return { submission_id: r.submission_id, submitted_at: r.submitted_at, status: r.status, released: !!r.released_at, retake_allowed: !!r.retake_allowed_at };
   };
   var out = { result: 'success', email: who.email, submitted: rows.length > 0, blocking: blocking, attempts: rows.length, latest: rows.length ? summary(rows[rows.length - 1]) : null, others: [] };
+  // v4 S11/S12: accommodations, window (incl. this student's extension) and roster for the client to act on.
+  var acc = accommodationFor_(who.email, code);
+  var ptest = publishedTest_(code);
+  out.accommodations = acc;
+  if (ptest) {
+    out.window = windowState_(ptest, acc, new Date());
+    out.roster = { required: ptest.rosterOnly === true, ok: rosterOk_(ptest, who.email).ok };
+    if (acc && acc.extraAttempts > 0 && blocking) {
+      var counted = 0;
+      for (var ca = 0; ca < rows.length; ca++) if (!rows[ca].retake_allowed_at) counted++;
+      if (counted <= acc.extraAttempts) { out.blocking = false; out.extraAttemptsLeft = acc.extraAttempts - counted + 1; }
+    }
+  }
   var releasedRow = null;
   for (var j = rows.length - 1; j >= 0; j--) if (rows[j].released_at) { releasedRow = rows[j]; break; }
   for (var k = 0; k < rows.length; k++) if (!releasedRow || rows[k].row !== releasedRow.row) out.others.push(summary(rows[k]));
@@ -962,8 +1051,10 @@ function releaseAll_(testCode) {
     var statuses = sheet.getRange(2, COL.STATUS, last - 1, 1).getValues();
     var relRange = sheet.getRange(2, COL.RELEASED_AT, last - 1, 1);
     var rel = relRange.getValues();
+    var who = sheet.getRange(2, 4, last - 1, 3).getValues(); // email, code, title (v4 release emails)
     var now = new Date();
     var n = 0;
+    var mail = [];
     for (var i = 0; i < rel.length; i++) {
       if (normalizeCode_(codes[i][0]) !== code) continue;
       var st = String(statuses[i][0] || '');
@@ -971,9 +1062,11 @@ function releaseAll_(testCode) {
       if (rel[i][0] !== '' && rel[i][0] !== null) continue;
       rel[i][0] = now;
       n++;
+      mail.push({ email: normEmail_(who[i][0]), code: code, title: String(who[i][2] || '') });
     }
     if (n) relRange.setValues(rel);
-    return { result: 'success', released: n };
+    var emailed = n ? sendReleaseEmails_(mail) : 0;
+    return { result: 'success', released: n, emailed: emailed };
   });
 }
 
@@ -990,4 +1083,457 @@ function allowRetake_(body) {
     sheet.getRange(row, COL.RETAKE).setValue(value);
     return { result: 'success', retake_allowed_at: iso_(value) };
   });
+}
+
+
+// ===========================================================================
+// v4 S11–S13 (+ S15 leaderboard, S17 errors). New sheets are created on first use by getSheet_.
+// ===========================================================================
+
+var CLASSES_SHEET = 'Classes';
+var CLASS_HEADERS = ['ID', 'Name', 'Period', 'Emails (JSON)', 'Updated By', 'Updated At'];
+var BANK_SHEET = 'Bank';
+var BANK_HEADERS = ['ID', 'Question (JSON)', 'Tags (JSON)', 'Added By', 'Added At', 'Edited By', 'Edited At'];
+var ACC_SHEET = 'Accommodations';
+var ACC_HEADERS = ['Email', 'Test Code', 'Extra Time', 'Extra Attempts', 'Reduced Choices', 'Read Aloud', 'Extension Until', 'Notes', 'Updated By', 'Updated At'];
+var SETTINGS_SHEET = 'Settings';
+var SETTINGS_HEADERS = ['Key', 'Value'];
+var LIVE_SHEET = 'Live';
+var LIVE_HEADERS = ['Test Code', 'Email', 'Name', 'Answered', 'Total', 'Time Left (s)', 'Started', 'Last Ping', 'Submitted'];
+var BOARD_SHEET = 'Leaderboard';
+var BOARD_HEADERS = ['Test Code', 'Game', 'Email', 'Name', 'Score', 'Updated', 'Hidden'];
+var ERRORS_SHEET = 'Errors';
+var ERROR_HEADERS = ['Time', 'Page', 'Message', 'Detail', 'Browser'];
+var BOARD_MAX_SCORE = 100000;
+var BOARD_TOP = 10;
+var ERRORS_PER_HOUR = 60;
+var ID_SAFE_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+function actorOf_(auth) { return auth && auth.via === 'google' ? auth.email : 'ADMIN_KEY'; }
+function normEmail_(e) { return String(e == null ? '' : e).trim().toLowerCase(); }
+function newId_(prefix) { return prefix + '-' + new Date().getTime().toString(36) + '-' + Math.floor(Math.random() * 1e6).toString(36); }
+function sheetRows_(name, headers) {
+  var sheet = getSheet_(name, headers);
+  var last = sheet.getLastRow();
+  return { sheet: sheet, values: last < 2 ? [] : sheet.getRange(2, 1, last - 1, headers.length).getValues() };
+}
+function cleanEmails_(list) {
+  var out = [];
+  var seen = {};
+  (Array.isArray(list) ? list : String(list || '').split(/[\s,;]+/)).forEach(function (e) {
+    var v = normEmail_(e);
+    if (v && EMAIL_RE.test(v) && !seen[v]) { seen[v] = true; out.push(v); }
+  });
+  return out;
+}
+
+// ---------- drawn questions (pools) ----------
+function drawnOf_(d) {
+  var inst = d.instance;
+  if (typeof d.instance_json === 'string' && d.instance_json) inst = parseJson_(d.instance_json, null);
+  var drawn = inst && typeof inst === 'object' && Array.isArray(inst.drawn) ? inst.drawn : [];
+  return drawn.length ? JSON.stringify(drawn.map(String)).slice(0, 5000) : '';
+}
+
+// ---------- classes / rosters (S11) ----------
+function listClasses_() {
+  var r = sheetRows_(CLASSES_SHEET, CLASS_HEADERS);
+  return { result: 'success', classes: r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
+    return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]) };
+  }) };
+}
+function saveClass_(body, auth) {
+  var c = body.cls && typeof body.cls === 'object' ? body.cls : body;
+  var name = String(c.name || '').trim().slice(0, 120);
+  if (!name) return { result: 'error', error: 'missing_name' };
+  var id = c.id ? String(c.id) : newId_('class');
+  if (!ID_SAFE_RE.test(id)) return { result: 'error', error: 'invalid_id' };
+  var emails = cleanEmails_(c.emails);
+  var json = JSON.stringify(emails);
+  if (json.length > MAX_CELL_CHARS) return { result: 'error', error: 'class_too_large' };
+  return withLock_(function () {
+    var sheet = getSheet_(CLASSES_SHEET, CLASS_HEADERS);
+    var row = findRow_(sheet, 1, id);
+    var vals = [id, text_(name), text_(String(c.period || '').slice(0, 40)), json, text_(actorOf_(auth)), new Date()];
+    if (row) sheet.getRange(row, 1, 1, vals.length).setValues([vals]); else sheet.appendRow(vals);
+    return { result: 'success', cls: { id: id, name: name, period: String(c.period || ''), emails: emails } };
+  });
+}
+function deleteClass_(body) {
+  var id = String(body.id || '');
+  return withLock_(function () {
+    var sheet = getSheet_(CLASSES_SHEET, CLASS_HEADERS);
+    var row = findRow_(sheet, 1, id);
+    if (!row) return { result: 'error', error: 'not_found' };
+    sheet.deleteRow(row);
+    return { result: 'success' };
+  });
+}
+// -> { ok, classId } ; a test without rosterOnly is open to everyone (classId = first matching class, if any).
+function rosterOk_(test, email) {
+  var ids = Array.isArray(test && test.classes) ? test.classes.map(String) : [];
+  var e = normEmail_(email);
+  if (!ids.length) return { ok: test.rosterOnly !== true, classId: '' };
+  var all = listClasses_().classes;
+  for (var i = 0; i < all.length; i++) if (ids.indexOf(all[i].id) >= 0 && all[i].emails.indexOf(e) >= 0) return { ok: true, classId: all[i].id };
+  return { ok: test.rosterOnly !== true, classId: '' };
+}
+
+// ---------- question bank (S11), shared by all admins ----------
+function listBank_() {
+  var r = sheetRows_(BANK_SHEET, BANK_HEADERS);
+  return { result: 'success', items: r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
+    return { id: String(v[0]), question: parseJson_(v[1], null), tags: parseJson_(v[2], {}) || {}, added_by: String(v[3]), added_at: iso_(v[4]), edited_by: String(v[5]), edited_at: iso_(v[6]) };
+  }) };
+}
+function saveBankItem_(body, auth) {
+  var it = body.item && typeof body.item === 'object' ? body.item : {};
+  if (!it.question || typeof it.question !== 'object' || !it.question.type) return { result: 'error', error: 'missing_question' };
+  var qJson = JSON.stringify(it.question);
+  var tJson = JSON.stringify(it.tags && typeof it.tags === 'object' ? it.tags : {});
+  if (qJson.length > MAX_CELL_CHARS || tJson.length > 5000) return { result: 'error', error: 'item_too_large' };
+  var id = it.id ? String(it.id) : newId_('bank');
+  if (!ID_SAFE_RE.test(id)) return { result: 'error', error: 'invalid_id' };
+  return withLock_(function () {
+    var sheet = getSheet_(BANK_SHEET, BANK_HEADERS);
+    var row = findRow_(sheet, 1, id);
+    var who = text_(actorOf_(auth));
+    if (row) {
+      var cur = sheet.getRange(row, 1, 1, BANK_HEADERS.length).getValues()[0];
+      sheet.getRange(row, 1, 1, BANK_HEADERS.length).setValues([[id, qJson, tJson, cur[3], cur[4], who, new Date()]]);
+    } else sheet.appendRow([id, qJson, tJson, who, new Date(), '', '']);
+    return { result: 'success', id: id };
+  });
+}
+function deleteBankItem_(body) {
+  var id = String(body.id || '');
+  return withLock_(function () {
+    var sheet = getSheet_(BANK_SHEET, BANK_HEADERS);
+    var row = findRow_(sheet, 1, id);
+    if (!row) return { result: 'error', error: 'not_found' };
+    sheet.deleteRow(row);
+    return { result: 'success' };
+  });
+}
+
+// ---------- accommodations + extensions (S12) ----------
+function accRow_(v) {
+  return {
+    email: normEmail_(v[0]), testCode: normalizeCode_(v[1]) || '*', extraTime: num_(v[2], 1) || 1, extraAttempts: Math.max(0, Math.floor(num_(v[3], 0))),
+    reducedChoices: v[4] === true || v[4] === 'true', readAloud: v[5] === true || v[5] === 'true', extensionUntil: iso_(v[6]), notes: String(v[7] || ''),
+    updated_by: String(v[8] || ''), updated_at: iso_(v[9])
+  };
+}
+function getAccommodations_(body) {
+  var r = sheetRows_(ACC_SHEET, ACC_HEADERS);
+  var code = body && body.testCode ? normalizeCode_(body.testCode) : '';
+  var list = r.values.filter(function (v) { return String(v[0]); }).map(accRow_);
+  if (code) list = list.filter(function (a) { return a.testCode === '*' || a.testCode === code; });
+  return { result: 'success', accommodations: list };
+}
+// Merged accommodation for a student on a test: test-specific values win over the '*' (all tests) row.
+function accommodationFor_(email, code) {
+  var e = normEmail_(email);
+  if (!e) return null;
+  var list = getAccommodations_({}).accommodations.filter(function (a) { return a.email === e && (a.testCode === '*' || a.testCode === normalizeCode_(code)); });
+  if (!list.length) return null;
+  list.sort(function (a, b) { return a.testCode === '*' ? -1 : b.testCode === '*' ? 1 : 0; });
+  var out = { extraTime: 1, extraAttempts: 0, reducedChoices: false, readAloud: false, extensionUntil: '', notes: '' };
+  list.forEach(function (a) {
+    if (a.extraTime && a.extraTime !== 1) out.extraTime = a.extraTime;
+    if (a.extraAttempts) out.extraAttempts = a.extraAttempts;
+    if (a.reducedChoices) out.reducedChoices = true;
+    if (a.readAloud) out.readAloud = true;
+    if (a.extensionUntil) out.extensionUntil = a.extensionUntil;
+    if (a.notes) out.notes = a.notes;
+  });
+  return out;
+}
+function saveAccommodation_(body, auth) {
+  var email = normEmail_(body.email);
+  if (!EMAIL_RE.test(email)) return { result: 'error', error: 'invalid_email' };
+  var code = body.testCode ? normalizeCode_(body.testCode) : '*';
+  return withLock_(function () {
+    var sheet = getSheet_(ACC_SHEET, ACC_HEADERS);
+    var last = sheet.getLastRow();
+    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, ACC_HEADERS.length).getValues();
+    var row = 0;
+    for (var i = 0; i < vals.length; i++) if (normEmail_(vals[i][0]) === email && (normalizeCode_(vals[i][1]) || '*') === code) { row = i + 2; break; }
+    var cur = row ? accRow_(vals[row - 2]) : { extraTime: 1, extraAttempts: 0, reducedChoices: false, readAloud: false, extensionUntil: '', notes: '' };
+    var pick = function (k, d) { return body[k] === undefined ? (body.merge ? cur[k] : d) : body[k]; };
+    var extraTime = Math.min(4, Math.max(1, num_(pick('extraTime', 1), 1)));
+    var until = pick('extensionUntil', '');
+    var untilDate = until ? new Date(until) : '';
+    if (untilDate && isNaN(untilDate.getTime())) return { result: 'error', error: 'invalid_date' };
+    var rowVals = [email, code, extraTime, Math.max(0, Math.floor(num_(pick('extraAttempts', 0), 0))), pick('reducedChoices', false) === true,
+      pick('readAloud', false) === true, untilDate, text_(String(pick('notes', '') || '').slice(0, 500)), text_(actorOf_(auth)), new Date()];
+    if (row) sheet.getRange(row, 1, 1, rowVals.length).setValues([rowVals]); else sheet.appendRow(rowVals);
+    return { result: 'success', accommodation: accRow_(rowVals) };
+  });
+}
+function deleteAccommodation_(body) {
+  var email = normEmail_(body.email);
+  var code = body.testCode ? normalizeCode_(body.testCode) : '*';
+  return withLock_(function () {
+    var sheet = getSheet_(ACC_SHEET, ACC_HEADERS);
+    var last = sheet.getLastRow();
+    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, 2).getValues();
+    for (var i = 0; i < vals.length; i++) if (normEmail_(vals[i][0]) === email && (normalizeCode_(vals[i][1]) || '*') === code) { sheet.deleteRow(i + 2); return { result: 'success' }; }
+    return { result: 'error', error: 'not_found' };
+  });
+}
+
+// ---------- open / close window + late work (S12) ----------
+// -> { state: 'open'|'before'|'late'|'closed', opensAt, closesAt, lateUntil, extensionUntil, penalty }
+function windowState_(test, acc, now) {
+  var t = now instanceof Date ? now.getTime() : Date.now();
+  var d = function (v) { var x = v ? new Date(v) : null; return x && !isNaN(x.getTime()) ? x.getTime() : null; };
+  var opens = d(test && test.opensAt);
+  var closes = d(test && test.closesAt);
+  var late = test && test.late && typeof test.late === 'object' ? test.late : null;
+  var lateUntil = late ? d(late.until) : null;
+  var ext = acc ? d(acc.extensionUntil) : null;
+  var out = { state: 'open', opensAt: test && test.opensAt || '', closesAt: test && test.closesAt || '', lateUntil: late && late.until || '', extensionUntil: acc && acc.extensionUntil || '', penalty: late && late.penalty || null };
+  if (opens !== null && t < opens) { out.state = 'before'; return out; }
+  if (closes === null || t <= closes) return out;
+  if (ext !== null && t <= ext) return out; // extension: on time
+  if (lateUntil !== null && t <= lateUntil) { out.state = 'late'; return out; }
+  out.state = 'closed';
+  return out;
+}
+// Late penalty on a percentage: { type: 'percentPerDay'|'flat', value }.
+function latePenalty_(penalty, closesAt, now) {
+  if (!penalty || !closesAt) return 0;
+  var v = Math.max(0, num_(penalty.value, 0));
+  if (penalty.type === 'flat') return Math.min(100, v);
+  var days = Math.ceil(Math.max(0, now.getTime() - new Date(closesAt).getTime()) / 86400000);
+  return Math.min(100, v * days);
+}
+// Gate for a submission: { status?, late?, penalized?, score?, percentage?, classId? }.
+function submissionGate_(s, body) {
+  var test = publishedTest_(s.test_code);
+  if (!test) return {};
+  var email = normEmail_(s.student_email);
+  if (s.id_token) {
+    var props = PropertiesService.getScriptProperties();
+    var clientId = props.getProperty('GOOGLE_CLIENT_ID');
+    if (clientId) { var who = verifyIdToken_(s.id_token, clientId); if (who.email) email = who.email; }
+  }
+  var out = {};
+  var r = rosterOk_(test, email);
+  out.classId = r.classId;
+  if (!r.ok) { out.status = STATUS_NOT_ROSTER; return out; }
+  var now = new Date();
+  var w = windowState_(test, accommodationFor_(email, s.test_code), now);
+  if (w.state === 'before' || w.state === 'closed') { out.status = STATUS_CLOSED; return out; }
+  if (w.state === 'late') {
+    out.late = true;
+    var pen = latePenalty_(w.penalty, test.closesAt, now);
+    if (pen > 0) {
+      out.penalized = true;
+      out.score = round2_(s.score_achieved * (1 - pen / 100));
+      out.percentage = round2_(num_(s.percentage) * (1 - pen / 100));
+    }
+  }
+  return out;
+}
+// POST getTest with a verified token: applies the student's extension (and refuses roster-only tests for others).
+function getTestFor_(body) {
+  var c = normalizeCode_(body && body.code);
+  if (!c) return { result: 'error', error: 'not_found' };
+  var test = publishedTest_(c);
+  if (!test) return { result: 'error', error: 'not_found' };
+  var who = verifyStudent_(body);
+  var acc = who.email ? accommodationFor_(who.email, c) : null;
+  var w = windowState_(test, acc, new Date());
+  if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
+  if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
+  if (test.rosterOnly === true && (!who.email || !rosterOk_(test, who.email).ok)) return { result: 'error', error: 'not_on_roster', title: test.title || '' };
+  return { result: 'success', test: test, window: w, accommodations: acc };
+}
+
+// ---------- regrade (S12): the admin client re-grades stored answers with the fixed key and sends the new responses ----------
+function applyRegrade_(body) {
+  var code = normalizeCode_(body.testCode);
+  var updates = Array.isArray(body.updates) ? body.updates : [];
+  if (!code || !updates.length) return { result: 'error', error: 'nothing_to_regrade' };
+  return withLock_(function () {
+    var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+    var changed = 0;
+    updates.forEach(function (u) {
+      var row = findRow_(sheet, 2, String(u.submissionId || ''));
+      if (!row) return;
+      var v = sheet.getRange(row, 1, 1, SUBMISSION_HEADERS.length).getValues()[0];
+      if (normalizeCode_(v[4]) !== code) return;
+      var responses = Array.isArray(u.responses) ? u.responses : null;
+      if (!responses) return;
+      var json = JSON.stringify(responses);
+      if (json.length > MAX_CELL_CHARS) return;
+      var grades = parseJson_(v[COL.GRADES - 1], {}) || {};
+      var final = applyGrades_(responses, grades); // teacher overrides are kept
+      sheet.getRange(row, 7, 1, 3).setValues([[num_(u.scoreAchieved), num_(u.scoreTotal), num_(u.percentage)]]);
+      sheet.getRange(row, COL.RESPONSES, 1, 1).setValues([[json]]);
+      var status = String(v[COL.STATUS - 1] || '');
+      if (status === STATUS_AUTO || status === STATUS_GRADED) sheet.getRange(row, COL.FINAL_SCORE, 1, 2).setValues([[final.score, final.percentage]]);
+      changed++;
+    });
+    return { result: 'success', regraded: changed };
+  });
+}
+
+// ---------- settings (error reports, release emails) ----------
+function readSettings_() {
+  var r = sheetRows_(SETTINGS_SHEET, SETTINGS_HEADERS);
+  var out = { errorReports: false, releaseEmails: false };
+  r.values.forEach(function (v) { var k = String(v[0]); if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true'; });
+  return out;
+}
+function saveSettings_(body) {
+  var incoming = body.settings && typeof body.settings === 'object' ? body.settings : {};
+  return withLock_(function () {
+    var sheet = getSheet_(SETTINGS_SHEET, SETTINGS_HEADERS);
+    ['errorReports', 'releaseEmails'].forEach(function (k) {
+      if (incoming[k] === undefined) return;
+      var row = findRow_(sheet, 1, k);
+      var vals = [k, incoming[k] === true];
+      if (row) sheet.getRange(row, 1, 1, 2).setValues([vals]); else sheet.appendRow(vals);
+    });
+    return { result: 'success', settings: readSettings_() };
+  });
+}
+// Optional release email (Settings > releaseEmails). Needs the MailApp permission; no score in the email.
+function sendReleaseEmails_(rows) {
+  try {
+    if (!readSettings_().releaseEmails || typeof MailApp === 'undefined') return 0;
+    var site = PropertiesService.getScriptProperties().getProperty('SITE_URL') || '';
+    var sent = 0;
+    rows.forEach(function (r) {
+      if (!r.email || !EMAIL_RE.test(r.email)) return;
+      if (MailApp.getRemainingDailyQuota && MailApp.getRemainingDailyQuota() < 1) return;
+      MailApp.sendEmail(r.email, 'Your grade for ' + (r.title || r.code) + ' is ready',
+        'Your teacher has released your grade for ' + (r.title || r.code) + '.\n\n' + (site ? 'See it here: ' + site + '?code=' + encodeURIComponent(r.code) + '\n' : '') + '\n— ChemistryWorks');
+      sent++;
+    });
+    return sent;
+  } catch (err) { return 0; }
+}
+
+// ---------- live monitor (S13): one row per student per test, overwritten in place ----------
+function progressPing_(body) {
+  var who = verifyStudent_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var code = normalizeCode_(body.testCode);
+  if (!code) return { result: 'error', error: 'missing_test_code' };
+  return withLock_(function () {
+    var sheet = getSheet_(LIVE_SHEET, LIVE_HEADERS);
+    var last = sheet.getLastRow();
+    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, 2).getValues();
+    var row = 0;
+    for (var i = 0; i < vals.length; i++) if (normalizeCode_(vals[i][0]) === code && normEmail_(vals[i][1]) === who.email) { row = i + 2; break; }
+    var now = new Date();
+    var started = row ? sheet.getRange(row, 7).getValue() : now;
+    var rowVals = [code, who.email, text_(String(body.name || '').slice(0, 120)), Math.max(0, Math.floor(num_(body.answered, 0))), Math.max(0, Math.floor(num_(body.total, 0))),
+      body.timeLeft === null || body.timeLeft === undefined ? '' : Math.max(0, Math.floor(num_(body.timeLeft, 0))), started || now, now, body.submitted === true];
+    if (row) sheet.getRange(row, 1, 1, rowVals.length).setValues([rowVals]); else sheet.appendRow(rowVals);
+    return { result: 'success' };
+  });
+}
+function getLive_(body) {
+  var code = normalizeCode_(body.testCode);
+  var r = sheetRows_(LIVE_SHEET, LIVE_HEADERS);
+  var now = new Date().getTime();
+  return { result: 'success', now: new Date().toISOString(), students: r.values.filter(function (v) { return !code || normalizeCode_(v[0]) === code; }).map(function (v) {
+    var lastPing = v[7] instanceof Date ? v[7].getTime() : new Date(v[7]).getTime();
+    return { testCode: String(v[0]), email: String(v[1]), name: String(v[2]), answered: num_(v[3], 0), total: num_(v[4], 0), timeLeft: v[5] === '' ? null : num_(v[5], 0),
+      startedAt: iso_(v[6]), lastPing: iso_(v[7]), submitted: v[8] === true || v[8] === 'true', idle: !isNaN(lastPing) && now - lastPing > 180000 };
+  }) };
+}
+
+// ---------- class leaderboard (S15): only for tests with gameMode and gameOptions.leaderboard ----------
+function boardAllowed_(code) {
+  var test = publishedTest_(code);
+  return !!(test && test.gameMode === true && test.gameOptions && test.gameOptions.leaderboard === true);
+}
+function submitGameScore_(body) {
+  var who = verifyStudent_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var code = normalizeCode_(body.testCode);
+  var game = String(body.gameId || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
+  if (!code || !game) return { result: 'error', error: 'missing_fields' };
+  if (!boardAllowed_(code)) return { result: 'error', error: 'leaderboard_off' };
+  var score = Math.max(0, Math.min(BOARD_MAX_SCORE, Math.floor(num_(body.score, 0))));
+  var name = String(body.name || '').trim().slice(0, 60);
+  return withLock_(function () {
+    var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
+    var last = sheet.getLastRow();
+    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, BOARD_HEADERS.length).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (normalizeCode_(vals[i][0]) === code && String(vals[i][1]) === game && normEmail_(vals[i][2]) === who.email) {
+        if (score > num_(vals[i][4], 0)) sheet.getRange(i + 2, 4, 1, 3).setValues([[text_(name), score, new Date()]]);
+        else if (name && name !== String(vals[i][3])) sheet.getRange(i + 2, 4, 1, 1).setValues([[text_(name)]]);
+        return { result: 'success', best: Math.max(score, num_(vals[i][4], 0)) };
+      }
+    }
+    sheet.appendRow([code, game, who.email, text_(name), score, new Date(), false]);
+    return { result: 'success', best: score };
+  });
+}
+function getLeaderboard_(body) {
+  var who = verifyStudent_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var code = normalizeCode_(body.testCode);
+  var game = String(body.gameId || '');
+  if (!boardAllowed_(code)) return { result: 'error', error: 'leaderboard_off' };
+  var r = sheetRows_(BOARD_SHEET, BOARD_HEADERS);
+  var rows = r.values.filter(function (v) { return normalizeCode_(v[0]) === code && String(v[1]) === game && !(v[6] === true || v[6] === 'true'); })
+    .map(function (v) { return { email: normEmail_(v[2]), name: String(v[3]), score: num_(v[4], 0) }; })
+    .sort(function (a, b) { return b.score - a.score; });
+  var rank = 0;
+  for (var i = 0; i < rows.length; i++) if (rows[i].email === who.email) { rank = i + 1; break; }
+  return { result: 'success', top: rows.slice(0, BOARD_TOP).map(function (x, k) { return { rank: k + 1, name: x.name, score: x.score, me: x.email === who.email }; }),
+    me: rank ? { rank: rank, score: rows[rank - 1].score } : null, total: rows.length };
+}
+function clearLeaderboard_(body) {
+  var code = normalizeCode_(body.testCode);
+  return withLock_(function () {
+    var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
+    var removed = 0;
+    for (var row = sheet.getLastRow(); row >= 2; row--) {
+      var v = sheet.getRange(row, 1, 1, 2).getValues()[0];
+      if (normalizeCode_(v[0]) === code && (!body.gameId || String(v[1]) === String(body.gameId))) { sheet.deleteRow(row); removed++; }
+    }
+    return { result: 'success', removed: removed };
+  });
+}
+function hideLeaderboardEntry_(body) {
+  var code = normalizeCode_(body.testCode);
+  var email = normEmail_(body.email);
+  return withLock_(function () {
+    var r = sheetRows_(BOARD_SHEET, BOARD_HEADERS);
+    var n = 0;
+    r.values.forEach(function (v, i) { if (normalizeCode_(v[0]) === code && normEmail_(v[2]) === email) { r.sheet.getRange(i + 2, 7, 1, 1).setValues([[body.hidden !== false]]); n++; } });
+    return n ? { result: 'success', changed: n } : { result: 'error', error: 'not_found' };
+  });
+}
+
+// ---------- error reports (S17): off unless Settings > errorReports; rate-limited; never stores answers ----------
+function reportError_(body) {
+  if (!readSettings_().errorReports) return { result: 'error', error: 'error_reports_off' };
+  try {
+    var cache = CacheService.getScriptCache();
+    var key = 'errors:' + Math.floor(new Date().getTime() / 3600000);
+    var n = Number(cache.get(key) || 0);
+    if (n >= ERRORS_PER_HOUR) return { result: 'error', error: 'rate_limited' };
+    cache.put(key, String(n + 1), 3700);
+  } catch (e) { /* no cache: still accept */ }
+  return withLock_(function () {
+    getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), text_(String(body.page || '').slice(0, 200)), text_(String(body.message || '').slice(0, 500)),
+      text_(String(body.detail || '').slice(0, 2000)), text_(String(body.browser || '').slice(0, 200))]);
+    return { result: 'success' };
+  });
+}
+function getErrors_(body) {
+  var r = sheetRows_(ERRORS_SHEET, ERROR_HEADERS);
+  var limit = Math.min(500, Math.max(1, Math.floor(num_(body && body.limit, 100))));
+  return { result: 'success', errors: r.values.slice(-limit).reverse().map(function (v) { return { time: iso_(v[0]), page: String(v[1]), message: String(v[2]), detail: String(v[3]), browser: String(v[4]) }; }) };
 }
