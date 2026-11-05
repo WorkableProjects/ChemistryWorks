@@ -466,6 +466,28 @@ body[data-view="runner"] .toast-root { bottom: 88px; }
 .theme-swatch:hover { transform: scale(1.1); }
 .theme-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--sw); transform: scale(1.06); }
 .theme-ctl__note { font-size: 12px; color: var(--text-faint); }
+.theme-ctl__btn { position: relative; }
+.theme-ctl__dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+.theme-ctl__dot[hidden] { display: none; }
+.theme-ctl__news { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; color: var(--text); text-align: left; }
+.theme-ctl__news:hover { border-color: var(--primary-line); color: var(--primary); }
+.theme-ctl__ver { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-faint); }
+
+/* ---------- What's new dialog (changelog/*.md) ---------- */
+.changelog { display: flex; flex-direction: column; gap: 8px; }
+.changelog__entry { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elev); }
+.changelog__summary { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; color: var(--text); }
+.changelog__summary::-webkit-details-marker { display: none; }
+.changelog__summary::before { content: ''; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform var(--dur-fast) var(--ease); flex: none; }
+.changelog__entry[open] > .changelog__summary::before { transform: rotate(45deg); }
+.changelog__ver { font-family: var(--font-display); font-weight: 700; }
+.changelog__badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--primary-soft, var(--bg-sunken)); color: var(--primary); }
+.changelog__date { margin-left: auto; font-size: 12px; color: var(--text-faint); }
+.changelog__body { padding: 0 14px 12px 31px; font-size: 14px; }
+.changelog__body p { margin: 6px 0; }
+.changelog__h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin: 12px 0 4px; }
+.changelog__list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.changelog__body code { font-family: var(--font-mono, monospace); font-size: 0.92em; }
 .theme-float { position: fixed; top: 14px; right: 16px; z-index: 60; }
 .landing__topbar { display: flex; gap: 8px; align-items: center; }
 

@@ -2,7 +2,7 @@
 // admins only, show a banner with the upgrade steps when the backend is older. A failed ping shows nothing.
 
 import { h } from '../ui.js';
-import { SITE_VERSION } from '../version.js';
+import { BACKEND_VERSION } from '../version.js';
 import { pingBackend } from './api.js';
 
 /** Parse "4.0.0" / "v4.0" / "4.0.0-beta" into [major, minor, patch] (missing or bad parts = 0), or null. */
@@ -21,12 +21,12 @@ export function compareVersions(a, b) {
 }
 
 /** True only when the backend version is known and lower than the site version. */
-export function isBackendOutdated(backendVersion, siteVersion = SITE_VERSION) {
+export function isBackendOutdated(backendVersion, siteVersion = BACKEND_VERSION) {
   return compareVersions(backendVersion, siteVersion) === -1;
 }
 
 /** -> { outdated, backendVersion, siteVersion }. Never throws; a failed ping is { outdated: false }. */
-export async function checkBackendVersion({ gasUrl, siteVersion = SITE_VERSION, ping = pingBackend, fetchImpl } = {}) {
+export async function checkBackendVersion({ gasUrl, siteVersion = BACKEND_VERSION, ping = pingBackend, fetchImpl } = {}) {
   if (!gasUrl) return { outdated: false, backendVersion: '', siteVersion };
   try {
     const res = await ping({ gasUrl, fetchImpl });
@@ -38,11 +38,11 @@ export async function checkBackendVersion({ gasUrl, siteVersion = SITE_VERSION, 
 }
 
 /** The admin-only banner element. */
-export function versionBanner({ backendVersion, siteVersion = SITE_VERSION } = {}) {
+export function versionBanner({ backendVersion, siteVersion = BACKEND_VERSION } = {}) {
   const bv = String(backendVersion || '').replace(/^v/i, '') || 'older than 3.0.0';
   const el = h('div', { class: 'notice notice--warning', role: 'status', dataset: { testid: 'version-banner' }, style: 'margin: 12px 16px;' },
     h('div', { class: 'stack' },
-      h('strong', {}, `The Apps Script backend is version ${bv}; this site is ${siteVersion}.`),
+      h('strong', {}, `The Apps Script backend is version ${bv}; this site needs ${siteVersion} or newer.`),
       h('span', {}, 'Update Code.gs so new features work:'),
       h('ol', {},
         h('li', {}, 'Paste the latest apps-script/Code.gs into your Apps Script project and Save.'),

@@ -377,8 +377,10 @@ The runner tags them (`required-pill`) and the submit modal lists unanswered req
   URL `?features=name1,name2` / `?features=all`. Unknown names are always off. Half-done v4 features ship behind a flag.
 
 ### Site version (S01)
-- `js/version.js` `SITE_VERSION` (`4.0.0`) — kept equal to `package.json` `version` (unit test). Shown under the
-  landing card; compared with the backend's `?action=ping` in S06.
+- `js/version.js` `SITE_VERSION` (`4.1.0`) — kept equal to `package.json` `version` (unit test). Shown under the
+  landing card and in Settings → What's new. `BACKEND_VERSION` (`4.0.0`) is the lowest Code.gs the site needs.
+- Release notes: `changelog/<version>.md` per version, listed newest first in `changelog/index.json`
+  (`js/lib/changelog.js`, `js/views/changelog.js`). `test/unit/changelog.test.mjs` requires notes for `SITE_VERSION`.
 
 ### Module layout (S01)
 - `js/views/runner.js` = the runner view; per-type answer widgets live in `js/views/runner/widgets.js`
@@ -402,7 +404,7 @@ The runner tags them (`required-pill`) and the submit modal lists unanswered req
 ### Admin accounts + backend 4.0 base (V4-07 / V4-08, S06)
 - **Version**: `Code.gs` `VERSION = '4.0.0'`; `?action=ping` -> `{ result, version }`. `js/lib/version-check.js`
   (`compareVersions`, `isBackendOutdated`, `checkBackendVersion`, `versionBanner`) shows an admin-only banner (behind
-  `feature('adminAccounts')`) when the backend is older than `SITE_VERSION`. Never shown to students; a failed ping shows nothing.
+  `feature('adminAccounts')`) when the backend is older than `BACKEND_VERSION`. Never shown to students; a failed ping shows nothing.
 - **Admin auth** `requireAdmin_(body)` guards every admin action. Request fields: `idToken` (Google ID token, verified like a
   student's: audience = `GOOGLE_CLIENT_ID`, Google issuer, not expired, `email_verified`, `ALLOWED_DOMAINS`), or the legacy
   `adminKey`. With `idToken` the verified lower-cased email must be on the `Admins` sheet; the key is NOT consulted as a fallback.
