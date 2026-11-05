@@ -25,7 +25,7 @@ const calc = async (page, expr) => {
   await page.locator(tid('calc-equals')).click();
 };
 
-test('flag off: no tools appear even when the test asks for them', () => withSession(env, {}, async (s) => {
+test('flag off: no tools appear even when the test asks for them', () => withSession(env, { config: { FEATURES: { studentTools: false } } }, async (s) => {
   s.serveTest('TL0', toolTest('TL0'));
   await startTest(s, 'TL0');
   assert.equal(await s.page.locator(tid('reference-pane')).count(), 0);

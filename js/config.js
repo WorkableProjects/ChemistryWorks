@@ -35,10 +35,10 @@ const DEFAULTS = {
   // window.CHEMISTRYWORKS_CONFIG = { FEATURES: { name: true } } or, on one device, the URL ?features=name1,name2
   // (or ?features=all). Read flags with feature('name').
   FEATURES: {
-    adminShell: false,     // S05: Classroom-style admin shell + dashboard (try with ?features=adminShell; turn on after review)
+    adminShell: true,      // S05: Classroom-style admin shell + dashboard
     adminAccounts: false,  // S06: Google sign-in for admins — turn on after deploying Code.gs 4.0.0 and filling the Admins sheet
     teacherTools: true,    // S07: insights, grade by question, comment bank (always shown)
-    studentTools: false,   // S16: calculator, scratchpad, read-aloud (per test: test.tools; turn on after review)
+    studentTools: true,    // S16: calculator, scratchpad, read-aloud (per test: test.tools)
     v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
   },
 };

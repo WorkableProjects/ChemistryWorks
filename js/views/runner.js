@@ -258,7 +258,7 @@ export function render(root, ctx, params = {}) {
     const widget = buildWidget(q, api);
     const flagBtn = h('button', {
       type: 'button', class: 'q-flag', 'aria-pressed': 'false', title: 'Flag for review (G)',
-      dataset: { testid: 'flag-btn' }, on: { click: () => toggleFlag(q.id) },
+      dataset: { testid: 'flag-btn' }, on: { click: () => toggleFlag(q.id, { focusNote: true }) },
     }, icon('flag', { size: 16 }), h('span', { class: 'q-flag__label' }, 'Flag'));
     const clearBtn = h('button', {
       type: 'button', class: 'q-clear', dataset: { testid: 'clear-answer' },
@@ -291,7 +291,6 @@ export function render(root, ctx, params = {}) {
         h('span', { class: 'spacer' }),
         readAloud?.el,
         flagBtn),
-      noteRow,
       // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
       withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
       widget.el,
@@ -309,6 +308,7 @@ export function render(root, ctx, params = {}) {
       set: (v) => { const n = normalizeScratch(v); if (isEmptyScratch(n)) delete state.scratch[q.id]; else state.scratch[q.id] = n; persist(true); },
     }) : null;
     if (pad) clearSlot.before(pad.el);
+    if (noteRow) clearSlot.before(noteRow); // the optional note sits under the answer, not above it
     const card = {
       q, i, el, widget,
       refresh() {
@@ -484,10 +484,11 @@ export function render(root, ctx, params = {}) {
     refreshQuestion(qid, debounce);
   }
 
-  function toggleFlag(qid) {
+  // The note box gets focus only when the flag is clicked; the G shortcut leaves focus alone so G toggles again.
+  function toggleFlag(qid, { focusNote = false } = {}) {
     if (state.flagged.has(qid)) { state.flagged.delete(qid); delete state.flagNotes[qid]; } else state.flagged.add(qid);
     refreshQuestion(qid);
-    if (toolsOn && state.flagged.has(qid)) cardById.get(qid)?.el.querySelector('[data-testid="flag-note"]')?.focus({ preventScroll: true });
+    if (toolsOn && focusNote && state.flagged.has(qid)) cardById.get(qid)?.el.querySelector('[data-testid="flag-note"]')?.focus({ preventScroll: true });
   }
 
   /* ---- navigation / modes */

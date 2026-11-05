@@ -33,7 +33,7 @@ Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 
 ### S05, S08–S19 (2026-11-05)
 - All sessions built. Final run: unit 800/800, E2E 152/152, validate:tests OK.
-- Flags: `v4Types`, `teacherTools` on; `adminShell` and `studentTools` built and tested but **off by default** (turn on after a look; try with `?features=adminShell,studentTools`); `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.
+- Flags: `v4Types`, `teacherTools`, `adminShell`, `studentTools` on (E2E 152/152 with them on); `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.
 - Classic admin shows the S11–S13 views under one **Tools** tab; the sidebar shell lists them individually.
 - Release checklist for Dutch: see the end-of-session message / DEPLOYMENT.md "Upgrading to v4".
 

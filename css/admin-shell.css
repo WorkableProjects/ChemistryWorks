@@ -219,3 +219,4 @@
 .bld2-ol__item > .icon { flex-shrink: 0; color: var(--text-muted); }
 .bld2-ol__grip { min-width: 28px; min-height: 36px; align-items: center; justify-content: center; cursor: grab; touch-action: none; }
 .ash .adm-toolbar { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.ash-top .theme-ctl__btn { color: var(--header-fg); background: rgb(255 255 255 / 0.06); border-color: var(--header-line); }

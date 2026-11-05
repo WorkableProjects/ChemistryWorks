@@ -5,7 +5,7 @@
 // once at import time. `render(host, ctx, helpers) -> cleanup?` mounts the view; an item without `render` (and not built in)
 // stays hidden, so entries for views that do not exist yet cost nothing.
 
-import { h, icon, brandLogo } from '../../ui.js';
+import { h, icon, brandLogo, themeControl } from '../../ui.js';
 import { load, save } from '../../lib/storage.js';
 import { getUser } from '../../lib/auth.js';
 import { THEMES, getThemePref, setThemePref, onThemeChange } from '../../lib/theme.js';
@@ -181,7 +181,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   cleanups.push(() => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onDocKey); });
 
   const topbar = h('header', { class: 'ash-top' }, toggle, brand, crumbNav, h('span', { class: 'ash-spacer' }),
-    h('div', { class: 'ash-top__right' }, sheetLink, lockBtn, h('div', { class: 'ash-profilewrap' }, profileBtn, menu)));
+    h('div', { class: 'ash-top__right' }, sheetLink, lockBtn, themeControl(), h('div', { class: 'ash-profilewrap' }, profileBtn, menu)));
 
   /* ---- sidebar ---- */
   const navBtns = {};
