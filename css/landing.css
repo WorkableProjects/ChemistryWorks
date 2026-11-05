@@ -41,6 +41,9 @@
 /* Code / sign-in card: the visual focus */
 .signin-card, .code-card { position: relative; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); box-shadow: var(--shadow-lg); }
 .gsi-slot { min-height: 44px; display: flex; justify-content: center; }
+/* The Google button iframe has no color-scheme of its own; in dark mode the mismatch makes the browser paint it an
+   opaque white backdrop. Matching it keeps the iframe transparent around the pill. */
+.gsi-slot iframe { color-scheme: normal; }
 .code-card__top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .code-form { display: flex; gap: 10px; }
 .code-form .input--code { flex: 1; min-width: 0; }

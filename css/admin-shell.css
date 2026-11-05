@@ -30,7 +30,7 @@
 .ash-icon-btn:hover { background: rgb(255 255 255 / 0.12); }
 .ash-brand { min-height: var(--touch); }
 .ash-brand__mark { height: 28px; flex-shrink: 0; }
-.ash-brand__name { font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; white-space: nowrap; }
+.ash-brand__name { font-family: var(--font-display); font-weight: 800; font-size: 18px; letter-spacing: -0.035em; white-space: nowrap; }
 .ash-crumbnav { min-width: 0; padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--header-line); }
 .ash-crumbs { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 2px; min-width: 0; font-size: 14px; }
 .ash-crumbs__li { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
@@ -183,7 +183,8 @@
 .lib2-empty { padding: 18px; text-align: center; color: var(--text-muted); }
 
 /* ---------- builder two-pane ---------- */
-.bld2 { display: grid; grid-template-columns: 280px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+/* .adm-builder.bld2: admin.css loads after this file, so the plain .adm-builder grid would otherwise win. */
+.adm-builder.bld2 { display: grid; grid-template-columns: 240px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
 .bld2__outline { position: sticky; top: calc(var(--header-h) + 58px); max-height: calc(100vh - var(--header-h) - 76px); overflow-y: auto; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elev); }
 .bld2__outline h3 { margin: 0 0 8px; }
 .bld2-ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -210,7 +211,14 @@
 .adm-menu__item { position: relative; }
 .adm-menu__desc { display: none; position: absolute; left: 8px; right: 8px; top: calc(100% - 2px); z-index: 5; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--toast-bg); color: var(--toast-fg); font-size: 12px; font-weight: 500; line-height: 1.3; pointer-events: none; text-align: left; animation: ash-pop var(--dur-fast) var(--ease-out) both; transform-origin: top left; }
 .adm-menu__item:hover .adm-menu__desc, .adm-menu__item:focus-visible .adm-menu__desc { display: block; }
-@media (max-width: 1199.98px) { .bld2 { grid-template-columns: minmax(0, 1fr); } .bld2__outline { position: static; max-height: 320px; } }
+@media (max-width: 1199.98px) {
+  .adm-builder.bld2 { grid-template-columns: 220px minmax(0, 1fr); }
+  .bld2 > .adm-builder__side { grid-column: 1 / -1; position: static; }
+}
+@media (max-width: 760px) {
+  .adm-builder.bld2 { grid-template-columns: minmax(0, 1fr); }
+  .bld2__outline { position: static; max-height: 240px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ash *, .ash *::before, .ash *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
