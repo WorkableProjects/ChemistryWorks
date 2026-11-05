@@ -31,6 +31,12 @@ Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 
 <!-- Newest first. For each session: what got done, what's half-done (and behind which flag), next step, surprises. -->
 
+### S05, S08–S19 (2026-11-05)
+- All sessions built. Final run: unit 800/800, E2E 152/152, validate:tests OK.
+- Flags: `v4Types`, `teacherTools` on; `adminShell` and `studentTools` built and tested but **off by default** (turn on after a look; try with `?features=adminShell,studentTools`); `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.
+- Classic admin shows the S11–S13 views under one **Tools** tab; the sidebar shell lists them individually.
+- Release checklist for Dutch: see the end-of-session message / DEPLOYMENT.md "Upgrading to v4".
+
 ### S06 + S07 (2026-11-04)
 - S06: every admin action goes through `requireAdmin_` (Google token on the Admins sheet, or ADMIN_KEY). Client sign-in UI is behind `FEATURES.adminAccounts` until Code.gs 4.0.0 is deployed (steps in DEPLOYMENT.md).
 - S07: all client-side, visible (no flag). Old `duplicate-<code>` button still makes `CODE_COPY` (E2E asserts it); the new `CODE-2` flow is `duplicate-new-<code>`. Bulk release/un-release use `saveGrade` (Auto-graded rows become Graded). Fixed `normalizeRow` overwriting the Extra attempt status.
