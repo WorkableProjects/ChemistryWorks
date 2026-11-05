@@ -11,21 +11,21 @@ Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
 | S02 | Brand system | Done | `claude/elegant-knuth-3ig53s` | Tokens, Plus Jakarta Sans, SVG mark, contrast + no-hex tests, DESIGN.md |
 | S03 | App shell + student views | Done (untested) | `claude/elegant-knuth-3ig53s` | Navy header + settings popover, icon sprite, landing, mode select, shared status page |
 | S04 | Runner + results revamp | Done (untested) | `claude/elegant-knuth-3ig53s` | Runner bar + progress, nav rail (desktop) / bottom sheet (phones), results ring + summary pills, feedback header, PDF header |
-| S05 | Admin revamp | Not started | | |
+| S05 | Admin revamp | Done | `claude/elegant-knuth-3ig53s` | Admin shell (sidebar, dashboard + greetings, two-pane builder, grading split view) |
 | S06 | Admin accounts + backend 4.0 base | Done (unit-tested) | `claude/elegant-knuth-3ig53s` | Code.gs 4.0.0, Admins + Log sheets, Google admin gate behind `adminAccounts`, version banner |
 | S07 | Teacher tools I | Done (unit-tested) | `claude/elegant-knuth-3ig53s` | Insights, grade by question, comment bank, bulk tools, print test, duplicate / Version B, per-question CSV. Built on the old admin tabs (S05 not done) |
-| S08 | Question types I | Not started | | |
-| S09 | Question types II | Not started | | |
-| S10 | Question types III + algorithmic | Not started | | |
-| S11 | Classes + bank + pools | Not started | | |
-| S12 | Scheduling + accommodations | Not started | | |
-| S13 | Live + mastery | Not started | | |
-| S14 | Games I | Not started | | |
-| S15 | Games II + leaderboard | Not started | | |
-| S16 | Student tools | Not started | | |
-| S17 | Platform | Not started | | |
-| S18 | Hardening | Not started | | |
-| S19 | Release | Not started | | |
+| S08 | Question types I | Done | `claude/elegant-knuth-3ig53s` | multipart, naming, dropdown + confidence/hints |
+| S09 | Question types II | Done | `claude/elegant-knuth-3ig53s` | dimensional, nuclear, reaction, vsepr, datatable |
+| S10 | Question types III + algorithmic | Done | `claude/elegant-knuth-3ig53s` | molarmass, imagechoice, particles, titration, estimate + algorithmic variables |
+| S11 | Classes + bank + pools | Done | `claude/elegant-knuth-3ig53s` | Classes/rosters, roster-only, bank, pools, import, 6 templates |
+| S12 | Scheduling + accommodations | Done | `claude/elegant-knuth-3ig53s` | Window, late work, accommodations, extensions, regrade, release emails, announcements |
+| S13 | Live + mastery | Done | `claude/elegant-knuth-3ig53s` | Live monitor, mastery, student profiles |
+| S14 | Games I | Done | `claude/elegant-knuth-3ig53s` | gameOptions + Tower, Boss Battle, Mistake Review, Unit Dash |
+| S15 | Games II + leaderboard | Done | `claude/elegant-knuth-3ig53s` | Reaction Lab, Molecule Builder, Periodic Puzzle, Daily Element, XP/badges, practice, leaderboard |
+| S16 | Student tools | Done | `claude/elegant-knuth-3ig53s` | Calculator, constants, scratchpad, read-aloud, highlighter, dashboard, flag notes, offline banner, font size |
+| S17 | Platform | Done | `claude/elegant-knuth-3ig53s` | Backup/restore, error reports, platform settings, copy-deployment guide |
+| S18 | Hardening | Done | `claude/elegant-knuth-3ig53s` | Flags on, fixes, full E2E run |
+| S19 | Release | Done | `claude/elegant-knuth-3ig53s` | Guide, DEPLOYMENT (Upgrading to v4), ARCHITECTURE, README |
 
 ## Handoff notes
 

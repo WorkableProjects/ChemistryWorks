@@ -9,6 +9,16 @@ Everyone can switch **light / dark / system** theme and pick an accent colour fr
 
 Turn off **Show score to students** on a test and students only see "Submission received"; you review and grade every answer privately in the **Grading** tab, then export the final scores (CSV) to copy into Aeries or Google Classroom.
 
+## What's new in v4
+
+- **ChemWorks Lab design**: navy/teal brand, new logo, calm motion, Classroom-style admin with a dashboard.
+- **33 question types**: multi-part, naming, dropdown cloze, dimensional analysis, nuclear notation, predict products, VSEPR shapes, data tables, molar mass, image choice, particle diagrams, virtual titration, estimate sliders, plus randomized (algorithmic) numbers per student.
+- **Teacher tools**: insights, grade by question, comment bank, bulk actions, print A/B, regrade, question bank, pools, import + templates, classes and roster-only tests, open/close windows, late work, accommodations, live monitor, mastery report, release emails, backup/restore.
+- **Admin accounts**: Google sign-in for listed admins (Admins sheet), activity log.
+- **Games**: per-test game options and 14 games, XP/badges, assigned practice, optional class leaderboard.
+- **Student tools**: calculator, constants, scratchpad, read-aloud, highlighter, flag notes, dashboard, offline banner.
+- Upgrade steps: `DEPLOYMENT.md` → "Upgrading to v4". Teacher guide: `docs/guide.md`.
+
 ## What's new in v2
 
 - **Submission counts** in the teacher's test library (completed submissions per test, shown once the Apps Script URL and admin key are set).
