@@ -220,7 +220,7 @@ test('landing dashboard lists in-progress and submitted tests', () => withSessio
   s.serveTest('TL9', toolTest('TL9'));
   await startTest(s, 'TL8');
   await activeCard(page).locator(tid('option-a')).click();
-  await page.locator(tid('home-btn')).first().click();
+  await page.locator(tid('brand')).first().click(); // the logo goes home from the runner
   await page.locator(tid('my-dashboard')).waitFor();
   await waitText(page.locator(tid('dash-row-TL8')).locator(tid('dash-status')), 'In progress');
   await page.locator(tid('dash-resume-TL8')).click();
@@ -240,7 +240,12 @@ test('released feedback offers Review my mistakes for game-mode tests only', () 
   s.serveTest('TLB', toolTest('TLB'));
   s.onGas = (b) => (b.action === 'getFeedback' ? { result: 'success', released: true, released_at: '2026-03-01T10:00:00Z', status: 'Graded', final_score: 1, score_total: 2, final_percentage: 50, grades: {}, comments: {} } : null);
   const sit = async (code) => {
-    await startTest(s, code);
+    await page.goto(s.url + '/');
+    if (await page.locator(tid('demo-name')).count()) await signIn(page);
+    await page.locator(tid('code-input')).fill(code);
+    await page.locator(tid('code-submit')).click();
+    if (code === 'TLA') await page.locator(tid('mode-study')).click(); // game-mode tests open the Study / Game chooser
+    await page.locator(tid('runner')).waitFor();
     await activeCard(page).locator(tid('option-b')).click();
     await page.locator(tid('submit-btn')).click();
     await page.locator(tid('confirm-submit')).click();

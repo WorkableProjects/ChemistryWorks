@@ -52,9 +52,9 @@ export function validateGameOptions(test) {
   if (raw === undefined || raw === null) return [];
   if (!isObj(raw)) return ['Test: gameOptions must be an object.'];
   const errs = [];
-  if (raw.games !== undefined && !Array.isArray(raw.games)) errs.push('Test: gameOptions.games must be a list of game ids.');
+  if (raw.games != null && !Array.isArray(raw.games)) errs.push('Test: gameOptions.games must be a list of game ids.');
   else for (const g of raw.games || []) if (!KNOWN_GAME_IDS.includes(String(g))) errs.push(`Test: gameOptions.games has an unknown game "${g}".`);
-  if (raw.types !== undefined && !Array.isArray(raw.types)) errs.push('Test: gameOptions.types must be a list of question types.');
+  if (raw.types != null && !Array.isArray(raw.types)) errs.push('Test: gameOptions.types must be a list of question types.');
   for (const [key, range] of Object.entries(LIMITS)) {
     const v = raw[key];
     if (v === undefined || v === null || v === '') continue;
