@@ -22,6 +22,27 @@ import { clearAdminConfirmed } from '../lib/admin-session.js';
 
 export * from './admin/stats.js';
 
+// Classic tabs: the v4 S11–S13 views live behind one "Tools" tab (the sidebar shell lists them individually).
+const TOOL_VIEWS = [
+  { id: 'bank', label: 'Question bank', icon: 'layers', render: (host, ctx, o) => renderBank(host, ctx, o) },
+  { id: 'classes', label: 'Classes', icon: 'user', render: (host, ctx, o) => renderClasses(host, ctx, o) },
+  { id: 'accommodations', label: 'Accommodations', icon: 'user', render: (host, ctx, o) => renderAccommodations(host, ctx, o) },
+  { id: 'live', label: 'Live monitor', icon: 'clock', render: (host, ctx, o) => renderLive(host, ctx, o) },
+  { id: 'mastery', label: 'Mastery', icon: 'award', render: (host, ctx, o) => renderMastery(host, ctx, o) },
+  { id: 'import', label: 'Import & templates', icon: 'upload', render: (host, ctx, o) => renderImport(host, ctx, o) },
+];
+function renderToolsHub(root, ctx, opts) {
+  let cleanup = null;
+  const body = h('div', { class: 'adm-tools-body' });
+  const open = (v) => { try { cleanup?.(); } catch { /* ignore */ } mount(body); const r = v.render(body, ctx, opts); cleanup = typeof r === 'function' ? r : null; };
+  mount(root, h('div', { class: 'stack', dataset: { testid: 'tools-hub' } },
+    h('div', { class: 'row row--wrap adm-toolbar--wrap', role: 'group', 'aria-label': 'Tools' },
+      TOOL_VIEWS.map((v) => h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `tools-${v.id}` }, on: { click: () => open(v) } }, icon(v.icon, { size: 16 }), v.label))),
+    body));
+  open(TOOL_VIEWS[0]);
+  return () => { try { cleanup?.(); } catch { /* ignore */ } };
+}
+
 // V4 S11–S13 views in the sidebar shell (the classic tabs list them in TABS below).
 registerNavItem({ id: 'bank', render: (host, ctx, o) => renderBank(host, ctx, o) });
 registerNavItem({ id: 'classes', render: (host, ctx, o) => renderClasses(host, ctx, o) });
@@ -35,10 +56,7 @@ const TABS = [
   { id: 'builder', label: 'Builder', icon: 'grid' },
   { id: 'grading', label: 'Grading', icon: 'pen' },
   { id: 'insights', label: 'Insights', icon: 'chart' },
-  { id: 'bank', label: 'Bank', icon: 'layers' },
-  { id: 'classes', label: 'Classes', icon: 'user' },
-  { id: 'live', label: 'Live', icon: 'clock' },
-  { id: 'mastery', label: 'Mastery', icon: 'award' },
+  { id: 'tools', label: 'Tools', icon: 'layers' },
   { id: 'settings', label: 'Settings', icon: 'key' },
 ];
 
@@ -121,10 +139,7 @@ export function render(root, ctx, params = {}) {
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
       insights: () => renderInsights(host, ctx, { goSettings }),
-      bank: () => renderBank(host, ctx, { goSettings, go: select }),
-      classes: () => renderClasses(host, ctx, { goSettings }),
-      live: () => renderLive(host, ctx, { goSettings }),
-      mastery: () => renderMastery(host, ctx, { goSettings }),
+      tools: () => renderToolsHub(host, ctx, { goSettings, go: select, openInBuilder }),
       settings: () => renderSettings(host, ctx, { openInBuilder, go: select }) }[tab];
     const res = sub();
     tabCleanup = typeof res === 'function' ? res : null;

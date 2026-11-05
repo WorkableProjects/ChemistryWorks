@@ -386,3 +386,6 @@
 .adm-errors { margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .runner-announcement { margin-bottom: 12px; align-items: center; }
 .runner-announcement__text { flex: 1; }
+/* v4: more library actions (duplicate with new code, version B, print) — let them wrap instead of overflowing. */
+.adm-item__actions { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+@media (max-width: 640px) { .adm-item__actions { justify-content: flex-start; } }

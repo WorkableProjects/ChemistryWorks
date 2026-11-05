@@ -102,7 +102,7 @@ test('existing comments and release state are loaded; list shows Released column
   assert.equal(await page.locator(tid('release-grade')).isChecked(), true);
   await waitText(page.locator(tid('released-status')), /^Released/);
   await page.locator(tid('grading-back')).click();
-  await waitText(page.locator(tid('grading-row')).first().locator('td').nth(6), 'Yes');
+  await waitText(page.locator(tid('grading-row')).first().locator('td').nth(7), 'Yes'); // column 0 is the S07 bulk-select checkbox
 }));
 
 test('section headings and orbital diagram', () => withSession(env, {}, async (s) => {

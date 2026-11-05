@@ -42,7 +42,7 @@ test('lands on the dashboard with a greeting, sidebar navigation and aria-curren
   assert.equal(await page.locator(`${tid('tab-dashboard')}[aria-current="page"]`).count(), 1);
   // entries for views that do not exist yet stay hidden; every old testid is present
   for (const id of ['dashboard', 'library', 'builder', 'grading', 'insights', 'settings']) assert.equal(await page.locator(tid(`tab-${id}`)).count(), 1, id);
-  for (const id of ['tab-bank', 'tab-classes']) assert.equal(await page.locator(tid(id)).count(), 0);
+  for (const id of ['tab-bank', 'tab-classes', 'tab-live', 'tab-mastery']) assert.equal(await page.locator(tid(id)).count(), 1, id); // S11–S13 views registered
   for (const id of ['lock-admin', 'sheet-link', 'new-test', 'brand']) assert.equal(await page.locator(tid(id)).count(), 1, id);
   // needs attention + quick stats come from the mocked backend
   await page.locator(tid('dash-grade-OPEN1')).waitFor();
