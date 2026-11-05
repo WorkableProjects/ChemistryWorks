@@ -1,0 +1,32 @@
+[
+  {
+    "code": "TPL-ATOMS",
+    "title": "Atomic structure (starter)",
+    "questions": 8
+  },
+  {
+    "code": "TPL-BONDING",
+    "title": "Chemical bonding (starter)",
+    "questions": 8
+  },
+  {
+    "code": "TPL-STOICH",
+    "title": "Stoichiometry (starter)",
+    "questions": 8
+  },
+  {
+    "code": "TPL-GASES",
+    "title": "Gases (starter)",
+    "questions": 8
+  },
+  {
+    "code": "TPL-SOLUTIONS",
+    "title": "Solutions (starter)",
+    "questions": 8
+  },
+  {
+    "code": "TPL-ACIDS",
+    "title": "Acids and bases (starter)",
+    "questions": 8
+  }
+]

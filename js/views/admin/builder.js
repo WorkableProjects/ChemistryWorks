@@ -16,6 +16,7 @@ import { testLink } from './library.js';
 import { typeEditor } from './editors/core.js';
 import { gameOptionsPanel } from './game-options.js';
 import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
+import { testExtrasPanel } from './test-extras.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
 const GUIDE_SOURCES = [
@@ -433,7 +434,8 @@ export function renderBuilder(root, ctx) {
         sw('gameMode', 'Allow game mode', 'Practice game option; scores not submitted', false),
         sw('singleSubmission', 'One submission per student', 'Blocks a second submission from the same email. Use Grading → Allow retake for exceptions.', false),
         sw('requireAllQuestions', 'All questions required', 'Students must answer every question before they can submit. Or mark single questions Required below.', false)),
-      v2 ? (gameOptionsPanel(S.test, changed) || null) : null,
+      S.test.gameMode ? (gameOptionsPanel(S.test, changed) || null) : null,
+      testExtrasPanel(S.test, changed, ctx),
     );
   }
 

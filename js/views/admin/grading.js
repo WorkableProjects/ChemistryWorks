@@ -14,6 +14,9 @@ import { withQuestionImage } from '../question-image.js';
 import { renderGradeByQuestion, answerDiagram } from './grade-by-question.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
 import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
+import { regradeRow } from '../../lib/regrade.js';
+import { adminCall } from '../../lib/api.js';
+import { openAccommodationEditor } from './accommodations.js';
 
 // Module state: remembered while switching tabs in the session.
 const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false };
@@ -147,6 +150,22 @@ export function renderGrading(root, ctx, { goSettings }) {
     const tableHost = h('div', { class: 'adm-tablewrap', dataset: { testid: 'grading-table' } });
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
     // V3-03: release every graded / auto-graded submission of the selected test.
+    // V4-02: re-run auto-grading on every submission of this test with the current answer key (overrides kept).
+    const regradeBtn = G.testCode === 'all' ? null : h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'regrade' }, on: { click: () => {
+      openModal({ title: `Regrade ${G.testCode}?`, testid: 'regrade-modal',
+        body: 'Every submission of this test is auto-graded again with the current answer key. Teacher-graded questions and your point overrides are kept.',
+        actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Regrade', variant: 'primary', testid: 'confirm-regrade', onClick: async (close) => {
+          close();
+          let test;
+          try { test = (await loadTest(G.testCode, { config: ctx.config, includeDrafts: true })).test; } catch (e) { toast(e.message, { type: 'error' }); return; }
+          const updates = rows.filter((r) => r.test_code === G.testCode).map((r) => ({ r, res: regradeRow(test, r) })).filter((x) => x.res && x.res.changed)
+            .map(({ r, res }) => ({ submissionId: r.submission_id, responses: res.responses, scoreAchieved: res.scoreAchieved, scoreTotal: res.scoreTotal, percentage: res.percentage }));
+          if (!updates.length) { toast('Nothing changed: every score already matches the current key.', { type: 'info' }); return; }
+          const res = await adminCall('applyRegrade', { testCode: G.testCode, updates }, { gasUrl });
+          toast(res.ok ? `Regraded ${res.data.regraded} submission(s)` : `Could not regrade: ${res.error}`, { type: res.ok ? 'success' : 'error', timeout: 5000 });
+          if (res.ok) loadRows(true);
+        } }] });
+    } } }, icon('refresh', { size: 16 }), 'Regrade');
     const releaseAllBtn = G.testCode === 'all' ? null : h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'release-all' }, on: { click: () => {
       const code = G.testCode;
       const ready = byTest.filter((r) => (r.status === STATUS.GRADED || r.status === STATUS.AUTO) && !r.released_at).length;
@@ -280,7 +299,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         modeToggle(),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Status'), statusSel),
-        h('span', { class: 'spacer' }), releaseAllBtn, refreshBtn),
+        h('span', { class: 'spacer' }), releaseAllBtn, regradeBtn, refreshBtn),
       G.error
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
         : h('section', { class: 'card adm-card-results', 'aria-label': 'Submissions to grade' },
@@ -566,7 +585,10 @@ export function renderGrading(root, ctx, { goSettings }) {
       h('section', { class: 'card stack', 'aria-label': 'Submission details' },
         h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
           h('h3', { class: 'adm-h3' }, row.student_name || row.student_email || 'Student'),
-          statusPill(row.status), h('span', { class: 'spacer' }), retakeBtn),
+          statusPill(row.status), h('span', { class: 'spacer' }), retakeBtn,
+          h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'extend-window' }, on: { click: () => openAccommodationEditor(ctx, { email: row.student_email, testCode: row.test_code }) } }, icon('clock', { size: 16 }), 'Extend / accommodations')),
+        row.flags && row.flags.questions && Object.keys(row.flags.questions).length ? h('div', { class: 'notice notice--warning', dataset: { testid: 'student-flags' } }, icon('flag'),
+          h('span', {}, 'Flagged by the student: ', Object.entries(row.flags.questions).map(([qid, note]) => `${qid}${note ? ` — “${note}”` : ''}`).join('; '))) : null,
         row.status === STATUS.EXTRA ? h('p', { class: 'notice notice--warning' }, icon('alert'), h('span', {}, 'Extra attempt: this student had already submitted this one-submission test. It is stored for your records but not counted and not shown to the student.')) : null,
         h('p', { class: 'muted' }, [row.student_email, `${row.test_code}${row.test_title ? ` · ${row.test_title}` : ''}`, fmtDate(row.timestamp), formatDurationLong(row.duration_seconds),
           row.tab_switches ? `${row.tab_switches} tab switch${row.tab_switches === 1 ? '' : 'es'}` : null].filter(Boolean).join(' · ')),

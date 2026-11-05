@@ -8,18 +8,37 @@ import { renderBuilder, setBuilderTest, newBuilderTest, builderIsDirty, getBuild
 import { renderLibrary, setLibraryQuery } from './admin/library.js';
 import { renderGrading, setGradingFocus } from './admin/grading.js';
 import { renderDashboard } from './admin/dashboard.js';
-import { buildAdminShell, NAV_ITEMS, isAvailable } from './admin/shell.js';
+import { buildAdminShell, NAV_ITEMS, isAvailable, registerNavItem } from './admin/shell.js';
 import { renderInsights } from './admin/insights.js';
+import { renderClasses } from './admin/classes.js';
+import { renderBank } from './admin/bank.js';
+import { renderAccommodations } from './admin/accommodations.js';
+import { renderLive } from './admin/live.js';
+import { renderMastery } from './admin/mastery.js';
+import { renderImport } from './admin/import.js';
+
 import { renderSettings } from './admin/settings.js';
 import { clearAdminConfirmed } from '../lib/admin-session.js';
 
 export * from './admin/stats.js';
+
+// V4 S11–S13 views in the sidebar shell (the classic tabs list them in TABS below).
+registerNavItem({ id: 'bank', render: (host, ctx, o) => renderBank(host, ctx, o) });
+registerNavItem({ id: 'classes', render: (host, ctx, o) => renderClasses(host, ctx, o) });
+registerNavItem({ id: 'accommodations', render: (host, ctx, o) => renderAccommodations(host, ctx, o) });
+registerNavItem({ id: 'live', render: (host, ctx, o) => renderLive(host, ctx, o) });
+registerNavItem({ id: 'mastery', render: (host, ctx, o) => renderMastery(host, ctx, o) });
+registerNavItem({ id: 'import', render: (host, ctx, o) => renderImport(host, ctx, o) });
 
 const TABS = [
   { id: 'library', label: 'Library', icon: 'list' },
   { id: 'builder', label: 'Builder', icon: 'grid' },
   { id: 'grading', label: 'Grading', icon: 'pen' },
   { id: 'insights', label: 'Insights', icon: 'chart' },
+  { id: 'bank', label: 'Bank', icon: 'layers' },
+  { id: 'classes', label: 'Classes', icon: 'user' },
+  { id: 'live', label: 'Live', icon: 'clock' },
+  { id: 'mastery', label: 'Mastery', icon: 'award' },
   { id: 'settings', label: 'Settings', icon: 'key' },
 ];
 
@@ -102,7 +121,11 @@ export function render(root, ctx, params = {}) {
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
       insights: () => renderInsights(host, ctx, { goSettings }),
-      settings: () => renderSettings(host, ctx, {}) }[tab];
+      bank: () => renderBank(host, ctx, { goSettings, go: select }),
+      classes: () => renderClasses(host, ctx, { goSettings }),
+      live: () => renderLive(host, ctx, { goSettings }),
+      mastery: () => renderMastery(host, ctx, { goSettings }),
+      settings: () => renderSettings(host, ctx, { openInBuilder, go: select }) }[tab];
     const res = sub();
     tabCleanup = typeof res === 'function' ? res : null;
   }
@@ -226,7 +249,7 @@ function renderShelled(root, ctx, params = {}) {
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
       insights: () => renderInsights(host, ctx, { goSettings }),
-      settings: () => renderSettings(host, ctx, {}),
+      settings: () => renderSettings(host, ctx, { openInBuilder, go: select }),
     };
     const sub = extra ? () => extra.render(host, ctx, { openInBuilder, goSettings, go: select }) : views[tab];
     const res = sub();

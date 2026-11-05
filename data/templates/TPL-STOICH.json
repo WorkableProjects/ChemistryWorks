@@ -1,0 +1,134 @@
+{
+  "code": "TPL-STOICH",
+  "title": "Stoichiometry (starter)",
+  "description": "Starter test from the ChemistryWorks templates. Duplicate it, then edit.",
+  "timeLimitMinutes": null,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "numeric",
+      "text": "Molar mass of H2O (g/mol)?",
+      "points": 1,
+      "correctAnswer": 18.02,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "unit": "g/mol",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "text": "Moles in 36.0 g of water?",
+      "points": 1,
+      "correctAnswer": 2.0,
+      "tolerance": 0.02,
+      "toleranceType": "absolute",
+      "unit": "mol",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q3",
+      "type": "numeric",
+      "text": "2 H2 + O2 \u2192 2 H2O. Moles of H2O from 3.0 mol H2?",
+      "points": 1,
+      "correctAnswer": 3.0,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "unit": "mol",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q4",
+      "type": "numeric",
+      "text": "Molar mass of CO2 (g/mol)?",
+      "points": 1,
+      "correctAnswer": 44.01,
+      "tolerance": 0.05,
+      "toleranceType": "absolute",
+      "unit": "g/mol",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q5",
+      "type": "numeric",
+      "text": "Grams in 0.500 mol NaCl (58.44 g/mol)?",
+      "points": 1,
+      "correctAnswer": 29.2,
+      "tolerance": 0.1,
+      "toleranceType": "absolute",
+      "unit": "g",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q6",
+      "type": "mcq",
+      "text": "In N2 + 3 H2 \u2192 2 NH3, the mole ratio H2 : NH3 is\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "1 : 2"
+        },
+        {
+          "id": "b",
+          "text": "3 : 2"
+        },
+        {
+          "id": "c",
+          "text": "2 : 3"
+        },
+        {
+          "id": "d",
+          "text": "3 : 1"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q7",
+      "type": "numeric",
+      "text": "How many molecules are in 1.00 mol of a substance? (use 6.022e23)",
+      "points": 1,
+      "correctAnswer": 6.022e+23,
+      "tolerance": 1e+21,
+      "toleranceType": "absolute",
+      "unit": "",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q8",
+      "type": "mcq",
+      "text": "The reactant that runs out first is the\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "excess reactant"
+        },
+        {
+          "id": "b",
+          "text": "limiting reactant"
+        },
+        {
+          "id": "c",
+          "text": "catalyst"
+        },
+        {
+          "id": "d",
+          "text": "product"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    }
+  ]
+}

@@ -359,3 +359,30 @@
   .adm-hist { gap: 3px; }
   .adm-bankmgr__crit { grid-template-columns: 1fr 64px auto; }
 }
+
+/* ---------- V4 S11–S17 admin views ---------- */
+.adm-class__roster summary, .adm-extras > summary { cursor: pointer; font-weight: 600; min-height: var(--touch); display: flex; align-items: center; }
+.adm-roster { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.adm-roster li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.adm-class-picks { display: flex; flex-direction: column; gap: 6px; }
+.adm-h4 { font-size: 14px; font-weight: 700; margin: 8px 0 0; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.adm-extras { border-top: 1px solid var(--border); padding-top: 8px; }
+.adm-bank-item { display: flex; flex-direction: column; gap: 8px; padding: 16px; }
+.adm-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.adm-template { display: flex; flex-direction: column; gap: 4px; text-align: left; cursor: pointer; padding: 16px; font: inherit; color: var(--text); }
+.adm-template:hover { border-color: var(--primary-line); transform: translateY(-1px); }
+.adm-import-warn { margin: 0; padding-left: 20px; color: var(--warning-ink); font-size: 14px; }
+.adm-live-bar { display: inline-block; vertical-align: middle; width: 90px; height: 8px; border-radius: 999px; background: var(--bg-sunken); overflow: hidden; }
+.adm-live-bar__fill { display: block; height: 100%; background: var(--brand-teal); transform-origin: left; transition: transform var(--dur-slow) var(--ease-out); }
+.adm-heat { text-align: center; font-family: var(--font-mono); font-weight: 600; }
+.adm-heat--high { background: var(--success-soft); color: var(--success-ink); }
+.adm-heat--mid { background: color-mix(in srgb, var(--success-soft) 50%, var(--bg-elev)); color: var(--text); }
+.adm-heat--low { background: var(--warning-soft); color: var(--warning-ink); }
+.adm-heat--very-low { background: var(--danger-soft); color: var(--danger-ink); }
+.adm-heat--none { color: var(--text-faint); }
+.adm-mastery__class th, .adm-mastery__class td { border-bottom: 2px solid var(--border-strong); }
+.adm-trend { width: 100%; max-width: 320px; height: 70px; }
+.adm-trend polyline { stroke: var(--brand-teal); }
+.adm-errors { margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.runner-announcement { margin-bottom: 12px; align-items: center; }
+.runner-announcement__text { flex: 1; }

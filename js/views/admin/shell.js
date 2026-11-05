@@ -25,8 +25,12 @@ export const NAV_ITEMS = [
   { id: 'builder', label: 'Builder', icon: 'grid', group: 'teaching', builtin: true },
   { id: 'grading', label: 'Grading', icon: 'pen', group: 'teaching', builtin: true },
   { id: 'insights', label: 'Insights', icon: 'chart', group: 'tools', builtin: true },
-  { id: 'bank', label: 'Question bank', icon: 'layers', group: 'tools' },     // S11 registers render()
-  { id: 'classes', label: 'Classes', icon: 'user', group: 'tools' },          // S11 registers render()
+  { id: 'bank', label: 'Question bank', icon: 'layers', group: 'tools' },     // render registered in js/views/admin.js
+  { id: 'classes', label: 'Classes', icon: 'user', group: 'tools' },
+  { id: 'accommodations', label: 'Accommodations', icon: 'user', group: 'tools' },
+  { id: 'live', label: 'Live monitor', icon: 'clock', group: 'tools' },
+  { id: 'mastery', label: 'Mastery', icon: 'award', group: 'tools' },
+  { id: 'import', label: 'Import & templates', icon: 'upload', group: 'tools' },
   { id: 'settings', label: 'Settings', icon: 'key', group: 'bottom', builtin: true },
 ];
 

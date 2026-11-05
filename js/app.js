@@ -284,4 +284,6 @@ onAuthChange((user) => {
 });
 
 window.addEventListener('error', (e) => console.error('[ChemistryWorks]', e.error || e.message));
+// V4-08: opt-in error reports (the backend refuses them unless Settings > Error reports is on).
+if (!navigator.webdriver) installErrorReporting(CONFIG);
 start();

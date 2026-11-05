@@ -1,0 +1,144 @@
+{
+  "code": "TPL-SOLUTIONS",
+  "title": "Solutions (starter)",
+  "description": "Starter test from the ChemistryWorks templates. Duplicate it, then edit.",
+  "timeLimitMinutes": null,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "numeric",
+      "text": "Molarity of 0.50 mol NaCl in 2.0 L of solution (M)?",
+      "points": 1,
+      "correctAnswer": 0.25,
+      "tolerance": 0.005,
+      "toleranceType": "absolute",
+      "unit": "M",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q2",
+      "type": "numeric",
+      "text": "Moles of solute in 0.250 L of 0.400 M solution?",
+      "points": 1,
+      "correctAnswer": 0.1,
+      "tolerance": 0.002,
+      "toleranceType": "absolute",
+      "unit": "mol",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q3",
+      "type": "numeric",
+      "text": "Dilute 50.0 mL of 2.00 M to 200.0 mL. New concentration (M)?",
+      "points": 1,
+      "correctAnswer": 0.5,
+      "tolerance": 0.005,
+      "toleranceType": "absolute",
+      "unit": "M",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q4",
+      "type": "mcq",
+      "text": "In salt water, water is the\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "solute"
+        },
+        {
+          "id": "b",
+          "text": "solvent"
+        },
+        {
+          "id": "c",
+          "text": "precipitate"
+        },
+        {
+          "id": "d",
+          "text": "colloid"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q5",
+      "type": "truefalse",
+      "text": "\"Like dissolves like\": polar solvents dissolve polar solutes.",
+      "points": 1,
+      "correctAnswer": true,
+      "explanation": ""
+    },
+    {
+      "id": "q6",
+      "type": "mcq",
+      "text": "Raising temperature usually makes a solid solute\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "less soluble"
+        },
+        {
+          "id": "b",
+          "text": "more soluble"
+        },
+        {
+          "id": "c",
+          "text": "insoluble"
+        },
+        {
+          "id": "d",
+          "text": "unchanged"
+        }
+      ],
+      "correctAnswer": "b",
+      "explanation": ""
+    },
+    {
+      "id": "q7",
+      "type": "numeric",
+      "text": "Grams of NaOH (40.00 g/mol) for 1.00 L of 0.100 M solution?",
+      "points": 1,
+      "correctAnswer": 4.0,
+      "tolerance": 0.02,
+      "toleranceType": "absolute",
+      "unit": "g",
+      "formatHelp": "auto",
+      "explanation": ""
+    },
+    {
+      "id": "q8",
+      "type": "mcq",
+      "text": "A solution holding more solute than its normal limit is\u2026",
+      "points": 1,
+      "options": [
+        {
+          "id": "a",
+          "text": "unsaturated"
+        },
+        {
+          "id": "b",
+          "text": "saturated"
+        },
+        {
+          "id": "c",
+          "text": "supersaturated"
+        },
+        {
+          "id": "d",
+          "text": "dilute"
+        }
+      ],
+      "correctAnswer": "c",
+      "explanation": ""
+    }
+  ]
+}
