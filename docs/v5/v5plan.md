@@ -49,7 +49,7 @@ Other facts:
 - `gameOptions` (`js/lib/games/options.js`, builder `js/views/admin/game-options.js`) lets a teacher pick games and limit types per test.
 - XP, badges, cosmetics, best scores and history are **localStorage only** (`js/lib/xp.js`, `cw:xp:<email>`): lost on a new device or Chromebook reset. Only the leaderboard is server-side (`Leaderboard` sheet).
 
-### Student landing / dashboard (screenshot, `js/views/landing.js`, `js/views/tools/dashboard.js`, `dashboard-model.js`, `js/views/practice-card.js`)
+### Student landing / dashboard (screenshot of the current dashboard, `js/views/landing.js`, `js/views/tools/dashboard.js`, `dashboard-model.js`, `js/views/practice-card.js`)
 
 Built from **this device's** localStorage (`progress:*` keys and `getLocalResults()`). Problems visible in the screenshot:
 - The same tests appear **three times**: "My dashboard" list, "Continue where you left off" cards and "Your tests" cards (DEMOV3 twice in "Your tests").
@@ -57,7 +57,6 @@ Built from **this device's** localStorage (`progress:*` keys and `getLocalResult
 - Odd numbers: "17.5%" on an in-progress test, "0 released", "0 answered" rows that were opened once and never started.
 - Version label shows `v4.0.0` (cached JS or a stale label) while the site is 4.1.0.
 - Dark circles clipped on the right edge (decor bubbles overflowing the page).
-- Header says "ChemWorks", tagline says "ChemistryWorks".
 - No grades over time, no due dates, no class, no teacher-assigned work, nothing that follows the student to another device.
 
 ### Insights and Mastery
@@ -133,7 +132,7 @@ Replace the landing's stacked lists with a real **student home**, backed by the 
 5. **Practice:** Mistake Review across all tests, recent game bests, badges shelf.
 6. **Profile page** (`?view=profile` or avatar → Profile): stats (tests done, average, accuracy by topic from released results only), badges, history, appearance prefs, sign out.
 
-Fixes from the screenshot go in here: no empty card, no duplicates, correct version label, decor stays inside the page, one product name.
+Fixes from the screenshot go in here: no empty card, no duplicates, correct version label, decor stays inside the page.
 
 ## V5-03 — Remove Insights and Mastery
 
@@ -173,7 +172,6 @@ Fixes from the screenshot go in here: no empty card, no duplicates, correct vers
   - Saved to the profile (V5-02) so it follows the student.
 - Consistent empty states (illustration + one action) across student and admin views.
 - Command palette in admin (Ctrl/⌘ K): jump to a test, a student, a section.
-- Fix the brand name split ("ChemWorks" everywhere a user sees it).
 
 ## V5-07 — More question types
 
@@ -228,7 +226,7 @@ Same rules as v4 (`docs/v3/v4.0plan.md` → "Running v4 across sessions"): branc
 
 | # | Session | Covers | Depends on |
 |---|---|---|---|
-| S01 | Clean-up | V5-03 remove Insights/Mastery; screenshot fixes (duplicates, empty card, version label, overflow, name) | — |
+| S01 | Clean-up | V5-03 remove Insights/Mastery; screenshot fixes (duplicates, empty card, version label, overflow) | — |
 | S02 | Attempt model | Shared attempt store used by runner and games; runner mode switcher | S01 |
 | S03 | Game modes I | Classic, Lightning, Survival, Flashcards, Mistake Review on the attempt + runner widgets | S02 |
 | S04 | Game modes II | Tower, Boss, Match-Up rework, Quiz Show, Race, Bingo; remove the six independent games | S03 |
