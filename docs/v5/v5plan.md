@@ -1,8 +1,15 @@
 # ChemWorks v5.0 — Plan
 
-> **Status:** Draft — needs answers to **Open questions** before S01 starts
+> **Status:** Ready to build — delegated. Open questions have defaults in `docs/v5/delegations/README.md` → Decisions.
 > **Version:** 5.0.0 (major: new backend actions and sheets → `apps-script/Code.gs` 5.0.0, `BACKEND_VERSION` raised)
 > **Builds on:** v4.1.0 (admin shell, 30+ question types, 14 games, student tools, XP, leaderboard, What's new)
+
+> **Implementation: run the delegations, don't re-plan.**
+> The orchestrating Claude session starts v5 by reading `docs/v5/delegations/README.md` and following it: launch the
+> pre-written agents there (Sonnet and Haiku only, `isolation: "worktree"`, up to 5 in parallel) in dependency order,
+> merge each one, run the tests and track progress in `docs/v5/v5-progress.md`. Each agent's prompt is one line
+> pointing at its brief (`docs/v5/delegations/<file>.md` → `## <ID>`). The orchestrator does not write its own plans
+> or feature code; it only resolves merge conflicts, sends failures back to agents and pushes.
 
 ## Original notes
 
@@ -299,7 +306,7 @@ Pick in Open question 5.
 
 ## Running v5 across sessions
 
-Same rules as v4 (`docs/v3/v4.0plan.md` → "Running v4 across sessions"): branch per session from a `v5` branch, unfinished work behind `FEATURES` flags, `npm run test:all` green before ending, progress in `docs/v5/v5-progress.md`.
+Superseded by `docs/v5/delegations/README.md`: the sessions below are split into Sonnet/Haiku agent briefs, run in parallel waves over one weekend, merged into the orchestrator's branch. Unfinished work stays behind `FEATURES` flags; `npm run test:all` green before pushing; progress in `docs/v5/v5-progress.md`. The table is kept as the map from plan sessions to agent IDs (S05 = B1, S07 backend = B3, S08 backend = B2).
 
 | # | Session | Covers | Depends on |
 |---|---|---|---|
