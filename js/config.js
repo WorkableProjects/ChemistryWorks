@@ -25,8 +25,9 @@ const DEFAULTS = {
   // Optional: restrict Google sign-in to these email domains, e.g. ['myschool.org'].
   ALLOWED_EMAIL_DOMAINS: [],
 
-  // 'auto' = post to Netlify Forms unless running on localhost/127.0.0.1; true/false to force.
-  NETLIFY_FORMS: 'auto',
+  // Netlify Forms backup. Off: the site is hosted on GitHub Pages, which has no form handling.
+  // ('auto' = post unless on localhost; only meaningful on Netlify.)
+  NETLIFY_FORMS: false,
 
   // Default question layout: 'focus' (one question at a time) or 'scroll' (all on one page).
   DEFAULT_MODE: 'focus',

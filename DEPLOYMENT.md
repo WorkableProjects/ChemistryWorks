@@ -1,5 +1,7 @@
 # ChemistryWorks Deployment Guide
 
+> **Now hosted on GitHub Pages** (https://workableprojects.github.io/ChemistryWorks/). See [docs/github-pages.md](docs/github-pages.md). Netlify steps below are kept for rollback; `NETLIFY_FORMS` is now `false`.
+
 This guide takes you from a fresh clone to a live site that signs students in with Google, grades tests in the browser, and records every submission in a Google Sheet. It replaces section 8 of `chemistryworks_specification.md`, which has a few inaccuracies (see "Corrections to the original sketch" at the end).
 
 ## Overview
@@ -151,7 +153,7 @@ Edit the values at the top of `js/config.js`:
 | `ADMIN_ACCESS_CODE` | Change from the default `chemadmin`; it only hides the admin UI |
 | `ALLOW_DEMO_SIGNIN` | Set to `false` in production so only Google sign-in is offered |
 | `ALLOWED_EMAIL_DOMAINS` | Optional, e.g. `['myschool.org']` |
-| `NETLIFY_FORMS` | Leave `'auto'` (on everywhere except localhost) |
+| `NETLIFY_FORMS` | `false` on GitHub Pages; `'auto'` only if hosting on Netlify |
 
 Commit and push. For quick experiments you can also define `window.CHEMISTRYWORKS_CONFIG = {...}` before `js/app.js` loads, but editing the file is the normal route.
 
