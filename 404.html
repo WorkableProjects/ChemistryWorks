@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChemistryWorks</title>
+  <script>
+    // GitHub Pages fallback: old links like .../test?code=CHEM101 (a Netlify rewrite) go to the app at ./?code=CHEM101.
+    (function () {
+      var p = location.pathname;
+      var base = p.replace(/\/test\/?$/, '/');
+      if (base === p) base = p.replace(/[^/]*$/, '');
+      location.replace(base + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body><p>Redirecting… <a href="./">Open ChemistryWorks</a></p></body>
+</html>

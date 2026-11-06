@@ -13,7 +13,7 @@ import { normalizeRow, STATUS } from './stats.js';
 const points = (t) => round2((t.questions || []).reduce((s, q) => s + (Number(q.points) || 0), 0));
 
 export function testLink(code) {
-  return new URL(`test?code=${encodeURIComponent(code)}`, location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '')).href;
+  return new URL(`?code=${encodeURIComponent(code)}`, location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '')).href;
 }
 
 // V4-01 library view state (card grid / table, search, filters); the view mode is remembered per device.

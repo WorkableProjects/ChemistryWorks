@@ -16,7 +16,7 @@ export function setupChecks(config = CONFIG) {
     { key: 'client-id', ok: gsi, label: 'Google Client ID configured', fix: 'Set GOOGLE_CLIENT_ID in js/config.js.', doc: 'DEPLOYMENT.md#2-google-cloud-oauth-client-for-google-sign-in' },
     { key: 'gas-url', ok: !!config.GAS_WEB_APP_URL, label: 'Apps Script URL configured', fix: 'Deploy apps-script/Code.gs and set GAS_WEB_APP_URL.', doc: 'DEPLOYMENT.md#3-google-sheet-and-apps-script' },
     { key: 'sheet-url', ok: !!config.SHEET_URL, label: 'Sheet URL configured', fix: 'Set SHEET_URL so the admin header can link to your sheet.', doc: 'DEPLOYMENT.md#3-google-sheet-and-apps-script' },
-    { key: 'netlify', ok: netlifyFormsEnabled(config), label: 'Netlify Forms backup active', fix: 'Netlify Forms are skipped on localhost; deploy to Netlify (or set NETLIFY_FORMS: true).', doc: 'DEPLOYMENT.md#5-netlify', warnOnly: true },
+    { key: 'netlify', ok: netlifyFormsEnabled(config), label: 'Netlify Forms backup active', fix: 'Off on GitHub Pages (no form handling). Apps Script is the only submission backend; NETLIFY_FORMS: true only on Netlify.', doc: 'DEPLOYMENT.md#5-netlify', warnOnly: true },
     { key: 'demo', ok: !(config.ALLOW_DEMO_SIGNIN && !gsi), label: 'Demo sign-in disabled in production', fix: 'Demo sign-in is on because no Google Client ID is set. Set ALLOW_DEMO_SIGNIN to false once Google sign-in works.', doc: 'DEPLOYMENT.md#2-google-cloud-oauth-client-for-google-sign-in', warnOnly: true },
   ];
 }

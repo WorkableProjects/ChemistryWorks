@@ -225,7 +225,7 @@ test('library: "Copy student link" gives a one-click link that signs in and open
   await page.locator(tid('copy-link-CHEM101')).click();
   const toastText = await waitText(page.locator('.toast').last(), /Student link copied/);
   const link = toastText.match(/https?:\/\/\S+/)[0];
-  assert.equal(link, `${url}/test?code=CHEM101`);
+  assert.equal(link, `${url}/?code=CHEM101`);
 
   await page.evaluate(() => sessionStorage.clear());
   await page.goto(link);
