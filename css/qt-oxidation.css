@@ -1,0 +1,16 @@
+/* ChemWorks v5 — oxidation question type (oxidation numbers). Tokens only. */
+.q-ox { display: grid; gap: var(--space-4); }
+.ox-root { display: grid; gap: var(--space-4); }
+.ox-formula { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-1) 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; color: var(--text); }
+.ox-text { align-self: center; white-space: pre; }
+.ox-atom { display: inline-grid; justify-items: center; gap: var(--space-1); }
+.ox-atom__sym { font-weight: 600; line-height: 1; }
+.ox-in { width: 4.5em; min-height: var(--touch, 44px); padding-inline: var(--space-2); text-align: center; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ox-empty { margin: 0; color: var(--text-muted); }
+.ox-review { display: inline-flex; }
+.ox-review__text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-muted); }
+.ox-ed__checker.is-bad { color: var(--danger, var(--text)); }
+@media (max-width: 520px) {
+  .ox-formula { font-size: 18px; }
+  .ox-in { width: 3.5em; }
+}

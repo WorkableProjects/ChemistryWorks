@@ -1,0 +1,11 @@
+[
+  {
+    "id": "oxidation-1",
+    "type": "oxidation",
+    "text": "Give the oxidation number of each element in H₂SO₄.",
+    "points": 3,
+    "formula": "H2SO4",
+    "key": [1, 6, -2],
+    "explanation": "H is +1 and O is −2. The four O atoms give −8 and the two H give +2, so S must be +6 for the molecule to total 0."
+  }
+]
