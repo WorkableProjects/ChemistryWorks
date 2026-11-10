@@ -562,8 +562,10 @@ six independent games removed (4), notifications derived on read (7).
   **Due rule**: compare in the script time zone (`appsscript.json` `timeZone`); `dueAt` is ISO text with offset; turned in at exactly `dueAt` is on time (`late` only after it).
   An accommodation `extensionUntil` or extra time moves that student's due time: `dueAt = max(dueAt, extensionUntil)`. Past `dueAt` with nothing turned in = `missing`
   (also when `lateAllowed`, until it is turned in, then `late`).
-- **Cache** (`CacheService.getScriptCache`, 120 s): keys `tests:list`, `settings`, `classes:list`, `roster:<classId>`; cleared by `publishTest`, `deleteTest`, `saveClass`, `deleteClass`, `saveSettings`, `saveAssignment`, `deleteAssignment`. Student/profile data is never cached. Write actions return the changed row.
+- **Cache** (`CacheService.getScriptCache`, 120 s): keys `tests:list`, `settings`, `classes:list`, `roster:<classId>`, `assignments:list`; cleared by `publishTest`, `deleteTest`, `saveClass`, `deleteClass`, `saveSettings`, `saveAssignment`, `deleteAssignment`. Student/profile data is never cached. Write actions return the changed row.
 - `getLeaderboard` / `submitGameScore` accept the new mode ids and ignore removed ones. `submit`, grading and release are unchanged.
+
+- **B3 notes**: Stream `body` of `assignment` / `reminder` posts is stored as JSON `{text, assignmentId, testCode, emails}`; API output has plain `body` text. `getClassHub` assignments also carry additive `canSubmit`, `effectiveDueAt`, `percentDone`, `lastMode`, `submittedAt`, `late`. Notification ids: `new:<assignmentId>`, `due:<assignmentId>`, `feedback:<assignmentId>`, `reminder:<postId>`; types `assignment|due_soon|feedback|reminder`. `postStream {id, pinned?, body?}` edits an existing post. Submissions gain columns `Assignment ID`, `Due At` (rows expose `late`, `assignmentId`, `dueAt`); a submission to an assignment past its due time is `late` when `lateAllowed`, else stored as `Closed (not counted)`.
 
 ### Client API (`js/lib/api.js`, append at the end)
 One exported wrapper per action, each `async fn({ gasUrl, adminKey?, idToken?, fetchImpl, ...fields })`, **never throws**, resolves `{ ok: true, data } | { ok: false, error, unavailable? }`

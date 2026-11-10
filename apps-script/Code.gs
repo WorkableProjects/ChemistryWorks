@@ -27,12 +27,12 @@ var SUBMISSION_HEADERS = [
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
   'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed',
-  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class'
+  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29, ASSIGNMENT: 30, DUE: 31 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
@@ -112,6 +112,13 @@ function doPost(e) {
       case 'getSettings':
       case 'saveSettings':
       case 'getStudentProfileAdmin':
+      case 'saveAssignment':
+      case 'deleteAssignment':
+      case 'listAssignments':
+      case 'postStream':
+      case 'deleteStreamPost':
+      case 'getAssignmentStatus':
+      case 'remindMissing':
       case 'batch':
         return json_(handleAdmin_(body));
       case 'getTest':
@@ -134,6 +141,10 @@ function doPost(e) {
         return json_(saveStudentProfile_(body));
       case 'syncProgress':
         return json_(syncProgress_(body));
+      case 'getClassHub':
+        return json_(getClassHub_(body));
+      case 'markNotificationsRead':
+        return json_(markNotificationsRead_(body));
       case undefined:
       case null:
       case '':
@@ -158,6 +169,8 @@ function setup() {
   getSheet_(LOG_SHEET, LOG_HEADERS);
   getSheet_(STUDENTS_SHEET, STUDENT_HEADERS);
   getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS);
+  getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS);
+  getSheet_(STREAM_SHEET, STREAM_HEADERS);
   var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
   Logger.log('Sheets "' + SUBMISSIONS_SHEET + '", "' + TESTS_SHEET + '", "' + ADMINS_SHEET + '" and "' + LOG_SHEET + '" are ready.');
   if (admins.length) {
@@ -379,7 +392,9 @@ function handleSubmission_(body) {
       text_(s.drawn),
       s.time_limit_applied === '' ? '' : num_(s.time_limit_applied),
       gate.late ? true : '',
-      text_(gate.classId || '')
+      text_(gate.classId || ''),
+      text_(gate.assignmentId || ''),
+      text_(gate.dueAt || '')
     ]);
     bust_('tests:list');
     if (gate.status) return { result: 'success', not_counted: gate.status };
@@ -501,7 +516,8 @@ function appendLog_(auth, action, target, details) {
 
 var LOGGED_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll: 1, allowRetake: 1, saveAdmin: 1, removeAdmin: 1,
   saveClass: 1, deleteClass: 1, saveBankItem: 1, deleteBankItem: 1, saveAccommodation: 1, deleteAccommodation: 1, extendWindow: 1,
-  applyRegrade: 1, clearLeaderboard: 1, hideLeaderboardEntry: 1, saveSettings: 1 };
+  applyRegrade: 1, clearLeaderboard: 1, hideLeaderboardEntry: 1, saveSettings: 1,
+  saveAssignment: 1, deleteAssignment: 1, postStream: 1, deleteStreamPost: 1, remindMissing: 1 };
 
 function logTarget_(body) {
   switch (body.action) {
@@ -521,6 +537,11 @@ function logTarget_(body) {
     case 'extendWindow': return String(body.email || '').trim().toLowerCase() + (body.testCode ? ' · ' + normalizeCode_(body.testCode) : '');
     case 'applyRegrade':
     case 'clearLeaderboard': return normalizeCode_(body.testCode);
+    case 'saveAssignment': return String((body.assignment && body.assignment.id) || body.id || '');
+    case 'deleteAssignment':
+    case 'deleteStreamPost':
+    case 'remindMissing': return String(body.id || '');
+    case 'postStream': return String(body.classId || '');
   }
   return '';
 }
@@ -592,6 +613,13 @@ function dispatchAdminRaw_(body, auth) {
     case 'saveSettings': return saveSettings_(body);
     case 'getStudentProfileAdmin': return getStudentProfileAdmin_(body);
     case 'batch': return batch_(body, auth);
+    case 'saveAssignment': return saveAssignment_(body, auth);
+    case 'deleteAssignment': return deleteAssignment_(body);
+    case 'listAssignments': return listAssignments_(body);
+    case 'postStream': return postStream_(body, auth);
+    case 'deleteStreamPost': return deleteStreamPost_(body);
+    case 'getAssignmentStatus': return getAssignmentStatus_(body);
+    case 'remindMissing': return remindMissing_(body, auth);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -828,7 +856,10 @@ function submissionRow_(v) {
         comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
         released_at: iso_(v[COL.RELEASED_AT - 1]),
         graded_by: String(v[COL.GRADED_BY - 1] || ''),
-        retake_allowed_at: iso_(v[COL.RETAKE - 1])
+        retake_allowed_at: iso_(v[COL.RETAKE - 1]),
+        late: v[COL.LATE - 1] === true || v[COL.LATE - 1] === 'true',
+        assignmentId: String(v[COL.ASSIGNMENT - 1] || ''),
+        dueAt: iso_(v[COL.DUE - 1])
       });
 }
 
@@ -840,7 +871,7 @@ function bustFor_(body) {
     case 'saveClass': return bust_('classes:list', 'roster:' + String((body.cls && body.cls.id) || body.id || ''));
     case 'deleteClass': return bust_('classes:list', 'roster:' + String(body.id || ''));
     case 'saveSettings': return bust_('settings');
-    case 'saveAssignment': case 'deleteAssignment': return bust_('classes:list');
+    case 'saveAssignment': case 'deleteAssignment': return bust_('assignments:list');
   }
 }
 // The changed row for a write: a test summary, or the submission row. Additive; old fields stay.
@@ -1450,8 +1481,14 @@ function submissionGate_(s, body) {
   out.classId = r.classId;
   if (!r.ok) { out.status = STATUS_NOT_ROSTER; return out; }
   var now = new Date();
-  var w = windowState_(test, accommodationFor_(email, s.test_code), now);
+  var acc = accommodationFor_(email, s.test_code);
+  var w = windowState_(test, acc, now);
   if (w.state === 'before' || w.state === 'closed') { out.status = STATUS_CLOSED; return out; }
+  var asg = assignmentGate_(email, s.test_code, acc, now);
+  if (asg) {
+    out.assignmentId = asg.id; out.dueAt = asg.dueAt;
+    if (asg.pastDue) { if (asg.lateAllowed) out.late = true; else { out.status = STATUS_CLOSED; return out; } }
+  }
   if (w.state === 'late') {
     out.late = true;
     var pen = latePenalty_(w.penalty, test.closesAt, now);
@@ -1983,4 +2020,414 @@ function batch_(body, auth) {
     }
   });
   return { result: 'success', results: results };
+}
+
+
+// ===========================================================================
+// v5 B3: Class Hub (assignments, stream, status, derived notifications).
+// ===========================================================================
+
+var ASSIGNMENTS_SHEET = 'Assignments';
+var ASSIGNMENT_HEADERS = ['id', 'classId', 'testCode', 'title', 'instructions', 'opensAt', 'dueAt', 'lateAllowed', 'required', 'modesJson', 'publishAt', 'createdBy', 'createdAt'];
+var STREAM_SHEET = 'Stream';
+var STREAM_HEADERS = ['id', 'classId', 'type', 'body', 'pinned', 'createdBy', 'createdAt'];
+var STREAM_BODY_MAX = 2000;
+var HUB_STREAM_MAX = 100;
+var DUE_SOON_MS = 24 * 3600 * 1000;
+var NOTIF_READ_MAX = 200;
+var MISSING_STATUSES_ = { not_started: 1, in_progress: 1, missing: 1 };
+var DONE_STATUSES_ = { turned_in: 1, late: 1, graded: 1, released: 1 };
+
+function scriptTz_() { try { return Session.getScriptTimeZone(); } catch (e) { return 'UTC'; } }
+
+// Milliseconds for a Date, a number or ISO-like text. Text with an offset (Z, +01:00) is exact; text without one is wall-clock
+// time in the script time zone; a bare date means the end of that day. Invalid -> null.
+function parseWhen_(v, tz) {
+  if (v === undefined || v === null || v === '') return null;
+  if (v instanceof Date) { var t = v.getTime(); return isNaN(t) ? null : t; }
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  var str = String(v).trim();
+  if (/^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)?\s*(Z|[+-]\d\d:?\d\d)$/i.test(str)) {
+    var ms = Date.parse(str.replace(' ', 'T').replace(/\s+/g, ''));
+    return isNaN(ms) ? null : ms;
+  }
+  var m = /^(\d{4})-(\d\d)-(\d\d)(?:[T ](\d\d):(\d\d)(?::(\d\d))?)?$/.exec(str);
+  if (!m) { var d = Date.parse(str); return isNaN(d) ? null : d; }
+  var hasTime = m[4] !== undefined;
+  var guess = Date.UTC(+m[1], +m[2] - 1, +m[3], hasTime ? +m[4] : 23, hasTime ? +m[5] : 59, hasTime ? +(m[6] || 0) : 59);
+  var off = tzOffsetMs_(guess, tz);
+  var ms2 = guess - off;
+  var off2 = tzOffsetMs_(ms2, tz);
+  return off2 === off ? ms2 : guess - off2;
+}
+function tzOffsetMs_(ms, tz) {
+  try {
+    var z = Utilities.formatDate(new Date(ms), tz || scriptTz_(), 'Z'); // +0200
+    var m = /^([+-])(\d\d)(\d\d)$/.exec(z);
+    if (!m) return 0;
+    return (m[1] === '-' ? -1 : 1) * (+m[2] * 60 + +m[3]) * 60000;
+  } catch (e) { return 0; }
+}
+
+// Student's due time: max(dueAt, accommodation.extensionUntil). null when the assignment has no due date.
+function effectiveDue_(assignment, accommodation, tz) {
+  var due = parseWhen_(assignment && assignment.dueAt, tz);
+  var ext = accommodation ? parseWhen_(accommodation.extensionUntil, tz) : null;
+  if (due === null) return null;
+  return ext !== null && ext > due ? ext : due;
+}
+
+// Pure. submission: { submittedAt, status, released } | null; attempt: { percentDone, answeredCount, mode } | null.
+// -> { status, dueAt (ms|null), canSubmit, percentDone?, lastMode?, submittedAt?, late? }
+// Precedence: released > graded > late / turned_in > in_progress > missing > not_started.
+// Turned in at exactly the due time is on time. `now`: Date or ms.
+function assignmentStatus_(assignment, submission, attempt, accommodation, now) {
+  var tz = scriptTz_();
+  var nowMs = now instanceof Date ? now.getTime() : (typeof now === 'number' ? now : Date.now());
+  var due = effectiveDue_(assignment, accommodation, tz);
+  var lateAllowed = !assignment || assignment.lateAllowed !== false;
+  var pastDue = due !== null && nowMs > due;
+  var out = { status: 'not_started', dueAt: due, canSubmit: !(pastDue && !lateAllowed) };
+  if (submission) {
+    var at = parseWhen_(submission.submittedAt, tz);
+    var late = due !== null && at !== null && at > due;
+    out.submittedAt = iso_(submission.submittedAt);
+    out.late = late;
+    out.canSubmit = false;
+    if (submission.released) out.status = 'released';
+    else if (submission.status === STATUS_GRADED) out.status = 'graded';
+    else out.status = late ? 'late' : 'turned_in';
+    return out;
+  }
+  if (attempt && (num_(attempt.percentDone) > 0 || num_(attempt.answeredCount) > 0)) {
+    out.status = 'in_progress';
+    out.percentDone = num_(attempt.percentDone);
+    out.lastMode = String(attempt.mode || '');
+    return out;
+  }
+  out.status = pastDue ? 'missing' : 'not_started';
+  return out;
+}
+
+function boolCell_(v) { return v === true || v === 'true' || v === 'TRUE'; }
+function assignmentRow_(v) {
+  return {
+    id: String(v[0]), classId: String(v[1]), testCode: normalizeCode_(v[2]), title: String(v[3] || ''), instructions: String(v[4] || ''),
+    opensAt: iso_(v[5]), dueAt: iso_(v[6]), lateAllowed: v[7] === '' ? true : boolCell_(v[7]), required: boolCell_(v[8]),
+    modes: parseJson_(v[9], []) || [], publishAt: iso_(v[10]), createdBy: String(v[11] || ''), createdAt: iso_(v[12])
+  };
+}
+// All assignments (cached 120 s, busted by saveAssignment / deleteAssignment). Not personal data.
+function assignmentsCached_() {
+  return cached_('assignments:list', CACHE_TTL, function () {
+    return sheetRows_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS).values.filter(function (v) { return String(v[0]); }).map(assignmentRow_);
+  });
+}
+function assignmentVisible_(a, nowMs) {
+  var p = parseWhen_(a.publishAt, scriptTz_());
+  return p === null || p <= nowMs;
+}
+
+// Stream posts. Body of assignment / reminder posts is JSON { text, assignmentId, testCode?, emails? }; plain text for posts.
+function streamRow_(v) {
+  var type = String(v[2] || 'post');
+  var raw = String(v[3] || '');
+  var meta = type === 'post' ? null : parseJson_(raw, null);
+  return { id: String(v[0]), classId: String(v[1]), type: type, body: meta && typeof meta === 'object' ? String(meta.text || '') : raw,
+    refId: meta && meta.assignmentId ? String(meta.assignmentId) : '', testCode: meta && meta.testCode ? String(meta.testCode) : '',
+    emails: meta && Array.isArray(meta.emails) ? meta.emails : [], pinned: boolCell_(v[4]), createdBy: String(v[5] || ''), createdAt: iso_(v[6]) };
+}
+function streamAll_() {
+  return sheetRows_(STREAM_SHEET, STREAM_HEADERS).values.filter(function (v) { return String(v[0]); }).map(streamRow_);
+}
+function appendStream_(classId, type, bodyText, pinned, by, meta) {
+  var id = newId_('post');
+  var body = type === 'post' ? bodyText : JSON.stringify({ text: bodyText, assignmentId: meta && meta.assignmentId || '', testCode: meta && meta.testCode || '', emails: meta && meta.emails || [] });
+  var createdAt = new Date();
+  withLock_(function () { getSheet_(STREAM_SHEET, STREAM_HEADERS).appendRow([id, classId, type, text_(body), !!pinned, by, createdAt]); });
+  return { id: id, classId: classId, type: type, body: bodyText, pinned: !!pinned, createdBy: by, createdAt: createdAt.toISOString() };
+}
+function publicPost_(p) { return { id: p.id, classId: p.classId, type: p.type, body: p.body, pinned: p.pinned, createdAt: p.createdAt, createdBy: p.createdBy }; }
+
+function classExists_(id) { return classesCached_().some(function (c) { return c.id === id; }); }
+function cleanWhen_(v) {
+  // -> { ok, value } ; empty is allowed.
+  if (v === undefined || v === null || String(v).trim() === '') return { ok: true, value: '' };
+  var ms = parseWhen_(v, scriptTz_());
+  return ms === null ? { ok: false } : { ok: true, value: String(v).trim() };
+}
+
+// ---------- admin ----------
+function saveAssignment_(body, auth) {
+  var a = body.assignment && typeof body.assignment === 'object' ? body.assignment : null;
+  if (!a) return { result: 'error', error: 'invalid_request' };
+  var classId = String(a.classId || '').trim();
+  var code = normalizeCode_(a.testCode);
+  if (!classId || !code) return { result: 'error', error: 'invalid_request' };
+  if (!classExists_(classId)) return { result: 'error', error: 'not_found' };
+  var opens = cleanWhen_(a.opensAt), due = cleanWhen_(a.dueAt), pub = cleanWhen_(a.publishAt);
+  if (!opens.ok || !due.ok || !pub.ok) return { result: 'error', error: 'invalid_date' };
+  var instructions = String(a.instructions || '').slice(0, STREAM_BODY_MAX);
+  var modes = (Array.isArray(a.modes) ? a.modes : []).map(function (m) { return String(m).slice(0, 32); }).filter(function (m) { return m; }).slice(0, 16);
+  var title = String(a.title || '').trim().slice(0, 160);
+  if (!title) { var t = publishedTest_(code); title = (t && t.title) || code; }
+  var existing = null;
+  if (a.id) {
+    existing = sheetRows_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS).values.filter(function (v) { return String(v[0]) === String(a.id); }).map(assignmentRow_)[0] || null;
+    if (!existing) return { result: 'error', error: 'not_found' };
+  }
+  var id = existing ? existing.id : newId_('asg');
+  var by = actorOf_(auth);
+  var stored = upsertByKey_(getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS), ['id'], {
+    id: id, classId: classId, testCode: code, title: text_(title), instructions: text_(instructions), opensAt: opens.value, dueAt: due.value,
+    lateAllowed: a.lateAllowed !== false, required: a.required === true, modesJson: JSON.stringify(modes), publishAt: pub.value,
+    createdBy: existing ? existing.createdBy : by, createdAt: existing ? existing.createdAt : new Date()
+  }).values;
+  var row = assignmentRow_(ASSIGNMENT_HEADERS.map(function (h) { return stored[h]; }));
+  var out = { result: 'success', assignment: row };
+  if (!existing) out.post = appendStream_(classId, 'assignment', title, false, by, { assignmentId: id, testCode: code });
+  return out;
+}
+
+function deleteAssignment_(body) {
+  var id = String(body.id || '').trim();
+  if (!id) return { result: 'error', error: 'invalid_request' };
+  return withLock_(function () {
+    var sheet = getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS);
+    var vals = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    var at = -1;
+    for (var i = 0; i < vals.length; i++) if (String(vals[i][0]) === id) { at = i + 2; break; }
+    if (at < 0) return { result: 'error', error: 'not_found' };
+    sheet.deleteRow(at);
+    var ss = getSheet_(STREAM_SHEET, STREAM_HEADERS);
+    var n = ss.getLastRow();
+    var rows = n < 2 ? [] : ss.getRange(2, 1, n - 1, STREAM_HEADERS.length).getValues();
+    for (var j = rows.length - 1; j >= 0; j--) {
+      var p = streamRow_(rows[j]);
+      if (p.type !== 'post' && p.refId === id) ss.deleteRow(j + 2);
+    }
+    return { result: 'success', id: id, deleted: true };
+  });
+}
+
+function listAssignments_(body) {
+  var classId = body && body.classId ? String(body.classId) : '';
+  var list = assignmentsCached_().filter(function (a) { return !classId || a.classId === classId; });
+  return { result: 'success', assignments: list };
+}
+
+function postStream_(body, auth) {
+  var by = actorOf_(auth);
+  if (body.id) { // edit the pin / text of an existing post
+    return withLock_(function () {
+      var sheet = getSheet_(STREAM_SHEET, STREAM_HEADERS);
+      var n = sheet.getLastRow();
+      var rows = n < 2 ? [] : sheet.getRange(2, 1, n - 1, STREAM_HEADERS.length).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]) !== String(body.id)) continue;
+        if (body.pinned !== undefined) rows[i][4] = body.pinned === true;
+        if (body.body !== undefined && String(rows[i][2]) === 'post') rows[i][3] = text_(String(body.body).slice(0, STREAM_BODY_MAX));
+        sheet.getRange(i + 2, 1, 1, STREAM_HEADERS.length).setValues([rows[i]]);
+        return { result: 'success', post: publicPost_(streamRow_(rows[i])) };
+      }
+      return { result: 'error', error: 'not_found' };
+    });
+  }
+  var classId = String(body.classId || '').trim();
+  var text = String(body.body == null ? '' : body.body).trim();
+  if (!classId || !text || (body.type && body.type !== 'post')) return { result: 'error', error: 'invalid_request' };
+  if (text.length > STREAM_BODY_MAX) return { result: 'error', error: 'too_large' };
+  if (!classExists_(classId)) return { result: 'error', error: 'not_found' };
+  return { result: 'success', post: appendStream_(classId, 'post', text, body.pinned === true, by, null) };
+}
+
+function deleteStreamPost_(body) {
+  var id = String(body.id || '').trim();
+  if (!id) return { result: 'error', error: 'invalid_request' };
+  return withLock_(function () {
+    var sheet = getSheet_(STREAM_SHEET, STREAM_HEADERS);
+    var vals = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < vals.length; i++) if (String(vals[i][0]) === id) { sheet.deleteRow(i + 2); return { result: 'success', id: id, deleted: true }; }
+    return { result: 'error', error: 'not_found' };
+  });
+}
+
+// Latest counted submission per (email, test): { submittedAt, status, released, releasedAt, percentage, name }. testCode / email optional filters.
+function latestSubmissions_(testCode, email) {
+  var rows = readCols_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS),
+    ['Timestamp', 'Student Name', 'Student Email', 'Test Code', 'Status', 'Percentage (%)', 'Final Percentage (%)', 'Released At']);
+  var out = {};
+  rows.forEach(function (r) {
+    var e = normEmail_(r['Student Email']);
+    var c = normalizeCode_(r['Test Code']);
+    if ((email && e !== email) || (testCode && c !== testCode)) return;
+    var st = String(r.Status || '');
+    if (st === STATUS_EXTRA || st === STATUS_CLOSED || st === STATUS_NOT_ROSTER) return;
+    var at = iso_(r.Timestamp);
+    var key = e + '|' + c;
+    if (out[key] && parseWhen_(out[key].submittedAt) > parseWhen_(at)) return;
+    var fp = r['Final Percentage (%)'];
+    out[key] = { email: e, testCode: c, name: String(r['Student Name'] || ''), submittedAt: at, status: st, released: !!r['Released At'], releasedAt: iso_(r['Released At']),
+      percentage: fp === '' || fp === null ? num_(r['Percentage (%)']) : num_(fp) };
+  });
+  return out;
+}
+function attemptMap_(testCode, email) {
+  var out = {};
+  readCols_(getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS), ['email', 'code', 'mode', 'answeredCount', 'total', 'percentDone', 'updatedAt']).forEach(function (r) {
+    var e = normEmail_(r.email), c = normalizeCode_(r.code);
+    if ((email && e !== email) || (testCode && c !== testCode)) return;
+    out[e + '|' + c] = { mode: String(r.mode), answeredCount: num_(r.answeredCount), total: num_(r.total), percentDone: num_(r.percentDone) };
+  });
+  return out;
+}
+
+function getAssignmentStatus_(body) {
+  var id = String(body && body.id || '').trim();
+  var a = assignmentsCached_().filter(function (x) { return x.id === id; })[0];
+  if (!a) return { result: 'error', error: 'not_found' };
+  return { result: 'success', assignment: a, rows: assignmentRows_(a) };
+}
+function assignmentRows_(a) {
+  var now = Date.now();
+  var subs = latestSubmissions_(a.testCode, '');
+  var atts = attemptMap_(a.testCode, '');
+  var names = {};
+  readCols_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email', 'name']).forEach(function (r) { names[normEmail_(r.email)] = String(r.name || ''); });
+  var accs = getAccommodations_({}).accommodations;
+  return rosterOf_(a.classId).map(function (email) {
+    var key = email + '|' + a.testCode;
+    var sub = subs[key] || null;
+    var acc = accs.filter(function (x) { return x.email === email && (x.testCode === '*' || x.testCode === a.testCode); })
+      .reduce(function (m, x) { return x.extensionUntil ? x : m; }, null);
+    var st = assignmentStatus_(a, sub, atts[key] || null, acc, now);
+    var row = { email: email, name: names[email] || (sub && sub.name) || '', status: st.status };
+    if (st.percentDone !== undefined) { row.percentDone = st.percentDone; row.lastMode = st.lastMode; }
+    if (st.submittedAt) { row.submittedAt = st.submittedAt; row.late = st.late; }
+    if (sub && (st.status === 'graded' || st.status === 'released')) row.score = sub.percentage;
+    return row;
+  });
+}
+
+function remindMissing_(body, auth) {
+  var id = String(body && body.id || '').trim();
+  var a = assignmentsCached_().filter(function (x) { return x.id === id; })[0];
+  if (!a) return { result: 'error', error: 'not_found' };
+  var emails = assignmentRows_(a).filter(function (r) { return MISSING_STATUSES_[r.status]; }).map(function (r) { return r.email; });
+  if (!emails.length) return { result: 'success', reminded: 0 };
+  var post = appendStream_(a.classId, 'reminder', 'Reminder: ' + a.title + (a.dueAt ? ' is due ' + a.dueAt.slice(0, 10) : ''), false, actorOf_(auth), { assignmentId: a.id, testCode: a.testCode, emails: emails });
+  return { result: 'success', reminded: emails.length, post: post };
+}
+
+// ---------- student ----------
+// getClassHub { idToken } or, internally, { _email } (already verified). Never trusts an email from a client body.
+// -> { classes, assignments, stream, notifications, reminders } (see docs/ARCHITECTURE.md Backend 5.0).
+function getClassHub_(body) {
+  var email = body && body._email ? normEmail_(body._email) : '';
+  var internal = !!email;
+  if (!email) {
+    var who = studentFromToken_(body);
+    if (who.error) return { result: 'error', error: who.error };
+    email = who.email;
+  }
+  var res = buildHub_(email, new Date());
+  if (!internal) res.result = 'success';
+  return res;
+}
+function buildHub_(email, nowDate) {
+  var nowMs = nowDate.getTime();
+  var classes = classesOfEmail_(email);
+  var ids = {};
+  classes.forEach(function (c) { ids[c.id] = true; });
+  if (!classes.length) return { classes: classes, assignments: [], stream: [], notifications: [], reminders: [] };
+  var mine = assignmentsCached_().filter(function (a) { return ids[a.classId] && assignmentVisible_(a, nowMs); });
+  var subs = latestSubmissions_('', email);
+  var atts = attemptMap_('', email);
+  var visible = {};
+  var notifs = [];
+  var readInfo = readState_(email);
+  var assignments = mine.map(function (a) {
+    visible[a.id] = a;
+    var key = email + '|' + a.testCode;
+    var sub = subs[key] || null;
+    var st = assignmentStatus_(a, sub, atts[key] || null, accommodationFor_(email, a.testCode), nowMs);
+    var o = { id: a.id, classId: a.classId, testCode: a.testCode, title: a.title, instructions: a.instructions, opensAt: a.opensAt, dueAt: a.dueAt,
+      lateAllowed: a.lateAllowed, required: a.required, modes: a.modes, status: st.status, canSubmit: st.canSubmit };
+    if (st.dueAt !== null) o.effectiveDueAt = new Date(st.dueAt).toISOString();
+    if (st.percentDone !== undefined) { o.percentDone = st.percentDone; o.lastMode = st.lastMode; }
+    if (st.submittedAt) { o.submittedAt = st.submittedAt; o.late = st.late; }
+    notifs.push({ id: 'new:' + a.id, type: 'assignment', refId: a.id, title: a.title, createdAt: a.publishAt || a.createdAt });
+    if (st.dueAt !== null && !DONE_STATUSES_[st.status] && st.dueAt > nowMs && st.dueAt - nowMs <= DUE_SOON_MS) {
+      notifs.push({ id: 'due:' + a.id, type: 'due_soon', refId: a.id, title: a.title, createdAt: new Date(st.dueAt - DUE_SOON_MS).toISOString() });
+    }
+    if (st.status === 'released' && sub) notifs.push({ id: 'feedback:' + a.id, type: 'feedback', refId: a.id, title: a.title, createdAt: sub.releasedAt || sub.submittedAt });
+    return o;
+  });
+  var reminders = [];
+  var stream = [];
+  streamAll_().forEach(function (p) {
+    if (!ids[p.classId]) return;
+    if (p.type === 'assignment' && !visible[p.refId]) return;
+    if (p.type === 'reminder') {
+      if (p.emails.indexOf(email) < 0) return;
+      var a = visible[p.refId];
+      if (!a) return;
+      var s = assignmentStatus_(a, subs[email + '|' + a.testCode] || null, atts[email + '|' + a.testCode] || null, accommodationFor_(email, a.testCode), nowMs).status;
+      if (!MISSING_STATUSES_[s]) return;
+      if (reminders.indexOf(a.testCode) < 0) reminders.push(a.testCode);
+      notifs.push({ id: 'reminder:' + p.id, type: 'reminder', refId: a.id, title: a.title, createdAt: p.createdAt });
+    }
+    stream.push(p);
+  });
+  stream.sort(function (x, y) { return (y.pinned ? 1 : 0) - (x.pinned ? 1 : 0) || (parseWhen_(y.createdAt) || 0) - (parseWhen_(x.createdAt) || 0); });
+  notifs.sort(function (x, y) { return (parseWhen_(y.createdAt) || 0) - (parseWhen_(x.createdAt) || 0); });
+  notifs.forEach(function (n) {
+    n.read = readInfo.ids.indexOf(n.id) >= 0 || (parseWhen_(n.createdAt) || 0) <= readInfo.at;
+  });
+  return { classes: classes, assignments: assignments, stream: stream.slice(0, HUB_STREAM_MAX).map(publicPost_), notifications: notifs, reminders: reminders };
+}
+
+function readState_(email) {
+  var row = studentRow_(email);
+  var prefs = row ? (parseJson_(row.prefsJson, {}) || {}) : {};
+  return { at: num_(prefs.notifReadAt, 0), ids: Array.isArray(prefs.notifRead) ? prefs.notifRead : [] };
+}
+
+// { idToken, ids?: [id], all?: true } -> { readAt }. Stored in Students.prefsJson (notifReadAt, notifRead max 200).
+function markNotificationsRead_(body) {
+  var who = studentFromToken_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var all = body && body.all === true;
+  var ids = body && Array.isArray(body.ids) ? body.ids.map(function (i) { return String(i).slice(0, 80); }) : null;
+  if (!all && !ids) return { result: 'error', error: 'invalid_request' };
+  var row = ensureStudent_(who.email, null);
+  var prefs = parseJson_(row.prefsJson, {}) || {};
+  var readAt = Date.now();
+  if (all) { prefs.notifReadAt = readAt; prefs.notifRead = []; }
+  else {
+    var cur = Array.isArray(prefs.notifRead) ? prefs.notifRead : [];
+    ids.forEach(function (i) { if (i && cur.indexOf(i) < 0) cur.push(i); });
+    prefs.notifRead = cur.slice(-NOTIF_READ_MAX);
+    prefs.notifReadAt = num_(prefs.notifReadAt, 0);
+    readAt = prefs.notifReadAt || readAt;
+  }
+  upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], { email: who.email, prefsJson: JSON.stringify(prefs), updatedAt: new Date() });
+  return { result: 'success', readAt: readAt };
+}
+
+// For submissions: the student's assignment for this test (latest due) -> { id, dueAt (ISO), pastDue, lateAllowed } | null.
+function assignmentGate_(email, testCode, acc, now) {
+  var ids = {};
+  classesOfEmail_(email).forEach(function (c) { ids[c.id] = true; });
+  var code = normalizeCode_(testCode);
+  var best = null;
+  var nowMs = now.getTime();
+  assignmentsCached_().forEach(function (a) {
+    if (!ids[a.classId] || a.testCode !== code || !assignmentVisible_(a, nowMs)) return;
+    var due = effectiveDue_(a, acc, scriptTz_());
+    if (due === null) return;
+    if (!best || due > best.due) best = { a: a, due: due };
+  });
+  if (!best) return null;
+  return { id: best.a.id, dueAt: new Date(best.due).toISOString(), pastDue: nowMs > best.due, lateAllowed: best.a.lateAllowed !== false };
 }
