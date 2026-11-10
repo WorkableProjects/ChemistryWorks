@@ -11,6 +11,28 @@ section with that ID in `docs/v5/delegations/<session>.md`. Do only that brief.
   beyond not crashing.
 - Be fast: no extra docs, no refactors outside your brief. Report `Tests: skipped (ASAP)`.
 
+## Design rules (v5 "unslop" pass — every new or touched UI follows these)
+Direction: **exact, calm, a little lab-notebook.** World: the lab bench — navy ink, teal reagent, cool grey paper.
+- Spacing on a 4px grid, from `--space-*`. Same things, same size. No one-off values.
+- Colour: tokens only. Surfaces stay neutral (`--bg`, `--bg-elev`, `--bg-sunken`); the accent (`--primary`) marks the
+  primary action, the selection or the one number that matters — nothing else. No gradients, glows, coloured
+  shadows, blur/glass. Borders are `1px solid var(--border)`. Shadows only `--shadow-sm` / `--shadow` / `--shadow-lg`.
+- Radius: controls `--radius-control` (10px), cards `--radius` / `--radius-lg`. Pills (999px) only for status chips,
+  avatars, meters and segmented controls — never buttons or inputs.
+- Type: weights 400 / 500 / 600 only. Sentence case everywhere; no uppercase or tracked labels. Hierarchy from size
+  and colour (`--text`, `--text-muted`, `--text-faint`). Figures, codes and formulas in `var(--font-mono)` with
+  `font-variant-numeric: tabular-nums`.
+- Icons: the existing `icon()` set in `js/ui.js`, one size, colour of their text. **No emoji** anywhere in the UI.
+- Copy: plain and short. No exclamation marks, no hype, no trailing period on labels/buttons/headings. A change says
+  what it compares to. Empty states: one sentence + one action.
+- Motion: `--dur-fast` hover/press, `--dur-base` menus, `--dur-slow` entrances; easing `--ease-out` only (no bounce or
+  overshoot; `--ease-spring` is now an alias). Animate opacity/transform/colour only. No looping animation unless the
+  thing is live (timer, loader). No hover lift/scale on cards; press = `scale(0.98)`.
+- One moment per screen (a level ring, a score ring, a chart, the periodic-table tile); everything around it quiet.
+  Stat cards are a label, a figure and a comparison — no sparklines or icons to fill space.
+- Signature: the **element tile** — a small square with a mono symbol/number, like a periodic-table cell — for test
+  codes, avatars' fallback and mode icons. Use it; don't invent other motifs.
+
 ## Read first (and nothing else unless your brief needs it)
 1. Your brief.
 2. `docs/ARCHITECTURE.md` → **V5 contracts** (written by W0). Code against it. If you must change a contract, change it

@@ -48,20 +48,20 @@
 .code-form { display: flex; gap: 10px; }
 .code-form .input--code { flex: 1; min-width: 0; }
 .code-form .btn { min-height: 56px; }
-.input--code { height: 56px; font-size: 24px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; font-family: var(--font-mono); }
-.input--code::placeholder { letter-spacing: 0.04em; font-weight: 500; color: var(--text-faint); text-transform: none; font-size: 18px; }
+.input--code { height: 56px; font-size: 24px; font-weight: 600; font-family: var(--font-mono); }
+.input--code::placeholder { font-weight: 500; color: var(--text-faint); text-transform: none; font-size: 18px; }
 .site-version { margin: 0; text-align: center; font-size: 12px; color: var(--text-faint); font-family: var(--font-mono); }
 
 /* Your tests / resume: card grids */
 .tests-block { display: flex; flex-direction: column; gap: var(--space-3); }
-.tests-block__title { margin: 0; font-family: var(--font-display); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.tests-block__title { margin: 0; font-family: var(--font-display); font-size: 13px; color: var(--text-muted); }
 .tests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); }
 .test-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-4); text-align: left; min-width: 0;
   transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
 .test-card:hover { transform: translateY(-2px); border-color: var(--primary-line); box-shadow: var(--shadow); }
 button.test-card { cursor: pointer; font: inherit; color: inherit; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .test-card__top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); width: 100%; }
-.test-card__code { font-family: var(--font-mono); font-weight: 700; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--primary-soft); color: var(--primary-ink); }
+.test-card__code { font-family: var(--font-mono); font-weight: 600; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--primary-soft); color: var(--primary-ink); }
 .test-card__name { font-family: var(--font-display); font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
 .test-card__meta { font-size: 12px; color: var(--text-faint); min-height: 1em; }
 .test-card__go { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); }
@@ -74,3 +74,6 @@ button.test-card { cursor: pointer; font: inherit; color: inherit; background: v
   .landing__hero { padding-top: var(--space-7); }
   .tests-grid { grid-template-columns: 1fr; }
 }
+
+/* v5: decoration removed — the page is the code field and the student's work. */
+.landing__pattern, .landing__bubbles { display: none; }

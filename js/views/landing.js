@@ -39,7 +39,7 @@ function signInCard(ctx, params) {
   }
 
   return h('section', { class: 'card signin-card', dataset: { testid: 'signin-card' } },
-    h('h2', { class: 'card__title' }, params.code ? `Sign in to begin ${params.code}` : 'Sign in with Google to Begin'),
+    h('h2', { class: 'card__title' }, params.code ? `Sign in to begin ${params.code}` : 'Sign in with Google'),
     h('p', { class: 'muted' }, 'Your name and email are attached to your submission automatically.'),
     ...body,
     err,

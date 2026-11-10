@@ -15,7 +15,7 @@
 }
 .status-page--success .status-page__badge { background: var(--success-soft); color: var(--success-ink); }
 .status-page--warning .status-page__badge { background: var(--warning-soft); color: var(--warning-ink); }
-.status-page__title { font-family: var(--font-display); font-size: clamp(22px, 4vw, 30px); font-weight: 700; letter-spacing: -0.02em; margin: 0; outline: none; }
+.status-page__title { font-family: var(--font-display); font-size: clamp(22px, 4vw, 30px); font-weight: 600; letter-spacing: -0.02em; margin: 0; outline: none; }
 .status-page__lines { display: flex; flex-direction: column; gap: var(--space-2); color: var(--text); }
 .status-page__lines > * { margin: 0; }
 .status-page__note { margin: 0; color: var(--text-muted); font-size: 14px; }
@@ -25,7 +25,7 @@
 /* ---------- Mode select ---------- */
 .mode-select { max-width: 880px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
 .mode-select__head { margin-bottom: var(--space-5); }
-.mode-select__title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 34px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; outline: none; }
+.mode-select__title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 34px); font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px; outline: none; }
 .mode-select__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
 .mode-choice {
   display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); text-align: left; cursor: pointer; min-height: var(--touch);
@@ -40,9 +40,9 @@
   width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin-bottom: var(--space-1);
   background: var(--brand-teal-soft); color: var(--text);
 }
-.mode-choice__title { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.mode-choice__title { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
 .mode-choice__text { color: var(--text-muted); }
-.mode-choice__go { margin-top: 6px; font-weight: 700; color: var(--primary-ink); font-family: var(--font-display); }
+.mode-choice__go { margin-top: 6px; font-weight: 600; color: var(--primary-ink); font-family: var(--font-display); }
 .mode-choice__go.is-reason { color: var(--text-muted); font-weight: 600; }
 .mode-select__note { display: flex; align-items: center; gap: 8px; margin: var(--space-5) 0 0; color: var(--text-muted); }
 
