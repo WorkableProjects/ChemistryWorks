@@ -9,6 +9,8 @@ import { groupQuestions } from './sections.js';
 import { buildPayload } from './submit.js';
 import { validConfidence } from './extras.js';
 import { load, save, remove } from './storage.js';
+import { feature } from '../config.js';
+import { attachAttempt } from './sync.js';
 
 export const progressKey = (email, code) => `progress:${email}:${code}`;
 const SAVE_DELAY = 400;
@@ -199,6 +201,7 @@ export function openAttempt(test, opts = {}) {
     finish() { state.done = true; clearTimeout(timer); timer = null; if (!preview) store.remove(key); },
     destroy() {
       if (timer) saveNow();
+      unsync();
       subs.clear();
       if (typeof window !== 'undefined' && !preview) {
         window.removeEventListener('pagehide', onHide);
@@ -206,6 +209,10 @@ export function openAttempt(test, opts = {}) {
       }
     },
   };
+  // V5-02 sync hook: queues this attempt for `syncProgress` (no-op without a backend / when signed in as demo).
+  let unsync = () => {};
+  if (!preview && email && feature('studentHome')) { try { unsync = attachAttempt(attempt); } catch (err) { console.error('[attempt] sync hook failed', err); } }
+  attempt.unsync = unsync;
   return attempt;
 }
 
