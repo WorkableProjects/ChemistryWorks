@@ -41,3 +41,30 @@
   .mode-bar__inner { flex-wrap: wrap; }
   .mode-card { padding: var(--space-4); }
 }
+
+/* Flashcards, Mistake review, Tower, Boss battle (V5 S03b). Tokens only. */
+.mode-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.flash__face { padding: var(--space-4); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius); }
+.flash__face[hidden] { display: none; }
+
+.tower { display: flex; justify-content: center; align-items: flex-end; min-height: 96px; padding: var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.tower__stack { display: flex; flex-direction: column-reverse; align-items: center; gap: var(--space-1); transform-origin: 50% 100%; }
+.tower__base { width: 96px; height: var(--space-1); background: var(--border); border-radius: var(--radius-control); }
+.tower__block { display: flex; align-items: center; justify-content: center; width: 56px; height: 24px; border: 1px solid var(--border); border-radius: var(--space-1); background: var(--bg-sunken); color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; }
+.tower__block:last-of-type { border-color: var(--primary); color: var(--primary); }
+.tower.is-wobble .tower__stack { animation: tower-wobble var(--dur-slow) var(--ease-out) both; }
+.tower.is-fallen .tower__stack { transform: rotate(8deg) translateY(var(--space-1)); opacity: 0.6; }
+@keyframes tower-wobble { 0% { transform: rotate(0); } 30% { transform: rotate(-3deg); } 60% { transform: rotate(2deg); } 100% { transform: rotate(0); } }
+
+.boss { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.boss__head { display: flex; align-items: center; gap: var(--space-2); }
+.boss__tile { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-sunken); font-family: var(--font-mono); font-weight: 600; color: var(--text); }
+.boss__name { font-weight: 500; color: var(--text); }
+.boss__hp { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; color: var(--text-muted); }
+.boss__bar { height: var(--space-2); border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border); overflow: hidden; }
+.boss__fill { display: block; height: 100%; background: var(--danger); transform-origin: 0 50%; transition: transform var(--dur-slow) var(--ease-out); }
+.boss.is-defeated .boss__name { color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) { .tower.is-wobble .tower__stack { animation: none; } .boss__fill { transition: none; } }
+:root[data-reduce-motion="true"] .tower.is-wobble .tower__stack { animation: none; }
+:root[data-reduce-motion="true"] .boss__fill { transition: none; }
