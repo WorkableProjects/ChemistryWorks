@@ -3,7 +3,7 @@
 
 import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl, stagger, brandLogo } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
-import { keys, load } from '../lib/storage.js';
+import { keys, load, remove } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
 import { SITE_VERSION } from '../version.js';
 import { feature } from '../config.js';
@@ -69,40 +69,6 @@ function resultStatus(p) {
   return (p.released || p.feedback_released || p.feedback?.released)
     ? h('span', { class: 'pill pill--success' }, 'Released')
     : h('span', { class: 'pill pill--warning' }, 'Submitted');
-}
-
-function pastCard(ctx, user) {
-  const list = pastResults(user);
-  if (!list.length) return null;
-  const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { dateStyle: 'medium' }); };
-  const card = h('section', { class: 'tests-block past-results', dataset: { testid: 'past-results' } },
-    h('h3', { class: 'tests-block__title' }, 'Your tests'),
-    h('div', { class: 'tests-grid' }, list.map((p) => h('div', { class: 'card test-card past-results__item stagger-item' },
-      h('div', { class: 'test-card__top' }, h('span', { class: 'test-card__code' }, p.test_code), resultStatus(p)),
-      h('span', { class: 'test-card__name' }, p.test_title || p.test_code),
-      h('span', { class: 'test-card__meta' }, p.submitted_at ? `Submitted ${when(p.submitted_at)}` : ''),
-      h('button', { class: 'btn btn--sm', type: 'button', dataset: { testid: `view-feedback-${p.submission_id}` },
-        'aria-label': `View feedback for ${p.test_title || p.test_code}`, on: { click: () => ctx.navigate('feedback', { payload: p }) } }, 'View feedback')))));
-  stagger(card.querySelector('.tests-grid'));
-  return card;
-}
-
-function resumeBlock(ctx, user) {
-  const resumable = inProgress(user);
-  if (!resumable.length) return null;
-  const box = h('section', { class: 'tests-block resume', dataset: { testid: 'resume-list' } },
-    h('h3', { class: 'tests-block__title resume__title' }, 'Continue where you left off'),
-    h('div', { class: 'tests-grid' }, resumable.map((p) => h('button', {
-      class: 'card test-card resume__item stagger-item', type: 'button', dataset: { testid: `resume-${p.code}` },
-      on: { click: () => ctx.openTest(p.code) },
-    },
-      h('span', { class: 'test-card__top' }, h('span', { class: 'test-card__code' }, p.code), h('span', { class: 'pill pill--primary' }, 'In progress')),
-      h('span', { class: 'test-card__name' }, p.title || 'Test in progress'),
-      h('span', { class: 'test-card__meta' }, `${Object.keys(p.answers || {}).length} answered · ${p.updatedAt ? formatDurationLong((Date.now() - p.updatedAt) / 1000) + ' ago' : ''}`),
-      h('span', { class: 'test-card__go' }, 'Resume', icon('right', { size: 14 })),
-    ))));
-  stagger(box.querySelector('.tests-grid'));
-  return box;
 }
 
 function codeCard(ctx, params) {
@@ -178,7 +144,7 @@ export function render(root, ctx, params = {}) {
   const user = getUser();
   // V4-05: "My dashboard" and the waiting-submission banner (student tools flag).
   const tools = !!user && feature('studentTools');
-  if (tools) ensureToolsCss();
+  ensureToolsCss(); // the merged tests list uses the dashboard styles
   const banner = tools ? networkBanner({ config: ctx.config }) : null;
   mount(root,
     h('main', { class: 'landing' },
@@ -196,8 +162,8 @@ export function render(root, ctx, params = {}) {
         h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
         banner ? banner.el : null,
         user ? h('div', { class: 'landing__lists' },
-          tools ? dashboardSection(ctx, { progress: inProgress(user), results: pastResults(user) }) : null,
-          resumeBlock(ctx, user), pastCard(ctx, user)) : null,
+          dashboardSection(ctx, { progress: inProgress(user), results: pastResults(user), practice: tools,
+            onRemove: (code) => remove(`progress:${user.email}:${code}`) })) : null,
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),
