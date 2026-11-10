@@ -585,7 +585,7 @@ Each = `js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js` (+ editor), style
 | Type | Answer value | `correctAnswer` / key |
 |---|---|---|
 | `ionicformula` | `{ cation: id, anion: id, nCation: int, nAnion: int, name?: string }` | `{ formula: 'Al2O3', name?: 'aluminium oxide' }`; formula compared normalised; name only when `askName` |
-| `ionbuilder` | `{ p, n, e }` (`mode: 'particles'`) or `{ symbol, charge }` (`mode: 'symbol'`) | same shape; exact per field |
+| `ionbuilder` | `{ p, n, e }` (`mode: 'particles'`) or `{ symbol, massNumber, charge }` (`mode: 'symbol'`) | same shape; exact per field (S11b: `massNumber` added to the symbol mode, per the brief) |
 | `isotopemass` | `{ rows: [{ mass, abundance }], result }` (or `{ missing }` when `ask: 'abundance'`) | `{ result }` or `{ missing }` + `tolerance`; partial per row |
 | `bohr` | `{ shells: [int, ...] }` | `{ shells: [2,8,1] }`; per shell |
 | `molbuild` | `{ atoms: [{id, el}], bonds: [{a, b, order}] }` | `{ formula, bonds? }`; formula + optional connectivity |

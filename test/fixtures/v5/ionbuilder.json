@@ -1,0 +1,14 @@
+[
+  {
+    "id": "ionbuilder-1",
+    "type": "ionbuilder",
+    "text": "A chloride ion has a mass number of 35 and a charge of −1. Set the number of protons, neutrons and electrons it has.",
+    "points": 3,
+    "mode": "particles",
+    "element": "Cl",
+    "massNumber": 35,
+    "charge": -1,
+    "partialCredit": true,
+    "explanation": "Chlorine has 17 protons. Neutrons = 35 − 17 = 18. Electrons = 17 + 1 = 18 (the ion gained one electron)."
+  }
+]
