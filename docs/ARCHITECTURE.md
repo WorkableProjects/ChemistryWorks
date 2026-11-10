@@ -609,3 +609,7 @@ Partial credit follows the existing `partialCredit` flag. Demo: one question per
 - Appearance: `appearance-panel`, `theme-seg-<pref>`, `accent-swatch-<name>`, `accent-custom`, `appearance-preview`, `text-size-<s|m|l>`, `density-<comfortable|compact>`, `dyslexia-toggle`.
 - Teacher student view: `student-view`, `student-attempts`, `student-accommodations`.
 - Question types: `<type>-widget` on every new widget root, parts as `<type>-<part>[-<id>]` (e.g. `ionicformula-cation-Na`, `ionbuilder-p`, `isotopemass-row-0`, `bohr-shell-1`, `oxidation-atom-<id>`, `heatcurve-seg-<id>`, `solubility-product-<id>`). Existing testids stay.
+
+### S06a profile data layer (`js/lib/profile.js`, `js/lib/sync.js`)
+- `profile:<email>` also holds `xpMigrated` (one-time local XP sent as the first sync delta) and `server` (cached `getStudentProfile` result: profile, results, attempts, assigned, hub). `sync.js` keeps its queue in `syncq:<email>`.
+- Profile shape for the home page is documented at the top of `js/lib/profile.js`. `openAttempt` attaches sync when `studentHome` is on (`attempt.unsync()` detaches).

@@ -3,6 +3,8 @@
 // awardRound are the only ones that touch storage.
 
 import { load, save } from './storage.js';
+import { feature } from '../config.js';
+import { queueXp } from './sync.js';
 
 export const HISTORY_LIMIT = 10;
 export const ROUND_XP_CAP = 150;
@@ -177,13 +179,30 @@ export function recordRoundXp(state0, round, now = Date.now()) {
 }
 
 // ---------- storage ----------
-export const loadXp = (email) => normalizeXp(load(xpKey(email), null));
+/**
+ * Local XP merged with the profile cache (`profile:<email>`, filled from the server by profile.js): XP is the larger of
+ * the two, badges are the union. Local stays the fallback when there is no profile; the merge never lowers anything.
+ */
+export function loadXp(email) {
+  const local = normalizeXp(load(xpKey(email), null));
+  const p = load(`profile:${String(email || '').toLowerCase()}`, null);
+  if (!p || typeof p !== 'object') return local;
+  const badges = { ...local.badges };
+  for (const b of Array.isArray(p.badges) ? p.badges : []) {
+    const id = typeof b === 'string' ? b : b && b.id;
+    if (id && badgeInfo(id) && !badges[id]) badges[id] = Number(b && b.at) || 1;
+  }
+  return { ...local, xp: Math.max(local.xp, num(p.xp)), badges };
+}
 export const saveXp = (email, state) => save(xpKey(email), normalizeXp(state));
 
 /** Record a finished round for a student and save. Returns the recordRoundXp result. */
 export function awardRound(email, round, now = Date.now()) {
   const res = recordRoundXp(loadXp(email), round, now);
   saveXp(email, res.state);
+  if (feature('studentHome') && (res.gained > 0 || res.newBadges.length)) {
+    try { queueXp(email, { delta: res.gained, badges: res.newBadges, streakDays: res.state.dailyStreak }); } catch (e) { console.error(e); }
+  }
   return res;
 }
 
