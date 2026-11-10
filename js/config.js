@@ -43,7 +43,7 @@ const DEFAULTS = {
     v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
     v5Attempt: false,      // V5-01: shared attempt + mode switcher in the runner
     v5Games: false,        // V5-01: game modes on the shared attempt (needs v5Attempt)
-    studentHome: false,    // V5-02: student home, profile page, Google Sheets sync
+    studentHome: true, // V5-02: student home, profile page, Google Sheets sync
     classHub: false,       // V5-10: assignments, class stream, notifications (needs studentHome)
     perfStore: false,      // V5-11: client data store, optimistic updates, lazy loading
     v5Motion: true,        // V5-04/05: sidebar animation + motion pass

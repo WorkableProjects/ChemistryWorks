@@ -10,6 +10,7 @@ import { feature } from '../config.js';
 import { dashboardSection } from './tools/dashboard.js';
 import { networkBanner } from './tools/banner.js';
 import { ensureToolsCss } from './tools/settings.js';
+import * as home from './home/index.js';
 
 function signInCard(ctx, params) {
   const { config } = ctx;
@@ -142,6 +143,7 @@ function heroPattern() {
 
 export function render(root, ctx, params = {}) {
   const user = getUser();
+  if (user && feature('studentHome')) return home.render(root, ctx, params); // V5-02: the student home replaces this screen
   // V4-05: "My dashboard" and the waiting-submission banner (student tools flag).
   const tools = !!user && feature('studentTools');
   ensureToolsCss(); // the merged tests list uses the dashboard styles
