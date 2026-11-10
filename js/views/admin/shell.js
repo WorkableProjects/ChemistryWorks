@@ -8,7 +8,8 @@
 import { h, icon, brandLogo, themeControl } from '../../ui.js';
 import { load, save } from '../../lib/storage.js';
 import { getUser } from '../../lib/auth.js';
-import { THEMES, getThemePref, setThemePref, onThemeChange } from '../../lib/theme.js';
+import { feature } from '../../config.js';
+import { THEMES, getThemePref, setThemePref, onThemeChange, prefersReducedMotion } from '../../lib/theme.js';
 
 /* ------------------------------------------------------------------ nav model (pure) */
 
@@ -134,6 +135,8 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   if (st.pref && typeof st.pref === 'object') st.pref = typeof st.pref.collapsed === 'boolean' ? st.pref.collapsed : null;
   else if (typeof st.pref !== 'boolean') st.pref = null;
   const cleanups = [];
+  const motion = feature('v5Motion');
+  const reduced = () => { try { return prefersReducedMotion(); } catch { return false; } };
 
   /* ---- top bar ---- */
   const toggle = h('button', { class: 'ash-icon-btn', type: 'button', 'aria-label': 'Toggle navigation menu', 'aria-controls': 'ash-sidebar', 'aria-expanded': 'true', dataset: { testid: 'admin-nav-toggle' },
@@ -188,9 +191,11 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   const recentWrap = h('div', { class: 'ash-group ash-group--recent', hidden: true, dataset: { testid: 'admin-recent' } },
     h('p', { class: 'ash-group__label' }, 'Recent tests'), recentList);
 
+  let itemIdx = 0;
   function itemBtn(it) {
     const b = h('button', { class: 'ash-item', type: 'button', title: it.label, dataset: { testid: `tab-${it.id}`, nav: it.id }, on: { click: () => { closeDrawer(); onNavigate?.(it.id); } } },
       icon(it.icon || 'grid', { size: 20 }), h('span', { class: 'ash-item__label' }, it.label));
+    b.style.setProperty('--i', String(itemIdx++));
     navBtns[it.id] = b;
     return b;
   }
@@ -198,6 +203,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
     for (const k of Object.keys(navBtns)) delete navBtns[k];
     const groups = navGroups(items);
     const nodes = [];
+    itemIdx = 0;
     for (const g of groups) {
       const list = g.items.map(itemBtn);
       nodes.push(h('div', { class: `ash-group ash-group--${g.id}` }, g.label ? h('p', { class: 'ash-group__label' }, g.label) : null, ...list));
@@ -297,7 +303,8 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
     el.classList.toggle('is-drawer-open', lay.mode === 'drawer' && lay.open);
     const visible = lay.mode !== 'drawer' || lay.open;
     sidebar.inert = !visible;
-    scrim.hidden = !(lay.mode === 'drawer' && lay.open);
+    scrim.hidden = motion ? lay.mode !== 'drawer' : !(lay.mode === 'drawer' && lay.open);
+    if (motion) { hideTip(); sidebar.style.transform = ''; sidebar.classList.remove('is-dragging'); syncTitles(lay.mode); }
     toggle.setAttribute('aria-expanded', String(lay.mode === 'drawer' ? lay.open : lay.mode === 'full'));
     requestAnimationFrame(() => { placePill(); placeTabIndicator(); });
   }
@@ -305,6 +312,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
     const lay = navLayout(window.innerWidth, st.pref, st.drawer);
     if (lay.mode === 'drawer') { st.drawer = !st.drawer; } else { st.pref = lay.mode === 'full'; save('adminNav', { collapsed: st.pref }); }
     applyLayout();
+    if (motion) trackPill();
     if (lay.mode === 'drawer' && st.drawer) navBody.querySelector('.ash-item')?.focus({ preventScroll: true });
   }
   function closeDrawer() { if (st.drawer) { st.drawer = false; applyLayout(); } }
@@ -312,7 +320,96 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   window.addEventListener('resize', onResize);
   cleanups.push(() => window.removeEventListener('resize', onResize));
 
+  /* ---- v5 motion: pill tracking, collapsed tooltips, swipe-to-close, section cross-fade ---- */
+  let trackId = 0;
+  function trackPill() {
+    if (reduced()) { placePill(); return; }
+    cancelAnimationFrame(trackId);
+    const t0 = performance.now();
+    pill.classList.add('is-tracking');
+    const step = () => {
+      placePill();
+      if (performance.now() - t0 < 260) trackId = requestAnimationFrame(step);
+      else { pill.classList.remove('is-tracking'); placePill(); }
+    };
+    step();
+  }
+  const tip = h('div', { class: 'ash-tip', role: 'tooltip', hidden: true });
+  function hideTip() { tip.hidden = true; tip.classList.remove('is-on'); }
+  function showTip(btn) {
+    if (el.dataset.nav !== 'rail') return;
+    const r = btn.getBoundingClientRect();
+    tip.textContent = btn.dataset.label || '';
+    tip.hidden = false;
+    tip.style.left = `${Math.round(r.right + 8)}px`;
+    tip.style.top = `${Math.round(r.top + r.height / 2)}px`;
+    requestAnimationFrame(() => tip.classList.add('is-on'));
+  }
+  function syncTitles(mode) {
+    for (const b of Object.values(navBtns)) {
+      if (mode === 'rail') b.removeAttribute('title'); else b.setAttribute('title', b.dataset.label || '');
+    }
+  }
+  if (motion) {
+    el.classList.add('ash--motion');
+    el.append(tip);
+    const onOver = (e) => { const b = e.target.closest?.('.ash-item'); if (b) showTip(b); };
+    const onOut = (e) => { if (e.target.closest?.('.ash-item')) hideTip(); };
+    navBody.addEventListener('pointerover', onOver);
+    navBody.addEventListener('pointerout', onOut);
+    navBody.addEventListener('focusin', (e) => { if (e.target.matches?.('.ash-item:focus-visible')) onOver(e); });
+    navBody.addEventListener('focusout', onOut);
+    navBody.addEventListener('scroll', hideTip, { passive: true });
+    sidebar.addEventListener('scroll', hideTip, { passive: true });
+    const body = el.querySelector('.ash-body');
+    body.addEventListener('transitionend', (e) => { if (e.target === body) placePill(); });
+    // swipe left on the open drawer to close it
+    let sw = null;
+    sidebar.addEventListener('pointerdown', (e) => {
+      if (!st.drawer || e.pointerType === 'mouse') return;
+      sw = { x: e.clientX, y: e.clientY, dx: 0, t: performance.now(), on: false, id: e.pointerId };
+    });
+    sidebar.addEventListener('pointermove', (e) => {
+      if (!sw || e.pointerId !== sw.id) return;
+      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+      if (!sw.on) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
+        if (dx < -8 && Math.abs(dx) > Math.abs(dy)) { sw.on = true; sidebar.classList.add('is-dragging'); try { sidebar.setPointerCapture(e.pointerId); } catch { /* ignore */ } }
+      }
+      if (sw && sw.on) { sw.dx = Math.min(0, dx); sidebar.style.transform = `translateX(${sw.dx}px)`; }
+    });
+    const endSwipe = () => {
+      if (!sw) return;
+      const s = sw; sw = null;
+      sidebar.classList.remove('is-dragging');
+      if (!s.on) return;
+      const fast = s.dx / Math.max(1, performance.now() - s.t) < -0.4;
+      sidebar.style.transform = '';
+      if (s.dx < -(sidebar.offsetWidth * 0.3) || fast) { closeDrawer(); toggle.focus({ preventScroll: true }); }
+    };
+    sidebar.addEventListener('pointerup', endSwipe);
+    sidebar.addEventListener('pointercancel', endSwipe);
+  }
+  function ghostOut() {
+    if (!motion || reduced() || !panel.firstElementChild) return;
+    const host = panel.parentElement;
+    const r = panel.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    const ghost = panel.cloneNode(true);
+    ghost.removeAttribute('id'); ghost.removeAttribute('role'); ghost.removeAttribute('aria-label'); ghost.removeAttribute('tabindex');
+    ghost.querySelectorAll('[data-testid],[id]').forEach((n) => { n.removeAttribute('data-testid'); n.removeAttribute('id'); });
+    ghost.classList.remove('adm-panel--in');
+    ghost.classList.add('ash-ghost');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.inert = true;
+    ghost.style.cssText = `left:${r.left - hr.left}px;top:${r.top - hr.top}px;width:${r.width}px;max-height:${Math.max(200, window.innerHeight - r.top)}px`;
+    host.append(ghost);
+    const rm = () => ghost.remove();
+    ghost.addEventListener('animationend', rm);
+    setTimeout(rm, 400);
+  }
+
   drawNav();
+  if (motion) { for (const b of Object.values(navBtns)) b.dataset.label = b.querySelector('.ash-item__label')?.textContent || ''; }
   drawCrumbs();
   applyLayout();
   refreshTabs();
@@ -328,6 +425,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   return {
     el, panel, toggle,
     setCurrent(section, { testTab = '' } = {}) {
+      if (section !== st.section) ghostOut();
       st.section = section;
       st.testTab = testTab;
       markActive();
