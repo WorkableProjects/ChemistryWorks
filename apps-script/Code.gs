@@ -381,6 +381,7 @@ function handleSubmission_(body) {
       gate.late ? true : '',
       text_(gate.classId || '')
     ]);
+    bust_('tests:list');
     if (gate.status) return { result: 'success', not_counted: gate.status };
     return extra ? { result: 'success', extra_attempt: true } : { result: 'success' };
   });
@@ -544,11 +545,22 @@ function handleAdmin_(body) {
 }
 
 function dispatchAdmin_(body, auth) {
+  var res = dispatchAdminRaw_(body, auth);
+  if (res && res.result === 'success') {
+    bustFor_(body);
+    if (res.row === undefined) {
+      try { var row = rowFor_(body, res); if (row !== undefined) res.row = row; } catch (e) { /* row is optional */ }
+    }
+  }
+  return res;
+}
+
+function dispatchAdminRaw_(body, auth) {
   switch (body.action) {
     case 'publishTest': return publishTest_(body.test);
-    case 'listTests': return listTests_();
+    case 'listTests': return listTests_(body);
     case 'deleteTest': return deleteTest_(body.code);
-    case 'getResults': return getResults_(body.testCode);
+    case 'getResults': return getResults_(body.testCode, body);
     case 'saveGrade':
       // "Graded by": a Google admin who sent no name is recorded by email.
       if (auth.via === 'google' && !String(body.gradedBy == null ? '' : body.gradedBy).trim()) body.gradedBy = auth.email;
@@ -692,7 +704,8 @@ function publishTest_(test) {
   });
 }
 
-function listTests_() {
+function listTests_(body) {
+  if (body && body.summary) return { result: 'success', tests: cached_('tests:list', CACHE_TTL, function () { return testSummaries_(''); }) };
   var sheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
   var last = sheet.getLastRow();
   var tests = [];
@@ -703,6 +716,39 @@ function listTests_() {
     }
   }
   return { result: 'success', tests: tests };
+}
+
+// v5 B2: one pass over Tests + Submissions (only the needed columns). onlyCode limits it to one test.
+// status: scheduled (before opensAt) | open | closed (after closesAt, late window ignored).
+function testSummaries_(onlyCode) {
+  var only = normalizeCode_(onlyCode);
+  var counts = {};
+  var needs = {};
+  readCols_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS), ['Submission ID', 'Test Code', 'Status']).forEach(function (r) {
+    if (r['Submission ID'] === '' || r['Submission ID'] === null) return;
+    var st = String(r.Status || '');
+    if (st === STATUS_EXTRA || st === STATUS_CLOSED || st === STATUS_NOT_ROSTER) return;
+    var c = normalizeCode_(r['Test Code']);
+    if (!c || (only && c !== only)) return;
+    counts[c] = (counts[c] || 0) + 1;
+    if (st === STATUS_NEEDS_GRADING) needs[c] = (needs[c] || 0) + 1;
+  });
+  var now = new Date().getTime();
+  var out = [];
+  readCols_(getSheet_(TESTS_SHEET, TEST_HEADERS), ['Code', 'Title', 'Updated At', 'Test JSON']).forEach(function (r) {
+    var code = String(r.Code);
+    if (!code || (only && normalizeCode_(code) !== only)) return;
+    var t = parseJson_(r['Test JSON'], null) || {};
+    var qs = Array.isArray(t.questions) ? t.questions : [];
+    var points = 0;
+    qs.forEach(function (q) { var p = q && q.points !== undefined && q.points !== null ? parseFloat(q.points) : 1; points += isFinite(p) ? p : 0; });
+    var opens = t.opensAt ? Date.parse(t.opensAt) : NaN;
+    var closes = t.closesAt ? Date.parse(t.closesAt) : NaN;
+    var status = isFinite(opens) && now < opens ? 'scheduled' : (isFinite(closes) && now > closes ? 'closed' : 'open');
+    out.push({ code: code, title: String(r.Title), updatedAt: iso_(r['Updated At']), status: status, questionCount: qs.length,
+      points: round2_(points), needsGrading: needs[normalizeCode_(code)] || 0, submissionCount: counts[normalizeCode_(code)] || 0 });
+  });
+  return out;
 }
 
 function deleteTest_(code) {
@@ -716,19 +762,51 @@ function deleteTest_(code) {
   });
 }
 
-function getResults_(testCode) {
+function getResults_(testCode, opts) {
   var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   var last = sheet.getLastRow();
   var rows = [];
   var filter = normalizeCode_(testCode);
+  opts = opts || {};
+  var statusFilter = opts.status ? String(opts.status).trim().toLowerCase() : '';
+  var since = sinceMs_(opts.since);
+  var now = new Date().getTime();
   if (last >= 2) {
     var values = sheet.getRange(2, 1, last - 1, SUBMISSION_HEADERS.length).getValues();
     for (var i = 0; i < values.length; i++) {
       var v = values[i];
       if (filter && normalizeCode_(v[4]) !== filter) continue;
+      if (statusFilter && String(v[COL.STATUS - 1] || '').toLowerCase() !== statusFilter) continue;
+      if (since !== null && changedMs_(v) <= since) continue;
+      rows.push(submissionRow_(v));
+    }
+  }
+  return { result: 'success', rows: rows, now: now };
+}
+
+// Latest time a submission row changed: submitted, graded, released or retake-allowed.
+function changedMs_(v) {
+  var best = 0;
+  [v[0], v[COL.GRADED_AT - 1], v[COL.RELEASED_AT - 1], v[COL.RETAKE - 1]].forEach(function (d) {
+    var t = d instanceof Date ? d.getTime() : (d === '' || d === null ? NaN : Date.parse(d));
+    if (isFinite(t) && t > best) best = t;
+  });
+  return best;
+}
+// ms epoch (number or numeric string) or an ISO string -> ms; anything else -> null (no filter).
+function sinceMs_(v) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  var s = String(v).trim();
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+  var t = Date.parse(s);
+  return isFinite(t) ? t : null;
+}
+
+function submissionRow_(v) {
       var finalScore = v[COL.FINAL_SCORE - 1];
       var finalPct = v[COL.FINAL_PCT - 1];
-      rows.push({
+      return ({
         timestamp: iso_(v[0]),
         submission_id: String(v[1]),
         student_name: String(v[2]),
@@ -752,9 +830,33 @@ function getResults_(testCode) {
         graded_by: String(v[COL.GRADED_BY - 1] || ''),
         retake_allowed_at: iso_(v[COL.RETAKE - 1])
       });
-    }
+}
+
+// v5 B2: cache keys cleared by each write (reads cache tests:list, settings, classes:list, roster:<id>).
+function bustFor_(body) {
+  switch (body.action) {
+    case 'publishTest': case 'deleteTest': case 'saveGrade': case 'releaseAll': case 'allowRetake': case 'applyRegrade':
+      return bust_('tests:list');
+    case 'saveClass': return bust_('classes:list', 'roster:' + String((body.cls && body.cls.id) || body.id || ''));
+    case 'deleteClass': return bust_('classes:list', 'roster:' + String(body.id || ''));
+    case 'saveSettings': return bust_('settings');
+    case 'saveAssignment': case 'deleteAssignment': return bust_('classes:list');
   }
-  return { result: 'success', rows: rows };
+}
+// The changed row for a write: a test summary, or the submission row. Additive; old fields stay.
+function rowFor_(body, res) {
+  switch (body.action) {
+    case 'publishTest': return testSummaries_(res.code)[0] || null;
+    case 'deleteTest': return { code: normalizeCode_(body.code), deleted: true };
+    case 'releaseAll': return testSummaries_(body.testCode)[0] || null;
+    case 'saveGrade': case 'allowRetake': return submissionById_(body.submissionId);
+  }
+  return undefined;
+}
+function submissionById_(id) {
+  var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
+  var row = findRow_(sheet, 2, String(id));
+  return row ? submissionRow_(sheet.getRange(row, 1, 1, SUBMISSION_HEADERS.length).getValues()[0]) : null;
 }
 
 // Non-empty comments only, each trimmed and capped. Formatting is a safe Markdown subset rendered client-side
@@ -1149,10 +1251,22 @@ function drawnOf_(d) {
 
 // ---------- classes / rosters (S11) ----------
 function listClasses_() {
-  var r = sheetRows_(CLASSES_SHEET, CLASS_HEADERS);
-  return { result: 'success', classes: r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
-    return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]) };
-  }) };
+  return { result: 'success', classes: classesCached_() };
+}
+function classesCached_() {
+  return cached_('classes:list', CACHE_TTL, function () {
+    var r = sheetRows_(CLASSES_SHEET, CLASS_HEADERS);
+    return r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
+      return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]) };
+    });
+  });
+}
+// One class roster (lower-cased emails), cached per class. Unknown class -> [].
+function rosterOf_(id) {
+  return cached_('roster:' + id, CACHE_TTL, function () {
+    var hit = classesCached_().filter(function (c) { return c.id === id; })[0];
+    return hit ? hit.emails : [];
+  });
 }
 function saveClass_(body, auth) {
   var c = body.cls && typeof body.cls === 'object' ? body.cls : body;
@@ -1168,7 +1282,8 @@ function saveClass_(body, auth) {
     var row = findRow_(sheet, 1, id);
     var vals = [id, text_(name), text_(String(c.period || '').slice(0, 40)), json, text_(actorOf_(auth)), new Date()];
     if (row) sheet.getRange(row, 1, 1, vals.length).setValues([vals]); else sheet.appendRow(vals);
-    return { result: 'success', cls: { id: id, name: name, period: String(c.period || ''), emails: emails } };
+    var cls = { id: id, name: name, period: String(c.period || ''), emails: emails };
+    return { result: 'success', cls: cls, row: cls };
   });
 }
 function deleteClass_(body) {
@@ -1186,8 +1301,7 @@ function rosterOk_(test, email) {
   var ids = Array.isArray(test && test.classes) ? test.classes.map(String) : [];
   var e = normEmail_(email);
   if (!ids.length) return { ok: test.rosterOnly !== true, classId: '' };
-  var all = listClasses_().classes;
-  for (var i = 0; i < all.length; i++) if (ids.indexOf(all[i].id) >= 0 && all[i].emails.indexOf(e) >= 0) return { ok: true, classId: all[i].id };
+  for (var i = 0; i < ids.length; i++) if (rosterOf_(ids[i]).indexOf(e) >= 0) return { ok: true, classId: ids[i] };
   return { ok: test.rosterOnly !== true, classId: '' };
 }
 
@@ -1395,10 +1509,12 @@ function applyRegrade_(body) {
 
 // ---------- settings (error reports, release emails) ----------
 function readSettings_() {
-  var r = sheetRows_(SETTINGS_SHEET, SETTINGS_HEADERS);
-  var out = { errorReports: false, releaseEmails: false };
-  r.values.forEach(function (v) { var k = String(v[0]); if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true'; });
-  return out;
+  return cached_('settings', CACHE_TTL, function () {
+    var r = sheetRows_(SETTINGS_SHEET, SETTINGS_HEADERS);
+    var out = { errorReports: false, releaseEmails: false };
+    r.values.forEach(function (v) { var k = String(v[0]); if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true'; });
+    return out;
+  });
 }
 function saveSettings_(body) {
   var incoming = body.settings && typeof body.settings === 'object' ? body.settings : {};
@@ -1410,7 +1526,9 @@ function saveSettings_(body) {
       var vals = [k, incoming[k] === true];
       if (row) sheet.getRange(row, 1, 1, 2).setValues([vals]); else sheet.appendRow(vals);
     });
-    return { result: 'success', settings: readSettings_() };
+    bust_('settings');
+    var fresh = readSettings_();
+    return { result: 'success', settings: fresh, row: fresh };
   });
 }
 // Optional release email (Settings > releaseEmails). Needs the MailApp permission; no score in the email.
@@ -1674,10 +1792,7 @@ function profileOf_(o) {
 
 // Classes this email is on: [{ id, name, period }]. The class list is cached; membership is matched per call.
 function classesOfEmail_(email) {
-  var list = cached_('classes:list', CACHE_TTL, function () {
-    return readCols_(getSheet_(CLASSES_SHEET, CLASS_HEADERS), ['ID', 'Name', 'Period', 'Emails (JSON)']).filter(function (r) { return String(r.ID); })
-      .map(function (r) { return { id: String(r.ID), name: String(r.Name), period: String(r.Period), emails: parseJson_(r['Emails (JSON)'], []) || [] }; });
-  });
+  var list = classesCached_();
   return list.filter(function (c) { return c.emails.indexOf(email) >= 0; }).map(function (c) { return { id: c.id, name: c.name, period: c.period }; });
 }
 
