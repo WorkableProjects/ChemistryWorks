@@ -38,7 +38,7 @@ const DEFAULTS = {
   FEATURES: {
     adminShell: true,      // S05: Classroom-style admin shell + dashboard
     adminAccounts: true,  // S06: Google sign-in for admins — turn on after deploying Code.gs 4.0.0 and filling the Admins sheet
-    teacherTools: true,    // S07: insights, grade by question, comment bank (always shown)
+    teacherTools: true,    // S07: grade by question, comment bank (always shown)
     studentTools: true,    // S16: calculator, scratchpad, read-aloud (per test: test.tools)
     v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
     v5Attempt: false,      // V5-01: shared attempt + mode switcher in the runner

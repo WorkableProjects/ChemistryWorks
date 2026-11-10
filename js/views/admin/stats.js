@@ -148,7 +148,7 @@ export function csvField(value) {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** Column key of a question inside a gradebook / insights listing: tests may reuse ids, so the code is part of it. */
+/** Column key of a question inside a gradebook listing: tests may reuse ids, so the code is part of it. */
 const qKey = (r, qid) => `${r.test_code}\u0000${qid}`;
 
 /**
@@ -226,102 +226,6 @@ export function validatePoints(raw, max) {
 export function isOverride(res, points) {
   if (!res || res.manual || points == null) return false;
   return r2(Number(points)) !== r2(Number(res.pointsEarned) || 0);
-}
-
-/* ------------------------------------------------------------------ insights (V4-02) */
-
-export const REVIEW_THRESHOLD = 40; // a question below this % correct is flagged "Review"
-export const WRONG_ANSWER_TYPES = ['mcq', 'multi', 'truefalse'];
-
-/** Mean of finite numbers (0 for none), rounded to 2 decimals. */
-export function mean(nums) {
-  const a = nums.filter((n) => Number.isFinite(n));
-  return a.length ? r2(a.reduce((s, n) => s + n, 0) / a.length) : 0;
-}
-
-/** Median of finite numbers (0 for none), rounded to 2 decimals. */
-export function median(nums) {
-  const a = nums.filter((n) => Number.isFinite(n)).sort((x, y) => x - y);
-  if (!a.length) return 0;
-  const m = a.length >> 1;
-  return r2(a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2);
-}
-
-/**
- * Histogram of percentages in `count` equal buckets over 0..100 (default ten 10% buckets).
- * A bucket holds [from, to); the last also holds exactly 100. Values are clamped to 0..100.
- */
-export function scoreDistribution(percentages, count = 10) {
-  const size = 100 / count;
-  const buckets = Array.from({ length: count }, (_, i) => ({ from: r2(i * size), to: r2((i + 1) * size), count: 0 }));
-  for (const p of percentages) {
-    const n = Number(p);
-    if (!Number.isFinite(n)) continue;
-    const v = Math.min(100, Math.max(0, n));
-    buckets[Math.min(count - 1, Math.floor(v / size))].count++;
-  }
-  return buckets;
-}
-
-/** Submissions that count in insights: not extra attempts, not waiting for grading. */
-export function insightRows(rows) {
-  return rows.filter((r) => r.status !== STATUS.EXTRA && r.status !== STATUS.NEEDS_GRADING);
-}
-
-/**
- * Test-level insights from normalized rows of ONE test: { count, pending, average, median, avgDuration, buckets }.
- * `pending` = submissions still needing grading (left out of every other number). avgDuration is in seconds,
- * over submissions that recorded a time.
- */
-export function testInsights(rows) {
-  const live = rows.filter((r) => r.status !== STATUS.EXTRA);
-  const done = insightRows(rows);
-  const pcts = done.map((r) => r.percentage);
-  return {
-    count: done.length,
-    pending: live.length - done.length,
-    average: mean(pcts),
-    median: median(pcts),
-    avgDuration: mean(done.map((r) => r.duration_seconds).filter((d) => d > 0)),
-    buckets: scoreDistribution(pcts),
-  };
-}
-
-/**
- * Per-question insights from normalized rows of ONE test, in first-seen order:
- * { questionId, text, type, n, correct, pctCorrect, avgPoints, pointsPossible, unanswered, topWrong, review }.
- * Only graded answers count (an answer still waiting for the teacher is skipped); "correct" = full points.
- * topWrong = { text, count } of the most-chosen wrong answer for mcq / multi / truefalse (first seen wins ties), else null.
- */
-export function questionInsights(rows) {
-  const by = new Map();
-  for (const r of insightRows(rows)) {
-    for (const res of Array.isArray(r.responses) ? r.responses : []) {
-      if (!res || res.questionId == null || res.needsGrading) continue;
-      const id = String(res.questionId);
-      let q = by.get(id);
-      if (!q) { q = { questionId: id, text: res.questionText || '', type: res.type || '', n: 0, correct: 0, points: 0, pointsPossible: 0, unanswered: 0, wrong: new Map() }; by.set(id, q); }
-      q.n++;
-      q.points += Number(res.pointsEarned) || 0;
-      q.pointsPossible = Math.max(q.pointsPossible, Number(res.pointsPossible) || 0);
-      if (res.isCorrect) q.correct++;
-      if (!res.answered) q.unanswered++;
-      else if (!res.isCorrect && WRONG_ANSWER_TYPES.includes(q.type)) {
-        const t = String(res.givenAnswerText || '').trim();
-        if (t) q.wrong.set(t, (q.wrong.get(t) || 0) + 1);
-      }
-    }
-  }
-  return [...by.values()].map((q) => {
-    let topWrong = null;
-    for (const [text, count] of q.wrong) if (!topWrong || count > topWrong.count) topWrong = { text, count };
-    const pctCorrect = q.n ? r2((q.correct / q.n) * 100) : 0;
-    return {
-      questionId: q.questionId, text: q.text, type: q.type, n: q.n, correct: q.correct, pctCorrect,
-      avgPoints: q.n ? r2(q.points / q.n) : 0, pointsPossible: q.pointsPossible, unanswered: q.unanswered,
-      topWrong, review: q.n > 0 && pctCorrect < REVIEW_THRESHOLD,
-    };
-  });
 }
 
 /** Every student's answer to one question: [{ submissionId, name, email, answered, answerText, points, possible, needsGrading }]. */

@@ -3,7 +3,7 @@
 import { h, mount, icon } from '../../ui.js';
 import { adminCall } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
-import { liveSummary } from '../../lib/mastery.js';
+import { liveSummary } from '../../lib/live.js';
 import { emptyState, skeleton } from './common.js';
 import { formatDuration } from '../../ui.js';
 
