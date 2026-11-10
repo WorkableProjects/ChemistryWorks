@@ -595,5 +595,13 @@ export function seededShuffle(array, seedString) {
   return out;
 }
 
+/** Consistent empty state: an icon, one sentence and at most one action ({ label, onClick }). */
+export function emptyState({ icon: name = 'list', title = '', action = null, testid = '' } = {}) {
+  return h('div', { class: 'empty-state', dataset: testid ? { testid } : {} },
+    h('span', { class: 'empty-state__icon' }, icon(name, { size: 24 })),
+    h('p', { class: 'empty-state__title' }, title),
+    action ? h('button', { type: 'button', class: 'btn btn--subtle btn--sm', on: { click: action.onClick } }, action.label) : null);
+}
+
 // V4-05: re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).
 applyStoredSettings();
