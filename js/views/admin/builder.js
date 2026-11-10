@@ -113,7 +113,7 @@ function extrasPanel(q, changed) {
   const d = h('details', { class: 'adm-extras', open, dataset: { testid: 'q-extras' } },
     h('summary', {}, 'Extras'),
     h('div', { class: 'stack adm-extras__body' },
-      switchEl({ label: 'Ask “How sure are you?”', hint: 'After answering, students rate Guessing / Fairly sure / Certain. Shown in results and Insights.',
+      switchEl({ label: 'Ask “How sure are you?”', hint: 'After answering, students rate Guessing / Fairly sure / Certain. Shown in results.',
         checked: !!q.confidence, testid: 'q-confidence', onChange: (v) => { if (v) q.confidence = true; else delete q.confidence; changed(); } }),
       field('Hint', text, 'Students can reveal it; revealing it costs points.'),
       field('Hint cost (points)', cost, 'Deducted from the points earned (never below 0); at most the question\'s points.')));

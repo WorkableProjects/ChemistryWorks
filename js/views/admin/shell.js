@@ -1,7 +1,7 @@
 // Admin shell (V4-01, behind feature('adminShell')): Classroom-style top bar, left sidebar, in-test tabs, profile menu.
 // js/views/admin.js owns the views and the routing; this module only builds the frame and reports clicks.
 //
-// Extending the navigation (S11 Bank/Classes, S13 Insights/Live/...): call registerNavItem({ id, label, icon, group, render })
+// Extending the navigation (S11 Bank/Classes, S13 Live/...): call registerNavItem({ id, label, icon, group, render })
 // once at import time. `render(host, ctx, helpers) -> cleanup?` mounts the view; an item without `render` (and not built in)
 // stays hidden, so entries for views that do not exist yet cost nothing.
 
@@ -24,12 +24,10 @@ export const NAV_ITEMS = [
   { id: 'library', label: 'Library', icon: 'list', group: 'teaching', builtin: true },
   { id: 'builder', label: 'Builder', icon: 'grid', group: 'teaching', builtin: true },
   { id: 'grading', label: 'Grading', icon: 'pen', group: 'teaching', builtin: true },
-  { id: 'insights', label: 'Insights', icon: 'chart', group: 'tools', builtin: true },
   { id: 'bank', label: 'Question bank', icon: 'layers', group: 'tools' },     // render registered in js/views/admin.js
   { id: 'classes', label: 'Classes', icon: 'user', group: 'tools' },
   { id: 'accommodations', label: 'Accommodations', icon: 'user', group: 'tools' },
   { id: 'live', label: 'Live monitor', icon: 'clock', group: 'tools' },
-  { id: 'mastery', label: 'Mastery', icon: 'award', group: 'tools' },
   { id: 'import', label: 'Import & templates', icon: 'upload', group: 'tools' },
   { id: 'settings', label: 'Settings', icon: 'key', group: 'bottom', builtin: true },
 ];
@@ -66,10 +64,9 @@ export const TEST_TABS = [
   { id: 'overview', label: 'Overview', section: 'library' },
   { id: 'questions', label: 'Questions', section: 'builder' },
   { id: 'submissions', label: 'Submissions', section: 'grading' },
-  { id: 'insights', label: 'Insights', section: 'insights' },
   { id: 'settings', label: 'Settings', section: 'builder', focus: 'settings' },
 ];
-const TEST_SECTIONS = ['builder', 'grading', 'insights'];
+const TEST_SECTIONS = ['builder', 'grading'];
 
 /** In-test tabs show while a test is in focus inside one of the test-related sections. */
 export function showTestTabs(section, testCode) {

@@ -152,8 +152,7 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
         stat('Submissions this week', data.submissionsThisWeek);
         if (data.latest) stat(`Class average, ${data.latest.code}`, data.latest.average, { suffix: '%', decimals: 1 });
       }
-      cards.push(card('Quick stats', 'chart', h('div', { class: 'stack' }, stats, haveRows && data.latest
-        ? h('button', { class: 'dash-link', type: 'button', on: { click: () => go?.('insights') } }, 'Open Insights') : null), { testid: 'dash-stats' }));
+      cards.push(card('Quick stats', 'chart', h('div', { class: 'stack' }, stats), { testid: 'dash-stats' }));
     }
     if (haveRows && data.recentSubmissions.length) {
       cards.push(card('Recent activity', 'inbox', h('ul', { class: 'dash-list' }, data.recentSubmissions.map((s) => h('li', {},

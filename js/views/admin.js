@@ -9,12 +9,10 @@ import { renderLibrary, setLibraryQuery } from './admin/library.js';
 import { renderGrading, setGradingFocus } from './admin/grading.js';
 import { renderDashboard } from './admin/dashboard.js';
 import { buildAdminShell, NAV_ITEMS, isAvailable, registerNavItem } from './admin/shell.js';
-import { renderInsights } from './admin/insights.js';
 import { renderClasses } from './admin/classes.js';
 import { renderBank } from './admin/bank.js';
 import { renderAccommodations } from './admin/accommodations.js';
 import { renderLive } from './admin/live.js';
-import { renderMastery } from './admin/mastery.js';
 import { renderImport } from './admin/import.js';
 
 import { renderSettings } from './admin/settings.js';
@@ -22,13 +20,18 @@ import { clearAdminConfirmed } from '../lib/admin-session.js';
 
 export * from './admin/stats.js';
 
+// Removed sections (v5 S01): old links and remembered tabs land on the closest kept section.
+const LEGACY_TABS = { insights: 'grading', mastery: 'dashboard' };
+const resolveTab = (id) => LEGACY_TABS[id] || id;
+// `?section=` is the old deep link; `params.tab` wins when a caller passes one.
+const requestedTab = (params) => params?.tab || new URLSearchParams(location.search).get('section') || '';
+
 // Classic tabs: the v4 S11–S13 views live behind one "Tools" tab (the sidebar shell lists them individually).
 const TOOL_VIEWS = [
   { id: 'bank', label: 'Question bank', icon: 'layers', render: (host, ctx, o) => renderBank(host, ctx, o) },
   { id: 'classes', label: 'Classes', icon: 'user', render: (host, ctx, o) => renderClasses(host, ctx, o) },
   { id: 'accommodations', label: 'Accommodations', icon: 'user', render: (host, ctx, o) => renderAccommodations(host, ctx, o) },
   { id: 'live', label: 'Live monitor', icon: 'clock', render: (host, ctx, o) => renderLive(host, ctx, o) },
-  { id: 'mastery', label: 'Mastery', icon: 'award', render: (host, ctx, o) => renderMastery(host, ctx, o) },
   { id: 'import', label: 'Import & templates', icon: 'upload', render: (host, ctx, o) => renderImport(host, ctx, o) },
 ];
 function renderToolsHub(root, ctx, opts) {
@@ -48,21 +51,19 @@ registerNavItem({ id: 'bank', render: (host, ctx, o) => renderBank(host, ctx, o)
 registerNavItem({ id: 'classes', render: (host, ctx, o) => renderClasses(host, ctx, o) });
 registerNavItem({ id: 'accommodations', render: (host, ctx, o) => renderAccommodations(host, ctx, o) });
 registerNavItem({ id: 'live', render: (host, ctx, o) => renderLive(host, ctx, o) });
-registerNavItem({ id: 'mastery', render: (host, ctx, o) => renderMastery(host, ctx, o) });
 registerNavItem({ id: 'import', render: (host, ctx, o) => renderImport(host, ctx, o) });
 
 const TABS = [
   { id: 'library', label: 'Library', icon: 'list' },
   { id: 'builder', label: 'Builder', icon: 'grid' },
   { id: 'grading', label: 'Grading', icon: 'pen' },
-  { id: 'insights', label: 'Insights', icon: 'chart' },
   { id: 'tools', label: 'Tools', icon: 'layers' },
   { id: 'settings', label: 'Settings', icon: 'key' },
 ];
 
 export function render(root, ctx, params = {}) {
   if (feature('adminShell')) return renderShelled(root, ctx, params);
-  let tab = TABS.some((t) => t.id === params?.tab) ? params.tab : load('adminTab', 'library', 'session');
+  let tab = resolveTab(requestedTab(params) || load('adminTab', 'library', 'session'));
   if (!TABS.some((t) => t.id === tab)) tab = 'library';
   let tabCleanup = null;
   let alive = true;
@@ -138,7 +139,6 @@ export function render(root, ctx, params = {}) {
     const sub = { library: () => renderLibrary(host, ctx, { openInBuilder, goSettings }),
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
-      insights: () => renderInsights(host, ctx, { goSettings }),
       tools: () => renderToolsHub(host, ctx, { goSettings, go: select, openInBuilder }),
       settings: () => renderSettings(host, ctx, { openInBuilder, go: select }) }[tab];
     const res = sub();
@@ -189,7 +189,7 @@ export function render(root, ctx, params = {}) {
    --------------------------------------------------------------------------------------------------------------- */
 function renderShelled(root, ctx, params = {}) {
   const sectionOk = (id) => NAV_ITEMS.some((t) => t.id === id && isAvailable(t));
-  let tab = sectionOk(params?.tab) ? params.tab : load('adminTab', 'dashboard', 'session');
+  let tab = resolveTab(requestedTab(params) || load('adminTab', 'dashboard', 'session'));
   if (!sectionOk(tab)) tab = 'dashboard';
   let tabCleanup = null;
 
@@ -263,7 +263,6 @@ function renderShelled(root, ctx, params = {}) {
       library: () => renderLibrary(host, ctx, { openInBuilder, goSettings, goGrading }),
       builder: () => renderBuilder(host, ctx),
       grading: () => renderGrading(host, ctx, { goSettings }),
-      insights: () => renderInsights(host, ctx, { goSettings }),
       settings: () => renderSettings(host, ctx, { openInBuilder, go: select }),
     };
     const sub = extra ? () => extra.render(host, ctx, { openInBuilder, goSettings, go: select }) : views[tab];
