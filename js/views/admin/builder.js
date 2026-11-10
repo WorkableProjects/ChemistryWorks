@@ -860,7 +860,7 @@ export function renderBuilder(root, ctx) {
     let open = false;
     const grouped = new Set(TYPE_GROUPS.flatMap((g) => g.types));
     const groups = [...TYPE_GROUPS, { title: 'More', types: QUESTION_TYPES.filter((t) => !grouped.has(t)) }]
-      .map((g) => ({ ...g, types: g.types.filter((t) => QUESTION_TYPES.includes(t)) })).filter((g) => g.types.length);
+      .map((g) => ({ ...g, types: g.types.filter((t) => QUESTION_TYPES.includes(t) && (feature('v5Types') || !typeDef(t)?.v5)) })).filter((g) => g.types.length);
     const items = [];
     const groupEls = groups.map((g) => {
       const btns = g.types.map((t) => {

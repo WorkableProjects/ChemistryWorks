@@ -1,0 +1,25 @@
+/* ChemWorks v5 — isotopemass question type (average atomic mass). Tokens only. */
+.q-iso-root { display: grid; gap: var(--space-3); }
+.q-iso { display: grid; gap: var(--space-3); }
+.q-iso__element, .q-iso__note, .q-iso .q-hint { margin: 0; }
+.q-iso__table { border-collapse: collapse; width: 100%; max-width: 32rem; font-size: 14px; }
+.q-iso__table th, .q-iso__table td { text-align: left; padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); font-weight: 400; }
+.q-iso__table thead th { color: var(--text-muted); font-weight: 500; }
+.q-iso__table tbody th { font-weight: 500; }
+.q-iso__table td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.q-iso__in { width: 7em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.q-iso__data { margin: 0; padding-left: var(--space-5); color: var(--text-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; }
+.q-iso__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--primary); font-weight: 600; }
+.q-iso__fill, .q-iso__work { display: grid; gap: var(--space-2); }
+.q-iso__final { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.q-iso__eq { font-size: 20px; font-weight: 600; color: var(--text-muted); }
+.q-iso__unit { font-weight: 500; color: var(--text-muted); }
+.q-iso-review { display: inline-flex; flex-direction: column; gap: var(--space-1); align-items: flex-start; }
+.q-iso-review__work { font-size: 13px; color: var(--text-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.q-iso-ed__rows { display: grid; gap: var(--space-2); }
+.q-iso-ed__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.q-iso-ed__row .input { width: 9em; }
+.q-iso-ed__hidden { color: var(--text-faint); font-size: 13px; width: 9em; }
+.q-iso-ed__pick { display: inline-flex; align-items: center; gap: var(--space-1); font-size: 13px; color: var(--text-muted); }
+.q-iso-ed__checker.is-bad { color: var(--danger, var(--text)); }
+@media (max-width: 520px) { .q-iso__in { width: 6em; } }
