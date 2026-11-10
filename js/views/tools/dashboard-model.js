@@ -9,7 +9,7 @@ const when = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? t : n
 export function buildDashboard({ progress = [], results = [], now = Date.now() } = {}) {
   const rows = new Map();
   const row = (code, title) => {
-    if (!rows.has(code)) rows.set(code, { code, title: title || code, status: 'upcoming', answered: 0, attempts: 0, score: null, submittedAt: null, opensAt: null, closesAt: null, dueSoon: false });
+    if (!rows.has(code)) rows.set(code, { code, title: title || code, status: 'upcoming', answered: 0, attempts: 0, score: null, result: null, total: 0, submittedAt: null, opensAt: null, closesAt: null, dueSoon: false });
     return rows.get(code);
   };
   for (const r of [...results].sort((a, b) => String(a.submitted_at || '').localeCompare(String(b.submitted_at || '')))) {
@@ -19,8 +19,9 @@ export function buildDashboard({ progress = [], results = [], now = Date.now() }
     x.attempts += 1;
     x.status = (r.released || r.feedback_released || r.feedback?.released) ? 'released' : 'submitted';
     x.submittedAt = r.submitted_at || x.submittedAt;
+    x.result = r; // sorted oldest first, so the last one wins (most recent record)
     const pct = Number(r.percentage);
-    x.score = Number.isFinite(pct) ? { percentage: Math.round(pct * 10) / 10, achieved: Number(r.score_achieved) || 0, total: Number(r.score_total) || 0, pending: r.needs_grading === true } : x.score;
+    x.score = Number.isFinite(pct) ? { percentage: Math.round(pct), achieved: Number(r.score_achieved) || 0, total: Number(r.score_total) || 0, pending: r.needs_grading === true } : x.score;
     x.opensAt = when(r.opens_at) ?? x.opensAt;
     x.closesAt = when(r.closes_at) ?? x.closesAt;
   }
@@ -30,9 +31,12 @@ export function buildDashboard({ progress = [], results = [], now = Date.now() }
     x.title = p.title || x.title;
     x.status = 'in-progress'; // a new attempt in progress wins over an older submission
     x.answered = Object.keys(p.answers || {}).length;
+    x.total = Number(p.total) || 0;
+    x.removable = x.answered === 0 && !x.result;
     x.opensAt = when(p.opens_at) ?? x.opensAt;
     x.closesAt = when(p.closes_at) ?? x.closesAt;
   }
+  // Never answered and never submitted: nothing to show beyond a Remove action.
   const order = { 'in-progress': 0, upcoming: 1, submitted: 2, released: 3 };
   const out = [...rows.values()];
   for (const x of out) x.dueSoon = x.closesAt != null && x.closesAt > now && x.closesAt - now < 3 * 86400000 && (x.status === 'in-progress' || x.status === 'upcoming');
