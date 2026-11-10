@@ -306,3 +306,17 @@ export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adm
 export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
 // since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
 export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- v5 (B3): Class Hub ----------
+// Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
+export const saveAssignment = ({ gasUrl, adminKey, assignment, fetchImpl } = {}) => adminCall('saveAssignment', { assignment }, { gasUrl, adminKey, fetchImpl });
+export const deleteAssignment = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteAssignment', { id }, { gasUrl, adminKey, fetchImpl });
+export const listAssignments = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listAssignments', { classId }, { gasUrl, adminKey, fetchImpl });
+// With `id` (and pinned / body) edits an existing post instead of creating one.
+export const postStream = ({ gasUrl, adminKey, classId, body, type, pinned, id, fetchImpl } = {}) => adminCall('postStream', { classId, body, type, pinned, id }, { gasUrl, adminKey, fetchImpl });
+export const deleteStreamPost = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteStreamPost', { id }, { gasUrl, adminKey, fetchImpl });
+export const getAssignmentStatus = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('getAssignmentStatus', { id }, { gasUrl, adminKey, fetchImpl });
+export const remindMissing = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('remindMissing', { id }, { gasUrl, adminKey, fetchImpl });
+// Student.
+export const getClassHub = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getClassHub', {}, { gasUrl, idToken, fetchImpl });
+export const markNotificationsRead = ({ gasUrl, idToken, ids, all, fetchImpl } = {}) => studentCall('markNotificationsRead', { ids, all }, { gasUrl, idToken, fetchImpl });
