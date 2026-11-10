@@ -154,6 +154,12 @@ async function openTest(code) {
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
+    // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
+    if (feature('v5Attempt')) {
+      const last = load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode;
+      if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
+      return navigate('runner', { test, source, cleared: true });
+    }
     navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
   } catch (err) {
     if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });

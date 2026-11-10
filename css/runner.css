@@ -419,3 +419,16 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 .q-conf__btn:hover { background: var(--hover-tint); }
 .q-conf__btn.is-selected { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .q-conf__btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ---- V5-01 mode switcher (runner bar + game mode header). Segmented control; a menu on phones. */
+.mode-switcher-wrap { display: flex; align-items: center; min-width: 0; margin-left: auto; }
+.mode-switcher { display: inline-flex; gap: 2px; padding: 2px; max-width: 100%; overflow-x: auto; border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border); scrollbar-width: none; }
+.mode-switcher__btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.mode-switcher__btn:hover { color: var(--text); }
+.mode-switcher__btn.is-active { background: var(--bg-elev); color: var(--text); box-shadow: var(--shadow-sm); }
+.mode-switcher__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mode-switcher__select { display: none; height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid var(--border-control); background: var(--bg-elev); color: var(--text); font: inherit; font-size: 14px; }
+@media (max-width: 720px) {
+  .mode-switcher { display: none; }
+  .mode-switcher__select:not([hidden]) { display: block; }
+}
