@@ -783,6 +783,7 @@ export function render(root, ctx, params = {}) {
   if (saved && attempt.answeredCount) toast('Your answers were restored', { type: 'success' });
   cards.forEach((c) => c.refresh());
   updateChrome();
+  if (params.review && !preview) openSubmit(); // V5-01: "Review & submit" from a game mode
 
   // V4-02 S13 live monitor: tell the backend how far along this student is, every 60 s (silently stops on older backends).
   let pingTimer = null;

@@ -3,6 +3,9 @@
 // render(root, ctx, { test, source, gameId?, studyBlocked? }) -> cleanup()
 
 import { createShell } from './game-shell.js';
+import { renderModeShell } from './mode-shell.js';
+import { modeById } from '../lib/modes/index.js';
+import { feature } from '../config.js';
 import { getGame } from '../lib/games/index.js';
 import * as classic from './games/classic.js';
 import * as survival from './games/survival.js';
@@ -25,6 +28,9 @@ export function render(root, ctx, params = {}) {
   const { test, source, studyBlocked, cleared } = params;
   const user = ctx.user;
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
+
+  // V5-01: a v5 mode id renders in the mode shell (shared attempt); other ids keep the old boards.
+  if (feature('v5Games') && params.gameId && modeById(params.gameId)) return renderModeShell(root, ctx, params);
 
   const game = getGame(params.gameId || 'classic') || getGame('classic');
   const shell = createShell(root, ctx, { test, source, game, studyBlocked: !!studyBlocked, cleared: !!cleared });
