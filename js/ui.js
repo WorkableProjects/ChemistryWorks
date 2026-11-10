@@ -270,10 +270,28 @@ export function toast(message, { type = 'info', timeout = 3200 } = {}) {
   const el = h('div', { class: `toast toast--${type}`, dataset: { testid: 'toast' } }, icon(iconName), h('span', {}, message));
   root.appendChild(el);
   requestAnimationFrame(() => el.classList.add('is-visible'));
-  setTimeout(() => {
+  let gone = false;
+  const dismiss = () => {
+    if (gone) return;
+    gone = true;
     el.classList.remove('is-visible');
-    setTimeout(() => el.remove(), 300);
-  }, timeout);
+    el.classList.add('is-leaving');
+    setTimeout(() => el.remove(), prefersReducedMotion() ? 0 : 200);
+  };
+  setTimeout(dismiss, timeout);
+  // Swipe sideways to dismiss.
+  let x0 = null;
+  el.addEventListener('pointerdown', (e) => { x0 = e.clientX; el.classList.add('is-dragging'); el.setPointerCapture?.(e.pointerId); });
+  el.addEventListener('pointermove', (e) => { if (x0 !== null) el.style.setProperty('--swipe-x', `${e.clientX - x0}px`); });
+  const end = (e) => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0;
+    x0 = null;
+    el.classList.remove('is-dragging');
+    if (Math.abs(dx) > 60) dismiss(); else el.style.removeProperty('--swipe-x');
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
 }
 
 /**
@@ -291,7 +309,7 @@ export function openModal({ title, body, actions = [], dismissible = true, testi
     closed = true;
     overlay.classList.remove('is-open');
     document.removeEventListener('keydown', onKey, true);
-    setTimeout(() => overlay.remove(), 220);
+    setTimeout(() => overlay.remove(), prefersReducedMotion() ? 0 : 200);
     previouslyFocused?.focus?.();
     onClose?.();
   };
@@ -379,8 +397,14 @@ export function countUp(el, to, { duration = 600, decimals = 0, suffix = '' } = 
   requestAnimationFrame(tick);
 }
 
+/** Placeholder rows while a list loads (dashboard, library, grading). */
+export function skeleton(rows = 3) {
+  return h('div', { class: 'skeleton', 'aria-hidden': 'true', dataset: { testid: 'skeleton' } },
+    Array.from({ length: rows }, () => h('div', { class: 'skeleton__row' })));
+}
+
 /** Stagger the entrance of `.stagger-item` children (CSS `rise` keyframe) by `step` ms each. */
-export function stagger(listEl, { step = 40 } = {}) {
+export function stagger(listEl, { step = 40 } = {}) {  // step matches --stagger-step
   if (!listEl) return;
   const reduced = prefersReducedMotion();
   let i = 0;

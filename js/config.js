@@ -46,7 +46,7 @@ const DEFAULTS = {
     studentHome: false,    // V5-02: student home, profile page, Google Sheets sync
     classHub: false,       // V5-10: assignments, class stream, notifications (needs studentHome)
     perfStore: false,      // V5-11: client data store, optimistic updates, lazy loading
-    v5Motion: false,       // V5-04/05: sidebar animation + motion pass
+    v5Motion: true,        // V5-04/05: sidebar animation + motion pass
     appearance: false,     // V5-06: appearance panel (theme, accent, text size, density)
     v5Types: false,        // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
   },
