@@ -3,6 +3,14 @@
 You are one worker on ChemWorks v5. The orchestrator gave you one **agent ID** (e.g. `S03a`). Your brief is the
 section with that ID in `docs/v5/delegations/<session>.md`. Do only that brief.
 
+## ASAP override (from the user — wins over every brief)
+- **No testing.** Don't write new test files, don't rewrite old ones, don't run `npm test` or any e2e. Skip every
+  "Tests" / "E2E" / "Unit" item in your brief. Only run `node --check <file>` on each JS file you changed.
+- If you delete a module, also delete test files that import only that module (nothing more).
+- Ship the feature **on**: build it behind its flag as the brief says, but don't spend time on the flag-off path
+  beyond not crashing.
+- Be fast: no extra docs, no refactors outside your brief. Report `Tests: skipped (ASAP)`.
+
 ## Read first (and nothing else unless your brief needs it)
 1. Your brief.
 2. `docs/ARCHITECTURE.md` → **V5 contracts** (written by W0). Code against it. If you must change a contract, change it
