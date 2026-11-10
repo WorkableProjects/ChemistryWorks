@@ -13,3 +13,4 @@ import './imagechoice.js';
 import './particles.js';
 import './titration.js';
 import './estimate.js';
+import './ionicformula.js';
