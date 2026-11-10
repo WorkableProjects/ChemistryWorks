@@ -41,6 +41,7 @@ const VIEWS = {
   game: () => import('./views/game.js'),
   admin: () => import('./views/admin.js'),
   profile: () => import('./views/profile.js'),
+  class: () => import('./views/class.js'),
 };
 const root = document.getElementById('app');
 let cleanup = null;
@@ -87,6 +88,7 @@ function navigate(view, params = {}) {
   if (view === 'admin') setUrl({ admin: 'true' });
   else if ((view === 'runner' || view === 'mode-select' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
   else if (view === 'profile') setUrl({ view: 'profile' });
+  else if (view === 'class') setUrl({ view: 'class', id: params.id });
   else if (view === 'landing') setUrl({ code: params.code || null });
   else if ((view === 'feedback' || view === 'submitted') && params.test?.code) setUrl({ code: params.test.code });
   window.scrollTo({ top: 0 });
@@ -125,7 +127,7 @@ function navigate(view, params = {}) {
 }
 
 /** Load a test by code and open it in the runner (student mode). Errors return to landing. */
-async function openTest(code) {
+async function openTest(code, opts = {}) {
   const c = normalizeCode(code);
   try {
     const idToken = ctx.user?.provider === 'google' ? getIdToken() : null;
@@ -160,7 +162,7 @@ async function openTest(code) {
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
     // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
     if (feature('v5Attempt')) {
-      const last = load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode;
+      const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
       if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
       return navigate('runner', { test, source, cleared: true });
     }
@@ -284,6 +286,7 @@ function start() {
 
   if (code && getUser()) return openTest(code);
   if (params.get('view') === 'profile' && getUser() && feature('studentHome')) return navigate('profile');
+  if (params.get('view') === 'class' && params.get('id') && getUser() && feature('classHub')) return navigate('class', { id: params.get('id') });
   navigate('landing', { code: code ? normalizeCode(code) : undefined });
 }
 
