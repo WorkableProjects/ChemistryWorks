@@ -1,0 +1,43 @@
+/* V5-01 game mode shell (js/views/mode-shell.js) and the Classic / Lightning / Survival rounds. Tokens only. */
+.mode-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+.mode-bar { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+.mode-bar__inner { display: flex; align-items: center; gap: var(--space-3); max-width: 960px; margin: 0 auto; padding: var(--space-2) var(--space-4); }
+.mode-bar__title { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mode-main { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-7); display: flex; flex-direction: column; gap: var(--space-4); }
+
+.mode-hud { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); font-size: 14px; color: var(--text-muted); }
+.mode-hud__item:empty { display: none; }
+.mode-hud__fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; }
+
+.mode-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); animation: mode-in var(--dur-slow) var(--ease-out) both; }
+.mode-card__title { margin: 0; font-size: 22px; font-weight: 600; color: var(--text); outline: none; }
+.mode-card__lead { margin: 0; color: var(--text); }
+.mode-card__note { margin: 0; font-size: 14px; color: var(--text-muted); }
+.mode-card__note[hidden] { display: none; }
+.mode-q__num { margin: 0; font-size: 14px; color: var(--text-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mode-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+
+.mode-feedback { border-left: 4px solid var(--border); }
+.mode-feedback.is-correct { border-left-color: var(--success); }
+.mode-feedback.is-wrong { border-left-color: var(--danger); }
+.mode-feedback__title { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.mode-feedback.is-correct .mode-feedback__title { color: var(--success-ink); }
+.mode-feedback.is-wrong .mode-feedback__title { color: var(--danger-ink); }
+.mode-feedback__line { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.mode-feedback__answer { margin: 0; color: var(--text); }
+.mode-feedback__why { margin: 0; font-size: 14px; color: var(--text-muted); }
+
+.mode-stats { display: flex; flex-wrap: wrap; gap: var(--space-5); }
+.mode-stat { display: flex; flex-direction: column; gap: var(--space-1); }
+.mode-stat__v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; color: var(--text); }
+.mode-stat__l { font-size: 14px; color: var(--text-muted); }
+.mode-stat--main .mode-stat__v { font-size: 40px; font-weight: 600; color: var(--primary); }
+
+@keyframes mode-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mode-card { animation: none; } }
+:root[data-reduce-motion="true"] .mode-card { animation: none; }
+
+@media (max-width: 600px) {
+  .mode-bar__inner { flex-wrap: wrap; }
+  .mode-card { padding: var(--space-4); }
+}
