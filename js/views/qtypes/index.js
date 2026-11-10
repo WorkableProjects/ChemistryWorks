@@ -15,6 +15,7 @@ import './estimate.js';
 import './ionicformula.js';
 import './isotopemass.js';
 import './ionbuilder.js';
+import './heatcurve.js';
 import './oxidation.js';
 import './solubility.js';
 import './bohr.js';

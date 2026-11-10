@@ -1,0 +1,22 @@
+[
+  {
+    "id": "heatcurve-1",
+    "type": "heatcurve",
+    "text": "The curve shows ice at −20 °C heated until it is steam at 130 °C. Label each numbered segment with the phase or phases present and the equation that applies.",
+    "points": 10,
+    "substance": "Water",
+    "curve": [
+      { "x": 0, "y": -20 }, { "x": 10, "y": 0 }, { "x": 43, "y": 0 },
+      { "x": 85, "y": 100 }, { "x": 306, "y": 100 }, { "x": 330, "y": 130 }
+    ],
+    "segments": [
+      { "phase": "solid", "process": "heat" },
+      { "phase": "solid-liquid", "process": "fus" },
+      { "phase": "liquid", "process": "heat" },
+      { "phase": "liquid-gas", "process": "vap" },
+      { "phase": "gas", "process": "heat" }
+    ],
+    "partialCredit": true,
+    "explanation": "Sloped parts heat one phase (q = mcΔT). Flat parts are phase changes (q = mΔH)."
+  }
+]
