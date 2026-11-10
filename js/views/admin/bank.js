@@ -4,6 +4,7 @@
 import { h, mount, icon, toast, openModal, richText, renderMath } from '../../ui.js';
 import { adminCall } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
+import { resource } from '../../lib/store.js';
 import { TYPE_LABELS, nextQuestionId } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
 import { field, emptyState, skeleton, fmtDate } from './common.js';
@@ -27,6 +28,12 @@ export function renderBank(root, ctx, { goSettings, go } = {}) {
   }
   let alive = true;
   let items = [];
+  const bankRes = resource('bank', { fetch: async () => {
+    const r = await adminCall('listBank', {}, { gasUrl });
+    if (!r.ok) throw new Error(r.error || 'Request failed');
+    return (r.data.items || []).filter((i) => i.question);
+  } });
+  const unsub = bankRes.subscribe((d) => { if (alive && d) { items = d; fillFilters(); draw(); } });
   const search = h('input', { class: 'input', type: 'search', placeholder: 'Search questions', 'aria-label': 'Search the bank', dataset: { testid: 'bank-search' }, on: { input: () => draw() } });
   const filters = Object.fromEntries(TAGS.map((t) => [t, h('select', { class: 'select adm-select-sm', 'aria-label': `Filter by ${t}`, dataset: { testid: `bank-filter-${t}` }, on: { change: () => draw() } })]));
   const listEl = h('div', { class: 'stack', dataset: { testid: 'bank-list' } }, skeleton(3));
@@ -58,11 +65,12 @@ export function renderBank(root, ctx, { goSettings, go } = {}) {
       h('p', { class: 'faint' }, `Added by ${i.added_by || '—'} ${fmtDate(i.added_at)}${i.edited_by ? ` · edited by ${i.edited_by} ${fmtDate(i.edited_at)}` : ''}`))));
     renderMath(listEl);
   }
-  async function load() {
-    const r = await adminCall('listBank', {}, { gasUrl });
+  async function load({ force = false } = {}) {
+    try { items = await bankRes.get({ force: force || undefined }); } catch (e) {
+      if (alive && bankRes.peek() === undefined) mount(listEl, h('p', { class: 'notice notice--error' }, icon('alert'), h('span', {}, e.message)));
+      return;
+    }
     if (!alive) return;
-    if (!r.ok) { mount(listEl, h('p', { class: 'notice notice--error' }, icon('alert'), h('span', {}, r.error))); return; }
-    items = (r.data.items || []).filter((i) => i.question);
     fillFilters(); draw();
   }
   function insert(i) {
@@ -78,15 +86,18 @@ export function renderBank(root, ctx, { goSettings, go } = {}) {
     openModal({ title: 'Tags', testid: 'bank-tags-modal', body: h('div', { class: 'stack' }, ...TAGS.map((t) => field(t === 'ngss' ? 'NGSS standard' : t[0].toUpperCase() + t.slice(1), inputs[t]))),
       actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Save', variant: 'primary', testid: 'bank-tags-save', onClick: async (close) => {
         const tags = Object.fromEntries(TAGS.map((t) => [t, inputs[t].value.trim()]).filter(([, v]) => v));
-        const r = await adminCall('saveBankItem', { item: { id: i.id, question: i.question, tags } }, { gasUrl });
-        close(); toast(r.ok ? 'Tags saved' : r.error, { type: r.ok ? 'success' : 'error' }); load();
+        close();
+        const done = await bankRes.optimistic((d) => (d || []).map((x) => (x.id === i.id ? { ...x, tags } : x)),
+          () => adminCall('saveBankItem', { item: { id: i.id, question: i.question, tags } }, { gasUrl }), { message: 'Could not save the tags' });
+        if (done.ok) toast('Tags saved', { type: 'success' });
       } }] });
   }
   function remove(i) {
     openModal({ title: 'Delete from the bank?', testid: 'bank-delete-modal', body: 'Tests that already use a copy of this question keep it.',
       actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Delete', variant: 'danger', onClick: async (close) => {
-        const r = await adminCall('deleteBankItem', { id: i.id }, { gasUrl }); close();
-        toast(r.ok ? 'Deleted' : r.error, { type: r.ok ? 'success' : 'error' }); load();
+        close();
+        const done = await bankRes.optimistic((d) => (d || []).filter((x) => x.id !== i.id), () => adminCall('deleteBankItem', { id: i.id }, { gasUrl }), { message: 'Could not delete the question' });
+        if (done.ok) toast('Deleted', { type: 'success' });
       } }] });
   }
   function importFromTest() {
@@ -99,7 +110,7 @@ export function renderBank(root, ctx, { goSettings, go } = {}) {
           const { test } = await loadTest(code.value, { config: ctx.config, includeDrafts: true });
           let n = 0;
           for (const q of test.questions) { const r = await saveToBank(ctx, q, topic.value.trim() ? { topic: topic.value.trim(), unit: test.title } : { unit: test.title }); if (r.ok) n++; }
-          close(); toast(`${n} question${n === 1 ? '' : 's'} added to the bank`, { type: 'success' }); load();
+          close(); toast(`${n} question${n === 1 ? '' : 's'} added to the bank`, { type: 'success' }); load({ force: true });
         } catch (e) { err.textContent = e.message; }
       } }] });
   }
@@ -111,5 +122,5 @@ export function renderBank(root, ctx, { goSettings, go } = {}) {
     h('div', { class: 'row row--wrap adm-toolbar--wrap' }, search, ...Object.values(filters)),
     listEl));
   load();
-  return () => { alive = false; };
+  return () => { alive = false; unsub(); };
 }

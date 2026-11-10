@@ -4,7 +4,8 @@ import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationL
 import { CONFIG, feature } from '../../config.js';
 import { load, save as saveLocal } from '../../lib/storage.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
-import { fetchResults, saveGrade, releaseAll, allowRetake } from '../../lib/api.js';
+import { saveGrade, releaseAll, allowRetake, batchCall } from '../../lib/api.js';
+import { resultsResource, patchResultRow } from './data.js';
 import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
 import { groupQuestions } from '../../lib/sections.js';
@@ -19,7 +20,8 @@ import { adminCall } from '../../lib/api.js';
 import { openAccommodationEditor } from './accommodations.js';
 
 // Module state: remembered while switching tabs in the session.
-const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', rawRows: null, error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false };
+const BATCH = 50;
+const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false };
 
 /** Dashboard "Grade next": filter to what needs grading (optionally one test) and open the oldest submission once rows load. */
 export function setGradingFocus({ code = 'all', openFirst = true } = {}) {
@@ -61,22 +63,28 @@ export function renderGrading(root, ctx, { goSettings }) {
   const content = h('div', { class: 'stack' });
   mount(root, h('div', { class: 'stack adm-grading', dataset: { testid: 'grading' } }, content));
 
-  async function loadRows(force = false) {
-    if (G.rawRows && !force) { rows = G.rawRows.map(normalizeRow); return draw(); }
-    mount(content, skeleton(5));
-    let res;
-    try { res = await fetchResults({ gasUrl, adminKey: adminKey() }); } catch (e) { res = { ok: false, error: e.message }; }
+  // Submissions live in the store: one full load, then only rows changed since the last load.
+  const resultsRes = resultsResource();
+  const syncRows = () => { const d = resultsRes.peek(); rows = d ? d.rows.map(normalizeRow) : []; };
+  let busy = false;
+  const unsub = resultsRes.subscribe(() => {
     if (!alive) return;
-    if (!res.ok) {
-      G.error = res.error || 'Request failed';
-      G.rawRows = null;
-      rows = [];
-      toast(`Could not load submissions: ${G.error}`, { type: 'error', timeout: 5000 });
-    } else {
+    syncRows();
+    if (!busy && !G.selectedId && G.mode === 'student' && resultsRes.peek()) drawList();
+  });
+  cleanups.push(unsub);
+
+  async function loadRows(force = false) {
+    if (resultsRes.peek() === undefined) mount(content, skeleton(5));
+    try {
+      await resultsRes.get({ force: force || undefined });
       G.error = '';
-      G.rawRows = res.rows;
-      rows = G.rawRows.map(normalizeRow);
+    } catch (e) {
+      G.error = e.message || 'Request failed';
+      toast(`Could not load submissions: ${G.error}`, { type: 'error', timeout: 5000 });
     }
+    if (!alive) return;
+    syncRows();
     if (G.openFirst) {
       G.openFirst = false;
       const first = visibleRows()[0];
@@ -102,11 +110,7 @@ export function renderGrading(root, ctx, { goSettings }) {
     gbqCleanup = renderGradeByQuestion(content, {
       gasUrl, adminKey, getRows: () => rows, modeToggle: modeToggle(), onRefresh: () => loadRows(true),
       getTest: async (code) => { await ensureTest(code); return testCache.get(code) || null; },
-      onSaved: (id, patch) => {
-        const raw = G.rawRows && G.rawRows.find((r) => r.submission_id === id);
-        if (raw) Object.assign(raw, patch);
-        rows = (G.rawRows || []).map(normalizeRow);
-      },
+      onSaved: (id, patch) => { patchResultRow(id, patch); syncRows(); },
     });
   }
 
@@ -236,27 +240,35 @@ export function renderGrading(root, ctx, { goSettings }) {
       mount(bulkHost, bar);
       let done = 0;
       let failed = 0;
-      for (const [i, r] of targets.entries()) {
-        let res;
+      busy = true;
+      const now = new Date().toISOString();
+      // One batch request per 50 rows instead of one request per row.
+      for (let i = 0; i < targets.length; i += BATCH) {
+        const chunk = targets.slice(i, i + BATCH);
+        const requests = chunk.map((r) => (action === BULK.RETAKE
+          ? { action: 'allowRetake', submissionId: r.submission_id, allow: true }
+          : { action: 'saveGrade', submissionId: r.submission_id, grades: r.grades || {}, note: r.teacher_note || '', release: action === BULK.RELEASE }));
+        let results = [];
         try {
-          if (action === BULK.RETAKE) res = await allowRetake({ gasUrl, adminKey: adminKey(), submissionId: r.submission_id, allow: true });
-          else res = await saveGrade({ gasUrl, adminKey: adminKey(), submissionId: r.submission_id, grades: r.grades || {}, note: r.teacher_note || '', release: action === BULK.RELEASE });
-        } catch (e) { res = { ok: false, error: e.message }; }
+          const res = await batchCall({ gasUrl, adminKey: adminKey(), requests });
+          results = res.ok && Array.isArray(res.data.results) ? res.data.results : [];
+        } catch { results = []; }
         if (!alive) return;
-        const raw = G.rawRows && G.rawRows.find((x) => x.submission_id === r.submission_id);
-        if (res && res.ok && raw) {
-          if (action === BULK.RETAKE) raw.retake_allowed_at = res.retake_allowed_at || new Date().toISOString();
-          else {
-            const gr = res.grade || {};
-            Object.assign(raw, { status: STATUS.GRADED, grades: gr.grades || r.grades || {}, final_score: gr.final_score ?? raw.final_score ?? null, final_percentage: gr.final_percentage ?? raw.final_percentage ?? null,
-              graded_at: gr.graded_at || new Date().toISOString(), released_at: gr.released_at !== undefined ? gr.released_at : (action === BULK.RELEASE ? new Date().toISOString() : '') });
-          }
-        }
-        if (res && res.ok) done++; else failed++;
-        bar.firstChild.value = String(i + 1);
-        bar.lastChild.textContent = `${i + 1} / ${targets.length}`;
+        chunk.forEach((r, k) => {
+          const out = results[k];
+          if (!out || out.result !== 'success') { failed++; return; }
+          done++;
+          if (out.row) { patchResultRow(r.submission_id, out.row); return; }
+          if (action === BULK.RETAKE) { patchResultRow(r.submission_id, { retake_allowed_at: out.retake_allowed_at || now }); return; }
+          const gr = out.grade || {};
+          patchResultRow(r.submission_id, (old) => ({ ...old, status: STATUS.GRADED, grades: gr.grades || r.grades || {}, final_score: gr.final_score ?? old.final_score ?? null, final_percentage: gr.final_percentage ?? old.final_percentage ?? null,
+            graded_at: gr.graded_at || now, released_at: gr.released_at !== undefined ? gr.released_at : (action === BULK.RELEASE ? now : '') }));
+        });
+        bar.firstChild.value = String(Math.min(i + BATCH, targets.length));
+        bar.lastChild.textContent = `${Math.min(i + BATCH, targets.length)} / ${targets.length}`;
       }
-      rows = (G.rawRows || []).map(normalizeRow);
+      busy = false;
+      syncRows();
       G.selected.clear();
       toast(summarizeBulk(action, { done, skipped: skippedCount, failed }), { type: failed ? 'warning' : 'success', timeout: 6000 });
       drawList();
@@ -492,34 +504,54 @@ export function renderGrading(root, ctx, { goSettings }) {
       if (missing()) { toast('Enter points for every open-ended answer first.', { type: 'warning' }); return; }
       // Pick the next submission before saving: once graded, this one may drop out of the filtered list.
       const following = next ? neighbor(1) : null;
-      for (const b of [saveBtn, saveNextBtn]) b.disabled = true;
-      (next ? saveNextBtn : saveBtn).classList.add('is-loading');
       const grades = currentGrades();
-      const res = await saveGrade({ gasUrl, adminKey: adminKey(), submissionId: row.submission_id, grades, note: note.value, comments: currentComments(), release: releaseBox.checked, gradedBy: gradedBy.value.trim() });
+      const comments = currentComments();
+      const gradedByName = gradedBy.value.trim();
+      const noteText = note.value;
+      const release = releaseBox.checked;
       // Remember the grader's name on this device (storage save, not this function: calling that re-saved forever).
-      if (gradedBy.value.trim()) saveLocal('gradedBy', gradedBy.value.trim());
-      if (!alive) return;
-      for (const b of [saveBtn, saveNextBtn]) { b.disabled = false; b.classList.remove('is-loading'); }
-      if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
-      if (res.warning) toast(res.warning, { type: 'warning', timeout: 12000 });
-      const raw = G.rawRows.find((r) => r.submission_id === row.submission_id);
-      if (raw) {
-        const gr = res.grade || {};
-        Object.assign(raw, {
-          status: STATUS.GRADED, grades: gr.grades || grades, final_score: gr.final_score ?? null, final_percentage: gr.final_percentage ?? null,
-          graded_at: gr.graded_at || new Date().toISOString(), teacher_note: note.value,
-          comments: gr.comments && typeof gr.comments === 'object' ? gr.comments : currentComments(),
-          graded_by: gr.graded_by !== undefined ? gr.graded_by : gradedBy.value.trim(),
-          released_at: gr.released_at !== undefined ? gr.released_at : (releaseBox.checked ? (raw.released_at || new Date().toISOString()) : ''),
+      if (gradedByName) saveLocal('gradedBy', gradedByName);
+      const before = resultsRes.peek()?.rows.find((r) => r.submission_id === row.submission_id);
+      const localPatch = (old) => ({ ...old, status: STATUS.GRADED, grades, teacher_note: noteText, comments, graded_by: gradedByName,
+        graded_at: new Date().toISOString(), released_at: release ? (old.released_at || new Date().toISOString()) : '' });
+      const request = () => saveGrade({ gasUrl, adminKey: adminKey(), submissionId: row.submission_id, grades, note: noteText, comments, release, gradedBy: gradedByName });
+      const settle = (res) => {
+        if (res.warning) toast(res.warning, { type: 'warning', timeout: 12000 });
+        patchResultRow(row.submission_id, (old) => {
+          if (res.row) return { ...old, ...res.row };
+          const gr = res.grade || {};
+          return { ...localPatch(old), grades: gr.grades || grades, final_score: gr.final_score ?? null, final_percentage: gr.final_percentage ?? null,
+            graded_at: gr.graded_at || old.graded_at, comments: gr.comments && typeof gr.comments === 'object' ? gr.comments : comments,
+            graded_by: gr.graded_by !== undefined ? gr.graded_by : gradedByName, released_at: gr.released_at !== undefined ? gr.released_at : localPatch(old).released_at };
         });
-      }
-      rows = G.rawRows.map(normalizeRow);
-      toast(`Saved grade for ${row.student_name || row.student_email}`, { type: 'success' });
-      if (split && !next) G.justSaved = row.submission_id;
+        syncRows();
+      };
+      const label = row.student_name || row.student_email;
       if (next) {
+        // Save & next: show the next student at once; the write finishes in the background and rolls back if it fails.
+        patchResultRow(row.submission_id, localPatch);
+        syncRows();
+        toast(`Saved grade for ${label}`, { type: 'success' });
         if (following) go(following);
         else { toast('That was the last one in this list.', { type: 'info' }); go(null); }
-      } else draw();
+        request().then((res) => {
+          if (res.ok) { settle(res); return; }
+          toast(`Could not save grade for ${label}: ${res.error}`, { type: 'error', timeout: 8000 });
+          if (before) patchResultRow(row.submission_id, () => before);
+          if (alive) { syncRows(); if (!G.selectedId) draw(); }
+        });
+        return;
+      }
+      for (const btn of [saveBtn, saveNextBtn]) btn.disabled = true;
+      saveBtn.classList.add('is-loading');
+      const res = await request();
+      if (!alive) return;
+      for (const btn of [saveBtn, saveNextBtn]) { btn.disabled = false; btn.classList.remove('is-loading'); }
+      if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
+      settle(res);
+      toast(`Saved grade for ${label}`, { type: 'success' });
+      if (split) G.justSaved = row.submission_id;
+      draw();
     }
 
     // J / K = next / previous student; a digit sets the points of the question you last touched (clamped to its maximum).
@@ -553,7 +585,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       try {
         const { printSubmission } = await import('./export-view.js');
         // Use the comments on screen: `row` is captured when the grader opens and goes stale after a save.
-        const latest = G.rawRows.find((r) => r.submission_id === row.submission_id);
+        const latest = resultsRes.peek()?.rows.find((r) => r.submission_id === row.submission_id);
         const comments = { ...(latest && typeof latest.comments === 'object' ? latest.comments : {}), ...row.comments, ...currentComments() };
         await printSubmission({ row: { ...row, comments, graded_by: gradedBy.value.trim() }, test, includeComments: true });
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
@@ -568,8 +600,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         retakeBtn.disabled = false;
         if (!res.ok) { toast(`Could not update retake: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
         row.retake_allowed_at = allow ? (res.retake_allowed_at || new Date().toISOString()) : '';
-        const raw = G.rawRows && G.rawRows.find((r) => r.submission_id === row.submission_id);
-        if (raw) raw.retake_allowed_at = row.retake_allowed_at;
+        patchResultRow(row.submission_id, res.row ? res.row : { retake_allowed_at: row.retake_allowed_at });
         retakeBtn.setAttribute('aria-pressed', String(allow));
         retakeBtn.lastChild.textContent = allow ? 'Retake allowed (undo)' : 'Allow retake';
         toast(allow ? 'This student can submit once more.' : 'Retake removed.', { type: 'success' });

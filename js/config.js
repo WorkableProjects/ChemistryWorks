@@ -45,7 +45,7 @@ const DEFAULTS = {
     v5Games: false,        // V5-01: game modes on the shared attempt (needs v5Attempt)
     studentHome: true, // V5-02: student home, profile page, Google Sheets sync
     classHub: false,       // V5-10: assignments, class stream, notifications (needs studentHome)
-    perfStore: false,      // V5-11: client data store, optimistic updates, lazy loading
+    perfStore: true,       // V5-11: client data store, optimistic updates, lazy loading
     v5Motion: true,        // V5-04/05: sidebar animation + motion pass
     appearance: false,     // V5-06: appearance panel (theme, accent, text size, density)
     v5Types: false,        // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
