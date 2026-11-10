@@ -300,3 +300,9 @@ export const syncProgress = ({ gasUrl, idToken, attempt, xp, fetchImpl } = {}) =
 export const getStudentProfileAdmin = ({ gasUrl, adminKey, email, fetchImpl } = {}) => adminCall('getStudentProfileAdmin', { email }, { gasUrl, adminKey, fetchImpl });
 // requests: [{ action, ...fields }] (max 50). -> { ok, data: { results: [...] } }
 export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adminCall('batch', { requests }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- v5 (B2): fast reads ----------
+// -> { ok, data: { tests: [{ code, title, updatedAt, status, questionCount, points, needsGrading, submissionCount }] } }
+export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
+// since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
+export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since }, { gasUrl, adminKey, fetchImpl });
