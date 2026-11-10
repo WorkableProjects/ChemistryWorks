@@ -117,6 +117,9 @@
   --dur-base: 200ms;
   --dur-slow: 320ms;
   --dur: var(--dur-base);
+  --dur-theme: 400ms;
+  --dur-loop: 900ms; /* live loops only (loaders, timers) */
+  --stagger-step: 40ms;
 
   --header-h: 60px;
   --touch: 44px;
@@ -273,7 +276,7 @@ img { max-width: 100%; }
 /* Busy button: three bubbles rising in turn (the middle dot is the pseudo-element, the outer two its shadows). */
 .btn.is-loading::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
-  color: var(--primary); background: currentColor; animation: cw-bubbles 900ms var(--ease) infinite;
+  color: var(--primary); background: currentColor; animation: cw-bubbles var(--dur-loop) var(--ease) infinite;
 }
 .btn--primary.is-loading::after, .btn--success.is-loading::after, .btn--danger.is-loading::after { color: var(--on-primary); }
 @keyframes cw-bubbles {
@@ -393,7 +396,7 @@ img { max-width: 100%; }
 .modal {
   width: min(480px, 100%); max-height: calc(100vh - 32px); overflow: auto;
   background: var(--bg-elev); border-radius: var(--radius-xl); padding: 26px; box-shadow: var(--shadow-lg);
-  transform: translateY(12px) scale(0.97); transition: transform var(--dur-base) var(--ease-spring);
+  transform: scale(0.97); transition: transform var(--dur-base) var(--ease-out);
 }
 .modal--wide { width: min(760px, 100%); }
 .modal-overlay.is-open .modal { transform: none; }
@@ -406,9 +409,12 @@ img { max-width: 100%; }
 .toast {
   display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; font-size: 14px; font-weight: 500;
   background: var(--toast-bg); color: var(--toast-fg); box-shadow: var(--shadow-lg);
-  opacity: 0; transform: translateY(12px); transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease-spring);
+  opacity: 0; transform: translateY(12px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  pointer-events: auto; touch-action: pan-y;
 }
-.toast.is-visible { opacity: 1; transform: none; }
+.toast.is-visible { opacity: 1; transform: translateX(var(--swipe-x, 0)); }
+.toast.is-leaving { opacity: 0; transform: translateX(var(--swipe-x, 0)) translateY(8px); }
+.toast.is-dragging { transition: none; }
 .toast--success .icon { color: var(--toast-ok); }
 .toast--error .icon { color: var(--toast-err); }
 .toast--warning .icon { color: var(--toast-warn); }
@@ -538,12 +544,12 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .cw-loader__label { font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
 .cw-flask { overflow: visible; }
 .cw-flask__glass { fill: none; stroke: var(--brand-navy); stroke-width: 7.5; stroke-linecap: round; stroke-linejoin: round; }
-.cw-flask__wave { fill: var(--brand-teal); animation: cw-wave 1.8s linear infinite; }
-.cw-flask__wave--back { opacity: 0.4; animation-duration: 2.6s; animation-direction: reverse; }
+.cw-flask__wave { fill: var(--brand-teal); animation: cw-wave calc(var(--dur-loop) * 2) linear infinite; }
+.cw-flask__wave--back { opacity: 0.4; animation-duration: calc(var(--dur-loop) * 3); animation-direction: reverse; }
 .cw-flask__liquid { animation: cw-fill 3.6s var(--ease) infinite; }
-.cw-flask__bubble { fill: var(--brand-navy); opacity: 0; animation: cw-rise 2.2s ease-in infinite; transform-box: fill-box; transform-origin: center; }
-.cw-flask__bubble:nth-of-type(2) { animation-delay: 0.7s; }
-.cw-flask__bubble:nth-of-type(3) { animation-delay: 1.4s; }
+.cw-flask__bubble { fill: var(--brand-navy); opacity: 0; animation: cw-rise calc(var(--dur-loop) * 2.5) var(--ease) infinite; transform-box: fill-box; transform-origin: center; }
+.cw-flask__bubble:nth-of-type(2) { animation-delay: calc(var(--dur-loop) * 0.8); }
+.cw-flask__bubble:nth-of-type(3) { animation-delay: calc(var(--dur-loop) * 1.6); }
 .cw-flask__bond { stroke: var(--brand-teal); stroke-width: 6; stroke-linecap: round; }
 .cw-flask__atom { fill: var(--brand-teal); }
 .cw-flask__molecule { transform-origin: 50px 12px; animation: cw-rock 2.4s var(--ease) infinite; }
@@ -556,3 +562,26 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
   100% { opacity: 0; transform: translateY(-40px) scale(1.15); }
 }
 @keyframes cw-rock { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(16deg); } }
+
+/* ---------- Motion pass (v5, S09b) ---------- */
+@property --primary { syntax: '<color>'; inherits: true; initial-value: #00224F; }
+@property --primary-hover { syntax: '<color>'; inherits: true; initial-value: #0A3A7A; }
+html.v5-motion { transition: --primary var(--dur-base) var(--ease-out), --primary-hover var(--dur-base) var(--ease-out); }
+html.v5-motion body { transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
+
+/* Theme switch: circular reveal from the toggle (clip-path set from JS), else a plain cross-fade. */
+html.theme-switching::view-transition-old(root), html.theme-switching::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html.theme-switching::view-transition-new(root) { animation: theme-reveal var(--dur-theme) var(--ease-out) both; }
+@keyframes theme-reveal { from { clip-path: circle(0 at var(--reveal-x, 50%) var(--reveal-y, 0)); } to { clip-path: circle(var(--reveal-r, 150vmax) at var(--reveal-x, 50%) var(--reveal-y, 0)); } }
+html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after { transition: background-color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), fill var(--dur-base) var(--ease-out), stroke var(--dur-base) var(--ease-out) !important; }
+
+/* Press and focus */
+.btn:active:not(:disabled), .icon-btn:active:not(:disabled) { transform: scale(0.98); }
+:focus-visible { transition: outline-offset var(--dur-fast) var(--ease-out); }
+
+/* Skeleton rows (ui.js skeleton(rows)) */
+.skeleton { display: flex; flex-direction: column; gap: var(--space-3, 12px); }
+.skeleton__row { height: 56px; border-radius: var(--radius); background: var(--bg-sunken); animation: skeleton-pulse var(--dur-loop) var(--ease) infinite alternate; }
+@keyframes skeleton-pulse { from { opacity: 0.6; } to { opacity: 1; } }
+
+.stagger-item { animation: rise var(--dur-slow) var(--ease-out) both; }

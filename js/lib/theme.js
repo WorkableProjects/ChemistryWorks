@@ -5,6 +5,7 @@
 //   <html data-theme="light|dark" data-accent="navy|blue|violet|teal|rose|orange|green" data-role="student|admin">
 
 import { load, save } from './storage.js';
+import { feature } from './../config.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 /** Browser UI colour (<meta name="theme-color">): the header bar colour per theme. */
@@ -69,6 +70,7 @@ export function applyTheme() {
   const el = root();
   if (!el) return;
   applyMotion();
+  if (feature('v5Motion')) el.classList.add('v5-motion');
   el.dataset.theme = resolvedTheme();
   el.dataset.accent = getAccent(role);
   el.dataset.role = role;
@@ -77,9 +79,39 @@ export function applyTheme() {
   listeners.forEach((fn) => fn());
 }
 
+// v5 motion: remember where the last press happened so the theme change can reveal from the toggle.
+let lastPress = { x: 0, y: 0, t: 0 };
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (e) => { lastPress = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
+  document.addEventListener('keydown', () => { lastPress = { x: 0, y: 0, t: 0 }; }, true);
+}
+
+/** Run a theme/accent change with a circular reveal (View Transitions) or a short token cross-fade. */
+function withThemeTransition(fn) {
+  const el = root();
+  if (!el || !feature('v5Motion') || prefersReducedMotion()) { fn(); return; }
+  const recent = Date.now() - lastPress.t < 1500;
+  const x = recent ? lastPress.x : window.innerWidth - 48;
+  const y = recent ? lastPress.y : 32;
+  if (typeof document.startViewTransition === 'function') {
+    el.style.setProperty('--reveal-x', `${x}px`);
+    el.style.setProperty('--reveal-y', `${y}px`);
+    el.style.setProperty('--reveal-r', `${Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))}px`);
+    el.classList.add('theme-switching');
+    try {
+      const vt = document.startViewTransition(fn);
+      vt.finished.finally(() => el.classList.remove('theme-switching'));
+      return;
+    } catch { el.classList.remove('theme-switching'); }
+  }
+  el.classList.add('theme-fade');
+  fn();
+  setTimeout(() => el.classList.remove('theme-fade'), 250);
+}
+
 export function setThemePref(pref) {
   save('theme', THEMES.includes(pref) ? pref : 'system');
-  applyTheme();
+  withThemeTransition(applyTheme);
 }
 
 export function setAccent(accent, r = role) {
