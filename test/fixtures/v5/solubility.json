@@ -1,0 +1,16 @@
+[
+  {
+    "id": "solubility-1",
+    "type": "solubility",
+    "text": "Silver nitrate and sodium chloride solutions are mixed. Mark each compound as solid (s) or aqueous (aq).",
+    "points": 3,
+    "mode": "state",
+    "items": [
+      { "id": "agcl", "formula": "AgCl", "cation": "Ag", "anion": "Cl" },
+      { "id": "nano3", "formula": "NaNO3", "cation": "Na", "anion": "NO3" },
+      { "id": "baso4", "formula": "BaSO4", "cation": "Ba", "anion": "SO4" }
+    ],
+    "partialCredit": true,
+    "explanation": "Silver chloride is insoluble (s). Sodium nitrate stays dissolved (aq) because all nitrates and sodium salts are soluble. Barium sulfate is insoluble (s)."
+  }
+]

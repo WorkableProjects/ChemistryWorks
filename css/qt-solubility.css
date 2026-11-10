@@ -1,0 +1,29 @@
+/* ChemWorks v5 — solubility question type (solubility rules). Tokens only. */
+.q-sol { display: grid; gap: var(--space-4); }
+.sol-root { display: grid; gap: var(--space-3); }
+.sol-list, .sol-choices, .sol-ed { display: grid; gap: var(--space-2); }
+.sol-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-elev); }
+.sol-row__formula, .sol-choice__formula { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; color: var(--text); }
+.sol-seg { display: inline-flex; padding: var(--space-1); border: 1px solid var(--border); border-radius: 999px; background: var(--bg-sunken); }
+.sol-seg__btn { min-width: var(--touch, 44px); min-height: var(--touch, 44px); padding: 0 var(--space-3); border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sol-seg__btn:hover { color: var(--text); }
+.sol-seg__btn:active { transform: scale(0.98); }
+.sol-seg__btn[aria-pressed="true"] { background: var(--bg-elev); color: var(--primary); box-shadow: var(--shadow-sm); }
+.sol-seg__btn:focus-visible, .sol-choice:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sol-choice { display: flex; align-items: center; gap: var(--space-3); min-height: var(--touch, 44px); padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-elev); cursor: pointer; }
+.sol-choice__input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); }
+.sol-ed__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1fr); gap: var(--space-2); align-items: center; }
+.sol-ed__row .input { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sol-ed__key { grid-column: 1 / -1; color: var(--text-muted); font-size: 13px; }
+.sol-review { display: inline-flex; }
+.sol-review__text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .sol-seg__btn, .sol-seg__btn:active { transition: none; transform: none; }
+}
+@media (max-width: 520px) {
+  .sol-ed__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
