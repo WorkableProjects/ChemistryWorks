@@ -3,7 +3,7 @@
 // Contract testids: home, home-header, home-code-input, home-code-submit, up-next, continue-btn, in-progress, in-progress-<CODE>,
 // remove-attempt-<CODE>, results-list, practice-shelf, sync-chip.
 
-import { h, mount, icon, themeControl } from '../../ui.js';
+import { h, mount, icon, themeControl, emptyState } from '../../ui.js';
 import { getUser } from '../../lib/auth.js';
 import { load, remove } from '../../lib/storage.js';
 import { loadProfile, subscribeProfile } from '../../lib/profile.js';
@@ -135,7 +135,7 @@ export function render(root, ctx, params = {}) {
     const shown = p.results.slice(0, 8);
     const released = p.results.filter((r) => r.released && r.percentage != null).slice(0, 10).reverse().map((r) => r.percentage);
     if (!shown.length) {
-      results.replaceChildren(section('Results', 'results', h('p', { class: 'empty' }, 'Your results will show here after your first test')));
+      results.replaceChildren(section('Results', 'results', emptyState({ icon: 'list', title: 'Your results will show here after your first test', action: { label: 'Enter a test code', onClick: () => ctx.navigate('landing') } })));
       return;
     }
     results.replaceChildren(section('Results', 'results', trendLine(released),
