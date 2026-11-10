@@ -14,6 +14,7 @@
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
 
 import { CONFIG, feature } from './config.js';
+import { clearStore } from './lib/store.js';
 import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
 import { whoAmI } from './lib/api.js';
 import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './lib/admin-session.js';
@@ -62,6 +63,7 @@ export const ctx = {
   get user() { return getUser(); },
   signOut() {
     signOut();
+    clearStore();
     navigate('landing');
   },
   navigate,

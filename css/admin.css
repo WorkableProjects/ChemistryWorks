@@ -386,3 +386,7 @@
 /* v4: more library actions (duplicate with new code, version B, print) — let them wrap instead of overflowing. */
 .adm-item__actions { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 @media (max-width: 640px) { .adm-item__actions { justify-content: flex-start; } }
+
+/* V5-11: library row leaving (delete) */
+.adm-item.is-leaving, .lib2-table tr.is-leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .adm-item.is-leaving, .lib2-table tr.is-leaving { transition: none; } }
