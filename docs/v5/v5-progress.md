@@ -4,13 +4,13 @@ Decisions used: README defaults (1 shared attempt yes; 2 "Saved" when answers hi
 
 | ID | Status | Commit | Notes |
 |---|---|---|---|
-| W0 | done | | contracts + flags |
-| S01a | todo | | |
-| S01b | todo | | |
-| B1 | todo | | |
+| W0 | done | merged | contracts |
+| S01a | done | merged | done; old tests referencing Insights not updated (ASAP) |
+| S01b | done | merged | done |
+| B1 | done | merged | done |
 | B2 | todo | | |
 | B3 | todo | | |
-| S02 | todo | | |
+| S02 | done | merged | done by orchestrator; no mode-select chooser, switcher in runner bar |
 | S03a | todo | | |
 | S03b | todo | | |
 | S04a | todo | | |
