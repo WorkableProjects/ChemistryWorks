@@ -1,0 +1,278 @@
+{
+  "code": "DEMOV5",
+  "title": "V5 Question Types Demo",
+  "description": "One question of each V5 type: Bohr shells, oxidation numbers, solubility, heating curve, gas law, molecule builder, ion builder, ionic formula and isotope mass.",
+  "timeLimitMinutes": null,
+  "shuffleQuestions": false,
+  "shuffleOptions": false,
+  "showResults": true,
+  "showCorrectAnswers": true,
+  "allowModeToggle": true,
+  "passingPercent": 70,
+  "gameMode": true,
+  "questions": [
+    {
+      "id": "bohr-1",
+      "type": "bohr",
+      "text": "Draw the electron shells of a magnesium atom. Tap to add or remove electrons in each shell.",
+      "points": 3,
+      "mode": "element",
+      "element": "Mg",
+      "partialCredit": true,
+      "explanation": "Magnesium has 12 electrons. Shell 1 holds 2, shell 2 holds 8, and the last 2 go in shell 3."
+    },
+    {
+      "id": "gaslaw-1",
+      "type": "gaslaw",
+      "text": "A gas has a volume of 2.00 L at 1.00 atm and 300 K. What is its volume at 2.00 atm and 450 K?",
+      "points": 4,
+      "law": "combined",
+      "unknown": "V2",
+      "unit": "L",
+      "tolerance": 1,
+      "knowns": {
+        "P1": {
+          "value": "1.00",
+          "unit": "atm"
+        },
+        "V1": {
+          "value": "2.00",
+          "unit": "L"
+        },
+        "T1": {
+          "value": "300",
+          "unit": "K"
+        },
+        "P2": {
+          "value": "2.00",
+          "unit": "atm"
+        },
+        "T2": {
+          "value": "450",
+          "unit": "K"
+        }
+      },
+      "explanation": "Temperature and pressure both change, so use P₁V₁/T₁ = P₂V₂/T₂. V₂ = (1.00 × 2.00 × 450) / (300 × 2.00) = 1.50 L."
+    },
+    {
+      "id": "heatcurve-1",
+      "type": "heatcurve",
+      "text": "The curve shows ice at −20 °C heated until it is steam at 130 °C. Label each numbered segment with the phase or phases present and the equation that applies.",
+      "points": 10,
+      "substance": "Water",
+      "curve": [
+        {
+          "x": 0,
+          "y": -20
+        },
+        {
+          "x": 10,
+          "y": 0
+        },
+        {
+          "x": 43,
+          "y": 0
+        },
+        {
+          "x": 85,
+          "y": 100
+        },
+        {
+          "x": 306,
+          "y": 100
+        },
+        {
+          "x": 330,
+          "y": 130
+        }
+      ],
+      "segments": [
+        {
+          "phase": "solid",
+          "process": "heat"
+        },
+        {
+          "phase": "solid-liquid",
+          "process": "fus"
+        },
+        {
+          "phase": "liquid",
+          "process": "heat"
+        },
+        {
+          "phase": "liquid-gas",
+          "process": "vap"
+        },
+        {
+          "phase": "gas",
+          "process": "heat"
+        }
+      ],
+      "partialCredit": true,
+      "explanation": "Sloped parts heat one phase (q = mcΔT). Flat parts are phase changes (q = mΔH)."
+    },
+    {
+      "id": "ionbuilder-1",
+      "type": "ionbuilder",
+      "text": "A chloride ion has a mass number of 35 and a charge of −1. Set the number of protons, neutrons and electrons it has.",
+      "points": 3,
+      "mode": "particles",
+      "element": "Cl",
+      "massNumber": 35,
+      "charge": -1,
+      "partialCredit": true,
+      "explanation": "Chlorine has 17 protons. Neutrons = 35 − 17 = 18. Electrons = 17 + 1 = 18 (the ion gained one electron)."
+    },
+    {
+      "id": "ionicformula-1",
+      "type": "ionicformula",
+      "text": "Build the ionic compound that forms from aluminium and oxygen, then name it.",
+      "points": 2,
+      "ions": [
+        {
+          "id": "Na+",
+          "symbol": "Na",
+          "charge": 1,
+          "name": "sodium"
+        },
+        {
+          "id": "Mg2+",
+          "symbol": "Mg",
+          "charge": 2,
+          "name": "magnesium"
+        },
+        {
+          "id": "Al3+",
+          "symbol": "Al",
+          "charge": 3,
+          "name": "aluminium"
+        },
+        {
+          "id": "NH4+",
+          "symbol": "NH4",
+          "charge": 1,
+          "name": "ammonium"
+        },
+        {
+          "id": "Cl-",
+          "symbol": "Cl",
+          "charge": -1,
+          "name": "chloride"
+        },
+        {
+          "id": "O2-",
+          "symbol": "O",
+          "charge": -2,
+          "name": "oxide"
+        },
+        {
+          "id": "OH-",
+          "symbol": "OH",
+          "charge": -1,
+          "name": "hydroxide"
+        },
+        {
+          "id": "SO42-",
+          "symbol": "SO4",
+          "charge": -2,
+          "name": "sulfate"
+        }
+      ],
+      "cation": "Al3+",
+      "anion": "O2-",
+      "askName": true,
+      "targetName": "aluminium oxide",
+      "explanation": "Two Al3+ (+6) and three O2- (-6) balance, so the lowest ratio is Al2O3."
+    },
+    {
+      "id": "isotopemass-1",
+      "type": "isotopemass",
+      "text": "Chlorine has two common isotopes. Use the data to calculate the average atomic mass of chlorine.",
+      "points": 2,
+      "element": "Chlorine",
+      "ask": "average",
+      "isotopes": [
+        {
+          "label": "Cl-35",
+          "mass": 34.969,
+          "abundance": 75.78
+        },
+        {
+          "label": "Cl-37",
+          "mass": 36.966,
+          "abundance": 24.22
+        }
+      ],
+      "tolerance": 0.01,
+      "abundanceTolerance": 0.1,
+      "showWork": true,
+      "explanation": "Multiply each mass by its abundance as a fraction, then add: 34.969 × 0.7578 + 36.966 × 0.2422 = 35.45 amu."
+    },
+    {
+      "id": "molbuild-1",
+      "type": "molbuild",
+      "text": "Build a molecule of carbon dioxide. Add the atoms, then join them with bonds.",
+      "points": 2,
+      "atoms": [
+        "C",
+        "O",
+        "O"
+      ],
+      "bonds": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          2,
+          2
+        ]
+      ],
+      "explanation": "Carbon makes four bonds, so it forms a double bond to each oxygen. Each oxygen then has its two bonds."
+    },
+    {
+      "id": "oxidation-1",
+      "type": "oxidation",
+      "text": "Give the oxidation number of each element in H₂SO₄.",
+      "points": 3,
+      "formula": "H2SO4",
+      "key": [
+        1,
+        6,
+        -2
+      ],
+      "explanation": "H is +1 and O is −2. The four O atoms give −8 and the two H give +2, so S must be +6 for the molecule to total 0."
+    },
+    {
+      "id": "solubility-1",
+      "type": "solubility",
+      "text": "Silver nitrate and sodium chloride solutions are mixed. Mark each compound as solid (s) or aqueous (aq).",
+      "points": 3,
+      "mode": "state",
+      "items": [
+        {
+          "id": "agcl",
+          "formula": "AgCl",
+          "cation": "Ag",
+          "anion": "Cl"
+        },
+        {
+          "id": "nano3",
+          "formula": "NaNO3",
+          "cation": "Na",
+          "anion": "NO3"
+        },
+        {
+          "id": "baso4",
+          "formula": "BaSO4",
+          "cation": "Ba",
+          "anion": "SO4"
+        }
+      ],
+      "partialCredit": true,
+      "explanation": "Silver chloride is insoluble (s). Sodium nitrate stays dissolved (aq) because all nitrates and sodium salts are soluble. Barium sulfate is insoluble (s)."
+    }
+  ]
+}

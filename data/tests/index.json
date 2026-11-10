@@ -18,5 +18,10 @@
     "code": "DEMOV4C",
     "title": "V4 Question Types Demo C",
     "description": "Molar mass, picture choice, particle diagram, titration and estimate questions, plus algorithmic questions where every student gets their own numbers."
+  },
+  {
+    "code": "DEMOV5",
+    "title": "V5 Question Types Demo",
+    "description": "One question of each V5 type: Bohr shells, oxidation numbers, solubility, heating curve, gas law, molecule builder, ion builder, ionic formula and isotope mass."
   }
 ]

@@ -48,7 +48,7 @@ const DEFAULTS = {
     perfStore: true,       // V5-11: client data store, optimistic updates, lazy loading
     v5Motion: true,        // V5-04/05: sidebar animation + motion pass
     appearance: false,     // V5-06: appearance panel (theme, accent, text size, density)
-    v5Types: false,        // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
+    v5Types: true,         // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
   },
 };
 
