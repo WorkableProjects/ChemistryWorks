@@ -1,0 +1,20 @@
+[
+  {
+    "id": "gaslaw-1",
+    "type": "gaslaw",
+    "text": "A gas has a volume of 2.00 L at 1.00 atm and 300 K. What is its volume at 2.00 atm and 450 K?",
+    "points": 4,
+    "law": "combined",
+    "unknown": "V2",
+    "unit": "L",
+    "tolerance": 1,
+    "knowns": {
+      "P1": { "value": "1.00", "unit": "atm" },
+      "V1": { "value": "2.00", "unit": "L" },
+      "T1": { "value": "300", "unit": "K" },
+      "P2": { "value": "2.00", "unit": "atm" },
+      "T2": { "value": "450", "unit": "K" }
+    },
+    "explanation": "Temperature and pressure both change, so use P₁V₁/T₁ = P₂V₂/T₂. V₂ = (1.00 × 2.00 × 450) / (300 × 2.00) = 1.50 L."
+  }
+]

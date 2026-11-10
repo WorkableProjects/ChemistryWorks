@@ -1,0 +1,19 @@
+/* ChemWorks v5 — gaslaw question type (gas-law setup). Tokens only. */
+.qg-root { display: grid; gap: var(--space-4); }
+.qg-step { display: grid; gap: var(--space-2); }
+.qg-step__label { color: var(--text-muted); font-weight: 500; }
+.qg-law { max-width: 20rem; }
+.qg-formula { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 18px; color: var(--text); min-height: var(--space-6); }
+.qg-bank { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.qg-chip { padding: var(--space-1) var(--space-3); border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elev);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; color: var(--text); }
+.qg-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--space-2) var(--space-4); }
+.qg-slot-row { display: flex; align-items: center; gap: var(--space-3); }
+.qg-slot-label { min-width: 2.5em; font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--text); }
+.qg-slot { flex: 1; min-height: var(--touch, 44px); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.qg-hint { margin: 0; color: var(--text-faint); }
+.qg-answer { display: flex; align-items: center; gap: var(--space-3); }
+.qg-value { width: 10em; min-height: var(--touch, 44px); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.qg-unit { font-family: var(--font-mono); color: var(--text-muted); }
+.qg-review { display: grid; gap: var(--space-1); }
+.qg-review__text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-muted); }
