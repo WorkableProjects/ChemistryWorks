@@ -1,0 +1,23 @@
+[
+  {
+    "id": "ionicformula-1",
+    "type": "ionicformula",
+    "text": "Build the ionic compound that forms from aluminium and oxygen, then name it.",
+    "points": 2,
+    "ions": [
+      { "id": "Na+", "symbol": "Na", "charge": 1, "name": "sodium" },
+      { "id": "Mg2+", "symbol": "Mg", "charge": 2, "name": "magnesium" },
+      { "id": "Al3+", "symbol": "Al", "charge": 3, "name": "aluminium" },
+      { "id": "NH4+", "symbol": "NH4", "charge": 1, "name": "ammonium" },
+      { "id": "Cl-", "symbol": "Cl", "charge": -1, "name": "chloride" },
+      { "id": "O2-", "symbol": "O", "charge": -2, "name": "oxide" },
+      { "id": "OH-", "symbol": "OH", "charge": -1, "name": "hydroxide" },
+      { "id": "SO42-", "symbol": "SO4", "charge": -2, "name": "sulfate" }
+    ],
+    "cation": "Al3+",
+    "anion": "O2-",
+    "askName": true,
+    "targetName": "aluminium oxide",
+    "explanation": "Two Al3+ (+6) and three O2- (-6) balance, so the lowest ratio is Al2O3."
+  }
+]

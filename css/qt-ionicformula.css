@@ -1,0 +1,36 @@
+/* ChemWorks v5 — ionicformula (ionic compound builder). Tokens only. */
+.q-ionf { display: grid; gap: var(--space-4); }
+.q-ionf .q-hint { margin: 0; }
+.q-ionf__bank { display: grid; gap: var(--space-3); }
+.q-ionf__group { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.q-ionf__tile { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); min-width: 64px; min-height: var(--touch, 44px); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-elev); color: var(--text); font: inherit; font-weight: 500; cursor: grab; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.q-ionf__tile:active { transform: scale(0.98); }
+.q-ionf__tile:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-ring); border-color: var(--primary); }
+.q-ionf__tile.is-placed { border-color: var(--primary); background: var(--selected-bg); }
+.q-ionf__ion { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 18px; }
+.q-ionf__tile-name { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.q-ionf__slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
+.q-ionf__slot { display: grid; gap: var(--space-2); justify-items: start; padding: var(--space-3); border: 1px dashed var(--border-control); border-radius: var(--radius); background: var(--bg-sunken); min-height: 112px; }
+.q-ionf__slot.is-over { border-style: solid; border-color: var(--primary); }
+.q-ionf__slot-label { font-size: 13px; color: var(--text-muted); }
+.q-ionf__slot-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.q-ionf__empty { color: var(--text-faint); font-size: 14px; }
+.q-ionf__count { display: inline-flex; align-items: center; gap: var(--space-2); }
+.q-ionf__step { min-width: var(--touch, 44px); min-height: var(--touch, 44px); }
+.q-ionf__n { min-width: 2ch; text-align: center; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+.q-ionf__formula-out { min-height: 40px; padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); }
+.q-ionf__formula { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; color: var(--primary-ink); }
+.q-ionf__charge { color: var(--text-muted); }
+.q-ionf__charge.is-bad { color: var(--danger-ink); }
+.q-ionf__name { max-width: 24em; min-height: var(--touch, 44px); }
+.q-ionf-review { display: inline-flex; flex-direction: column; gap: var(--space-1); align-items: flex-start; }
+.q-ionf-review .q-ionf__formula { font-size: 16px; }
+.q-ionf-review__name { font-size: 13px; color: var(--text-muted); }
+.q-ionf-ed__common { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.q-ionf-ed__pick { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--touch, 44px); font-family: var(--font-mono); }
+.q-ionf-ed__bank { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.q-ionf-ed__chip { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-control); }
+.q-ionf-ed__chip-name { font-size: 13px; color: var(--text-muted); }
+.q-ionf-ed__targets { display: grid; gap: var(--space-2); justify-items: start; }
+.q-ionf-ed__target { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+@media (prefers-reduced-motion: reduce) { .q-ionf__tile { transition: none; } }
