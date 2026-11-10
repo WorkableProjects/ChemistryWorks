@@ -169,7 +169,7 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
         on: { click: () => { try { openInBuilder?.(normalizeTest(last)); } catch { toast('Could not open that draft.', { type: 'error' }); } } } }, icon('list', { size: 16 }), 'Open last edited'),
       h('button', { class: 'btn btn--ghost', type: 'button', disabled: !data.toGradeTotal, dataset: { testid: 'dash-grade-next' }, on: { click: () => gradeNext?.({ code: data.toGrade[0]?.code }) } }, icon('pen', { size: 16 }), 'Grade next'),
       h('button', { class: 'btn btn--ghost', type: 'button', disabled: !data.unreleasedTotal, dataset: { testid: 'dash-release-all' }, on: { click: () => confirmRelease(data.unreleased) } }, icon('send', { size: 16 }), 'Release all'));
-    cards.push(card('Quick actions', 'sparkle', actions, { wide: true, testid: 'dash-actions' }));
+    cards.push(card('Quick actions', 'list', actions, { wide: true, testid: 'dash-actions' }));
     body.removeAttribute('aria-busy');
     mount(body, cards);
   }
