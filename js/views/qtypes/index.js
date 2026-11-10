@@ -19,3 +19,4 @@ import './heatcurve.js';
 import './oxidation.js';
 import './solubility.js';
 import './bohr.js';
+import './molbuild.js';

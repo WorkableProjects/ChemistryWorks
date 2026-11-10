@@ -1,0 +1,34 @@
+/* ChemWorks v5 — molbuild question type (molecule builder). Tokens only. */
+.qm-root { display: grid; gap: var(--space-4); }
+.qm-bank, .qm-atoms { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.qm-pick { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--touch, 44px); padding: 0 var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg); color: var(--text); cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.qm-pick:hover { background: var(--bg-sunken); }
+.qm-pick:active, .qm-tile:active { transform: scale(0.98); }
+.qm-pick:focus-visible, .qm-tile:focus-visible, .qm-x:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.qm-pick__sym, .qm-tile__sym { font-family: var(--font-mono); font-weight: 600; }
+.qm-atoms { min-height: 72px; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-sunken); }
+.qm-atom { position: relative; display: inline-flex; }
+.qm-tile { position: relative; display: inline-grid; place-items: center; width: 56px; height: 56px; padding: 0; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-elev); color: var(--text); cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.qm-tile.is-selected { border-color: var(--primary); outline: 1px solid var(--primary); }
+.qm-tile.is-open .qm-tile__sym { color: var(--text-muted); }
+.qm-tile__num { position: absolute; top: var(--space-1); left: var(--space-2); font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.qm-tile__sym { font-size: 22px; }
+.qm-x { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--text-faint); cursor: pointer; }
+.qm-x:hover { color: var(--text); background: var(--bg-sunken); }
+.qm-atom .qm-x { position: absolute; top: calc(var(--space-1) * -1); right: calc(var(--space-1) * -1); background: var(--bg-elev); border: 1px solid var(--border); }
+.qm-empty, .qm-help, .qm-hint { margin: 0; color: var(--text-muted); }
+.qm-help, .qm-hint { font-size: 13px; }
+.qm-bonds { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); max-width: 24rem; }
+.qm-bond { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-1) var(--space-3); border-bottom: 1px solid var(--border); }
+.qm-bond__text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
+.qm-bond__kind { flex: 1; color: var(--text-muted); }
+.qm-formula { margin: 0; color: var(--text-muted); }
+.qm-formula .formula { font-family: var(--font-mono); color: var(--text); font-weight: 600; }
+.qm-review__text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .qm-pick, .qm-tile, .qm-pick:active, .qm-tile:active { transition: none; transform: none; }
+}
