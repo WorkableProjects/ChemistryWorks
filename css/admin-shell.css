@@ -220,6 +220,48 @@
   .bld2__outline { position: static; max-height: 240px; }
 }
 
+/* ---------- v5 motion (feature('v5Motion')): sidebar width, labels, tooltips, drawer, section fade ---------- */
+.ash--motion .ash-body { transition: grid-template-columns 220ms var(--ease-out); }
+.ash--motion .ash-side { transition: none; }
+.ash--motion .ash-item { padding: 0 18px; justify-content: flex-start; }
+.ash--motion .ash-item .icon { flex-shrink: 0; }
+.ash--motion .ash-item__label {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  transition-delay: calc(80ms + var(--i, 0) * 20ms);
+}
+.ash--motion[data-nav="rail"] .ash-item { justify-content: flex-start; padding: 0 18px; }
+.ash--motion[data-nav="rail"] .ash-item__label {
+  position: static; width: auto; height: auto; clip: auto; overflow: hidden;
+  opacity: 0; transform: translateX(-4px); transition-duration: var(--dur-fast); transition-delay: 0ms; pointer-events: none;
+}
+.ash--motion .ash-group__label { position: relative; transition: opacity var(--dur-base) var(--ease-out); transition-delay: 100ms; }
+.ash--motion .ash-group__label::after {
+  content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: 1px; background: var(--border); opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.ash--motion[data-nav="rail"] .ash-group__label { position: relative; width: auto; height: auto; clip: auto; overflow: visible; color: transparent; transition-delay: 0ms; transition-duration: var(--dur-fast); }
+.ash--motion[data-nav="rail"] .ash-group__label::after { opacity: 1; transition-delay: 60ms; }
+.ash--motion .ash-pill.is-tracking { transition: opacity var(--dur-fast) var(--ease-out); }
+.ash-tip {
+  position: fixed; z-index: 90; transform: translate(-4px, -50%); opacity: 0; pointer-events: none; padding: 4px 10px;
+  border-radius: var(--radius-sm); background: var(--toast-bg); color: var(--toast-fg); font-size: 13px; font-weight: 500; white-space: nowrap;
+  box-shadow: var(--shadow-sm); transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.ash-tip[hidden] { display: none; }
+.ash-tip.is-on { opacity: 1; transform: translate(0, -50%); }
+.ash--motion .ash-panel.adm-panel--in { animation: ash-fade var(--dur-base) var(--ease-out) both; }
+.ash--motion .ash-content { position: relative; }
+.ash-ghost { position: absolute; margin: 0; overflow: hidden; pointer-events: none; animation: ash-ghost-out var(--dur-fast) var(--ease-out) both; }
+@keyframes ash-ghost-out { from { opacity: 1; } to { opacity: 0; } }
+.ash--motion .ash-scrim { opacity: 0; visibility: hidden; animation: none; transition: opacity var(--dur-base) var(--ease-out), visibility 0s linear var(--dur-base); }
+.ash--motion.is-drawer-open .ash-scrim { opacity: 1; visibility: visible; transition-delay: 0s; }
+@media (min-width: 768px) { .ash--motion .ash-scrim { display: none; } }
+@media (max-width: 767.98px) {
+  .ash--motion .ash-side { touch-action: pan-y; transition: transform var(--dur-base) var(--ease-out); }
+  .ash--motion .ash-side.is-dragging { transition: none; }
+  .ash--motion .ash-item__label, .ash--motion[data-nav] .ash-item__label { opacity: 1; transform: none; pointer-events: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ash *, .ash *::before, .ash *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
