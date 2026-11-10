@@ -1,0 +1,12 @@
+[
+  {
+    "id": "bohr-1",
+    "type": "bohr",
+    "text": "Draw the electron shells of a magnesium atom. Tap to add or remove electrons in each shell.",
+    "points": 3,
+    "mode": "element",
+    "element": "Mg",
+    "partialCredit": true,
+    "explanation": "Magnesium has 12 electrons. Shell 1 holds 2, shell 2 holds 8, and the last 2 go in shell 3."
+  }
+]
