@@ -17,3 +17,4 @@ import './isotopemass.js';
 import './ionbuilder.js';
 import './oxidation.js';
 import './solubility.js';
+import './gaslaw.js';
