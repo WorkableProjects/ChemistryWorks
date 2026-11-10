@@ -39,6 +39,7 @@ const VIEWS = {
   unavailable: () => import('./views/unavailable.js'),
   game: () => import('./views/game.js'),
   admin: () => import('./views/admin.js'),
+  profile: () => import('./views/profile.js'),
 };
 const root = document.getElementById('app');
 let cleanup = null;
@@ -83,6 +84,7 @@ function navigate(view, params = {}) {
   applyRole(view === 'admin' || params.preview ? 'admin' : 'student');
   if (view === 'admin') setUrl({ admin: 'true' });
   else if ((view === 'runner' || view === 'mode-select' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
+  else if (view === 'profile') setUrl({ view: 'profile' });
   else if (view === 'landing') setUrl({ code: params.code || null });
   else if ((view === 'feedback' || view === 'submitted') && params.test?.code) setUrl({ code: params.test.code });
   window.scrollTo({ top: 0 });
@@ -279,6 +281,7 @@ function start() {
   if (params.get('admin') === 'true') return adminGate();
 
   if (code && getUser()) return openTest(code);
+  if (params.get('view') === 'profile' && getUser() && feature('studentHome')) return navigate('profile');
   navigate('landing', { code: code ? normalizeCode(code) : undefined });
 }
 
