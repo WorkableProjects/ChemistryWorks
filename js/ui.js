@@ -263,11 +263,12 @@ export function renderMath(root) {
 }
 
 /** Toast notification. type: 'info' | 'success' | 'error' | 'warning' */
-export function toast(message, { type = 'info', timeout = 3200 } = {}) {
+export function toast(message, { type = 'info', timeout = 3200, action = null } = {}) {
   const root = document.getElementById('toast-root');
   if (!root) return;
   const iconName = { success: 'check', error: 'alert', warning: 'alert', info: 'info' }[type] || 'info';
-  const el = h('div', { class: `toast toast--${type}`, dataset: { testid: 'toast' } }, icon(iconName), h('span', {}, message));
+  const el = h('div', { class: `toast toast--${type}`, dataset: { testid: 'toast' } }, icon(iconName), h('span', {}, message),
+    action ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'toast-action' }, on: { click: () => { dismiss(); action.onClick(); } } }, action.label) : null);
   root.appendChild(el);
   requestAnimationFrame(() => el.classList.add('is-visible'));
   let gone = false;

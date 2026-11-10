@@ -10,7 +10,7 @@ const DIR = fileURLToPath(new URL('../data/tests/', import.meta.url));
 export async function validateBank(dir = DIR) {
   const errors = [];
   const rows = [];
-  const files = (await readdir(dir)).filter((f) => f.endsWith('.json') && f !== 'index.json').sort();
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.json') && f !== 'index.json' && f !== 'catalog.json').sort();
 
   let index = [];
   try {
