@@ -1,0 +1,3 @@
+index.html merge=union
+js/lib/qtypes/v4-types.js merge=union
+js/views/qtypes/index.js merge=union

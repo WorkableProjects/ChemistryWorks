@@ -13,3 +13,4 @@ import './particles.js';
 import './titration.js';
 import './estimate.js';
 import './ionicformula.js';
+import './isotopemass.js';
