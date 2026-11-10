@@ -281,3 +281,22 @@ export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {
     return { ok: false, error: msg(e), unavailable: true };
   }
 }
+
+// ---------- v5 (B1): student profile + sync, batch ----------
+// Every wrapper resolves { ok: true, data } | { ok: false, error, unavailable? } and never throws.
+// No gasUrl or an old backend -> { ok: false, unavailable: true }: callers keep working from localStorage.
+async function studentCall(action, payload, { gasUrl, idToken, fetchImpl } = {}) {
+  if (!gasUrl) return { ok: false, error: 'no_backend_url', unavailable: true };
+  let token = idToken;
+  if (!token) {
+    try { token = await getFreshIdToken(); } catch (e) { token = ''; }
+  }
+  return publicCall(action, { ...payload, idToken: token || undefined }, { gasUrl, fetchImpl });
+}
+
+export const getStudentProfile = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getStudentProfile', {}, { gasUrl, idToken, fetchImpl });
+export const saveStudentProfile = ({ gasUrl, idToken, prefs, fetchImpl } = {}) => studentCall('saveStudentProfile', { prefs }, { gasUrl, idToken, fetchImpl });
+export const syncProgress = ({ gasUrl, idToken, attempt, xp, fetchImpl } = {}) => studentCall('syncProgress', { attempt, xp }, { gasUrl, idToken, fetchImpl });
+export const getStudentProfileAdmin = ({ gasUrl, adminKey, email, fetchImpl } = {}) => adminCall('getStudentProfileAdmin', { email }, { gasUrl, adminKey, fetchImpl });
+// requests: [{ action, ...fields }] (max 50). -> { ok, data: { results: [...] } }
+export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adminCall('batch', { requests }, { gasUrl, adminKey, fetchImpl });

@@ -14,7 +14,7 @@
  * upgrade period (adminKey in the request body). Every admin write is appended to the Log sheet.
  */
 
-var VERSION = '4.0.0';
+var VERSION = '5.0.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
@@ -111,6 +111,8 @@ function doPost(e) {
       case 'getErrors':
       case 'getSettings':
       case 'saveSettings':
+      case 'getStudentProfileAdmin':
+      case 'batch':
         return json_(handleAdmin_(body));
       case 'getTest':
         return json_(getTestFor_(body));
@@ -126,6 +128,12 @@ function doPost(e) {
         return json_(getFeedback_(body));
       case 'getStudentStatus':
         return json_(getStudentStatus_(body));
+      case 'getStudentProfile':
+        return json_(getStudentProfile_(body));
+      case 'saveStudentProfile':
+        return json_(saveStudentProfile_(body));
+      case 'syncProgress':
+        return json_(syncProgress_(body));
       case undefined:
       case null:
       case '':
@@ -148,6 +156,8 @@ function setup() {
   getSheet_(TESTS_SHEET, TEST_HEADERS);
   var admins = ensureAdmins_();
   getSheet_(LOG_SHEET, LOG_HEADERS);
+  getSheet_(STUDENTS_SHEET, STUDENT_HEADERS);
+  getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS);
   var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
   Logger.log('Sheets "' + SUBMISSIONS_SHEET + '", "' + TESTS_SHEET + '", "' + ADMINS_SHEET + '" and "' + LOG_SHEET + '" are ready.');
   if (admins.length) {
@@ -568,6 +578,8 @@ function dispatchAdmin_(body, auth) {
     case 'getErrors': return getErrors_(body);
     case 'getSettings': return { result: 'success', settings: readSettings_() };
     case 'saveSettings': return saveSettings_(body);
+    case 'getStudentProfileAdmin': return getStudentProfileAdmin_(body);
+    case 'batch': return batch_(body, auth);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -1537,4 +1549,323 @@ function getErrors_(body) {
   var r = sheetRows_(ERRORS_SHEET, ERROR_HEADERS);
   var limit = Math.min(500, Math.max(1, Math.floor(num_(body && body.limit, 100))));
   return { result: 'success', errors: r.values.slice(-limit).reverse().map(function (v) { return { time: iso_(v[0]), page: String(v[1]), message: String(v[2]), detail: String(v[3]), browser: String(v[4]) }; }) };
+}
+
+
+// ===========================================================================
+// v5 B1: Students, Attempts, profile + sync, cache and batch base.
+// ===========================================================================
+
+var STUDENTS_SHEET = 'Students';
+var STUDENT_HEADERS = ['email', 'name', 'picture', 'firstSeen', 'lastSeen', 'classIds', 'xp', 'level', 'streakDays', 'lastActiveDate', 'badgesJson', 'prefsJson', 'statsJson', 'updatedAt'];
+var ATTEMPTS_SHEET = 'Attempts';
+var ATTEMPT_HEADERS = ['email', 'code', 'mode', 'answeredCount', 'total', 'percentDone', 'updatedAt', 'answersJson'];
+var XP_DAY_CAP = 600;
+var PROFILE_WRITE_GAP_MS = 5000;
+var ATTEMPT_ANSWERS_MAX = 40000;
+var CACHE_TTL = 120;
+var BATCH_MAX = 50;
+var BATCH_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll: 1, allowRetake: 1, saveClass: 1, deleteClass: 1,
+  saveBankItem: 1, deleteBankItem: 1, saveAccommodation: 1, deleteAccommodation: 1, extendWindow: 1, applyRegrade: 1, saveSettings: 1,
+  clearLeaderboard: 1, hideLeaderboardEntry: 1, saveAssignment: 1, deleteAssignment: 1, postStream: 1, deleteStreamPost: 1, remindMissing: 1 };
+var PREF_KEYS = ['theme', 'accent', 'avatar', 'textSize', 'density', 'reduceMotion', 'dyslexia'];
+
+// Reads only the named columns (header names) of a sheet: -> [{ name: value, ... }] (data rows, in order).
+function readCols_(sheet, names) {
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var head = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+  var cols = names.map(function (n) { return head.indexOf(n) + 1; });
+  var n = last - 1;
+  var data = cols.map(function (c) { return c > 0 ? sheet.getRange(2, c, n, 1).getValues() : null; });
+  var out = [];
+  for (var i = 0; i < n; i++) {
+    var o = {};
+    for (var j = 0; j < names.length; j++) o[names[j]] = data[j] ? data[j][i][0] : '';
+    out.push(o);
+  }
+  return out;
+}
+
+// CacheService.getScriptCache() read-through. Only JSON-safe, non-personal data.
+function cached_(key, ttl, fn) {
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+  if (cache) {
+    try {
+      var hit = cache.get(key);
+      if (hit) return JSON.parse(hit);
+    } catch (e2) { /* miss */ }
+  }
+  var value = fn();
+  if (cache) {
+    try {
+      var raw = JSON.stringify(value);
+      if (raw !== undefined && raw.length < 90000) cache.put(key, raw, ttl || CACHE_TTL);
+    } catch (e3) { /* too big or quota: skip */ }
+  }
+  return value;
+}
+function bust_() {
+  var keys = Array.prototype.slice.call(arguments).filter(function (k) { return k; });
+  if (!keys.length) return;
+  try { CacheService.getScriptCache().removeAll(keys); } catch (e) { /* ignore */ }
+}
+
+// Insert or merge one row by key columns (header names). `row` is { header: value }; only given fields change.
+// -> { row: sheetRowNumber, created: bool, values: { header: value } (the stored row) }
+function upsertByKey_(sheet, keyCols, row) {
+  return withLock_(function () {
+    var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var last = sheet.getLastRow();
+    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, head.length).getValues();
+    var kidx = keyCols.map(function (k) { return head.indexOf(k); });
+    var found = -1;
+    for (var i = 0; i < vals.length && found < 0; i++) {
+      var ok = true;
+      for (var k = 0; k < kidx.length; k++) {
+        var a = String(vals[i][kidx[k]]).trim().toLowerCase();
+        var b = String(row[keyCols[k]]).trim().toLowerCase();
+        if (a !== b) { ok = false; break; }
+      }
+      if (ok) found = i;
+    }
+    var cur = found >= 0 ? vals[found].slice() : head.map(function () { return ''; });
+    for (var h = 0; h < head.length; h++) if (Object.prototype.hasOwnProperty.call(row, head[h])) cur[h] = row[head[h]];
+    if (found >= 0) sheet.getRange(found + 2, 1, 1, head.length).setValues([cur]);
+    else sheet.appendRow(cur);
+    var stored = {};
+    for (var s = 0; s < head.length; s++) stored[head[s]] = cur[s];
+    return { row: found >= 0 ? found + 2 : sheet.getLastRow(), created: found < 0, values: stored };
+  });
+}
+
+// -> { email } | { error }. Only the verified token's email is ever used; any email field in the body is ignored.
+function studentFromToken_(body) {
+  var who = verifyStudent_(body);
+  if (who.error || !who.email) return { error: who.error || 'unauthorized' };
+  return { email: String(who.email).trim().toLowerCase() };
+}
+
+function xpForLevel_(level) { return 25 * Math.max(0, Math.floor(level) - 1) * Math.max(1, Math.floor(level)); }
+function levelForXp_(xp) { var l = 1; while (xpForLevel_(l + 1) <= xp) l++; return l; }
+function today_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'); }
+
+function studentRow_(email) {
+  var sheet = getSheet_(STUDENTS_SHEET, STUDENT_HEADERS);
+  var row = findRow_(sheet, 1, email);
+  if (!row) return null;
+  var v = sheet.getRange(row, 1, 1, STUDENT_HEADERS.length).getValues()[0];
+  var o = {};
+  for (var i = 0; i < STUDENT_HEADERS.length; i++) o[STUDENT_HEADERS[i]] = v[i];
+  return o;
+}
+
+function profileOf_(o) {
+  var xp = Math.max(0, num_(o.xp, 0));
+  var level = Math.max(1, Math.floor(num_(o.level, 1)));
+  return {
+    email: String(o.email), name: String(o.name || ''), picture: String(o.picture || ''), firstSeen: iso_(o.firstSeen), lastSeen: iso_(o.lastSeen),
+    classIds: String(o.classIds || '').split(',').filter(function (c) { return c; }), xp: xp, level: Math.max(level, levelForXp_(xp)),
+    streakDays: Math.max(0, Math.floor(num_(o.streakDays, 0))), lastActiveDate: String(o.lastActiveDate || ''),
+    badges: parseJson_(o.badgesJson, []) || [], prefs: parseJson_(o.prefsJson, {}) || {}, stats: parseJson_(o.statsJson, {}) || {}
+  };
+}
+
+// Classes this email is on: [{ id, name, period }]. The class list is cached; membership is matched per call.
+function classesOfEmail_(email) {
+  var list = cached_('classes:list', CACHE_TTL, function () {
+    return readCols_(getSheet_(CLASSES_SHEET, CLASS_HEADERS), ['ID', 'Name', 'Period', 'Emails (JSON)']).filter(function (r) { return String(r.ID); })
+      .map(function (r) { return { id: String(r.ID), name: String(r.Name), period: String(r.Period), emails: parseJson_(r['Emails (JSON)'], []) || [] }; });
+  });
+  return list.filter(function (c) { return c.emails.indexOf(email) >= 0; }).map(function (c) { return { id: c.id, name: c.name, period: c.period }; });
+}
+
+// Creates the row on first sight. Returns the stored row object.
+function ensureStudent_(email, claims) {
+  var existing = studentRow_(email);
+  var now = new Date();
+  var classes = classesOfEmail_(email).map(function (c) { return c.id; }).join(',');
+  var patch = { email: email, lastSeen: now, classIds: classes };
+  if (!existing) {
+    patch.name = claims && claims.name ? String(claims.name).slice(0, 120) : '';
+    patch.firstSeen = now; patch.xp = 0; patch.level = 1; patch.streakDays = 0; patch.lastActiveDate = '';
+    patch.badgesJson = '[]'; patch.prefsJson = '{}'; patch.statsJson = '{}'; patch.updatedAt = now;
+  } else if (!existing.name && claims && claims.name) patch.name = String(claims.name).slice(0, 120);
+  return upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
+}
+
+function attemptsOf_(email) {
+  return readCols_(getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS), ['email', 'code', 'mode', 'answeredCount', 'total', 'percentDone', 'updatedAt'])
+    .filter(function (r) { return normEmail_(r.email) === email; })
+    .map(function (r) { return { code: String(r.code), mode: String(r.mode), answeredCount: num_(r.answeredCount), total: num_(r.total), percentDone: num_(r.percentDone), updatedAt: num_(r.updatedAt) }; });
+}
+
+// This student's submissions. Score fields only when released (student view); `all` adds scores for staff.
+function submissionsOf_(email, all) {
+  var rows = readCols_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS),
+    ['Timestamp', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score', 'Percentage (%)', 'Status', 'Final Score', 'Final Percentage (%)', 'Released At']);
+  var out = [];
+  rows.forEach(function (r) {
+    if (normEmail_(r['Student Email']) !== email) return;
+    var st = String(r.Status || '');
+    if (st === STATUS_EXTRA || st === STATUS_CLOSED || st === STATUS_NOT_ROSTER) return;
+    var released = !!r['Released At'];
+    var o = { testCode: normalizeCode_(r['Test Code']), title: String(r['Test Title'] || ''), submittedAt: iso_(r.Timestamp), status: st, released: released };
+    if (released || all) {
+      var fs = r['Final Score'], fp = r['Final Percentage (%)'];
+      o.scoreAchieved = fs === '' || fs === null ? num_(r['Score Achieved']) : num_(fs);
+      o.scoreTotal = num_(r['Total Score']);
+      o.percentage = fp === '' || fp === null ? num_(r['Percentage (%)']) : num_(fp);
+    }
+    out.push(o);
+  });
+  return out;
+}
+
+// Published tests assigned to any of the student's classes: [{ testCode, title, opensAt, closesAt, status }].
+function assignedTests_(email, classIds) {
+  if (!classIds.length) return [];
+  var rows = readCols_(getSheet_(TESTS_SHEET, TEST_HEADERS), ['Code', 'Title', 'Test JSON']);
+  var out = [];
+  var now = new Date();
+  rows.forEach(function (r) {
+    if (!String(r.Code)) return;
+    var t = parseJson_(r['Test JSON'], null);
+    if (!t || !Array.isArray(t.classes)) return;
+    var hit = t.classes.some(function (c) { return classIds.indexOf(String(c)) >= 0; });
+    if (!hit) return;
+    var w = windowState_(t, accommodationFor_(email, r.Code), now);
+    out.push({ testCode: normalizeCode_(r.Code), title: String(r.Title || t.title || ''), opensAt: w.opensAt, closesAt: w.closesAt, status: w.state });
+  });
+  return out;
+}
+
+function studentBundle_(email, row, admin) {
+  var profile = profileOf_(row);
+  var out = { result: 'success', profile: profile, results: submissionsOf_(email, admin), attempts: attemptsOf_(email), assigned: assignedTests_(email, profile.classIds) };
+  // B3 supplies getClassHub_({ _email }) (already-verified email); until then hub is absent.
+  if (!admin && typeof getClassHub_ === 'function') {
+    try { out.hub = getClassHub_({ _email: email }); } catch (e) { out.hub = null; }
+  }
+  return out;
+}
+
+function getStudentProfile_(body) {
+  var who = studentFromToken_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var row = ensureStudent_(who.email, { name: body && body.name });
+  return studentBundle_(who.email, row, false);
+}
+
+function saveStudentProfile_(body) {
+  var who = studentFromToken_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var incoming = body && body.prefs && typeof body.prefs === 'object' ? body.prefs : null;
+  if (!incoming) return { result: 'error', error: 'invalid_request' };
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+  var gateKey = 'sp:' + who.email;
+  if (cache) {
+    try {
+      var last = num_(cache.get(gateKey), 0);
+      if (last && Date.now() - last < PROFILE_WRITE_GAP_MS) return { result: 'error', error: 'rate_limited' };
+      cache.put(gateKey, String(Date.now()), 60);
+    } catch (e2) { /* ignore */ }
+  }
+  var row = ensureStudent_(who.email, null);
+  var prefs = parseJson_(row.prefsJson, {}) || {};
+  PREF_KEYS.forEach(function (k) {
+    if (Object.prototype.hasOwnProperty.call(incoming, k)) {
+      var v = incoming[k];
+      if (typeof v === 'string') prefs[k] = v.slice(0, 64);
+      else if (typeof v === 'boolean' || typeof v === 'number') prefs[k] = v;
+    }
+  });
+  var json = JSON.stringify(prefs);
+  if (json.length > 4000) return { result: 'error', error: 'too_large' };
+  var stored = upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], { email: who.email, prefsJson: json, updatedAt: new Date() }).values;
+  return { result: 'success', profile: profileOf_(stored) };
+}
+
+function syncProgress_(body) {
+  var who = studentFromToken_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var att = body && body.attempt && typeof body.attempt === 'object' ? body.attempt : null;
+  var xpIn = body && body.xp && typeof body.xp === 'object' ? body.xp : null;
+  var out = { result: 'success' };
+  if (att) {
+    var code = normalizeCode_(att.code);
+    if (!code) return { result: 'error', error: 'invalid_request' };
+    var total = Math.max(0, Math.floor(num_(att.total, 0)));
+    var answered = Math.max(0, Math.floor(num_(att.answeredCount, 0)));
+    if (total) answered = Math.min(total, answered);
+    var row = { email: who.email, code: code, mode: String(att.mode || '').slice(0, 32), answeredCount: answered, total: total,
+      percentDone: total ? Math.round(1000 * answered / total) / 10 : 0, updatedAt: Date.now() };
+    if (att.answers !== undefined && att.answers !== null) {
+      var aj = JSON.stringify(att.answers);
+      if (aj.length < ATTEMPT_ANSWERS_MAX) row.answersJson = aj;
+    }
+    upsertByKey_(getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS), ['email', 'code'], row);
+    out.attempt = { code: code, mode: row.mode, answeredCount: answered, total: total, percentDone: row.percentDone, updatedAt: row.updatedAt };
+  }
+  var cur = ensureStudent_(who.email, null);
+  var patch = { email: who.email, updatedAt: new Date() };
+  if (xpIn) {
+    var stats = parseJson_(cur.statsJson, {}) || {};
+    var day = today_();
+    var gained = stats.xpDay === day ? num_(stats.xpToday, 0) : 0;
+    var delta = Math.min(Math.max(num_(xpIn.delta, 0), 0), Math.max(0, XP_DAY_CAP - gained));
+    var xp = Math.max(0, num_(cur.xp, 0)) + delta;
+    stats.xpDay = day;
+    stats.xpToday = gained + delta;
+    var badges = parseJson_(cur.badgesJson, []) || [];
+    (Array.isArray(xpIn.badges) ? xpIn.badges : []).forEach(function (b) {
+      b = String(b).slice(0, 64);
+      if (b && badges.indexOf(b) < 0 && badges.length < 200) badges.push(b);
+    });
+    patch.xp = xp;
+    patch.level = Math.max(num_(cur.level, 1), levelForXp_(xp));
+    patch.badgesJson = JSON.stringify(badges);
+    patch.statsJson = JSON.stringify(stats);
+    if (xpIn.streakDays !== undefined) patch.streakDays = Math.max(num_(cur.streakDays, 0), Math.min(3650, Math.floor(num_(xpIn.streakDays, 0))));
+    if (xpIn.lastActiveDate) patch.lastActiveDate = String(xpIn.lastActiveDate).slice(0, 10);
+  }
+  var stored = upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
+  out.profile = profileOf_(stored);
+  return out;
+}
+
+// Admin. Like getStudentProfile for any email, without xp / level / badges (Decision 6), with all scores + accommodations.
+function getStudentProfileAdmin_(body) {
+  var email = normEmail_(body && body.email);
+  if (!EMAIL_RE.test(email)) return { result: 'error', error: 'invalid_request' };
+  var classes = classesOfEmail_(email);
+  var row = studentRow_(email) || { email: email, classIds: classes.map(function (c) { return c.id; }).join(',') };
+  var out = studentBundle_(email, row, true);
+  delete out.profile.xp; delete out.profile.level; delete out.profile.badges;
+  out.classes = classes;
+  out.accommodations = getAccommodations_({}).accommodations.filter(function (a) { return a.email === email; });
+  return out;
+}
+
+// { action: 'batch', requests: [{ action, ... }] } (`ops` accepted as an alias). One admin check (done by handleAdmin_);
+// each request is dispatched and logged on its own; one error does not stop the rest.
+function batch_(body, auth) {
+  var reqs = body && (body.requests || body.ops);
+  if (!Array.isArray(reqs)) return { result: 'error', error: 'invalid_request' };
+  if (reqs.length > BATCH_MAX) return { result: 'error', error: 'too_large' };
+  var results = reqs.map(function (r) {
+    try {
+      if (!r || typeof r !== 'object' || !BATCH_ACTIONS_[r.action]) return { result: 'error', error: 'unknown_action' };
+      var sub = {};
+      for (var k in r) if (Object.prototype.hasOwnProperty.call(r, k)) sub[k] = r[k];
+      var res = dispatchAdmin_(sub, auth);
+      if (res && res.result === 'success' && LOGGED_ACTIONS_[sub.action]) appendLog_(auth, sub.action, logTarget_(sub), logDetails_(sub, res));
+      return res;
+    } catch (err) {
+      return { result: 'error', error: String(err) };
+    }
+  });
+  return { result: 'success', results: results };
 }
