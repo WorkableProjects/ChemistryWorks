@@ -115,6 +115,7 @@ function doPost(e) {
       case 'saveAssignment':
       case 'deleteAssignment':
       case 'listAssignments':
+      case 'listStream':
       case 'postStream':
       case 'deleteStreamPost':
       case 'getAssignmentStatus':
@@ -616,6 +617,7 @@ function dispatchAdminRaw_(body, auth) {
     case 'saveAssignment': return saveAssignment_(body, auth);
     case 'deleteAssignment': return deleteAssignment_(body);
     case 'listAssignments': return listAssignments_(body);
+    case 'listStream': return listStream_(body);
     case 'postStream': return postStream_(body, auth);
     case 'deleteStreamPost': return deleteStreamPost_(body);
     case 'getAssignmentStatus': return getAssignmentStatus_(body);
@@ -2214,6 +2216,15 @@ function listAssignments_(body) {
   var classId = body && body.classId ? String(body.classId) : '';
   var list = assignmentsCached_().filter(function (a) { return !classId || a.classId === classId; });
   return { result: 'success', assignments: list };
+}
+
+// Teacher-side stream of one class: pinned first, then newest, max 100 (same post shape as getClassHub).
+function listStream_(body) {
+  var classId = String((body && body.classId) || '').trim();
+  if (!classId) return { result: 'error', error: 'invalid_request' };
+  var posts = streamAll_().filter(function (p) { return p.classId === classId; });
+  posts.sort(function (x, y) { return (y.pinned ? 1 : 0) - (x.pinned ? 1 : 0) || (parseWhen_(y.createdAt) || 0) - (parseWhen_(x.createdAt) || 0); });
+  return { result: 'success', posts: posts.slice(0, 100).map(publicPost_) };
 }
 
 function postStream_(body, auth) {

@@ -311,6 +311,7 @@ export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fet
 // Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
 export const saveAssignment = ({ gasUrl, adminKey, assignment, fetchImpl } = {}) => adminCall('saveAssignment', { assignment }, { gasUrl, adminKey, fetchImpl });
 export const deleteAssignment = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteAssignment', { id }, { gasUrl, adminKey, fetchImpl });
+export const listStream = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listStream', { classId }, { gasUrl, adminKey, fetchImpl });
 export const listAssignments = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listAssignments', { classId }, { gasUrl, adminKey, fetchImpl });
 // With `id` (and pinned / body) edits an existing post instead of creating one.
 export const postStream = ({ gasUrl, adminKey, classId, body, type, pinned, id, fetchImpl } = {}) => adminCall('postStream', { classId, body, type, pinned, id }, { gasUrl, adminKey, fetchImpl });
