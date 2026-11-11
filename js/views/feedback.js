@@ -136,12 +136,12 @@ export function render(root, ctx, params = {}) {
 
   if (params.canRetake && test) {
     actions.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'take-again' },
-      on: { click: () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source: params.source, cleared: true }) } }, icon('right', { size: 16 }), 'Take again'));
+      on: { click: () => ctx.navigate('runner', { test, source: params.source, cleared: true }) } }, icon('right', { size: 16 }), 'Take again'));
   }
 
   if (params.practiceOnly && test?.gameMode === true) {
     actions.appendChild(h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'practice-game' },
-      on: { click: () => ctx.navigate('mode-select', { test, source: params.source, studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
+      on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'classic', studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
   }
 
   // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).

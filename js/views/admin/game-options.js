@@ -4,13 +4,13 @@
 
 import { h } from '../../ui.js';
 import { field, switchEl } from './common.js';
-import { GAMES } from '../../lib/games/index.js';
+import { MODES } from '../../lib/modes/index.js';
 import { normalizeGameOptions, LIMITS, POWERUP_IDS } from '../../lib/games/options.js';
-import { SURVIVAL_TYPES } from '../../lib/games/survival.js';
+
 import { TYPE_LABELS } from '../../lib/schema.js';
 
 const POWERUP_LABELS = { fifty: '50/50', freeze: 'Freeze (+time)', skip: 'Skip', hint: 'Hint' };
-const TYPE_CHOICES = [...new Set([...SURVIVAL_TYPES, 'matching'])];
+const TYPE_CHOICES = ['mcq', 'multi', 'truefalse', 'numeric', 'formula', 'naming', 'nuclear', 'vsepr', 'dropdown', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph', 'matching'];
 
 export function gameOptionsPanel(test, changed) {
   if (!test || test.gameMode !== true) return null;
@@ -53,7 +53,7 @@ export function gameOptionsPanel(test, changed) {
     h('h3', { class: 'adm-h3' }, 'Game mode options'),
     h('p', { class: 'field__hint' }, 'Empty number boxes use each game’s default. These settings apply to every student playing this test.'),
     h('fieldset', { class: 'adm-fieldset' }, h('legend', { class: 'field__label' }, 'Games offered'),
-      h('div', { class: 'adm-switches' }, listSwitches('games', GAMES.map((g) => g.id), (id) => GAMES.find((g) => g.id === id).title, 'go-game'))),
+      h('div', { class: 'adm-switches' }, listSwitches('games', MODES.filter((g) => g.id !== 'study').map((g) => g.id), (id) => MODES.find((g) => g.id === id).title, 'go-game'))),
     h('div', { class: 'adm-grid adm-grid--3' },
       num('questions', 'Number of questions', 'Classic, Survival, Boss Battle, Match-Up (pairs), Flashcards', 'go-questions', 'All'),
       num('timePerQuestion', 'Seconds per question', 'Classic (default 20)', 'go-timePerQuestion', '20'),

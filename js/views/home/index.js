@@ -10,7 +10,7 @@ import { loadProfile, subscribeProfile } from '../../lib/profile.js';
 import { getSyncState, onSyncState } from '../../lib/sync.js';
 import { pickGreeting, firstNameOf } from '../../lib/greetings.js';
 import { progressKey } from '../../lib/attempt.js';
-import { getGame } from '../../lib/games/index.js';
+import { modeById as getGame } from '../../lib/modes/index.js';
 import { paintHubUpNext, reminderBanner } from './upnext.js';
 import { calendarStrip } from './calendar.js';
 import { bell } from '../notifications.js';
