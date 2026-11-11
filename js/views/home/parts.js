@@ -3,7 +3,7 @@
 
 import { h } from '../../ui.js';
 import { BADGES } from '../../lib/xp.js';
-import { getGame } from '../../lib/games/index.js';
+import { modeById as getGame } from '../../lib/modes/index.js';
 import { getLocalResults } from '../../lib/submit.js';
 
 const NS = 'http://www.w3.org/2000/svg';

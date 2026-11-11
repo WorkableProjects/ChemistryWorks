@@ -3,7 +3,7 @@
 // View contract: each view module exports `render(root, ctx, params)` which builds its DOM inside
 // `root` and may return a cleanup function (remove listeners, stop timers). Views:
 //   landing  params: { code?: string, error?: string }
-//   mode-select params: { test, source }  (Study vs Game chooser; only for tests with gameMode === true)
+
 //   game     params: { test, source }     (single-player practice; never submits)
 //   runner   params: { test, source, preview?: boolean }
 //   results  params: { test, grade, payload, submission, preview?: boolean }
@@ -36,7 +36,6 @@ import * as submitted from './views/submitted.js';
 // Rarely needed heavy views are lazy: an entry may be a loader `() => import(...)` that navigate() awaits once.
 const VIEWS = {
   landing, runner, results, feedback, submitted,
-  'mode-select': () => import('./views/mode-select.js'),
   unavailable: () => import('./views/unavailable.js'),
   game: () => import('./views/game.js'),
   admin: () => import('./views/admin.js'),
@@ -86,7 +85,7 @@ function navigate(view, params = {}) {
   // Teacher accent in the admin panel and in admin previews of a test; student accent everywhere else.
   applyRole(view === 'admin' || params.preview ? 'admin' : 'student');
   if (view === 'admin') setUrl({ admin: 'true' });
-  else if ((view === 'runner' || view === 'mode-select' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
+  else if ((view === 'runner' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
   else if (view === 'profile') setUrl({ view: 'profile' });
   else if (view === 'class') setUrl({ view: 'class', id: params.id });
   else if (view === 'landing') setUrl({ code: params.code || null });
@@ -166,7 +165,7 @@ async function openTest(code, opts = {}) {
       if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
       return navigate('runner', { test, source, cleared: true });
     }
-    navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
+    navigate('runner', { test, source, cleared: true });
   } catch (err) {
     if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });
     navigate('landing', { code: c, error: err.message });

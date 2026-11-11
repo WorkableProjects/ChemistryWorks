@@ -16,7 +16,7 @@ export function render(root, ctx, params = {}) {
   const when = fmtWhen(status.latest?.submitted_at);
   const single = !!test?.singleSubmission;
   const canRetake = params.canRetake === true;
-  const start = () => ctx.navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
+  const start = () => ctx.navigate('runner', { test, source, cleared: true });
 
   const lines = [
     when ? `You submitted this test on ${when}.` : 'You’ve already submitted this test.',
@@ -27,7 +27,7 @@ export function render(root, ctx, params = {}) {
     buttons.push(h('button', { class: 'btn btn--primary', type: 'button', on: { click: start }, dataset: { testid: 'take-again' } }, icon('right', { size: 16 }), 'Take again'));
   } else if (test?.gameMode === true) {
     buttons.push(h('button', { class: 'btn btn--ghost', type: 'button', dataset: { testid: 'practice-game' },
-      on: { click: () => ctx.navigate('mode-select', { test, source, studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
+      on: { click: () => ctx.navigate('game', { test, source, gameId: 'classic', studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
   }
   buttons.push(h('button', { class: 'btn btn--ghost', type: 'button', on: { click: () => ctx.navigate('landing') } }, icon('home', { size: 16 }), 'Back to start'));
 
