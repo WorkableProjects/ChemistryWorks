@@ -17,7 +17,7 @@ const body = (f) => JSON.parse(f.calls[0].init.body);
 test('saveGrade: comments/release omitted when not provided', async () => {
   const f = fakeFetch(okJson({ result: 'success', grade: { final_score: 3 } }));
   const r = await saveGrade({ gasUrl: GAS, adminKey: 'k', submissionId: 's1', grades: { q1: 1 }, fetchImpl: f });
-  assert.deepEqual(r, { ok: true, grade: { final_score: 3 } });
+  assert.deepEqual(r, { ok: true, grade: { final_score: 3 }, row: null });
   const b = body(f);
   assert.equal(b.action, 'saveGrade');
   assert.equal(b.adminKey, 'k');

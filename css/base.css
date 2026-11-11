@@ -80,6 +80,17 @@
   --game-tile-3: #0F6B3A;
   --game-tile-fg: #FFFFFF;
 
+  /* Appearance-settings previews: fixed light/dark samples, independent of the active theme. */
+  --pv-light-bg: #FFFFFF;
+  --pv-light-text: #0B1F3A;
+  --pv-light-muted: #E8EEF4;
+  --pv-light-border: #D8E1EB;
+  --pv-dark-mini: #0B1424;
+  --pv-dark-bg: #14213A;
+  --pv-dark-text: #E7EDF7;
+  --pv-dark-muted: #22314D;
+  --pv-dark-border: #22314D;
+
   /* Typography: Plus Jakarta Sans (display, closest Google Font to the wordmark's round C/W/k),
      Atkinson Hyperlegible (body), IBM Plex Mono (formulas, numbers). */
   --font-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
