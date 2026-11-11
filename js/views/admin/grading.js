@@ -18,6 +18,7 @@ import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, appl
 import { regradeRow } from '../../lib/regrade.js';
 import { adminCall } from '../../lib/api.js';
 import { openAccommodationEditor } from './accommodations.js';
+import { studentHref } from './hub/data.js';
 
 // Module state: remembered while switching tabs in the session.
 const BATCH = 50;
@@ -288,11 +289,13 @@ export function renderGrading(root, ctx, { goSettings }) {
         return h('tr', { class: 'adm-row', tabindex: '0', 'aria-label': `Grade ${r.student_name || r.student_email}`, dataset: { testid: 'grading-row' },
           on: { click: open, keydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } } },
         h('td', { class: 'adm-td-check', on: { click: stop, keydown: stop } }, pick),
-        h('td', {}, r.student_name || '—'), h('td', { class: 'adm-td-email' }, r.student_email || '—'),
+        h('td', {}, r.student_email && feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
+        h('td', { class: 'adm-td-email' }, r.student_email || '—'),
         h('td', {}, h('span', { class: 'adm-item__code adm-item__code--sm' }, r.test_code)),
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
         h('td', {}, r.status === STATUS.NEEDS_GRADING ? h('span', { class: 'faint' }, 'Pending') : `${round2(r.score_achieved)} / ${round2(r.score_total)} (${formatPercent(r.percentage)})`),
-        h('td', {}, statusPill(r.status)),
+        h('td', {}, statusPill(r.status), r.late ? h('span', { class: 'pill pill--warning', dataset: { testid: 'grading-late' } }, 'Late') : null,
+          r.assignmentId && r.dueAt ? h('div', { class: 'faint', dataset: { testid: 'grading-due' } }, `Due ${fmtDate(r.dueAt)}`) : null),
         h('td', { dataset: { testid: 'grading-released' } }, r.released_at ? 'Yes' : '—',
           r.retake_allowed_at ? h('span', { class: 'pill pill--primary adm-retake-pill', dataset: { testid: 'retake-allowed' } }, 'Retake allowed') : null));
       });

@@ -2,6 +2,8 @@
 // reduced answer choices, read-aloud, and a deadline extension. Stored in the Accommodations sheet; the backend returns
 // them with getStudentStatus, so they apply on any device the student signs in on.
 import { h, mount, icon, toast, openModal } from '../../ui.js';
+import { feature } from '../../config.js';
+import { studentHref } from './hub/data.js';
 import { adminCall } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
 import { field, emptyState, skeleton } from './common.js';
@@ -56,7 +58,7 @@ export function renderAccommodations(root, ctx, { goSettings } = {}) {
     mount(table, h('div', { class: 'adm-table-wrap' }, h('table', { class: 'adm-table' },
       h('thead', {}, h('tr', {}, ['Student', 'Test', 'Extra time', 'Attempts', 'Reduced', 'Read-aloud', 'Extended until', ''].map((t) => h('th', { scope: 'col' }, t)))),
       h('tbody', {}, list.map((a) => h('tr', { dataset: { testid: `acc-row-${a.email}` } },
-        h('td', {}, a.email), h('td', {}, a.testCode === '*' ? 'All tests' : a.testCode), h('td', {}, a.extraTime > 1 ? `× ${a.extraTime}` : '—'),
+        h('td', {}, feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(a.email) }, a.email) : a.email), h('td', {}, a.testCode === '*' ? 'All tests' : a.testCode), h('td', {}, a.extraTime > 1 ? `× ${a.extraTime}` : '—'),
         h('td', {}, String(a.extraAttempts || 0)), h('td', {}, a.reducedChoices ? 'Yes' : '—'), h('td', {}, a.readAloud ? 'Yes' : '—'),
         h('td', {}, a.extensionUntil ? new Date(a.extensionUntil).toLocaleString() : '—'),
         h('td', {}, h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: () => openAccommodationEditor(ctx, { current: a, onSaved: load }) } }, 'Edit'),
