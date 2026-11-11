@@ -80,9 +80,9 @@ function login(email, name = email) { tokens[`tok-${name}`] = goodToken(email); 
 
 beforeEach(() => loadScript());
 
-test('version is 4.0.0 and ping reports it', () => {
-  assert.equal(vm.runInContext('VERSION', ctx), '4.0.0');
-  assert.equal(JSON.parse(ctx.doGet({ parameter: { action: 'ping' } }).getContent()).version, '4.0.0');
+test('version is 5.0.0 and ping reports it', () => {
+  assert.equal(vm.runInContext('VERSION', ctx), '5.0.0');
+  assert.equal(JSON.parse(ctx.doGet({ parameter: { action: 'ping' } }).getContent()).version, '5.0.0');
 });
 
 test('requireAdmin_: key path', () => {

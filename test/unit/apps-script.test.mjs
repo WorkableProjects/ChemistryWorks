@@ -114,9 +114,9 @@ test('first submission creates both sheets with formatted headers', () => {
     'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)',
     'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-    'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed', 'Drawn Questions', 'Time Limit Applied', 'Late', 'Class',
+    'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed', 'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At',
   ]);
-  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 29));
+  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 31));
   assert.ok(s.formats.some((f) => f.bg === '#E2E8F0'));
 });
 
@@ -273,7 +273,9 @@ test('getResults returns parsed ResultRow objects and filters by test code', () 
 });
 
 test('getResults on an empty sheet returns no rows', () => {
-  assert.deepEqual(post({ action: 'getResults', adminKey: 'secret' }), { result: 'success', rows: [] });
+  const r = post({ action: 'getResults', adminKey: 'secret' });
+  assert.equal(r.result, 'success');
+  assert.deepEqual(r.rows, []);
 });
 
 test('appsscript.json manifest is valid and configured for the web app', () => {
@@ -347,7 +349,7 @@ test('older 14-column sheets get the new grading headers added', () => {
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)']);
   sheets.set('Submissions', s);
   post(sample());
-  assert.equal(s.rows[0].length, 29);
+  assert.equal(s.rows[0].length, 31);
   assert.equal(s.rows[0][14], 'Status');
   assert.equal(s.rows[0][19], 'Teacher Note');
   assert.equal(s.rows[0][21], 'Released At');
@@ -409,7 +411,7 @@ test('getSubmissionCounts requires the admin key and counts per test code', () =
 test('v4: the admin key path works as before and does not need the Admins sheet', () => {
   assert.equal(post({ action: 'listTests', adminKey: 'secret' }).result, 'success');
   assert.equal(sheets.has('Admins'), false);
-  assert.equal(get({ action: 'ping' }).version, '4.0.0');
+  assert.equal(get({ action: 'ping' }).version, '5.0.0');
 });
 
 test('v4 S10: payload.instance.seed is stored in the Seed column (also instance_json / instance_seed)', () => {
