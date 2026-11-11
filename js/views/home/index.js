@@ -8,7 +8,7 @@ import { getUser } from '../../lib/auth.js';
 import { load, remove } from '../../lib/storage.js';
 import { loadProfile, subscribeProfile } from '../../lib/profile.js';
 import { getSyncState, onSyncState } from '../../lib/sync.js';
-import { pickGreeting, firstNameOf } from '../../lib/greetings.js';
+import { firstNameOf } from '../../lib/greetings.js';
 import { progressKey } from '../../lib/attempt.js';
 import { modeById as getGame } from '../../lib/modes/index.js';
 import { paintHubUpNext, reminderBanner } from './upnext.js';
@@ -47,7 +47,9 @@ export function render(root, ctx, params = {}) {
   const user = getUser();
   if (!user) return undefined;
   const first = firstNameOf(user);
-  const greeting = pickGreeting(new Date(), first); // picked once so repaints don't change it
+  // The greetings.js pool is written for teachers ("Grading by lamplight"); students get a plain time-of-day line.
+  const hr = new Date().getHours();
+  const greeting = `Good ${hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening'}${first ? `, ${first}` : ''}`;
   let profile = null;
 
   // ----- header (code field is created once so typing survives repaints) -----

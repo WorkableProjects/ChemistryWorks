@@ -7,6 +7,7 @@
 //   fraction = slots right / slots compared (partialCredit: false gives 0 unless all right).
 import { registerType } from './registry.js';
 import { elementOf, normSymbol } from './ionbuilder.js';
+export { elementOf };
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (v === undefined || v === null ? '' : String(v));
