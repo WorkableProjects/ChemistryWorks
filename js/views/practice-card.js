@@ -8,7 +8,8 @@ import { keys, load } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
 import { loadTest } from '../lib/tests.js';
 import { practiceItems } from '../lib/xp.js';
-import { getGame, loadBest } from '../lib/games/index.js';
+import { modeById as getGame } from '../lib/modes/index.js';
+import { loadModeBest as loadBest } from '../lib/modes/common.js';
 
 function knownCodes(user) {
   const email = String(user.email || '').toLowerCase();

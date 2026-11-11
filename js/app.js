@@ -3,7 +3,7 @@
 // View contract: each view module exports `render(root, ctx, params)` which builds its DOM inside
 // `root` and may return a cleanup function (remove listeners, stop timers). Views:
 //   landing  params: { code?: string, error?: string }
-//   mode-select params: { test, source }  (Study vs Game chooser; only for tests with gameMode === true)
+
 //   game     params: { test, source }     (single-player practice; never submits)
 //   runner   params: { test, source, preview?: boolean }
 //   results  params: { test, grade, payload, submission, preview?: boolean }
@@ -14,6 +14,7 @@
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
 
 import { CONFIG, feature } from './config.js';
+import { clearStore } from './lib/store.js';
 import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
 import { whoAmI } from './lib/api.js';
 import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './lib/admin-session.js';
@@ -35,10 +36,11 @@ import * as submitted from './views/submitted.js';
 // Rarely needed heavy views are lazy: an entry may be a loader `() => import(...)` that navigate() awaits once.
 const VIEWS = {
   landing, runner, results, feedback, submitted,
-  'mode-select': () => import('./views/mode-select.js'),
   unavailable: () => import('./views/unavailable.js'),
   game: () => import('./views/game.js'),
   admin: () => import('./views/admin.js'),
+  profile: () => import('./views/profile.js'),
+  class: () => import('./views/class.js'),
 };
 const root = document.getElementById('app');
 let cleanup = null;
@@ -62,6 +64,7 @@ export const ctx = {
   get user() { return getUser(); },
   signOut() {
     signOut();
+    clearStore();
     navigate('landing');
   },
   navigate,
@@ -82,7 +85,9 @@ function navigate(view, params = {}) {
   // Teacher accent in the admin panel and in admin previews of a test; student accent everywhere else.
   applyRole(view === 'admin' || params.preview ? 'admin' : 'student');
   if (view === 'admin') setUrl({ admin: 'true' });
-  else if ((view === 'runner' || view === 'mode-select' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
+  else if ((view === 'runner' || view === 'game') && !params.preview) setUrl({ code: params.test.code });
+  else if (view === 'profile') setUrl({ view: 'profile' });
+  else if (view === 'class') setUrl({ view: 'class', id: params.id });
   else if (view === 'landing') setUrl({ code: params.code || null });
   else if ((view === 'feedback' || view === 'submitted') && params.test?.code) setUrl({ code: params.test.code });
   window.scrollTo({ top: 0 });
@@ -121,7 +126,7 @@ function navigate(view, params = {}) {
 }
 
 /** Load a test by code and open it in the runner (student mode). Errors return to landing. */
-async function openTest(code) {
+async function openTest(code, opts = {}) {
   const c = normalizeCode(code);
   try {
     const idToken = ctx.user?.provider === 'google' ? getIdToken() : null;
@@ -154,7 +159,13 @@ async function openTest(code) {
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
-    navigate(test.gameMode === true ? 'mode-select' : 'runner', { test, source, cleared: true });
+    // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
+    if (feature('v5Attempt')) {
+      const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
+      if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
+      return navigate('runner', { test, source, cleared: true });
+    }
+    navigate('runner', { test, source, cleared: true });
   } catch (err) {
     if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });
     navigate('landing', { code: c, error: err.message });
@@ -273,6 +284,8 @@ function start() {
   if (params.get('admin') === 'true') return adminGate();
 
   if (code && getUser()) return openTest(code);
+  if (params.get('view') === 'profile' && getUser() && feature('studentHome')) return navigate('profile');
+  if (params.get('view') === 'class' && params.get('id') && getUser() && feature('classHub')) return navigate('class', { id: params.get('id') });
   navigate('landing', { code: code ? normalizeCode(code) : undefined });
 }
 

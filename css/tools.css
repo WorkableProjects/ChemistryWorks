@@ -5,7 +5,7 @@
 /* ---------- Settings: text size and dyslexia-friendly spacing ---------- */
 :root[data-cw-font="large"] { font-size: 112.5%; }
 :root[data-cw-font="xlarge"] { font-size: 125%; }
-:root[data-cw-spacing="wide"] body { letter-spacing: 0.04em; word-spacing: 0.12em; line-height: 1.75; }
+:root[data-cw-spacing="wide"] body { word-spacing: 0.12em; line-height: 1.75; }
 :root[data-cw-spacing="wide"] .q-text, :root[data-cw-spacing="wide"] .opt__text { line-height: 1.8; }
 
 /* ---------- Calculator ---------- */
@@ -15,7 +15,7 @@
 .calc__row { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); min-height: 32px; }
 .calc__result { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--text); text-align: right; overflow-wrap: anywhere; }
 .calc__result.is-error { font-size: 14px; color: var(--danger-ink); font-family: var(--font-body); }
-.calc__mem { font-size: 12px; font-weight: 700; color: var(--primary-ink); background: var(--primary-soft); border-radius: var(--radius-sm); padding: 2px 8px; }
+.calc__mem { font-size: 12px; font-weight: 600; color: var(--primary-ink); background: var(--primary-soft); border-radius: var(--radius-sm); padding: 2px 8px; }
 .calc__tools { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: var(--space-2); }
 .calc__keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); }
 .calc__key { min-height: var(--touch); min-width: 0; padding: 0 4px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-elev); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
@@ -76,9 +76,9 @@ mark.tool-mark { background: var(--warning-soft); color: inherit; box-shadow: 0 
 .dash__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .dash__item { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
 .dash__main { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; flex: 1 1 200px; min-width: 0; }
-.dash__title { font-weight: 700; overflow-wrap: anywhere; }
+.dash__title { font-weight: 600; overflow-wrap: anywhere; }
 .dash__meta { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; font-size: 14px; }
-.dash__score { font-family: var(--font-display); font-weight: 700; }
+.dash__score { font-family: var(--font-display); font-weight: 600; }
 .dash__practice { margin-top: var(--space-4); }
 .dash__practice[hidden] { display: none; }
 

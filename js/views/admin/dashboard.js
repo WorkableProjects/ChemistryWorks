@@ -6,7 +6,8 @@ import { h, mount, icon, toast, openModal, prefersReducedMotion } from '../../ui
 import { CONFIG } from '../../config.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { getUser } from '../../lib/auth.js';
-import { fetchResults, listPublishedTests, getLog, releaseAll } from '../../lib/api.js';
+import { releaseAll } from '../../lib/api.js';
+import { resultsResource, publishedTestsResource, logResource } from './data.js';
 import { checkBackendVersion } from '../../lib/version-check.js';
 import { getDrafts } from '../../lib/tests.js';
 import { normalizeTest } from '../../lib/schema.js';
@@ -102,18 +103,32 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
   const card = (title, iconName, content, { wide = false, testid } = {}) => h('section', { class: ['dash-card', wide && 'dash-card--wide'], style: `--i:${idx++}`, dataset: { testid }, 'aria-label': title },
     h('h3', { class: 'dash-card__title' }, icon(iconName, { size: 18 }), title), content);
 
+  // Cached on the store: coming back to the dashboard paints at once and refreshes in the background.
+  const resultsRes = resultsResource();
+  const pubRes = publishedTestsResource();
+  const logRes = logResource();
+  let version = null;
+  function paint() {
+    if (!alive) return;
+    const rows = resultsRes.peek() ? resultsRes.peek().rows : null;
+    const pub = pubRes.peek() || null;
+    const log = logRes.peek() || null;
+    const tests = [...(pub || []), ...drafts().map((d) => ({ code: d.code, title: d.title, opensAt: d.opensAt, closesAt: d.closesAt, published: false }))];
+    const data = computeDashboard({ rows: rows || [], tests, log: log || [] });
+    draw({ data, haveRows: !!rows, havePub: !!pub, haveLog: !!(log && log.length), version });
+  }
+  let painted = false;
+  const unsubs = authed ? [resultsRes, pubRes, logRes].map((r) => r.subscribe(() => { if (painted) paint(); })) : [];
+
   async function load() {
     const settle = (p) => p.then((v) => v, () => null);
-    const [res, pub, log, ver] = authed
-      ? await Promise.all([
-        settle(fetchResults({ gasUrl, adminKey: adminKey() })), settle(listPublishedTests({ gasUrl, adminKey: adminKey() })),
-        settle(getLog({ gasUrl, adminKey: adminKey(), limit: 20 })), settle(checkBackendVersion({ gasUrl }))])
-      : [null, null, null, null];
+    if (!authed) { paint(); painted = true; return; }
+    const ver = settle(checkBackendVersion({ gasUrl })).then((v) => { version = v; if (painted) paint(); });
+    await Promise.all([settle(resultsRes.get()), settle(pubRes.get()), settle(logRes.get())]);
     if (!alive) return;
-    const rows = res && res.ok ? res.rows : null;
-    const tests = [...(pub && pub.ok ? pub.tests : []), ...drafts().map((d) => ({ code: d.code, title: d.title, opensAt: d.opensAt, closesAt: d.closesAt, published: false }))];
-    const data = computeDashboard({ rows: rows || [], tests, log: log && log.ok ? log.rows : [] });
-    draw({ data, haveRows: !!rows, havePub: !!(pub && pub.ok), haveLog: !!(log && log.ok && log.rows.length), version: ver });
+    painted = true;
+    paint();
+    await ver;
   }
 
   function draw({ data, haveRows, havePub, haveLog, version }) {
@@ -138,7 +153,7 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
         attention.appendChild(h('li', {}, icon('send', { size: 16 }), h('strong', {}, String(x.n)), `graded, not released in ${x.code}`));
       }
       if (data.flagged) attention.appendChild(h('li', {}, icon('flag', { size: 16 }), h('strong', {}, String(data.flagged)), 'questions flagged by students'));
-      cards.push(card('Needs attention', 'alert', attention.children.length ? attention : h('p', { class: 'muted', dataset: { testid: 'dash-all-clear' } }, 'All caught up. Nothing is waiting for you.'), { testid: 'dash-attention' }));
+      cards.push(card('Needs attention', 'alert', attention.children.length ? attention : h('p', { class: 'muted', dataset: { testid: 'dash-all-clear' } }, 'Nothing to grade or release'), { testid: 'dash-attention' }));
     }
     if (data.schedule.length) {
       cards.push(card('Today and this week', 'clock', h('ul', { class: 'dash-list' }, data.schedule.map((s) => h('li', {},
@@ -152,8 +167,7 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
         stat('Submissions this week', data.submissionsThisWeek);
         if (data.latest) stat(`Class average, ${data.latest.code}`, data.latest.average, { suffix: '%', decimals: 1 });
       }
-      cards.push(card('Quick stats', 'chart', h('div', { class: 'stack' }, stats, haveRows && data.latest
-        ? h('button', { class: 'dash-link', type: 'button', on: { click: () => go?.('insights') } }, 'Open Insights') : null), { testid: 'dash-stats' }));
+      cards.push(card('Quick stats', 'chart', h('div', { class: 'stack' }, stats), { testid: 'dash-stats' }));
     }
     if (haveRows && data.recentSubmissions.length) {
       cards.push(card('Recent activity', 'inbox', h('ul', { class: 'dash-list' }, data.recentSubmissions.map((s) => h('li', {},
@@ -170,7 +184,7 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
         on: { click: () => { try { openInBuilder?.(normalizeTest(last)); } catch { toast('Could not open that draft.', { type: 'error' }); } } } }, icon('list', { size: 16 }), 'Open last edited'),
       h('button', { class: 'btn btn--ghost', type: 'button', disabled: !data.toGradeTotal, dataset: { testid: 'dash-grade-next' }, on: { click: () => gradeNext?.({ code: data.toGrade[0]?.code }) } }, icon('pen', { size: 16 }), 'Grade next'),
       h('button', { class: 'btn btn--ghost', type: 'button', disabled: !data.unreleasedTotal, dataset: { testid: 'dash-release-all' }, on: { click: () => confirmRelease(data.unreleased) } }, icon('send', { size: 16 }), 'Release all'));
-    cards.push(card('Quick actions', 'sparkle', actions, { wide: true, testid: 'dash-actions' }));
+    cards.push(card('Quick actions', 'list', actions, { wide: true, testid: 'dash-actions' }));
     body.removeAttribute('aria-busy');
     mount(body, cards);
   }
@@ -190,13 +204,13 @@ export function renderDashboard(root, ctx, { go, newTest, openInBuilder, goSetti
             if (r.ok) released += r.released || 0; else failed++;
           }
           toast(failed ? `Released ${released}; ${failed} test${failed === 1 ? '' : 's'} failed` : `Released ${released} submission${released === 1 ? '' : 's'}`, { type: failed ? 'warning' : 'success' });
-          if (alive) load();
+          if (alive) resultsRes.refresh();
         } },
       ],
     });
   }
 
   load();
-  return () => { alive = false; };
+  return () => { alive = false; unsubs.forEach((u) => u()); };
 }
 

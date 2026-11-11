@@ -83,14 +83,13 @@ test('navLayout: full >= 1200, icons-only 768-1199, drawer below 768, remembered
 test('navGroups hides entries whose view is not registered yet, and shows them once it is', () => {
   const items = NAV_ITEMS.map((x) => ({ ...x }));
   let g = navGroups(items);
-  assert.deepEqual(g.map((x) => x.id), ['teaching', 'tools', 'bottom']);
+  assert.deepEqual(g.map((x) => x.id), ['teaching', 'bottom']);
   assert.deepEqual(g[0].items.map((x) => x.id), ['dashboard', 'library', 'builder', 'grading']);
-  assert.deepEqual(g[1].items.map((x) => x.id), ['insights']);
-  assert.deepEqual(g[2].items.map((x) => x.id), ['settings']);
+  assert.deepEqual(g[1].items.map((x) => x.id), ['settings']);
   registerNavItem({ id: 'bank', render: () => {} }, items);
   registerNavItem({ id: 'live', label: 'Live', icon: 'play', group: 'tools', render: () => {} }, items);
   g = navGroups(items);
-  assert.deepEqual(g[1].items.map((x) => x.id), ['insights', 'bank', 'live']);
+  assert.deepEqual(g[1].items.map((x) => x.id), ['bank', 'live']);
   assert.equal(items.filter((x) => x.id === 'bank').length, 1);
 });
 
@@ -102,7 +101,7 @@ test('in-test tabs and breadcrumb', () => {
   assert.equal(testTabFor('grading'), 'submissions');
   assert.equal(testTabFor('builder', 'settings'), 'settings');
   assert.equal(testTabFor('grading', 'settings'), 'submissions');
-  assert.deepEqual(TEST_TABS.map((t) => t.label), ['Overview', 'Questions', 'Submissions', 'Insights', 'Settings']);
+  assert.deepEqual(TEST_TABS.map((t) => t.label), ['Overview', 'Questions', 'Submissions', 'Settings']);
   assert.deepEqual(breadcrumbFor(NAV_ITEMS, 'grading', 'UNIT3').map((p) => p.label), ['ChemWorks', 'Grading', 'UNIT3']);
   assert.deepEqual(breadcrumbFor(NAV_ITEMS, 'dashboard').map((p) => p.label), ['ChemWorks', 'Dashboard']);
 });

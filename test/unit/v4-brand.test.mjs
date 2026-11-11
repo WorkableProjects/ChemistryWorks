@@ -21,7 +21,7 @@ test('page title and app name use the full name', () => {
 });
 
 test('no string mixes the full and short names', () => {
-  const files = ['js/ui.js', 'js/app.js', 'js/views/landing.js', 'js/views/results.js', 'js/views/feedback.js', 'js/views/submitted.js', 'js/views/mode-select.js', 'js/lib/export.js', 'index.html'];
+  const files = ['js/ui.js', 'js/app.js', 'js/views/landing.js', 'js/views/results.js', 'js/views/feedback.js', 'js/views/submitted.js', 'js/lib/export.js', 'index.html'];
   for (const f of files) {
     const src = readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8');
     for (const m of src.matchAll(/(['"`])((?:(?!\1).){0,400}?)\1/g)) {

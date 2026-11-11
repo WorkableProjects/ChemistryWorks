@@ -1,9 +1,9 @@
-// S07: insights, per-question gradebook columns, grade-by-question merge helpers, bulk planning.
+// S07: per-question gradebook columns, grade-by-question merge helpers, bulk planning.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  normalizeRow, mean, median, scoreDistribution, testInsights, questionInsights, answersForQuestion, toGradebookCsv, questionColumns,
-  mergeGrade, mergeComment, pendingAfter, stepIndex, planBulk, summarizeBulk, BULK, STATUS, REVIEW_THRESHOLD,
+  normalizeRow, answersForQuestion, toGradebookCsv, questionColumns,
+  mergeGrade, mergeComment, pendingAfter, stepIndex, planBulk, summarizeBulk, BULK, STATUS,
 } from '../../js/views/admin/stats.js';
 
 const resp = (questionId, type, pts, possible, over = {}) => ({
@@ -22,67 +22,6 @@ const FIX = [
   raw('s4', [resp('q1', 'mcq', 0, 2, { givenAnswerText: 'C' }), resp('q2', 'truefalse', 0, 1), q3()]),
   raw('s5', [resp('q1', 'mcq', 2, 2)], { status: STATUS.EXTRA }),
 ].map(normalizeRow);
-
-test('mean / median', () => {
-  assert.equal(mean([]), 0);
-  assert.equal(mean([100, 20, 20]), 46.67);
-  assert.equal(median([]), 0);
-  assert.equal(median([20, 100, 20]), 20);
-  assert.equal(median([10, 20, 30, 40]), 25);
-  assert.equal(median([NaN, 5]), 5);
-});
-
-test('scoreDistribution: ten 10% buckets, 100 lands in the last one', () => {
-  const b = scoreDistribution([0, 9.99, 10, 55, 89.9, 90, 100, 120, -5, 'x']);
-  assert.equal(b.length, 10);
-  assert.deepEqual(b.map((x) => x.count), [3, 1, 0, 0, 0, 1, 0, 0, 1, 3]);
-  assert.deepEqual([b[0].from, b[0].to, b[9].from, b[9].to], [0, 10, 90, 100]);
-  assert.equal(scoreDistribution([]).reduce((s, x) => s + x.count, 0), 0);
-});
-
-test('testInsights matches the hand calculation', () => {
-  const s = testInsights(FIX);
-  assert.equal(s.count, 3);                 // s4 pending and s5 extra are left out
-  assert.equal(s.pending, 1);
-  assert.equal(s.average, 46.67);           // (100 + 20 + 20) / 3
-  assert.equal(s.median, 20);
-  assert.equal(s.avgDuration, 600);         // (300 + 900) / 2: the row without a time is ignored
-  assert.deepEqual(s.buckets.map((b) => b.count), [0, 0, 2, 0, 0, 0, 0, 0, 0, 1]);
-});
-
-test('testInsights with no graded rows', () => {
-  const s = testInsights([]);
-  assert.deepEqual([s.count, s.pending, s.average, s.median, s.avgDuration], [0, 0, 0, 0, 0]);
-});
-
-test('questionInsights: % correct, average points, most-chosen wrong answer, review flag', () => {
-  const qs = questionInsights(FIX);
-  assert.deepEqual(qs.map((q) => q.questionId), ['q1', 'q2', 'q3']);
-  const [a, b, c] = qs;
-  assert.equal(a.n, 3);
-  assert.equal(a.pctCorrect, 33.33);        // 1 of 3
-  assert.equal(a.avgPoints, 0.67);          // 2 / 3
-  assert.equal(a.pointsPossible, 2);
-  assert.deepEqual(a.topWrong, { text: 'B', count: 2 });
-  assert.equal(a.review, true);             // under 40%
-  assert.equal(b.pctCorrect, 66.67);
-  assert.deepEqual(b.topWrong, { text: 'False', count: 1 });
-  assert.equal(b.review, false);
-  assert.equal(c.n, 3);
-  assert.equal(c.avgPoints, 1);             // teacher points 2, 1, 0
-  assert.equal(c.pctCorrect, 33.33);
-  assert.equal(c.topWrong, null);           // short answers have no "most-chosen wrong answer"
-  assert.equal(REVIEW_THRESHOLD, 40);
-});
-
-test('questionInsights: exactly 40% is not flagged; unanswered counted', () => {
-  const rows = [1, 2, 3, 4, 5].map((i) => normalizeRow(raw(`r${i}`, [resp('q1', 'mcq', i <= 2 ? 1 : 0, 1, i === 5 ? { answered: false, givenAnswerText: '' } : { givenAnswerText: 'B' })], { status: STATUS.AUTO })));
-  const [q] = questionInsights(rows);
-  assert.equal(q.pctCorrect, 40);
-  assert.equal(q.review, false);
-  assert.equal(q.unanswered, 1);
-  assert.deepEqual(q.topWrong, { text: 'B', count: 2 });
-});
 
 test('answersForQuestion lists every student except extra attempts', () => {
   const list = answersForQuestion(FIX, 'q3');

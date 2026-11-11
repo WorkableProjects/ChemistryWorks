@@ -135,9 +135,9 @@ export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note =
     if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
     // A pre-2.0 backend saves grades but silently drops comments/release/gradedBy: its reply has no `comments`.
     if (comments !== undefined && !(d.grade && d.grade.comments && typeof d.grade.comments === 'object')) {
-      return { ok: true, grade: d.grade || null, warning: 'Grade saved, but comments were NOT saved: the deployed Apps Script is out of date. Paste the latest apps-script/Code.gs, then Deploy > Manage deployments > Edit > New version > Deploy.' };
+      return { ok: true, grade: d.grade || null, row: d.row || null, warning: 'Grade saved, but comments were NOT saved: the deployed Apps Script is out of date. Paste the latest apps-script/Code.gs, then Deploy > Manage deployments > Edit > New version > Deploy.' };
     }
-    return { ok: true, grade: d.grade || null };
+    return { ok: true, grade: d.grade || null, row: d.row || null };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -281,3 +281,43 @@ export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {
     return { ok: false, error: msg(e), unavailable: true };
   }
 }
+
+// ---------- v5 (B1): student profile + sync, batch ----------
+// Every wrapper resolves { ok: true, data } | { ok: false, error, unavailable? } and never throws.
+// No gasUrl or an old backend -> { ok: false, unavailable: true }: callers keep working from localStorage.
+async function studentCall(action, payload, { gasUrl, idToken, fetchImpl } = {}) {
+  if (!gasUrl) return { ok: false, error: 'no_backend_url', unavailable: true };
+  let token = idToken;
+  if (!token) {
+    try { token = await getFreshIdToken(); } catch (e) { token = ''; }
+  }
+  return publicCall(action, { ...payload, idToken: token || undefined }, { gasUrl, fetchImpl });
+}
+
+export const getStudentProfile = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getStudentProfile', {}, { gasUrl, idToken, fetchImpl });
+export const saveStudentProfile = ({ gasUrl, idToken, prefs, fetchImpl } = {}) => studentCall('saveStudentProfile', { prefs }, { gasUrl, idToken, fetchImpl });
+export const syncProgress = ({ gasUrl, idToken, attempt, xp, fetchImpl } = {}) => studentCall('syncProgress', { attempt, xp }, { gasUrl, idToken, fetchImpl });
+export const getStudentProfileAdmin = ({ gasUrl, adminKey, email, fetchImpl } = {}) => adminCall('getStudentProfileAdmin', { email }, { gasUrl, adminKey, fetchImpl });
+// requests: [{ action, ...fields }] (max 50). -> { ok, data: { results: [...] } }
+export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adminCall('batch', { requests }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- v5 (B2): fast reads ----------
+// -> { ok, data: { tests: [{ code, title, updatedAt, status, questionCount, points, needsGrading, submissionCount }] } }
+export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
+// since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
+export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- v5 (B3): Class Hub ----------
+// Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
+export const saveAssignment = ({ gasUrl, adminKey, assignment, fetchImpl } = {}) => adminCall('saveAssignment', { assignment }, { gasUrl, adminKey, fetchImpl });
+export const deleteAssignment = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteAssignment', { id }, { gasUrl, adminKey, fetchImpl });
+export const listStream = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listStream', { classId }, { gasUrl, adminKey, fetchImpl });
+export const listAssignments = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listAssignments', { classId }, { gasUrl, adminKey, fetchImpl });
+// With `id` (and pinned / body) edits an existing post instead of creating one.
+export const postStream = ({ gasUrl, adminKey, classId, body, type, pinned, id, fetchImpl } = {}) => adminCall('postStream', { classId, body, type, pinned, id }, { gasUrl, adminKey, fetchImpl });
+export const deleteStreamPost = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteStreamPost', { id }, { gasUrl, adminKey, fetchImpl });
+export const getAssignmentStatus = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('getAssignmentStatus', { id }, { gasUrl, adminKey, fetchImpl });
+export const remindMissing = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('remindMissing', { id }, { gasUrl, adminKey, fetchImpl });
+// Student.
+export const getClassHub = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getClassHub', {}, { gasUrl, idToken, fetchImpl });
+export const markNotificationsRead = ({ gasUrl, idToken, ids, all, fetchImpl } = {}) => studentCall('markNotificationsRead', { ids, all }, { gasUrl, idToken, fetchImpl });

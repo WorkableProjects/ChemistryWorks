@@ -7,6 +7,7 @@ import { hasAdminAuth } from '../../lib/admin-session.js';
 import { renderAdmins, renderActivityLog } from './admins.js';
 import { field } from './common.js';
 import { platformPanel } from './platform.js';
+import { appearancePanel } from '../appearance.js';
 
 const truncate = (s, n = 18) => (s && s.length > n + 6 ? `${s.slice(0, n)}…${s.slice(-6)}` : s || '');
 
@@ -69,6 +70,8 @@ export function renderSettings(root, ctx, { onKeyChange, go } = {}) {
         h('p', { class: 'field__hint' }, 'Edit js/config.js (or define window.CHEMISTRYWORKS_CONFIG) to change these.'))),
     h('section', { class: 'card stack', 'aria-label': 'Setup checklist' },
       h('h3', { class: 'adm-h3' }, 'Setup checklist'), checklist)));
+  // V5-06: appearance panel.
+  if (feature('appearance')) root.querySelector('.adm-settings-tab')?.prepend(h('section', { class: 'card stack', 'aria-label': 'Appearance', dataset: { testid: 'admin-appearance' } }, h('h3', { class: 'adm-h3' }, 'Appearance'), appearancePanel({ user: null, role: 'admin' })));
   // V4-08: platform settings, backup / restore, errors (needs a connected backend + admin auth).
   if (hasAdminAuth()) root.querySelector('.adm-settings-tab')?.append(platformPanel(ctx, { go }));
   // V4-07: Admins (owner only) and Activity log, behind the adminAccounts flag.

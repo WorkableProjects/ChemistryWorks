@@ -12,7 +12,7 @@
 /* A right-hand drawer docked beside the questions (collapses to a slim rail; stacks above them on narrow screens). */
 .ref-pane { --ref-top: calc(var(--header-h, 60px) + var(--bar-h, 48px) + 4px + 16px); position: sticky; top: var(--ref-top); max-height: calc(100vh - var(--ref-top) - var(--footer-h, 76px) - 12px); margin-top: 32px; display: flex; flex-direction: column; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow); min-width: 0; }
 .ref-pane__head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--border); }
-.ref-pane__title { margin: 0; font-family: var(--font-display); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); flex: 1; }
+.ref-pane__title { margin: 0; font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--text-muted); flex: 1; }
 .ref-pane__toggle { flex-shrink: 0; }
 .ref-pane__body { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 16px; -webkit-overflow-scrolling: touch; }
 .ref-pane__body[hidden] { display: none; }
@@ -40,7 +40,7 @@
 .ref-tab.is-selected { background: var(--primary-soft); color: var(--primary-ink); box-shadow: inset 0 0 0 1px var(--primary-line); }
 .ref-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .ref-panel[hidden] { display: none; }
-.ref-panel__title { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+.ref-panel__title { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
 .ref-text { font-size: 15px; line-height: 1.6; white-space: pre-line; }
 .ref-image { margin: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .ref-image img { max-width: 100%; height: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elev); }
@@ -50,7 +50,7 @@
 /* Periodic table — laid out like the CST Chemistry Reference Sheet (monochrome, grey frame, white cells). */
 .pt-scroll { overflow-x: auto; padding: 8px; -webkit-overflow-scrolling: touch; background: var(--bg-sunken); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
 .pt-table { border-collapse: collapse; min-width: 860px; width: 100%; table-layout: fixed; }
-.pt-caption { caption-side: top; text-align: left; font-size: 13px; font-weight: 700; padding: 0 0 6px; color: var(--text); }
+.pt-caption { caption-side: top; text-align: left; font-size: 13px; font-weight: 600; padding: 0 0 6px; color: var(--text); }
 .pt-corner { width: 18px; }
 .pt-head { font-size: 10px; font-weight: 600; color: var(--text-muted); text-align: center; padding: 0 0 2px; vertical-align: bottom; line-height: 1.15; }
 .pt-head span { display: block; }
@@ -66,7 +66,7 @@
 .pt-el:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; position: relative; z-index: 1; }
 .pt-el[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--primary); }
 .pt-el__n { font-size: 9px; }
-.pt-el__s { font-size: 16px; font-weight: 700; }
+.pt-el__s { font-size: 16px; font-weight: 600; }
 .pt-el__name { font-size: 7.5px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: clip; }
 .pt-el__m { font-family: var(--mono); font-size: 8.5px; white-space: nowrap; }
 .pt-detail { margin: 10px 0 0; min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-elev); border: 1px solid var(--border); font-size: 14px; line-height: 1.45; }

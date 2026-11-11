@@ -6,15 +6,17 @@
 import { withQuestionImage } from './question-image.js';
 import {
   h, mount, icon, richText, renderMath, toast, openModal,
-  formatDuration, formatDurationLong, appHeader, userBadge, seededShuffle, prefersReducedMotion,
+  formatDuration, formatDurationLong, appHeader, userBadge, prefersReducedMotion,
 } from '../ui.js';
-import { gradeTest, isAnswered } from '../lib/grading.js';
+import { isAnswered } from '../lib/grading.js';
 import { TYPE_LABELS, isRequired } from '../lib/schema.js';
 import { groupQuestions } from '../lib/sections.js';
-import { buildPayload, submitResults } from '../lib/submit.js';
+import { submitResults } from '../lib/submit.js';
 import { CONFIDENCE_LEVELS, validConfidence, hintButtonText } from '../lib/extras.js';
 import { preSubmitBlocked } from '../lib/student-status.js';
-import { load, save, remove } from '../lib/storage.js';
+import { load, save } from '../lib/storage.js';
+import { openAttempt } from '../lib/attempt.js';
+import { modeSwitcher } from './runner/mode-switcher.js';
 import { referencePane } from './reference-pane.js';
 import { feature } from '../config.js';
 import { toolsFor } from './tools/tools-config.js';
@@ -49,31 +51,13 @@ export function render(root, ctx, params = {}) {
   const user = ctx.user || (preview ? { name: 'Preview', email: 'preview@local', picture: null, provider: 'demo' } : null);
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
-  const progressKey = `progress:${user.email}:${test.code}`;
-  const seed = `${user.email}${test.code}`;
-
-  // Stable per-student order (seeded); the original `test` is what gets graded.
-  // Canonical order = unsectioned questions, then each section in order. Shuffling happens inside a group only.
+  // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
+  const toolsOn = feature('studentTools');
+  // V5-01: the attempt owns the question order, the answers, flags and autosave. Game modes open the same attempt,
+  // so work done there shows up here and the other way round.
+  const attempt = openAttempt(test, { user, email: user.email, preview, tools: toolsOn });
   const groups = groupQuestions(test);
-  let ordered = groups.flatMap((g) => (test.shuffleQuestions ? seededShuffle(g.questions, seed + (g.section ? g.section.id : '')) : g.questions.slice()));
-  ordered = ordered.map((q) => {
-    if (!test.shuffleOptions) return q;
-    if (q.type === 'mcq' || q.type === 'multi') return { ...q, options: seededShuffle(q.options, seed + q.id) };
-    // Matching: shuffle both the rows (left) and the columns (right). Grading is by id, so order is display-only.
-    if (q.type === 'matching') {
-      return { ...q, left: seededShuffle(q.left, `${seed}${q.id}left`), right: seededShuffle(q.right, `${seed}${q.id}right`) };
-    }
-    if (q.type === 'categorize') return { ...q, items: seededShuffle(q.items, `${seed}${q.id}items`) };
-    return q;
-  });
-  // Ordering items always start scrambled (never already in the correct order).
-  ordered = ordered.map((q) => {
-    if (q.type !== 'ordering') return q;
-    let items = seededShuffle(q.items, `${seed}${q.id}order`);
-    const key = Array.isArray(q.correctAnswer) ? q.correctAnswer.join('|') : '';
-    if (items.length > 1 && items.map((it) => it.id).join('|') === key) items = [...items.slice(1), items[0]];
-    return { ...q, items };
-  });
+  const ordered = attempt.questions;
   const total = ordered.length;
   // Section of each question (by id) and the sections' calculated point totals; a header goes on the first
   // card of each section as displayed.
@@ -86,49 +70,17 @@ export function render(root, ctx, params = {}) {
   const modeOk = (m) => (m === 'focus' || m === 'scroll' ? m : null);
   const defaultMode = modeOk(test.defaultMode) || modeOk(ctx.config?.DEFAULT_MODE) || 'focus';
 
-  const state = {
-    answers: {}, confidence: {}, hints: new Set(), flagged: new Set(), index: 0, mode: defaultMode, startedAt: Date.now(),
-    tabSwitches: 0, submitting: false, done: false,
-    scratch: {}, struck: {}, flagNotes: {}, // V4-05 student tools: saved with progress, never submitted
-  };
-  // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
-  const toolsOn = feature('studentTools');
+  const state = attempt.state; // shared with the attempt: answers, confidence, hints, flagged, index, startedAt, …
+  const saved = attempt.resumed;
+  if (!(test.allowModeToggle !== false && modeOk(state.mode))) state.mode = defaultMode;
   const tools = toolsFor(test, { enabled: toolsOn, accommodations: user.accommodations });
-  if (toolsOn) ensureToolsCss();
-
-  // ---- restore
-  const saved = preview ? null : load(progressKey, null);
-  if (saved && typeof saved === 'object') {
-    for (const [k, v] of Object.entries(saved.answers || {})) if (byId.has(k) && isAnswered(byId.get(k), v)) state.answers[k] = v;
-    for (const k of saved.flagged || []) if (byId.has(k)) state.flagged.add(k);
-    for (const [k, v] of Object.entries(saved.confidence || {})) if (byId.get(k)?.confidence && validConfidence(v)) state.confidence[k] = Number(v);
-    for (const k of saved.hints || []) if (byId.get(k)?.hint) state.hints.add(k);
-    if (toolsOn) {
-      state.scratch = normalizeScratchMap(saved.scratch, [...byId.keys()]);
-      for (const [k, v] of Object.entries(saved.struck || {})) if (byId.has(k) && Array.isArray(v) && v.length) state.struck[k] = v.map(String);
-      for (const [k, v] of Object.entries(saved.flagNotes || {})) if (byId.has(k) && typeof v === 'string') state.flagNotes[k] = v.slice(0, 200);
-    }
-    state.index = Math.min(Math.max(Number(saved.index) || 0, 0), total - 1);
-    if (test.allowModeToggle !== false && modeOk(saved.mode)) state.mode = saved.mode;
-    if (Number(saved.startedAt) > 0) state.startedAt = Number(saved.startedAt);
-    state.tabSwitches = Number(saved.tabSwitches) || 0;
-  }
+  if (toolsOn) { ensureToolsCss(); state.scratch = normalizeScratchMap(state.scratch, [...byId.keys()]); }
+  if (attempt.lastMode !== 'study') attempt.setMode('study');
 
   const answeredCount = () => ordered.reduce((n, q) => n + (isAnswered(q, state.answers[q.id]) ? 1 : 0), 0);
 
   /* ---- persistence */
-  let saveTimer = null;
-  function saveNow() {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-    if (preview || state.done) return;
-    save(progressKey, {
-      answers: state.answers, confidence: state.confidence, hints: [...state.hints], flagged: [...state.flagged], index: state.index, startedAt: state.startedAt,
-      tabSwitches: state.tabSwitches, mode: state.mode, updatedAt: Date.now(), title: test.title,
-      ...(toolsOn ? { scratch: state.scratch, struck: state.struck, flagNotes: state.flagNotes } : {}),
-    });
-    flashSaved();
-  }
+  function saveNow() { attempt.save(true); }
   // Brief "Saved" tick after an autosave (hidden from assistive tech; purely visual reassurance).
   let savedEl = null;
   let savedT = null;
@@ -140,8 +92,9 @@ export function render(root, ctx, params = {}) {
   }
   function persist(debounce = false) {
     if (preview || state.done) return;
-    if (debounce) { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 250); } else saveNow();
+    if (debounce) attempt.save(); else saveNow();
   }
+  const offAttempt = attempt.subscribe((ev) => { if (ev.type === 'save') flashSaved(); });
 
   /* ---- header chrome */
   const timerText = h('span', { class: 'runner-timer__text' }, '0:00');
@@ -172,6 +125,10 @@ export function render(root, ctx, params = {}) {
   const runnerBar = h('div', { class: 'runner-bar' },
     h('div', { class: 'runner-bar__inner' },
       h('span', { class: 'runner-bar__title', title: test.title }, test.title),
+      !preview && feature('v5Attempt') ? modeSwitcher({
+        test, attempt, current: 'study',
+        onPick: (id) => { attempt.setMode(id); ctx.navigate('game', { test, source: params.source, gameId: id, cleared: true }); },
+      }) : null,
       timerEl, timerAnnouncer));
 
   const progressFill = h('div', { class: 'runner-progress__fill' });
@@ -480,8 +437,9 @@ export function render(root, ctx, params = {}) {
   function setAnswer(qid, val, { debounce = false } = {}) {
     const q = byId.get(qid);
     if (!q || state.done || state.submitting) return;
-    if (isAnswered(q, val)) state.answers[qid] = val; else delete state.answers[qid];
-    refreshQuestion(qid, debounce);
+    attempt.set(qid, val, { debounce });
+    cardById.get(qid)?.refresh();
+    updateChrome();
   }
 
   // The note box gets focus only when the flag is clicked; the G shortcut leaves focus alone so G toggles again.
@@ -682,7 +640,6 @@ export function render(root, ctx, params = {}) {
     if (state.submitting || state.done) return; // timer + click race guard
     state.submitting = true;
     stopTimer();
-    clearTimeout(saveTimer);
     if (auto) { submitModal?.close(); shortcutsModal?.close(); closeDrawer(); }
     const confirmBtn = submitModal?.el.querySelector('[data-testid="confirm-submit"]');
     const cancelBtn = submitModal?.el.querySelector('[data-testid="cancel-submit"]');
@@ -691,7 +648,7 @@ export function render(root, ctx, params = {}) {
     submitBtn.disabled = true;
     runnerEl.classList.add('is-submitting');
     try {
-      const grade = gradeTest(test, state.answers, { hintsUsed: state.hints, confidence: state.confidence });
+      const { grade, payload } = attempt.toSubmission({ auto, layout: state.mode });
       if (preview) {
         state.done = true;
         submitModal?.close();
@@ -699,8 +656,7 @@ export function render(root, ctx, params = {}) {
       } else {
         // V3-02: re-check just before sending (second tab / device). Network errors send anyway (server backstop).
         if (test.singleSubmission && await preSubmitBlocked(ctx, test)) {
-          state.done = true;
-          remove(progressKey);
+          attempt.finish();
           submitModal?.close();
           openModal({
             title: 'Already submitted',
@@ -710,17 +666,8 @@ export function render(root, ctx, params = {}) {
           });
           return;
         }
-        const payload = buildPayload({
-          test, grade, user, startedAt: state.startedAt, submittedAt: Date.now(),
-          flags: {
-            tabSwitches: state.tabSwitches, autoSubmitted: auto, mode: state.mode,
-            // V4-05: flagged questions with the student's optional note { qid: note }; scratchpads are never sent.
-            ...(toolsOn && state.flagged.size ? { questions: Object.fromEntries([...state.flagged].map((id) => [id, String(state.flagNotes[id] || '').trim().slice(0, 200)])) } : {}),
-          },
-        });
         const submission = await submitResults(payload, { config: ctx.config });
-        state.done = true;
-        remove(progressKey);
+        attempt.finish();
         submitModal?.close();
         ctx.navigate('results', { test, grade, payload, submission, preview: false });
       }
@@ -800,7 +747,7 @@ export function render(root, ctx, params = {}) {
     state.tabSwitches += 1;
     persist();
   }
-  const onPageHide = () => { if (saveTimer) saveNow(); };
+  const onPageHide = () => { if (attempt.pending()) saveNow(); };
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('pagehide', onPageHide);
@@ -833,9 +780,10 @@ export function render(root, ctx, params = {}) {
   tick(true);
   startTimer();
   if (!preview) saveNow();
-  if (saved && typeof saved === 'object') toast('Welcome back — your answers were restored', { type: 'success' });
+  if (saved && attempt.answeredCount) toast('Your answers were restored', { type: 'success' });
   cards.forEach((c) => c.refresh());
   updateChrome();
+  if (params.review && !preview) openSubmit(); // V5-01: "Review & submit" from a game mode
 
   // V4-02 S13 live monitor: tell the backend how far along this student is, every 60 s (silently stops on older backends).
   let pingTimer = null;
@@ -863,7 +811,8 @@ export function render(root, ctx, params = {}) {
     window.removeEventListener('beforeunload', onBeforeUnload);
     io?.disconnect();
     io = null;
-    if (saveTimer) saveNow();
+    offAttempt();
+    attempt.destroy();
     cards.forEach((c) => clearTimeout(c.el._leaveT));
     closeDrawer();
     submitModal?.close();

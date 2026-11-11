@@ -1,0 +1,42 @@
+[
+  {
+    "code": "DEMOV3",
+    "title": "V3 Question Types Demo",
+    "description": "One question of each V3 type: balancing, electron configuration, periodic-table pick, significant figures, sorting into groups, labelling a diagram, and reading and plotting a graph.",
+    "questionCount": 8,
+    "points": 19,
+    "timeLimitMinutes": 0
+  },
+  {
+    "code": "DEMOV4A",
+    "title": "V4 Question Types Demo A",
+    "description": "Multi-part, naming (both directions) and dropdown cloze questions, plus the per-question extras: a hint that costs points and a \"How sure are you?\" row.",
+    "questionCount": 5,
+    "points": 12,
+    "timeLimitMinutes": 0
+  },
+  {
+    "code": "DEMOV4B",
+    "title": "V4 Question Types Demo B",
+    "description": "One question of each of five more V4 types: dimensional analysis, nuclear notation, predicting products, molecular shape, and completing a table.",
+    "questionCount": 5,
+    "points": 13,
+    "timeLimitMinutes": 0
+  },
+  {
+    "code": "DEMOV4C",
+    "title": "V4 Question Types Demo C",
+    "description": "Molar mass, picture choice, particle diagram, titration and estimate questions, plus algorithmic questions where every student gets their own numbers.",
+    "questionCount": 8,
+    "points": 16,
+    "timeLimitMinutes": 0
+  },
+  {
+    "code": "DEMOV5",
+    "title": "V5 Question Types Demo",
+    "description": "One question of each V5 type: Bohr shells, oxidation numbers, solubility, heating curve, gas law, molecule builder, ion builder, ionic formula and isotope mass.",
+    "questionCount": 9,
+    "points": 32,
+    "timeLimitMinutes": 0
+  }
+]

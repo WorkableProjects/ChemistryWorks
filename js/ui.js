@@ -115,6 +115,7 @@ const ICONS = {
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
   minus: '<path d="M5 12h14"/>',
   external: '<path d="M14 4h6v6M20 4L10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/>',
 };
 export const ICON_NAMES = Object.keys(ICONS);
 /**
@@ -263,17 +264,36 @@ export function renderMath(root) {
 }
 
 /** Toast notification. type: 'info' | 'success' | 'error' | 'warning' */
-export function toast(message, { type = 'info', timeout = 3200 } = {}) {
+export function toast(message, { type = 'info', timeout = 3200, action = null } = {}) {
   const root = document.getElementById('toast-root');
   if (!root) return;
   const iconName = { success: 'check', error: 'alert', warning: 'alert', info: 'info' }[type] || 'info';
-  const el = h('div', { class: `toast toast--${type}`, dataset: { testid: 'toast' } }, icon(iconName), h('span', {}, message));
+  const el = h('div', { class: `toast toast--${type}`, dataset: { testid: 'toast' } }, icon(iconName), h('span', {}, message),
+    action ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'toast-action' }, on: { click: () => { dismiss(); action.onClick(); } } }, action.label) : null);
   root.appendChild(el);
   requestAnimationFrame(() => el.classList.add('is-visible'));
-  setTimeout(() => {
+  let gone = false;
+  const dismiss = () => {
+    if (gone) return;
+    gone = true;
     el.classList.remove('is-visible');
-    setTimeout(() => el.remove(), 300);
-  }, timeout);
+    el.classList.add('is-leaving');
+    setTimeout(() => el.remove(), prefersReducedMotion() ? 0 : 200);
+  };
+  setTimeout(dismiss, timeout);
+  // Swipe sideways to dismiss.
+  let x0 = null;
+  el.addEventListener('pointerdown', (e) => { x0 = e.clientX; el.classList.add('is-dragging'); el.setPointerCapture?.(e.pointerId); });
+  el.addEventListener('pointermove', (e) => { if (x0 !== null) el.style.setProperty('--swipe-x', `${e.clientX - x0}px`); });
+  const end = (e) => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0;
+    x0 = null;
+    el.classList.remove('is-dragging');
+    if (Math.abs(dx) > 60) dismiss(); else el.style.removeProperty('--swipe-x');
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
 }
 
 /**
@@ -291,7 +311,7 @@ export function openModal({ title, body, actions = [], dismissible = true, testi
     closed = true;
     overlay.classList.remove('is-open');
     document.removeEventListener('keydown', onKey, true);
-    setTimeout(() => overlay.remove(), 220);
+    setTimeout(() => overlay.remove(), prefersReducedMotion() ? 0 : 200);
     previouslyFocused?.focus?.();
     onClose?.();
   };
@@ -379,8 +399,14 @@ export function countUp(el, to, { duration = 600, decimals = 0, suffix = '' } = 
   requestAnimationFrame(tick);
 }
 
+/** Placeholder rows while a list loads (dashboard, library, grading). */
+export function skeleton(rows = 3) {
+  return h('div', { class: 'skeleton', 'aria-hidden': 'true', dataset: { testid: 'skeleton' } },
+    Array.from({ length: rows }, () => h('div', { class: 'skeleton__row' })));
+}
+
 /** Stagger the entrance of `.stagger-item` children (CSS `rise` keyframe) by `step` ms each. */
-export function stagger(listEl, { step = 40 } = {}) {
+export function stagger(listEl, { step = 40 } = {}) {  // step matches --stagger-step
   if (!listEl) return;
   const reduced = prefersReducedMotion();
   let i = 0;
@@ -568,6 +594,14 @@ export function seededShuffle(array, seedString) {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+/** Consistent empty state: an icon, one sentence and at most one action ({ label, onClick }). */
+export function emptyState({ icon: name = 'list', title = '', action = null, testid = '' } = {}) {
+  return h('div', { class: 'empty-state', dataset: testid ? { testid } : {} },
+    h('span', { class: 'empty-state__icon' }, icon(name, { size: 24 })),
+    h('p', { class: 'empty-state__title' }, title),
+    action ? h('button', { type: 'button', class: 'btn btn--subtle btn--sm', on: { click: action.onClick } }, action.label) : null);
 }
 
 // V4-05: re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).

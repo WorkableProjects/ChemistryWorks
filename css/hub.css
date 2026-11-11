@@ -1,0 +1,43 @@
+/* Class Hub (V5-10). Student rules under .hub-student; teacher rules under .hub-admin. Tokens only. */
+
+/* ---- student ---- */
+.hub-student .hub-chip--info, .hub-chip--info { background: var(--primary-soft); color: var(--primary-ink); }
+.hub-chip--warn { background: var(--warning-soft); color: var(--warning-ink); }
+.hub-chip--muted { background: var(--bg-sunken); color: var(--text-muted); }
+
+.hub-banner { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); font-size: 14px; color: var(--text); }
+.hub-banner span { flex: 1; min-width: 0; }
+
+/* 7-day strip */
+.cal-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); overflow: hidden; }
+.cal-day { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); min-height: 72px; min-width: 0; }
+.cal-day + .cal-day { border-left: 1px solid var(--border); }
+.cal-day__name { font-size: 12px; color: var(--text-muted); }
+.cal-day__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 500; color: var(--text); }
+.cal-day.is-today .cal-day__num { color: var(--primary); }
+.cal-day__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.cal-day__item { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-left: 2px solid var(--primary); padding-left: var(--space-1); }
+@media (max-width: 639px) { .cal-day { padding: var(--space-2) var(--space-1); } .cal-day__items { display: none; } .cal-day.has-due .cal-day__num { color: var(--primary); } }
+
+/* Bell */
+.bell { position: relative; }
+.bell__btn { gap: var(--space-1); }
+.bell__count { font-size: 12px; font-weight: 600; color: var(--primary-ink); background: var(--primary-soft); border-radius: 999px; min-width: 20px; height: 20px; padding: 0 var(--space-1); display: inline-flex; align-items: center; justify-content: center; }
+.bell__count[hidden] { display: none; }
+.bell__panel { position: absolute; right: 0; top: calc(100% + var(--space-1)); z-index: 20; width: 320px; max-width: calc(100vw - var(--space-8)); max-height: 360px; overflow: auto; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); box-shadow: var(--shadow); }
+.bell__panel[hidden] { display: none; }
+.bell__list { list-style: none; margin: 0; padding: 0; }
+.bell__item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); }
+.bell__item.is-unread { background: var(--primary-soft); }
+.bell__title { font-size: 14px; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.bell__meta { font-size: 12px; color: var(--text-muted); }
+
+/* Class page */
+.hub-posts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hub-post { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.hub-posts > .hub-post:first-child { border-top: 0; }
+.hub-post__head { display: flex; align-items: center; gap: var(--space-2); }
+.hub-post__body { margin: 0; font-size: 15px; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.hub-class-head { grid-template-columns: 1fr; }
+
+/* ---- teacher (.hub-admin rules are added here by the teacher-side agent) ---- */

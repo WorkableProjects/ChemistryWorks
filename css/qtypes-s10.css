@@ -54,7 +54,7 @@
 .q-part__counts { display: flex; flex-wrap: wrap; gap: 8px; }
 .q-part__count { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: var(--radius-sm); background: var(--bg-elev); border: 1px solid var(--border); }
 .q-part__step { min-width: var(--touch, 44px); min-height: var(--touch, 44px); padding: 0; font-size: 20px; line-height: 1; }
-.q-part__n { min-width: 1.6em; text-align: center; font-weight: 700; font-family: var(--font-mono); }
+.q-part__n { min-width: 1.6em; text-align: center; font-weight: 600; font-family: var(--font-mono); }
 .q-part__p { display: inline-block; width: 20px; height: 20px; flex: none; border: 0; padding: 0; background: var(--primary); }
 .q-part__p--circle { border-radius: 50%; }
 .q-part__p--square { border-radius: 3px; }
@@ -95,7 +95,7 @@ button.q-part__p--placed:hover { outline: 2px solid var(--text); outline-offset:
 .q-tit__mark.is-key { fill: var(--success); }
 .q-tit__mark.is-student { fill: var(--warning); }
 .q-tit__controls { display: grid; gap: 10px; }
-.q-tit__read { margin: 0; font-size: 18px; font-weight: 700; font-family: var(--font-mono); }
+.q-tit__read { margin: 0; font-size: 18px; font-weight: 600; font-family: var(--font-mono); }
 .q-tit__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .q-tit__buttons .btn { min-height: var(--touch, 44px); }
 .q-tit__slider { width: 100%; min-height: var(--touch, 44px); accent-color: var(--primary); }
@@ -131,10 +131,10 @@ button.q-part__p--placed:hover { outline: 2px solid var(--text); outline-offset:
 
 /* ---------- builder: variables panel (V4-09) ---------- */
 .adm-vars { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; background: var(--bg-elev); }
-.adm-vars > summary { cursor: pointer; font-weight: 700; min-height: var(--touch, 44px); display: flex; align-items: center; }
+.adm-vars > summary { cursor: pointer; font-weight: 600; min-height: var(--touch, 44px); display: flex; align-items: center; }
 .adm-vars > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-sm); }
 .adm-vars__row { display: grid; gap: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; }
-.adm-vars__row legend { font-family: var(--font-mono); font-weight: 700; padding: 0 6px; }
+.adm-vars__row legend { font-family: var(--font-mono); font-weight: 600; padding: 0 6px; }
 .adm-vars__preview { display: grid; gap: 8px; justify-items: start; padding: 10px 12px; border-radius: var(--radius); background: var(--bg-sunken); }
 .adm-vars__sample { display: grid; gap: 4px; }
 .adm-vars__line { margin: 0; font-size: 14px; }

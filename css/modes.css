@@ -1,0 +1,106 @@
+/* V5-01 game mode shell (js/views/mode-shell.js) and the Classic / Lightning / Survival rounds. Tokens only. */
+.mode-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+.mode-bar { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+.mode-bar__inner { display: flex; align-items: center; gap: var(--space-3); max-width: 960px; margin: 0 auto; padding: var(--space-2) var(--space-4); }
+.mode-bar__title { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mode-main { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-7); display: flex; flex-direction: column; gap: var(--space-4); }
+
+.mode-hud { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); font-size: 14px; color: var(--text-muted); }
+.mode-hud__item:empty { display: none; }
+.mode-hud__fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; }
+
+.mode-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); animation: mode-in var(--dur-slow) var(--ease-out) both; }
+.mode-card__title { margin: 0; font-size: 22px; font-weight: 600; color: var(--text); outline: none; }
+.mode-card__lead { margin: 0; color: var(--text); }
+.mode-card__note { margin: 0; font-size: 14px; color: var(--text-muted); }
+.mode-card__note[hidden] { display: none; }
+.mode-q__num { margin: 0; font-size: 14px; color: var(--text-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mode-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+
+.mode-feedback { border-left: 4px solid var(--border); }
+.mode-feedback.is-correct { border-left-color: var(--success); }
+.mode-feedback.is-wrong { border-left-color: var(--danger); }
+.mode-feedback__title { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.mode-feedback.is-correct .mode-feedback__title { color: var(--success-ink); }
+.mode-feedback.is-wrong .mode-feedback__title { color: var(--danger-ink); }
+.mode-feedback__line { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.mode-feedback__answer { margin: 0; color: var(--text); }
+.mode-feedback__why { margin: 0; font-size: 14px; color: var(--text-muted); }
+
+.mode-stats { display: flex; flex-wrap: wrap; gap: var(--space-5); }
+.mode-stat { display: flex; flex-direction: column; gap: var(--space-1); }
+.mode-stat__v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; color: var(--text); }
+.mode-stat__l { font-size: 14px; color: var(--text-muted); }
+.mode-stat--main .mode-stat__v { font-size: 40px; font-weight: 600; color: var(--primary); }
+
+@keyframes mode-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mode-card { animation: none; } }
+:root[data-reduce-motion="true"] .mode-card { animation: none; }
+
+@media (max-width: 600px) {
+  .mode-bar__inner { flex-wrap: wrap; }
+  .mode-card { padding: var(--space-4); }
+}
+
+/* Flashcards, Mistake review, Tower, Boss battle (V5 S03b). Tokens only. */
+.mode-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.flash__face { padding: var(--space-4); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius); }
+.flash__face[hidden] { display: none; }
+
+.tower { display: flex; justify-content: center; align-items: flex-end; min-height: 96px; padding: var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.tower__stack { display: flex; flex-direction: column-reverse; align-items: center; gap: var(--space-1); transform-origin: 50% 100%; }
+.tower__base { width: 96px; height: var(--space-1); background: var(--border); border-radius: var(--radius-control); }
+.tower__block { display: flex; align-items: center; justify-content: center; width: 56px; height: 24px; border: 1px solid var(--border); border-radius: var(--space-1); background: var(--bg-sunken); color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; }
+.tower__block:last-of-type { border-color: var(--primary); color: var(--primary); }
+.tower.is-wobble .tower__stack { animation: tower-wobble var(--dur-slow) var(--ease-out) both; }
+.tower.is-fallen .tower__stack { transform: rotate(8deg) translateY(var(--space-1)); opacity: 0.6; }
+@keyframes tower-wobble { 0% { transform: rotate(0); } 30% { transform: rotate(-3deg); } 60% { transform: rotate(2deg); } 100% { transform: rotate(0); } }
+
+.boss { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.boss__head { display: flex; align-items: center; gap: var(--space-2); }
+.boss__tile { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-sunken); font-family: var(--font-mono); font-weight: 600; color: var(--text); }
+.boss__name { font-weight: 500; color: var(--text); }
+.boss__hp { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 14px; color: var(--text-muted); }
+.boss__bar { height: var(--space-2); border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border); overflow: hidden; }
+.boss__fill { display: block; height: 100%; background: var(--danger); transform-origin: 0 50%; transition: transform var(--dur-slow) var(--ease-out); }
+.boss.is-defeated .boss__name { color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) { .tower.is-wobble .tower__stack { animation: none; } .boss__fill { transition: none; } }
+:root[data-reduce-motion="true"] .tower.is-wobble .tower__stack { animation: none; }
+:root[data-reduce-motion="true"] .boss__fill { transition: none; }
+
+/* Match-Up, Quiz show, Race, Bingo (V5 S04a). Tokens only. */
+.matchup { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.matchup__col { display: flex; flex-direction: column; gap: var(--space-2); }
+.matchup__item { text-align: left; padding: var(--space-3); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text); font: inherit; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.matchup__item:active:not(:disabled) { transform: scale(0.98); }
+.matchup__item.is-selected { border-color: var(--primary); }
+.matchup__item.is-matched { background: var(--bg-sunken); color: var(--text-muted); cursor: default; }
+.matchup__item.is-wrong { border-color: var(--danger); }
+
+.board__cols { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); gap: var(--space-3); }
+.board__col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.board__head { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board__tile { height: 48px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-sunken); color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 500; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out); }
+.board__tile:hover:not(:disabled) { border-color: var(--primary); }
+.board__tile:active:not(:disabled) { transform: scale(0.98); }
+.board__tile.is-done { background: var(--bg); cursor: default; }
+.board__tile.is-correct { border-color: var(--primary); }
+
+.race { padding: var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.race__lane { position: relative; height: 80px; border-bottom: 1px solid var(--border); margin: 0 var(--space-6) 0 0; }
+.race__marker { position: absolute; bottom: var(--space-1); left: calc(var(--pos, 0) * 100%); display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 var(--space-1); border: 1px solid var(--primary); border-radius: var(--radius-control); background: var(--bg-sunken); color: var(--primary); font-family: var(--font-mono); font-weight: 600; font-size: 12px; }
+.race__ghost { border-color: var(--border); color: var(--text-muted); bottom: 44px; }
+.race__finish { position: absolute; right: calc(var(--space-6) * -1); bottom: var(--space-1); display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius-control); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted); }
+
+.bingo { display: grid; grid-template-columns: repeat(var(--size, 3), minmax(0, 1fr)); gap: var(--space-2); }
+.bingo__cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-sunken); color: var(--text); cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out); }
+.bingo__cell:hover:not(:disabled) { border-color: var(--primary); }
+.bingo__cell:active:not(:disabled) { transform: scale(0.98); }
+.bingo__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 18px; }
+.bingo__cell .icon { position: absolute; top: var(--space-1); right: var(--space-1); }
+.bingo__cell.is-marked { border-color: var(--primary); color: var(--primary); }
+.bingo__cell.is-missed { color: var(--text-faint); background: var(--bg); }
+.bingo__cell.is-free { color: var(--text-muted); cursor: default; }
+
+@media (max-width: 600px) { .matchup { gap: var(--space-2); } }

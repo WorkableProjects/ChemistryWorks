@@ -4,7 +4,7 @@
 import { h } from '../../ui.js';
 import { adminCall } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
-import { GAMES } from '../../lib/games/index.js';
+import { MODES as GAMES } from '../../lib/modes/index.js';
 import { field, switchEl } from './common.js';
 
 const toLocal = (iso) => { if (!iso) return ''; const d = new Date(iso); if (Number.isNaN(d.getTime())) return ''; const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
@@ -60,7 +60,7 @@ export function testExtrasPanel(t, changed, ctx) {
   const drawPractice = () => {
     const items = Array.isArray(t.practice) ? t.practice : [];
     practiceList.replaceChildren(...items.map((p, i) => h('div', { class: 'row row--wrap' },
-      h('select', { class: 'select adm-select-sm', 'aria-label': 'Game', on: { change: (e) => { p.game = e.target.value; changed(); } } }, GAMES.filter((g) => g.scored !== false).map((g) => h('option', { value: g.id, selected: g.id === p.game }, g.title))),
+      h('select', { class: 'select adm-select-sm', 'aria-label': 'Game', on: { change: (e) => { p.game = e.target.value; changed(); } } }, GAMES.filter((g) => g.id !== 'study').map((g) => h('option', { value: g.id, selected: g.id === p.game }, g.title))),
       h('input', { class: 'input adm-select-sm', type: 'number', min: 0, value: p.target || '', placeholder: 'Target score', 'aria-label': 'Target score', on: { change: (e) => { p.target = Number(e.target.value) || 0; changed(); } } }),
       h('input', { class: 'input adm-select-sm', type: 'date', value: p.due ? String(p.due).slice(0, 10) : '', 'aria-label': 'Due date', on: { change: (e) => { p.due = e.target.value || undefined; changed(); } } }),
       h('button', { class: 'btn btn--subtle btn--sm', type: 'button', on: { click: () => { items.splice(i, 1); if (!items.length) delete t.practice; changed(); drawPractice(); } } }, 'Remove'))),

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "molbuild-1",
+    "type": "molbuild",
+    "text": "Build a molecule of carbon dioxide. Add the atoms, then join them with bonds.",
+    "points": 2,
+    "atoms": ["C", "O", "O"],
+    "bonds": [[0, 1, 2], [0, 2, 2]],
+    "explanation": "Carbon makes four bonds, so it forms a double bond to each oxygen. Each oxygen then has its two bonds."
+  }
+]

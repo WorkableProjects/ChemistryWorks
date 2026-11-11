@@ -27,7 +27,7 @@
 .qpt-el:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .qpt-el[aria-pressed="true"], .qpt-el.is-selected { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .qpt-el__n { font-size: 9px; opacity: 0.8; }
-.qpt-el__s { font-size: 14px; font-weight: 700; }
+.qpt-el__s { font-size: 14px; font-weight: 600; }
 .q-ptable__status { margin: 10px 0 0; }
 @media (max-width: 720px) { .qpt-el { width: 32px; height: 36px; } .qpt-el__s { font-size: 12px; } }
 
@@ -45,7 +45,7 @@
 .q-cat__bin { padding: 10px 12px 12px; border-radius: var(--radius); background: var(--bg-sunken); border: 1px dashed var(--border-control); min-height: 96px; }
 .q-cat__bin.is-over { border-color: var(--primary); background: var(--primary-soft); }
 .q-cat__bin.is-empty { display: none; }
-.q-cat__title { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: none; }
+.q-cat__title { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: none; }
 .q-cat__list { display: grid; gap: 8px; }
 .q-cat__card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-elev); border: 1px solid var(--border-control); cursor: grab; }
 .q-cat__card.is-sorted { border-color: var(--primary-line); }
@@ -59,13 +59,13 @@
 .q-hot__chip:focus-visible, .q-hot__stage:focus-visible, .q-graph__frame--plot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .q-hot__chip.is-placed { border-color: var(--primary-line); background: var(--primary-soft); }
 .q-hot__chip.is-active, .q-hot__chip[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
-.q-hot__num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; background: var(--bg-sunken); color: var(--text); }
+.q-hot__num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 600; background: var(--bg-sunken); color: var(--text); }
 .q-hot__stage { position: relative; display: block; width: fit-content; max-width: 100%; align-self: flex-start; justify-self: start; line-height: 0; border: 1px solid var(--border-control); border-radius: var(--radius-sm); cursor: crosshair; touch-action: manipulation; }
 /* The frame is exactly the image box: pins, rings and the crosshair are positioned in % of it, in the editor and for students. */
 .q-hot__frame { position: relative; display: block; width: fit-content; max-width: 100%; line-height: 0; }
 .q-hot__frame > .q-hot__img { max-width: 100%; }
 .q-hot__img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-sm); user-select: none; -webkit-user-drag: none; }
-.q-hot__pin { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer;
+.q-hot__pin { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; line-height: 1; cursor: pointer;
   color: var(--on-primary); background: var(--primary); border: 2px solid var(--bg-elev); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
 .q-hot__pin[hidden] { display: none; }
 .q-hot__pin--static { cursor: default; background: var(--text-muted); }
@@ -84,7 +84,7 @@
 .q-hot__pin--ok { background: var(--success); }
 .q-hot__pin--bad { background: var(--danger); }
 .q-hot__pin--key { background: var(--primary); }
-.q-hot__mark { position: absolute; top: -9px; right: -9px; min-width: 14px; height: 14px; padding: 0 1px; border-radius: 7px; display: grid; place-items: center; font-size: 10px; line-height: 1; font-weight: 800; color: var(--text); background: var(--bg-elev); border: 1px solid currentColor; }
+.q-hot__mark { position: absolute; top: -9px; right: -9px; min-width: 14px; height: 14px; padding: 0 1px; border-radius: 7px; display: grid; place-items: center; font-size: 10px; line-height: 1; font-weight: 600; color: var(--text); background: var(--bg-elev); border: 1px solid currentColor; }
 .q-hot__pin--ok .q-hot__mark { color: var(--success-ink, var(--success)); }
 .q-hot__pin--bad .q-hot__mark { color: var(--danger); }
 .q-hot__pin.is-snap { animation: q-hot-snap var(--dur-base) var(--ease-spring) both; }
@@ -124,7 +124,7 @@
 .adm-hot__row.is-selected { border-color: var(--primary-line); background: var(--primary-soft); }
 .adm-hot__row .input { height: 40px; }
 .adm-hot__row .pill { white-space: nowrap; }
-.adm-hot__num { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border-control); background: var(--bg-elev); color: var(--text); font: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
+.adm-hot__num { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border-control); background: var(--bg-elev); color: var(--text); font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
 .adm-hot__num[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .adm-hot__exact summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text-muted); }
 .adm-hot__xylist { margin-top: 8px; gap: 6px; }

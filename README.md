@@ -17,7 +17,8 @@ ChemistryWorks lets teachers create and manage chemistry assessments, review stu
 - Review submissions, award partial credit, add comments, and release grades when ready.
 - Organize tests with classes, rosters, question banks, and randomized pools.
 - Export grades as CSV and reviewed submissions as PDF.
-- Use classroom tools such as assessment insights, print versions, and activity logs.
+- Use classroom tools such as print versions and activity logs.
+- Run a Class Hub for each class: assignments with due dates, a class stream, missing-work reminders, and a teacher view of what a student sees.
 
 ### For students
 
@@ -25,8 +26,11 @@ ChemistryWorks lets teachers create and manage chemistry assessments, review stu
 - Complete assessments with autosave and chemistry-aware formula rendering.
 - Use available study tools such as a calculator, constants, scratchpad, and read-aloud support.
 - View released grades and teacher feedback.
+- Practise in ten game modes (Classic, Lightning, Survival, Flashcards, Mistake review, Tower, Boss battle, Match-Up, Quiz show, Race, Bingo), with progress and badges on a student home and profile that follow you across devices.
+- See upcoming work, due dates and notifications in the Class Hub.
+- Answer new question types: ion formulas, atom and ion builder, average atomic mass, Bohr model, oxidation numbers, solubility rules, heating curves, gas laws and molecule builder.
 
-The platform also supports light, dark, and system themes. See the [teacher guide](docs/guide.md) for detailed instructions and the [architecture notes](docs/ARCHITECTURE.md) for the test schema and module contracts.
+The platform also supports light, dark, and system themes, plus an appearance panel for accent colour and text size. See the [teacher guide](docs/guide.md) for detailed instructions and the [architecture notes](docs/ARCHITECTURE.md) for the test schema and module contracts.
 
 ## Run locally
 

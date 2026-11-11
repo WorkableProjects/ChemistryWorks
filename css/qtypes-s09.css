@@ -59,7 +59,7 @@
 .q-vsepr { display: grid; gap: 16px; }
 .q-vsepr__formula { margin: 0; font-size: 20px; }
 .q-vsepr__group { margin: 0; padding: 0; border: 0; min-width: 0; }
-.q-vsepr__legend { padding: 0; margin-bottom: 8px; font-weight: 700; }
+.q-vsepr__legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
 .q-vsepr__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
 .q-vsepr__card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: var(--touch, 44px); padding: 10px 6px;
   text-align: center; cursor: pointer; background: var(--bg-elev); border: 1px solid var(--border-control); border-radius: var(--radius); color: var(--text); }
@@ -82,8 +82,8 @@
 .q-dt__scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .q-dt__table { border-collapse: collapse; width: 100%; background: var(--bg-elev); }
 .q-dt__table th, .q-dt__table td { padding: 8px 10px; border: 1px solid var(--border-control); text-align: center; }
-.q-dt__th, .q-dt__table thead th { background: var(--bg-sunken); font-size: 14px; font-weight: 700; }
-.q-dt__rowhead { font-weight: 700; background: var(--bg-sunken); }
+.q-dt__th, .q-dt__table thead th { background: var(--bg-sunken); font-size: 14px; font-weight: 600; }
+.q-dt__rowhead { font-weight: 600; background: var(--bg-sunken); }
 .q-dt__given { font-weight: 600; }
 .q-dt__in { width: 100%; min-width: 4.5em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); }
 .q-dt__table--sm th, .q-dt__table--sm td { padding: 4px 8px; font-size: 14px; }

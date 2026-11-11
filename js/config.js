@@ -38,9 +38,17 @@ const DEFAULTS = {
   FEATURES: {
     adminShell: true,      // S05: Classroom-style admin shell + dashboard
     adminAccounts: true,  // S06: Google sign-in for admins — turn on after deploying Code.gs 4.0.0 and filling the Admins sheet
-    teacherTools: true,    // S07: insights, grade by question, comment bank (always shown)
+    teacherTools: true,    // S07: grade by question, comment bank (always shown)
     studentTools: true,    // S16: calculator, scratchpad, read-aloud (per test: test.tools)
     v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
+    v5Attempt: true,      // V5-01: shared attempt + mode switcher in the runner
+    v5Games: true,        // V5-01: game modes on the shared attempt (needs v5Attempt)
+    studentHome: true, // V5-02: student home, profile page, Google Sheets sync
+    classHub: true,       // V5-10: assignments, class stream, notifications (needs studentHome)
+    perfStore: true,       // V5-11: client data store, optimistic updates, lazy loading
+    v5Motion: true,        // V5-04/05: sidebar animation + motion pass
+    appearance: true,     // V5-06: appearance panel (theme, accent, text size, density)
+    v5Types: true,         // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
   },
 };
 

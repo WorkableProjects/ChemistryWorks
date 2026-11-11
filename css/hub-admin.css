@@ -1,0 +1,40 @@
+/* Class Hub, teacher side (V5-10). Everything under .hub-admin; tokens only. */
+.hub-admin .hub-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--border); }
+.hub-admin .hub-tabs[hidden] { display: none; }
+.hub-admin .hub-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: var(--space-2) var(--space-3); font: inherit; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
+.hub-admin .hub-tab:hover { color: var(--text); }
+.hub-admin .hub-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--primary); }
+.hub-admin .hub-panel { padding-top: var(--space-4); }
+.hub-admin .hub-empty { color: var(--text-muted); padding: var(--space-5) 0; margin: 0; }
+
+.hub-admin .hub-composer { display: flex; flex-direction: column; gap: var(--space-2); }
+.hub-admin .hub-attached { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-muted); font-size: 14px; }
+.hub-admin .hub-posts { display: flex; flex-direction: column; gap: var(--space-3); }
+.hub-admin .hub-post { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
+.hub-admin .hub-post.is-pinned { border-color: var(--primary); }
+.hub-admin .hub-post__head { display: flex; align-items: center; gap: var(--space-2); }
+.hub-admin .hub-post__meta { font-size: 12px; color: var(--text-faint); }
+.hub-admin .hub-post__body p { margin: var(--space-2) 0 0; overflow-wrap: anywhere; }
+.hub-admin .hub-post__img { display: block; max-width: 100%; margin-top: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+
+.hub-admin .hub-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.hub-admin .hub-item { display: flex; align-items: center; gap: var(--space-2); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-control); padding: var(--space-2) var(--space-3); }
+.hub-admin .hub-item__main { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); background: none; border: 0; padding: var(--space-1) 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.hub-admin .hub-item__text { display: flex; flex-direction: column; min-width: 0; }
+.hub-admin .hub-item__title { font-weight: 500; }
+.hub-admin .hub-tile { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-sunken); font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
+.hub-admin .hub-link { color: var(--text); font-weight: 500; text-decoration: none; }
+.hub-admin .hub-link:hover { text-decoration: underline; }
+.hub-admin .hub-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+
+.hub-admin .hub-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.hub-admin .hub-chip { display: inline-flex; align-items: center; gap: var(--space-2); height: 28px; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elev); font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.hub-admin .hub-chip:active { transform: scale(0.98); }
+.hub-admin .hub-chip.is-on { background: var(--primary-soft); color: var(--primary-ink); border-color: var(--primary); }
+.hub-admin .hub-chip__n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.hub-admin .hub-fieldset { border: 1px solid var(--border); border-radius: var(--radius-control); padding: var(--space-3); margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.hub-admin .hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.hub-admin .hub-modes { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+@media (max-width: 560px) { .hub-admin .hub-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .hub-admin * { transition: none !important; } }

@@ -1,0 +1,26 @@
+/* ChemWorks v5 — heatcurve question type (heating / cooling curve). Tokens only. */
+.hc-root { display: grid; gap: var(--space-4); }
+.hc-hint { margin: 0; color: var(--text-muted); }
+.hc-chart, .hc-ed-preview { max-width: 28rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); padding: var(--space-2); }
+.hc-svg { display: block; width: 100%; height: auto; }
+.hc-axis { stroke: var(--border); stroke-width: 1; }
+.hc-axis-label, .hc-tick { fill: var(--text-muted); font-size: 11px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hc-seg { stroke: var(--text-muted); stroke-width: 2.5; stroke-linecap: round; transition: stroke var(--dur-fast) var(--ease-out); }
+.hc-seg.is-active { stroke: var(--primary); }
+.hc-hit { stroke: transparent; stroke-width: 16; cursor: pointer; }
+.hc-badge { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+.hc-badge.is-active { fill: var(--primary); stroke: var(--primary); }
+.hc-badge-text { fill: var(--text); font-size: 11px; font-weight: 600; font-family: var(--font-mono); }
+.hc-badge-text.is-active { fill: var(--bg); }
+.hc-rows { display: grid; gap: var(--space-2); }
+.hc-row, .hc-ed-row { display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; gap: var(--space-3); }
+.hc-row__num { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: var(--radius-control);
+  background: var(--bg-elev); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; color: var(--text); }
+.hc-select { min-height: var(--touch, 44px); }
+.hc-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hc-review__text { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) { .hc-seg { transition: none; } }
+@media (max-width: 520px) {
+  .hc-row, .hc-ed-row { grid-template-columns: auto 1fr; }
+  .hc-row .hc-select:last-child, .hc-ed-row .hc-select:last-child { grid-column: 2; }
+}

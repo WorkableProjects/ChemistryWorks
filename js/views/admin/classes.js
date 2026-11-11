@@ -3,9 +3,13 @@
 import { h, mount, icon, toast, openModal } from '../../ui.js';
 import { adminCall } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
+import { resource } from '../../lib/store.js';
 import { parseRoster } from '../../lib/importers.js';
 import { field, emptyState, skeleton, fmtDate } from './common.js';
 import { openAccommodationEditor } from './accommodations.js';
+import { feature } from '../../config.js';
+import { renderClassHub } from './hub/index.js';
+import { studentHref } from './hub/data.js';
 
 export function renderClasses(root, ctx, { goSettings } = {}) {
   const gasUrl = ctx.config.GAS_WEB_APP_URL;
@@ -16,24 +20,38 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
   }
   let alive = true;
   const list = h('div', { class: 'stack', dataset: { testid: 'classes-list' } }, skeleton(3));
-  const load = async () => {
+  // Classes live on the store: coming back to this section paints the cached list, then refreshes quietly.
+  const classesRes = resource('classes', { fetch: async () => {
     const r = await adminCall('listClasses', {}, { gasUrl });
-    if (!alive) return;
-    if (!r.ok) { mount(list, h('p', { class: 'notice notice--error' }, icon('alert'), h('span', {}, `Could not load classes: ${r.error}`))); return; }
-    const classes = r.data.classes || [];
+    if (!r.ok) throw new Error(r.error || 'Request failed');
+    return r.data.classes || [];
+  } });
+  const unsub = classesRes.subscribe(() => { if (alive) paint(); });
+  const load = async () => {
+    try { await classesRes.get(); } catch (e) {
+      if (!alive) return;
+      if (classesRes.peek() === undefined) mount(list, h('p', { class: 'notice notice--error' }, icon('alert'), h('span', {}, `Could not load classes: ${e.message}`)));
+      return;
+    }
+    if (alive) paint();
+  };
+  function paint() {
+    const classes = classesRes.peek();
+    if (!classes) return;
     if (!classes.length) { mount(list, emptyState('user', 'No classes yet', 'Create a class to assign tests, limit a test to its roster, and set accommodations.', 'classes-empty')); return; }
     mount(list, ...classes.map((c) => h('section', { class: 'card adm-class', dataset: { testid: `class-${c.id}` } },
       h('div', { class: 'row row--wrap' },
         h('h3', { class: 'adm-h3' }, c.name, c.period ? h('span', { class: 'faint' }, ` · Period ${c.period}`) : null),
         h('span', { class: 'pill' }, `${c.emails.length} student${c.emails.length === 1 ? '' : 's'}`),
         h('span', { class: 'spacer' }),
+        feature('classHub') ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `class-open-${c.id}` }, on: { click: () => openHub(c) } }, 'Open class page') : null,
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-edit-${c.id}` }, on: { click: () => edit(c) } }, icon('pen', { size: 14 }), 'Edit'),
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-delete-${c.id}` }, on: { click: () => remove(c) } }, icon('trash', { size: 14 }), 'Delete')),
       h('details', { class: 'adm-class__roster' }, h('summary', {}, 'Roster'),
-        h('ul', { class: 'adm-roster' }, c.emails.map((e) => h('li', {}, h('span', {}, e),
+        h('ul', { class: 'adm-roster' }, c.emails.map((e) => h('li', {}, feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(e) }, e) : h('span', {}, e),
           h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `acc-open-${e}` }, on: { click: () => openAccommodationEditor(ctx, { email: e }) } }, 'Accommodations'))))),
       h('p', { class: 'faint' }, `Updated ${fmtDate(c.updated_at)} by ${c.updated_by || '—'}`))));
-  };
+  }
   function edit(c = { name: '', period: '', emails: [] }) {
     const name = h('input', { class: 'input', value: c.name, dataset: { testid: 'class-name' } });
     const period = h('input', { class: 'input', value: c.period || '', dataset: { testid: 'class-period' } });
@@ -53,7 +71,10 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
       actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Save class', variant: 'primary', testid: 'class-save', onClick: async (close) => {
         const r = await adminCall('saveClass', { cls: { id: c.id, name: name.value, period: period.value, emails: parseRoster(emails.value).emails } }, { gasUrl });
         if (!r.ok) { err.textContent = r.error; return; }
-        close(); toast('Class saved', { type: 'success' }); load();
+        close(); toast('Class saved', { type: 'success' });
+        const saved = r.data.row || r.data.cls;
+        if (saved && saved.id) classesRes.patch((d) => { const all = d || []; return all.some((x) => x.id === saved.id) ? all.map((x) => (x.id === saved.id ? saved : x)) : [...all, saved]; });
+        else classesRes.refresh();
       } }],
     });
     setTimeout(() => name.focus(), 50);
@@ -62,15 +83,23 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
   function remove(c) {
     openModal({ title: `Delete ${c.name}?`, testid: 'class-delete-modal', body: 'Tests assigned to this class keep working; roster-only tests will refuse its students.',
       actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Delete', variant: 'danger', testid: 'class-delete-confirm', onClick: async (close) => {
-        const r = await adminCall('deleteClass', { id: c.id }, { gasUrl }); close();
-        toast(r.ok ? 'Class deleted' : r.error, { type: r.ok ? 'success' : 'error' }); load();
+        close();
+        const done = await classesRes.optimistic((d) => (d || []).filter((x) => x.id !== c.id), () => adminCall('deleteClass', { id: c.id }, { gasUrl }), { message: 'Could not delete the class' });
+        if (done.ok) toast('Class deleted', { type: 'success' });
       } }] });
   }
-  mount(root, h('div', { class: 'stack adm-classes', dataset: { testid: 'classes' } },
+  let hubStop = null;
+  function openHub(c) {
+    const hubHost = h('div');
+    mount(root, hubHost);
+    hubStop = renderClassHub(hubHost, ctx, { cls: c, classes: classesRes.peek() || [], onBack: () => { try { hubStop?.(); } catch { /* ignore */ } hubStop = null; mount(root, main); } });
+  }
+  const main = h('div', { class: 'stack adm-classes', dataset: { testid: 'classes' } },
     h('div', { class: 'row row--wrap' }, h('h2', { class: 'adm-h2' }, 'Classes'), h('span', { class: 'spacer' }),
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'class-new' }, on: { click: () => edit() } }, icon('plus', { size: 16 }), 'New class')),
     h('p', { class: 'muted' }, 'Assign tests to classes in the builder (Test settings). A roster-only test refuses students who are not on an assigned class.'),
-    list));
+    list);
+  mount(root, main);
   load();
-  return () => { alive = false; };
+  return () => { alive = false; unsub(); try { hubStop?.(); } catch { /* ignore */ } };
 }

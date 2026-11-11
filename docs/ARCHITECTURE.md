@@ -474,3 +474,145 @@ and `instance {seed,drawn}` + `time_limit_applied`.
 - Admin views: `classes.js`, `accommodations.js`, `bank.js`, `import.js`, `live.js`, `mastery.js`, `platform.js`, `test-extras.js` (builder panel);
   registered as classic tabs and as sidebar items (`registerNavItem`).
 - Flags (`js/config.js`): `adminShell`, `teacherTools`, `studentTools`, `v4Types` on; `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.
+
+## V5 contracts (docs/v5/v5plan.md)
+
+Written by W0. Later agents code against this; if you must change a contract, edit it here in the same commit.
+Defaults used for the plan's open questions: shared attempt (1), "Saved" when answers are hidden (2), `Attempts` sheet on (3),
+six independent games removed (4), notifications derived on read (7).
+
+### Feature flags (W0)
+`js/config.js` `FEATURES`, all `false`: `v5Attempt` (shared attempt + mode switcher), `v5Games` (game modes; needs `v5Attempt`),
+`studentHome` (V5-02), `classHub` (V5-10; needs `studentHome`), `perfStore` (V5-11 client), `v5Motion` (V5-04/05),
+`appearance` (V5-06), `v5Types` (V5-07). Flag off = behaviour as in 4.x. `teacherTools` stays until S01a removes its last reader.
+
+### Attempt (`js/lib/attempt.js`, S02)
+- **Storage key**: unchanged `progress:<email>:<CODE>` (via `storage.js`, local). Existing fields stay as-is:
+  `answers {qid: value}`, `confidence {qid: 1-3}`, `hints [qid]`, `flagged [qid]`, `index` (position in test order), `startedAt` (ms),
+  `tabSwitches`, `mode` (`'focus'|'scroll'`, the runner layout), `updatedAt` (ms), `title`, and with `studentTools`: `scratch`, `struck`, `flagNotes`.
+  **Added** (all optional): `lastMode` (mode id, default `'study'`), `modeState { <modeId>: object }` (each mode's resume data, JSON, < 4 KB),
+  `wrong [qid]` (answered wrong where correctness is shown; feeds Mistake Review), `v: 5`. Old records load unchanged.
+- `openAttempt(test, { email, preview })` -> attempt:
+  - `questions` instantiated (`instantiate.js`) in test order; `test`; `email`.
+  - `get(id)`, `set(id, value)` (an empty/cleared value removes the answer; triggers autosave + `subscribe`), `isAnswered(id)`, `flag(id, on)` / `isFlagged(id)`.
+  - `next({ filter })` -> next unanswered question after the current index (wraps; `filter(q)` optional) or `null`.
+  - `answeredCount`, `total`.
+  - `results()` -> `{ [qid]: { correct: true | false | null } }`. `null` = "Saved" (teacher-graded type, or correctness hidden).
+  - `lastMode`, `setMode(id)` (saves immediately and notifies subscribers).
+  - `subscribe(fn)` -> unsubscribe; `fn({ type: 'answer'|'flag'|'mode'|'reset', id? })`.
+  - `save()`: autosave debounced 400 ms after a change; immediate on `setMode`, `pagehide` and `visibilitychange`; no save when `preview` or after submit.
+  - `toSubmission()` -> the payload `submit.js` builds today (answers, flags, confidence, hints, timings); `mode: lastMode` goes in `game_mode`.
+  - `destroy()` removes listeners.
+- **Correctness is shown** (instant grading) only when `test.showResults !== false` AND `test.showCorrectAnswers !== false`
+  AND the type is auto-graded. Otherwise `results()` gives `correct: null` and modes show "Saved" and score on completion/speed only.
+  Teacher-graded types (`short`, `open`, `lewis` drawing, `orbital`, ...) are always `null`.
+
+### Game mode definition (S03/S04)
+- Files: `js/lib/modes/<id>.js` (pure logic) + `js/views/modes/<id>.js` (DOM). Registry `js/lib/modes/index.js`: `MODES`, `modeById(id)`,
+  `modesForTest(test, attempt?)` -> `[{ mode, available, reason }]` in `order`. `study` is always first and always available.
+- **Ids**: `study, classic, lightning, survival, flashcards, mistakes, tower, boss, matchup, quizshow, race, bingo`.
+- **Definition**: `{ id, title, blurb, icon, order, pacing: 'self'|'timed'|'lives', scoring(attempt, events) -> { score, detail }, minQuestions?: number, available(test) -> { ok, reason? }, render(host, attempt, ctx) -> { destroy() } }`.
+- `ctx = { widgetFor(q) -> HTMLElement (the runner widget, bound to attempt.set/get), feedback(q, result) -> HTMLElement, onEnd(summary), sound, reducedMotion }`.
+  `summary = { modeId, score, answered, correct, total, durationMs }`; the shell then shows "Review & submit" (runner review page) or "Keep playing".
+- A mode never adds, drops or swaps questions: it only orders/groups `attempt.questions`. Teacher-graded types: answered in place,
+  "Saved — your teacher grades this", no points, no life lost. Timers pause/scale on long types (balance, graph, structure, ...).
+- `gameOptions.games` (test JSON) lists allowed mode ids. Removed ids `elementhunt, periodicpuzzle, dailyelement, molbuilder, reactionlab, unitdash`
+  and unknown ids are ignored; if nothing valid is left, **all** modes are offered (Decision 4 fallback). Nothing is renamed.
+- Best scores: `gamebest:<email>:<CODE>:<modeId>` (as today). Leaderboard and `submitGameScore` use the mode id as `gameId`.
+- Minimums: `matchup` >= 3 pairable questions (`mcq`, `numeric`, `naming`, `formula`, plus `matching` pairs); `quizshow` >= 6; `bingo` >= 9.
+- The runner header mode switcher replaces the mode-select page (`mode-select.js` = first-visit chooser only). `ptable` questions use the periodic-table board widget in every mode.
+
+### Data store (`js/lib/store.js`, S08a)
+- `resource(name, { fetch, key, ttl })` -> `{ get({ force }), refresh(), patch(fn), optimistic(change, request), subscribe(fn), peek() }`.
+  `get()` returns cached data at once (or awaits the first fetch); `refresh()` fetches in the background and notifies subscribers.
+  `patch(fn)`: `fn(data)` returns the new data (local only, no network). `optimistic(change, request)`: apply `change` via patch, await `request()`;
+  on failure roll back and `toast` an error with a Retry action (re-runs `request`); on success optionally patch with the returned row.
+- One in-flight request per resource key (de-dupe); `sessionStorage` warm start under `cw:store:<name>[:<key>]`, `ttl` default 60 s; cleared on sign-out.
+- Resources: `tests, counts, results, classes, bank, profile, hub`. A draft delete touches no network.
+
+### Backend 5.0 (`apps-script/Code.gs`, B1-B3)
+`VERSION = '5.0.0'` (set by B1); site `BACKEND_VERSION` is raised at release by S14c only. New sheets are created by `setup()` and on first use (`getSheet_`).
+- **`Students`**: `email, name, picture, firstSeen, lastSeen, classIds, xp, level, streakDays, lastActiveDate, badgesJson, prefsJson, statsJson, updatedAt`.
+  `prefsJson` also holds `notifReadAt` (ms) and `notifRead` (array of notification ids, max 200): the only notification state stored.
+- **`Attempts`**: `email, code, mode, answeredCount, total, percentDone, updatedAt, answersJson` (one row per student per test, overwritten).
+- **`Assignments`**: `id, classId, testCode, title, instructions, opensAt, dueAt, lateAllowed, required, modesJson, publishAt, createdBy, createdAt`.
+- **`Stream`**: `id, classId, type ('post'|'assignment'|'reminder'), body, pinned, createdBy, createdAt`.
+- No `Notifications` sheet: notifications are derived on read from assignments, submissions and reminders.
+- **Auth**: student actions use `verifyStudent_(body)` (`idToken`; the token's email only). Admin actions use `requireAdmin_(body)`.
+  Responses are `{ result: 'success', ... }` or `{ result: 'error', error }`.
+- **New error codes**: `not_found`, `invalid_request`, `rate_limited`, `not_in_class`, `invalid_date`, `too_large` (plus the v4 `unauthorized`, `invalid_token`, `identity_not_configured`, `not_admin`).
+- **Student actions** (POST):
+  - `getStudentProfile {idToken}` -> `{ profile: {email,name,picture,firstSeen,lastSeen,classIds,xp,level,streakDays,lastActiveDate,badges[],prefs{},stats{}}, results: [{testCode,title,submittedAt,status,released,percentage?,scoreAchieved?,scoreTotal?}] (score fields only when released), attempts: [{code,mode,answeredCount,total,percentDone,updatedAt}], assigned: [{testCode,title,opensAt,closesAt,status}], hub: <getClassHub result> }`. Creates the Students row on first call.
+  - `saveStudentProfile {idToken, prefs?:{theme,accent,avatar,textSize,density,reduceMotion,dyslexia}}` -> `{ profile }`. One write per 5 s per student (else `rate_limited`).
+  - `syncProgress {idToken, attempt?:{code,mode,answeredCount,total,answers?}, xp?:{delta,badges?:[id],streakDays?,lastActiveDate?}}` -> `{ profile, attempt? }`.
+    **XP merge**: `xp = serverXp + min(max(delta, 0), XP_DAY_CAP - gainedToday)`; never lowered; `XP_DAY_CAP = 600` per script-time-zone day; badges are a set union; level recomputed with the `xpForLevel` formula. `answers` stored only when `answersJson` < 40 KB.
+  - `getClassHub {idToken}` -> `{ classes: [{id,name,period}], assignments: [{id,classId,testCode,title,instructions,opensAt,dueAt,lateAllowed,required,modes[],status}], stream: [{id,classId,type,body,pinned,createdAt,createdBy}], notifications: [{id,type,refId,title,createdAt,read}], reminders: [testCode] }`. Only this student's classes (match on `Classes.Emails`); assignments whose `publishAt` is in the future are left out.
+  - `markNotificationsRead {idToken, ids?:[id], all?:true}` -> `{ readAt }`.
+- **Admin actions** (POST, `requireAdmin_`, writes logged):
+  - `getStudentProfileAdmin {email}` -> like `getStudentProfile` but without xp/level/badges, with last seen, streak, all submissions (scores included) and accommodations.
+  - `listTests {summary:true}` -> `{ tests: [{code,title,updatedAt,status,questionCount,points,needsGrading,submissionCount}] }` (no `summary`: old shape). Replaces `getTest`xN + `getSubmissionCounts` + full `getResults` in the library.
+  - `getResults {testCode?, status?, since?}` -> `{ rows, now }`; `since` = ms epoch returns only rows changed after it; pass `now` back next time.
+  - `batch {requests:[{action,...}]}` (max 50) -> `{ results: [<each action's response>] }`; each request is authorised and logged on its own; one error does not stop the rest.
+  - `saveAssignment {assignment}` (new when no `id`) -> `{ assignment }`; `deleteAssignment {id}`; `listAssignments {classId?}` -> `{ assignments }`.
+  - `postStream {classId, body, type?, pinned?}` -> `{ post }`; `deleteStreamPost {id}`.
+  - `getAssignmentStatus {id}` -> `{ assignment, rows: [{email,name,status,percentDone?,lastMode?,submittedAt?,late?,score?}] }`.
+  - `remindMissing {id}` -> `{ reminded }` (adds a `reminder` stream post; those students see it in `getClassHub.reminders`).
+- **Assignment status** (per student): `not_started`, `in_progress`, `turned_in`, `late`, `missing`, `graded`, `released`.
+  Precedence: released > graded > late / turned_in > in_progress > missing > not_started.
+  **Due rule**: compare in the script time zone (`appsscript.json` `timeZone`); `dueAt` is ISO text with offset; turned in at exactly `dueAt` is on time (`late` only after it).
+  An accommodation `extensionUntil` or extra time moves that student's due time: `dueAt = max(dueAt, extensionUntil)`. Past `dueAt` with nothing turned in = `missing`
+  (also when `lateAllowed`, until it is turned in, then `late`).
+- **Cache** (`CacheService.getScriptCache`, 120 s): keys `tests:list`, `settings`, `classes:list`, `roster:<classId>`, `assignments:list`; cleared by `publishTest`, `deleteTest`, `saveClass`, `deleteClass`, `saveSettings`, `saveAssignment`, `deleteAssignment`. Student/profile data is never cached. Write actions return the changed row.
+- `getLeaderboard` / `submitGameScore` accept the new mode ids and ignore removed ones. `submit`, grading and release are unchanged.
+
+- **B3 notes**: Stream `body` of `assignment` / `reminder` posts is stored as JSON `{text, assignmentId, testCode, emails}`; API output has plain `body` text. `getClassHub` assignments also carry additive `canSubmit`, `effectiveDueAt`, `percentDone`, `lastMode`, `submittedAt`, `late`. Notification ids: `new:<assignmentId>`, `due:<assignmentId>`, `feedback:<assignmentId>`, `reminder:<postId>`; types `assignment|due_soon|feedback|reminder`. `postStream {id, pinned?, body?}` edits an existing post. Submissions gain columns `Assignment ID`, `Due At` (rows expose `late`, `assignmentId`, `dueAt`); a submission to an assignment past its due time is `late` when `lateAllowed`, else stored as `Closed (not counted)`.
+
+### Client API (`js/lib/api.js`, append at the end)
+One exported wrapper per action, each `async fn({ gasUrl, adminKey?, idToken?, fetchImpl, ...fields })`, **never throws**, resolves `{ ok: true, data } | { ok: false, error, unavailable? }`
+(built on `adminCall` / `publicCall`): `getStudentProfile`, `saveStudentProfile`, `syncProgress`, `getStudentProfileAdmin`, `listTestsSummary`, `getResultsSince`, `batchCall`,
+`saveAssignment`, `deleteAssignment`, `listAssignments`, `postStream`, `deleteStreamPost`, `getAssignmentStatus`, `remindMissing`, `getClassHub`, `markNotificationsRead`.
+**Unset or old backend** (no `gasUrl`, or `unavailable: true`): callers keep working from localStorage and show the "Not synced" chip; nothing throws; retry only on next page show or mode switch.
+Student calls add the signed-in user's `idToken` (`getFreshIdToken()`).
+
+### Student home + profile (S06)
+- Routes: `?view=home` (the student home; default after sign-in when `studentHome` is on), `?view=profile`, `?view=class&id=<classId>`. Flag off: today's landing.
+- Local profile key: `profile:<email>` (local) = `{ prefs, xp, level, streakDays, lastActiveDate, badges, stats, notifReadAt, notifRead, syncedAt, dirty }`; `xp:<email>` stays the XP source (read both, write both).
+- Sync chip (`data-testid="sync-chip"`, attr `data-state`): `synced` ("Synced"), `syncing` ("Syncing…"), `offline` ("Not synced"), `error` ("Sync failed, retrying").
+  `syncProgress` is throttled to one per 30 s, plus on mode switch and `pagehide`.
+
+### New question types (S11/S12)
+Each = `js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js` (+ editor), styles `css/qt-<type>.css`, import added to `v4-types.js` / `views/qtypes/index.js`, label in `TYPE_LABELS`.
+`v5Types` hides them from the builder menu only; existing tests always render. Answer value and key:
+
+| Type | Answer value | `correctAnswer` / key |
+|---|---|---|
+| `ionicformula` | `{ cation: id, anion: id, nCation: int, nAnion: int, name?: string }` | `{ formula: 'Al2O3', name?: 'aluminium oxide' }`; formula compared normalised; name only when `askName` |
+| `ionbuilder` | `{ p, n, e }` (`mode: 'particles'`) or `{ symbol, massNumber, charge }` (`mode: 'symbol'`) | same shape; exact per field (S11b: `massNumber` added to the symbol mode, per the brief) |
+| `oxidation` | `[int \| null, ...]` (one per element symbol in the formula, in order) | `{ formula: 'H2SO4', key: [1, 6, -2] }`; per atom, fraction = atoms right / atoms |
+| `isotopemass` | `{ rows: [{ mass, abundance }], result }` (or `{ missing }` when `ask: 'abundance'`) | `{ result }` or `{ missing }` + `tolerance`; partial per row |
+| `bohr` | `{ shells: [int, ...] }` | `{ shells: [2,8,1] }`; per shell |
+| `molbuild` | `{ atoms: [{id, el}], bonds: [{a, b, order}] }` | `{ formula, bonds? }`; formula + optional connectivity |
+| `gaslaw` | `{ law: 'boyle'\|'charles'\|'gaylussac'\|'combined'\|'ideal', knowns: {sym: number}, result }` | `{ law, result }` + `tolerance` |
+| `oxidation` | `{ [atomId]: int }` | same shape; per atom |
+| `heatcurve` | `{ [segmentId]: { phase, dH? } }` | same shape; per label |
+| `solubility` | `{ [productId]: 's'\|'aq' }` or `{ precipitate: productId }` | same shape; per item |
+
+Partial credit follows the existing `partialCredit` flag. Demo: one question per type in `test/fixtures/v5/<type>.json` (a JSON array with one question, id `<type>-1`), assembled by S12z into `data/tests/DEMOV5.json`.
+
+### Motion tokens (S09)
+- Existing in `css/base.css`: `--dur-fast` 120ms, `--dur-base` 200ms, `--dur-slow` 320ms, `--dur`, `--ease`, `--ease-out`, `--ease-enter`, `--ease-spring`. S09 adds `--stagger-step: 40ms` and `--dur-theme: 400ms`. No ad-hoc timings in CSS or JS.
+- Reduced motion: CSS uses the existing reduce-motion rules (OS media query plus the app switch); JS uses `prefersReducedMotion()` from `js/lib/theme.js` and nothing else.
+- `ui.js` `stagger(listEl, { step = 40 } = {})` (exists): sets `animation-delay` on `.stagger-item` children (max 12 steps, 0 under reduced motion). `viewTransition(fn)` wraps View Transitions; `countUp(el, to, opts)` animates numbers.
+
+### New `data-testid`s
+- Runner / modes: `mode-switcher`, `mode-<modeId>`, `mode-host`, `mode-summary`, `mode-review-submit`, `mode-keep-playing`, `mode-saved-note`, `mode-score`.
+- Student home: `home`, `home-header`, `home-code-input`, `home-code-submit`, `up-next`, `up-next-<assignmentId>`, `continue-btn`, `in-progress`, `in-progress-<CODE>`, `remove-attempt-<CODE>`, `results-list`, `practice-shelf`, `calendar-strip`, `notif-bell`, `notif-list`, `notif-<id>`, `sync-chip`, `profile`, `profile-stats`, `profile-badges`, `profile-history`.
+- Class Hub, student: `class-page`, `class-stream`, `stream-post-<id>`, `class-assignments`. Teacher: `assign-btn`, `assignment-form`, `assign-due`, `assign-late`, `assign-save`, `assignment-<id>`, `tracker`, `tracker-row-<email>`, `tracker-filter-<status>`, `remind-missing`, `stream-input`, `stream-post-btn`, `stream-pin-<id>`, `copy-assignment-<id>`.
+- Library / store: `library-skeleton`, `undo-toast`, `retry-btn` (existing `library-item-<CODE>` kept).
+- Appearance: `appearance-panel`, `theme-seg-<pref>`, `accent-swatch-<name>`, `accent-custom`, `appearance-preview`, `text-size-<s|m|l>`, `density-<comfortable|compact>`, `dyslexia-toggle`.
+- Teacher student view: `student-view`, `student-attempts`, `student-accommodations`.
+- Question types: `<type>-widget` on every new widget root, parts as `<type>-<part>[-<id>]` (e.g. `ionicformula-cation-Na`, `ionbuilder-p`, `isotopemass-row-0`, `bohr-shell-1`, `oxidation-atom-<id>`, `heatcurve-seg-<id>`, `solubility-product-<id>`). Existing testids stay.
+
+### S06a profile data layer (`js/lib/profile.js`, `js/lib/sync.js`)
+- `profile:<email>` also holds `xpMigrated` (one-time local XP sent as the first sync delta) and `server` (cached `getStudentProfile` result: profile, results, attempts, assigned, hub). `sync.js` keeps its queue in `syncq:<email>`.
+- Profile shape for the home page is documented at the top of `js/lib/profile.js`. `openAttempt` attaches sync when `studentHome` is on (`attempt.unsync()` detaches).
