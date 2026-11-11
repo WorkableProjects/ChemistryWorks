@@ -68,3 +68,39 @@
 @media (prefers-reduced-motion: reduce) { .tower.is-wobble .tower__stack { animation: none; } .boss__fill { transition: none; } }
 :root[data-reduce-motion="true"] .tower.is-wobble .tower__stack { animation: none; }
 :root[data-reduce-motion="true"] .boss__fill { transition: none; }
+
+/* Match-Up, Quiz show, Race, Bingo (V5 S04a). Tokens only. */
+.matchup { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.matchup__col { display: flex; flex-direction: column; gap: var(--space-2); }
+.matchup__item { text-align: left; padding: var(--space-3); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text); font: inherit; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.matchup__item:active:not(:disabled) { transform: scale(0.98); }
+.matchup__item.is-selected { border-color: var(--primary); }
+.matchup__item.is-matched { background: var(--bg-sunken); color: var(--text-muted); cursor: default; }
+.matchup__item.is-wrong { border-color: var(--danger); }
+
+.board__cols { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); gap: var(--space-3); }
+.board__col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.board__head { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board__tile { height: 48px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-sunken); color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 500; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out); }
+.board__tile:hover:not(:disabled) { border-color: var(--primary); }
+.board__tile:active:not(:disabled) { transform: scale(0.98); }
+.board__tile.is-done { background: var(--bg); cursor: default; }
+.board__tile.is-correct { border-color: var(--primary); }
+
+.race { padding: var(--space-4); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.race__lane { position: relative; height: 80px; border-bottom: 1px solid var(--border); margin: 0 var(--space-6) 0 0; }
+.race__marker { position: absolute; bottom: var(--space-1); left: calc(var(--pos, 0) * 100%); display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 var(--space-1); border: 1px solid var(--primary); border-radius: var(--radius-control); background: var(--bg-sunken); color: var(--primary); font-family: var(--font-mono); font-weight: 600; font-size: 12px; }
+.race__ghost { border-color: var(--border); color: var(--text-muted); bottom: 44px; }
+.race__finish { position: absolute; right: calc(var(--space-6) * -1); bottom: var(--space-1); display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius-control); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted); }
+
+.bingo { display: grid; grid-template-columns: repeat(var(--size, 3), minmax(0, 1fr)); gap: var(--space-2); }
+.bingo__cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--bg-sunken); color: var(--text); cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out); }
+.bingo__cell:hover:not(:disabled) { border-color: var(--primary); }
+.bingo__cell:active:not(:disabled) { transform: scale(0.98); }
+.bingo__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 18px; }
+.bingo__cell .icon { position: absolute; top: var(--space-1); right: var(--space-1); }
+.bingo__cell.is-marked { border-color: var(--primary); color: var(--primary); }
+.bingo__cell.is-missed { color: var(--text-faint); background: var(--bg); }
+.bingo__cell.is-free { color: var(--text-muted); cursor: default; }
+
+@media (max-width: 600px) { .matchup { gap: var(--space-2); } }

@@ -3,7 +3,7 @@
 // validateGameOptions(test)  -> string[] of human-readable problems (empty = fine).
 // cleanGameOptions(raw)      -> the normalized object to store back on the test (schema.js hook).
 
-export const KNOWN_GAME_IDS = ['classic', 'survival', 'lightning', 'elementhunt', 'matchup', 'flashcards', 'tower', 'mistakes', 'boss', 'unitdash', 'reactionlab', 'molbuilder', 'periodicpuzzle', 'dailyelement'];
+export const KNOWN_GAME_IDS = ['classic', 'survival', 'lightning', 'elementhunt', 'matchup', 'quizshow', 'race', 'bingo', 'flashcards', 'tower', 'mistakes', 'boss', 'unitdash', 'reactionlab', 'molbuilder', 'periodicpuzzle', 'dailyelement'];
 export const POWERUP_IDS = ['fifty', 'freeze', 'skip', 'hint'];
 export const LIMITS = {
   questions: [1, 200], timePerQuestion: [5, 300], totalSeconds: [10, 900], lives: [1, 9],
