@@ -46,7 +46,7 @@ export const isAvailable = (item) => !!item && (item.builtin === true || typeof 
 
 /** Sidebar groups with only the entries that can open: [{ id, label, items }], empty groups dropped. */
 export function navGroups(items = NAV_ITEMS) {
-  return NAV_GROUPS.map((g) => ({ ...g, items: items.filter((x) => x.group === g.id && isAvailable(x)) })).filter((g) => g.items.length);
+  return NAV_GROUPS.map((g) => ({ ...g, items: items.filter((x) => x.group === g.id && isAvailable(x) && !x.hidden) })).filter((g) => g.items.length);
 }
 
 /**

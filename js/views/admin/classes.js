@@ -7,6 +7,9 @@ import { resource } from '../../lib/store.js';
 import { parseRoster } from '../../lib/importers.js';
 import { field, emptyState, skeleton, fmtDate } from './common.js';
 import { openAccommodationEditor } from './accommodations.js';
+import { feature } from '../../config.js';
+import { renderClassHub } from './hub/index.js';
+import { studentHref } from './hub/data.js';
 
 export function renderClasses(root, ctx, { goSettings } = {}) {
   const gasUrl = ctx.config.GAS_WEB_APP_URL;
@@ -41,10 +44,11 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
         h('h3', { class: 'adm-h3' }, c.name, c.period ? h('span', { class: 'faint' }, ` · Period ${c.period}`) : null),
         h('span', { class: 'pill' }, `${c.emails.length} student${c.emails.length === 1 ? '' : 's'}`),
         h('span', { class: 'spacer' }),
+        feature('classHub') ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `class-open-${c.id}` }, on: { click: () => openHub(c) } }, 'Open class page') : null,
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-edit-${c.id}` }, on: { click: () => edit(c) } }, icon('pen', { size: 14 }), 'Edit'),
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-delete-${c.id}` }, on: { click: () => remove(c) } }, icon('trash', { size: 14 }), 'Delete')),
       h('details', { class: 'adm-class__roster' }, h('summary', {}, 'Roster'),
-        h('ul', { class: 'adm-roster' }, c.emails.map((e) => h('li', {}, h('span', {}, e),
+        h('ul', { class: 'adm-roster' }, c.emails.map((e) => h('li', {}, feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(e) }, e) : h('span', {}, e),
           h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `acc-open-${e}` }, on: { click: () => openAccommodationEditor(ctx, { email: e }) } }, 'Accommodations'))))),
       h('p', { class: 'faint' }, `Updated ${fmtDate(c.updated_at)} by ${c.updated_by || '—'}`))));
   }
@@ -84,11 +88,18 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
         if (done.ok) toast('Class deleted', { type: 'success' });
       } }] });
   }
-  mount(root, h('div', { class: 'stack adm-classes', dataset: { testid: 'classes' } },
+  let hubStop = null;
+  function openHub(c) {
+    const hubHost = h('div');
+    mount(root, hubHost);
+    hubStop = renderClassHub(hubHost, ctx, { cls: c, classes: classesRes.peek() || [], onBack: () => { try { hubStop?.(); } catch { /* ignore */ } hubStop = null; mount(root, main); } });
+  }
+  const main = h('div', { class: 'stack adm-classes', dataset: { testid: 'classes' } },
     h('div', { class: 'row row--wrap' }, h('h2', { class: 'adm-h2' }, 'Classes'), h('span', { class: 'spacer' }),
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'class-new' }, on: { click: () => edit() } }, icon('plus', { size: 16 }), 'New class')),
     h('p', { class: 'muted' }, 'Assign tests to classes in the builder (Test settings). A roster-only test refuses students who are not on an assigned class.'),
-    list));
+    list);
+  mount(root, main);
   load();
-  return () => { alive = false; unsub(); };
+  return () => { alive = false; unsub(); try { hubStop?.(); } catch { /* ignore */ } };
 }
