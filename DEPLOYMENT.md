@@ -129,6 +129,18 @@ The v4 site works against the 3.0 backend for taking tests, but schedules, class
 
 **Rollback:** redeploy the previous Code.gs version (Manage deployments → Edit → pick the older version) and revert the site commit. New sheet tabs and columns are ignored by older versions.
 
+### Upgrading to v5
+
+The v5 site needs Code.gs **5.0.0** (student profiles, saved attempts, the Class Hub and faster reads). The site shows a banner in the admin panel until the backend is upgraded.
+
+1. Paste the new `apps-script/Code.gs` over the old one and **Save**.
+2. Run `setup` once from the editor. It creates the new tabs **Students, Attempts, Assignments and Stream**. Existing tabs and rows are kept.
+3. **Deploy > Manage deployments > Edit > Version: New version > Deploy** (same URL; do not choose New deployment).
+4. Check `YOUR_EXEC_URL?action=ping` reports `5.0.0`.
+5. Publish the site. The v5 feature flags in `js/config.js` are already on.
+
+**Rollback:** redeploy the previous Code.gs version and revert the site commit. The new tabs are ignored by older versions.
+
 ### Copy this deployment for a second teacher
 
 Make a copy of the Google Sheet (File → Make a copy: it copies the bound Apps Script too), set its script properties, deploy it as a Web App, and point a second copy of the site (`js/config.js` `GAS_WEB_APP_URL`, `SHEET_URL`) at it. Move tests across with **Settings → Platform → Download backup / Restore from backup**.

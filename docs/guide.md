@@ -1452,3 +1452,11 @@ Insights, grade by question, comment bank, bulk release / retake, print test (A/
 
 ### Student tools
 Per test (`tools`): scientific calculator, units & constants, scratchpad (saved with progress, never submitted), highlighter / strike-out, read-aloud (also an accommodation), flag a question with a note to the teacher (shown in Grading), offline banner, font size and dyslexia-friendly spacing (Settings popover), "My dashboard" on the landing page, and "Review my mistakes" after release (game-mode tests).
+
+## v5 additions
+
+### New question types
+`ionicformula`, `ionbuilder`, `isotopemass`, `bohr`, `oxidation`, `solubility`, `heatcurve`, `gaslaw` and `molbuild` are new in v5. See their entries in the type picker in the test editor for the fields each one takes.
+
+### Game modes, student home and Class Hub
+Tests can be practised in several game modes (Classic, Lightning, Survival, Flashcards, Mistake review, Tower, Boss battle, Match-Up, Quiz show, Race, Bingo). Students get a home page with their progress and a profile that syncs across devices. Teachers create assignments and stream posts for each class in the Class Hub. The Insights and Mastery pages and the six stand-alone games (Unit Dash, Reaction Lab, Molecule Builder, Periodic Puzzle, Daily Element, Boss Battle as a separate game) were removed. Appearance (accent colour, text size, theme) is under Settings.
