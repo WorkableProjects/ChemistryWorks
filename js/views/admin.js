@@ -17,6 +17,8 @@ import { renderImport } from './admin/import.js';
 import { renderStudent } from './admin/student.js';
 
 import { renderSettings } from './admin/settings.js';
+import { mountPalette } from './admin/palette.js';
+import { loadCatalog } from '../lib/tests.js';
 import { clearAdminConfirmed } from '../lib/admin-session.js';
 
 export * from './admin/stats.js';
@@ -288,7 +290,14 @@ function renderShelled(root, ctx, params = {}) {
   drawTab();
   shell.setRecent(load('adminRecent', []));
 
+  // V5-06: command palette (Ctrl/Cmd K) to jump to a section or a test.
+  const palette = feature('appearance') ? mountPalette({ getItems: async () => [
+    ...NAV_ITEMS.filter(isAvailable).map((t) => ({ id: t.id, label: t.label, kind: 'Section', icon: t.icon, run: () => select(t.id) })),
+    ...((await loadCatalog().catch(() => [])) || []).map((c) => ({ id: c.code, label: `${c.code} ${c.title || ''}`.trim(), kind: 'Test', icon: 'flask', run: () => { setLibraryQuery(c.code); select('library', { force: true }); } })),
+  ] }) : null;
+
   return () => {
+    palette?.destroy();
     shell.destroy();
     try { tabCleanup?.(); } catch (e) { console.error(e); }
   };

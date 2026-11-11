@@ -7,5 +7,9 @@ import { render as flashcards } from './flashcards.js';
 import { render as mistakes } from './mistakes.js';
 import { render as tower } from './tower.js';
 import { render as boss } from './boss.js';
+import { render as matchup } from './matchup.js';
+import { render as quizshow } from './quizshow.js';
+import { render as race } from './race.js';
+import { render as bingo } from './bingo.js';
 
-export const RENDERERS = { classic, lightning, survival, flashcards, mistakes, tower, boss };
+export const RENDERERS = { classic, lightning, survival, flashcards, mistakes, tower, boss, matchup, quizshow, race, bingo };

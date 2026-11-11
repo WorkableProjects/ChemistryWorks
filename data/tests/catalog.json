@@ -30,5 +30,13 @@
     "questionCount": 8,
     "points": 16,
     "timeLimitMinutes": 0
+  },
+  {
+    "code": "DEMOV5",
+    "title": "V5 Question Types Demo",
+    "description": "One question of each V5 type: Bohr shells, oxidation numbers, solubility, heating curve, gas law, molecule builder, ion builder, ionic formula and isotope mass.",
+    "questionCount": 9,
+    "points": 32,
+    "timeLimitMinutes": 0
   }
 ]

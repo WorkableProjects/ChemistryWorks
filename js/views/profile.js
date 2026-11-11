@@ -3,6 +3,8 @@
 
 import { h, mount, icon } from '../ui.js';
 import { getUser } from '../lib/auth.js';
+import { feature } from '../config.js';
+import { appearancePanel } from './appearance.js';
 import { loadProfile, subscribeProfile } from '../lib/profile.js';
 import { getSyncState, onSyncState } from '../lib/sync.js';
 import { elementTile, symbolOf, levelRing, badgeShelf, syncChip, resultRow } from './home/parts.js';
@@ -33,6 +35,8 @@ export function render(root, ctx) {
       chip),
     body);
   mount(root, main);
+  const appearancePanelEl = feature('appearance') ? appearancePanel({ user }) : null;
+  if (appearancePanelEl) appearance.querySelector('#profile-appearance')?.append(appearancePanelEl);
 
   function paint(p) {
     const released = p.results.filter((r) => r.released && r.percentage != null);
@@ -76,5 +80,5 @@ export function render(root, ctx) {
   done.then((p) => { if (alive && p) paint(p); });
   const offSync = onSyncState((s) => chip.update(s));
   const offProfile = subscribeProfile(user, (p) => { if (alive) paint(p); });
-  return () => { alive = false; offSync(); offProfile(); };
+  return () => { alive = false; offSync(); offProfile(); appearancePanelEl?.destroy?.(); };
 }

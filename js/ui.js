@@ -115,6 +115,7 @@ const ICONS = {
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
   minus: '<path d="M5 12h14"/>',
   external: '<path d="M14 4h6v6M20 4L10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/>',
 };
 export const ICON_NAMES = Object.keys(ICONS);
 /**
@@ -593,6 +594,14 @@ export function seededShuffle(array, seedString) {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+/** Consistent empty state: an icon, one sentence and at most one action ({ label, onClick }). */
+export function emptyState({ icon: name = 'list', title = '', action = null, testid = '' } = {}) {
+  return h('div', { class: 'empty-state', dataset: testid ? { testid } : {} },
+    h('span', { class: 'empty-state__icon' }, icon(name, { size: 24 })),
+    h('p', { class: 'empty-state__title' }, title),
+    action ? h('button', { type: 'button', class: 'btn btn--subtle btn--sm', on: { click: action.onClick } }, action.label) : null);
 }
 
 // V4-05: re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).

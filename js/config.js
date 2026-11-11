@@ -41,14 +41,14 @@ const DEFAULTS = {
     teacherTools: true,    // S07: grade by question, comment bank (always shown)
     studentTools: true,    // S16: calculator, scratchpad, read-aloud (per test: test.tools)
     v4Types: true,         // S08–S10: new question types (registry). Turn off to hide them from the builder.
-    v5Attempt: false,      // V5-01: shared attempt + mode switcher in the runner
-    v5Games: false,        // V5-01: game modes on the shared attempt (needs v5Attempt)
+    v5Attempt: true,      // V5-01: shared attempt + mode switcher in the runner
+    v5Games: true,        // V5-01: game modes on the shared attempt (needs v5Attempt)
     studentHome: true, // V5-02: student home, profile page, Google Sheets sync
-    classHub: false,       // V5-10: assignments, class stream, notifications (needs studentHome)
+    classHub: true,       // V5-10: assignments, class stream, notifications (needs studentHome)
     perfStore: true,       // V5-11: client data store, optimistic updates, lazy loading
     v5Motion: true,        // V5-04/05: sidebar animation + motion pass
-    appearance: false,     // V5-06: appearance panel (theme, accent, text size, density)
-    v5Types: false,        // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
+    appearance: true,     // V5-06: appearance panel (theme, accent, text size, density)
+    v5Types: true,         // V5-07: new question types (ionicformula, ionbuilder, isotopemass, ...)
   },
 };
 

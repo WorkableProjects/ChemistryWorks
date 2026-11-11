@@ -10,12 +10,16 @@ import { flashcards } from './flashcards.js';
 import { mistakes } from './mistakes.js';
 import { tower } from './tower.js';
 import { boss } from './boss.js';
+import { matchup } from './matchup.js';
+import { quizshow } from './quizshow.js';
+import { race } from './race.js';
+import { bingo } from './bingo.js';
 
 /** Every mode id in the contract. */
 export const MODE_IDS = ['study', 'classic', 'lightning', 'survival', 'flashcards', 'mistakes', 'tower', 'boss', 'matchup', 'quizshow', 'race', 'bingo'];
 
 /** Registered modes. Later sessions append here. */
-export const MODES = [study, classic, lightning, survival, flashcards, mistakes, tower, boss].sort((a, b) => a.order - b.order);
+export const MODES = [study, classic, lightning, survival, flashcards, mistakes, tower, boss, matchup, quizshow, race, bingo].sort((a, b) => a.order - b.order);
 
 export const modeById = (id) => MODES.find((m) => m.id === id) || null;
 export const isModeId = (id) => MODE_IDS.includes(id);

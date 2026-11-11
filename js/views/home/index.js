@@ -3,7 +3,7 @@
 // Contract testids: home, home-header, home-code-input, home-code-submit, up-next, continue-btn, in-progress, in-progress-<CODE>,
 // remove-attempt-<CODE>, results-list, practice-shelf, sync-chip.
 
-import { h, mount, icon, themeControl } from '../../ui.js';
+import { h, mount, icon, themeControl, emptyState } from '../../ui.js';
 import { getUser } from '../../lib/auth.js';
 import { load, remove } from '../../lib/storage.js';
 import { loadProfile, subscribeProfile } from '../../lib/profile.js';
@@ -11,6 +11,10 @@ import { getSyncState, onSyncState } from '../../lib/sync.js';
 import { pickGreeting, firstNameOf } from '../../lib/greetings.js';
 import { progressKey } from '../../lib/attempt.js';
 import { getGame } from '../../lib/games/index.js';
+import { paintHubUpNext, reminderBanner } from './upnext.js';
+import { calendarStrip } from './calendar.js';
+import { bell } from '../notifications.js';
+import { feature } from '../../config.js';
 import { elementTile, symbolOf, levelRing, trendLine, badgeShelf, syncChip, resultRow, modeLabel } from './parts.js';
 
 const section = (title, testid, ...body) => h('section', { class: 'home-section', 'aria-label': title, dataset: { testid } },
@@ -70,6 +74,8 @@ export function render(root, ctx, params = {}) {
       h('div', { class: 'home-header__code' }, form, err)),
     ringSlot);
 
+  const hubOn = feature('classHub');
+  const bellEl = hubOn ? bell(ctx, () => (profile && profile.hub) || null) : null;
   const upnext = h('div', { id: 'home-upnext', class: 'home-upnext-slot' });
   const inprog = h('div', { class: 'home-slot' });
   const results = h('div', { class: 'home-slot' });
@@ -79,7 +85,7 @@ export function render(root, ctx, params = {}) {
     h('a', { href: '?view=profile', class: 'btn btn--subtle btn--sm', dataset: { testid: 'profile-link' },
       on: { click: (e) => { e.preventDefault(); ctx.navigate('profile'); } } }, icon('user', { size: 16 }), 'Profile'),
     h('a', { href: '?admin=true', class: 'btn btn--subtle btn--sm', dataset: { testid: 'admin-link' } }, icon('home', { size: 16 }), 'Teacher'),
-    themeControl());
+    hubOn ? bellEl : null, themeControl());
 
   const main = h('main', { class: 'home', dataset: { testid: 'home' } }, topbar, header,
     h('div', { class: 'home-grid' },
@@ -94,11 +100,19 @@ export function render(root, ctx, params = {}) {
       : elementTile(symbolOf(p.name || p.email), null, { className: 'el-tile--lg' }));
     const names = p.classes.map((c) => c.name).join(', ');
     const streak = p.streakDays > 0 ? `${p.streakDays}-day streak` : '';
-    metaEl.textContent = [names, streak].filter(Boolean).join(' · ') || 'No classes yet';
+    if (hubOn && p.classes.length) {
+      metaEl.replaceChildren(...p.classes.flatMap((c, i) => [i ? ', ' : '', h('a', { href: `?view=class&id=${encodeURIComponent(c.id)}`, dataset: { testid: `class-link-${c.id}` },
+        on: { click: (e) => { e.preventDefault(); ctx.navigate('class', { id: c.id }); } } }, c.name)]), streak ? ` · ${streak}` : '');
+    } else metaEl.textContent = [names, streak].filter(Boolean).join(' · ') || 'No classes yet';
     ringSlot.replaceChildren(levelRing(p));
   }
 
   function paintUpNext(p) {
+    if (hubOn && p.hub && paintHubUpNext(upnext, ctx, p)) {
+      const banner = reminderBanner(ctx, p); const cal = calendarStrip(p.hub);
+      if (banner) upnext.prepend(banner);
+      upnext.append(cal); return;
+    }
     const a = p.inProgress.find((x) => x.answered > 0);
     if (!a) { upnext.replaceChildren(); upnext.removeAttribute('data-testid'); return; }
     upnext.dataset.testid = 'up-next';
@@ -121,7 +135,7 @@ export function render(root, ctx, params = {}) {
     const shown = p.results.slice(0, 8);
     const released = p.results.filter((r) => r.released && r.percentage != null).slice(0, 10).reverse().map((r) => r.percentage);
     if (!shown.length) {
-      results.replaceChildren(section('Results', 'results', h('p', { class: 'empty' }, 'Your results will show here after your first test')));
+      results.replaceChildren(section('Results', 'results', emptyState({ icon: 'list', title: 'Your results will show here after your first test', action: { label: 'Enter a test code', onClick: () => ctx.navigate('landing') } })));
       return;
     }
     results.replaceChildren(section('Results', 'results', trendLine(released),
@@ -150,6 +164,7 @@ export function render(root, ctx, params = {}) {
 
   function paintAll(p) {
     profile = p;
+    if (bellEl) bellEl.update();
     paintHeader(p); paintUpNext(p); paintInProgress(p); paintResults(p); paintPractice(p);
   }
 
