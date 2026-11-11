@@ -1,6 +1,6 @@
 {
   "name": "chemistryworks",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "private": true,
   "description": "ChemistryWorks — serverless chemistry testing platform (static HTML on GitHub Pages + Google Apps Script).",
   "type": "module",
