@@ -1,6 +1,6 @@
 # ChemWorks v6.0 — Plan
 
-> **Status:** Draft for review. Answer the Open questions at the end, then this plan gets split into agent briefs
+> **Status:** All Open questions answered (2026-11-13). Next: this plan gets split into agent briefs
 > (`docs/v6/delegations/`) the way v5 was.
 > **Version:** 6.0.0 (major: `apps-script/Code.gs` changes how submissions, tests and tokens are handled → `BACKEND_VERSION` raised)
 > **Builds on:** v5.0.1 (Class Hub, student home + profile, 12 game modes on one shared attempt, 42 question types, data store)
@@ -182,17 +182,17 @@ Each item is checked against `Code.gs` 5.0.0.
 | # | Problem | Fix |
 |---|---|---|
 | 1 | `handleSubmission_` stores `s.student_email` **from the request body**, and the single-submission check uses the same claimed email. Anyone can submit as anyone. | When a token is sent, the stored email and name come from the token. Without a token, accept only when `ALLOW_UNVERIFIED_EMAIL` is set, and mark the row "unverified" in grading. |
-| 2 | GET `getTest_` checks only the open/close window, **not `rosterOnly`**. Only the POST form does. A full test, including answer keys, is served to anyone with the code. | Remove the GET path for tests that are roster-only or hide answers. The client already prefers POST with a token. |
-| 3 | Answer keys ship to the browser for every auto-graded type, and scores are calculated by the client. | **Server-side grading** (Open question 2). Build step: `scripts/build-gas.mjs` bundles `js/lib/grading.js` + `formula.js` + the qtype graders into `apps-script/grading.gs`. `submit` re-grades from the stored test and saves the server score. Students get the test **without keys** (`stripKeys(test)`); "instant feedback" in game modes calls a light `checkAnswer` action, or stays local only for tests marked "practice". |
+| 2 | GET `getTest_` checks only the open/close window, **not `rosterOnly`**. Only the POST form does. A full test, including answer keys, is served to anyone with the code. | Roster-only tests are served only through the POST path with a token (the GET path returns `not_on_roster` for them). The client already prefers POST with a token. |
+| 3 | Answer keys ship to the browser for every auto-graded type, and scores are calculated by the client. | **Kept as is** (Open question 2: the key is always needed in the browser). No server-side grading and no key stripping. The other rows still close the holes around it: the token-bound email (#1), the roster check (#2) and the score caps (#10). |
 | 4 | `getFeedback` accepts submission ID + email with **no token**. | Require the token, and the email must match the row. |
 | 5 | Formula injection: `text_()` is skipped for Students `name`, Attempts `mode`, `lastActiveDate`, Stream `createdBy` and Assignment `classId`. | Send every user-supplied cell through `text_()`. Add a test that writes `=HYPERLINK(...)` to every column. |
 | 6 | The catch-all sends `String(err)` to the client. | Log the full error to `Errors` and return a code plus a short ID. |
 | 7 | `reportError` has a **global** limit of 60/h, so one sender can block everyone's reports. | Limit per sender (token email or a hashed client ID), plus a larger global limit. |
-| 8 | `ADMIN_KEY` is compared with `!==` and has no rate limit. | Use a constant-time compare and a lock-out after N failures per hour. Plan to remove the key: Google admin sign-in is the default now (Open question 3). |
+| 8 | `ADMIN_KEY` is compared with `!==` and has no rate limit. | Use a constant-time compare and a lock-out after N failures per hour. The key **stays**, but only as the credential the backend checks for Sheet access (Open question 3). It is no longer part of signing in. |
 | 9 | Submissions are posted with `no-cors`, so failures are invisible and can be lost. | Post `text/plain` with normal CORS (Apps Script allows it, as `api.js` already does). Read the reply; on error or timeout, keep the submission in the outbox and show "Not sent yet — we'll retry". |
 | 10 | Client-trusted values: game scores up to 100,000, XP, badges and `streakDays`. | Calculate the streak on the server from activity dates. Cap the score per mode from the question count. Accept badges only from a known list. |
 | 11 | XSS risk from teacher content: `innerHTML` sinks at `ui.js:39` (`html:` prop, about 21 call sites), `reaction.js` `joinHTML`, econfig `configToHTML`, `bohr.js:54`. | Audit every `html:` call site. Escape inputs in those helpers, with unit tests using `<img onerror>` payloads. Add a Content-Security-Policy `<meta>` (self + cdnjs + Google + fonts). Add SRI on the KaTeX and font links. |
-| 12 | `ADMIN_ACCESS_CODE: 'chemadmin'` is in the public repo. | When `adminAccounts` is on (it is), drop the access-code gate entirely: admin = Google sign-in on the `Admins` sheet. |
+| 12 | `ADMIN_ACCESS_CODE: 'chemadmin'` is in the public repo, and admins must type it to open the admin panel. | **Remove it as a sign-in step** (Open question 3). Admin sign-in is Google sign-in only, checked against the `Admins` sheet. Delete `ADMIN_ACCESS_CODE` from `js/config.js` and the access-code screen (`app.js:256`). The `ADMIN_KEY` script property stays as the backend's credential for the Sheet (#8): admin requests carry the ID token, and the key covers set-up and recovery (e.g. before the `Admins` sheet has an owner). It is entered in admin → Settings, never in the repo. |
 
 ## V6-03 — Backend performance and data hygiene
 
@@ -212,7 +212,7 @@ Each item is checked against `Code.gs` 5.0.0.
 
 - Move the 20 built-in types into `js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js` + `editors/<type>.js` with the same `TypeDef` contract the 22 registry types use. Delete the `switch` blocks in `grading.js`, `schema.js`, `runner/widgets.js` and `editors/core.js`.
 - Lazy-load the UI for each type (`await loadTypeUI(type)`). The definitions stay small and synchronous for grading and for the `Code.gs` bundle (V6-02 #3).
-- Add one **conformance test** that loops over the registry. For every type it checks: normalize → validate → render in the runner and every mode → answer from the fixture → grade → results → PDF → `stripKeys` removes the key.
+- Add one **conformance test** that loops over the registry. For every type it checks: normalize → validate → render in the runner and every mode → answer from the fixture → grade → results → PDF.
 - Rename `v4-types.js` to `qtypes/index.js`, and split the CSS by type (`qt-<type>.css`) instead of by session (`qtypes-s08/s09/s10.css`).
 - Order: the simple types first (mcq, multi, truefalse, numeric, formula), then the structured ones, then lewis, structure, orbital and graph.
 
@@ -220,7 +220,7 @@ Each item is checked against `Code.gs` 5.0.0.
 
 - **Feature flags:** remove all 13 flags and the dead branches listed in Research. Keep a separate `KILL_SWITCHES` object for things a teacher might need to turn off on a live site (`classHub`, `gameModes`, `studentSync`).
 - **Compatibility shims:**
-  - Remove the Netlify form in `index.html`, `NETLIFY_FORMS` and the Netlify POST in `submit.js`. Keep `netlify.toml` (rollback) or delete it (Open question 3).
+  - Remove the Netlify form in `index.html`, `NETLIFY_FORMS` and the Netlify POST in `submit.js`. Delete `netlify.toml` too (hosting is Pages; rollback is a `git revert`).
   - Remove the `constants→resources` mapping once `validate:tests` shows no bundled test uses it. Add a one-time migration when a test is opened in the builder.
   - Remove the `api.js` `unavailable` paths for backends older than `BACKEND_VERSION`. The version banner already covers them.
 - **Split the big closures** (the old S08c brief):
@@ -343,7 +343,6 @@ These two are the v6 features. Everything else that was listed as a candidate (p
   - Schema: an array of strings, at most 10 per question.
   - `normalize` keeps it.
   - `validate` warns about IDs that are neither local nor on the Sheet.
-  - `stripKeys` (V6-02) keeps it, because tags are not answers.
   - `docs/guide.md` documents `tags`, and how AI-written tests can use tag **names** on import (`"tags": ["Ions"]`). The importer matches names to the teacher's local tags first, then to Sheet tags, and offers to create local tags for the rest.
 
 **Publishing**
@@ -429,7 +428,7 @@ The work splits into sessions the same way as v5 (agent briefs to be written in 
 | S04 | Backend performance | V6-03 | S02 |
 | S05 | Type registry I | V6-04: simple types + conformance test | S02 |
 | S06 | Type registry II | V6-04: structured + diagram types; delete the switches | S05 |
-| S07 | Security II: server grading | V6-02 #3, 10, 11 (`build-gas`, `stripKeys`, `checkAnswer`, CSP) | S03, S06 |
+| S07 | Security II: client trust + XSS | V6-02 #10, 11 (score/XP/streak caps, `html:` audit, CSP, SRI) | S03, S06 |
 | S08 | Clean-up | V6-05 | S06 |
 | S09 | Accessibility | V6-06 | S08 |
 | S10 | PWA | V6-07 | S08 |
@@ -447,10 +446,10 @@ S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a ca
 
 ## Backend changes summary (`Code.gs` → 6.0.0)
 
-- **Submit:** email from the token; server re-grade (if Open question 2 = yes); proper CORS replies.
-- **Tests:** GET `getTest` restricted; students get tests without keys; new `checkAnswer` action.
+- **Submit:** email from the token; proper CORS replies. Scores are still calculated in the browser.
+- **Tests:** GET `getTest` refuses roster-only tests.
 - **`getFeedback`:** token required.
-- **Errors:** generic error replies; `reportError` limited per sender; `ADMIN_KEY` constant-time compare + lock-out (or removed).
+- **Errors:** generic error replies; `reportError` limited per sender; `ADMIN_KEY` constant-time compare + lock-out. The key stays for Sheet access only; the client-side access code is gone.
 - **Locks and indexes:** narrower locks, row-index cache, column-limited reads, accommodation N+1 fixed.
 - **Pruning:** a daily trigger, retention settings and a `diag` action.
 - **Formula injection:** `text_()` on every user-supplied column.
@@ -460,11 +459,11 @@ S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a ca
 ## Open questions
 
 1. ~~Which V6-09 features are in 6.0?~~ **Decided:** Google Classroom grade sync + question tagging. Practice sets, live class game, bank sharing and rubric grading move to 6.1+.
-2. **Server-side grading + tests without keys (V6-02 #3)?** This is the biggest change in v6. It stops answer lookup in dev tools and faked scores, but instant feedback then needs a server call (about 0.5–1 s) unless the test is marked "practice". Recommended: yes, keys stripped for anything that isn't a practice.
-3. **Remove legacy access:** the `ADMIN_KEY` fallback, the `chemadmin` access code and `netlify.toml`? Recommended: remove all three. Google admin sign-in becomes the only way in.
-4. **clasp + a GitHub Action for the backend:** this needs a Google service login stored as a repository secret. Recommended: yes, as optional. Pasting by hand stays documented.
-5. **Rename test files by area instead of by version?** This touches 54 files, but only once. Recommended: yes.
-6. **Translations (i18n):** none today. Is Spanish (or another language) needed for students? If yes, add a string table during S08 (clean-up) while every view is being touched anyway.
+2. ~~Server-side grading + tests without keys?~~ **Decided: no.** The answer key is always sent with the test. V6-02 #3 is dropped, and S07 covers only client trust + XSS.
+3. ~~Remove legacy access?~~ **Decided:** remove the access code as a sign-in requirement; admins sign in with Google only. `ADMIN_KEY` stays, used only to authenticate to the Sheet (V6-02 #8, #12). The Netlify leftovers, including `netlify.toml`, are removed (V6-05).
+4. ~~clasp + a GitHub Action for the backend?~~ **Decided (my call): yes, optional.** `npm run gas:push` and a manual `gas-deploy.yml` that updates the existing deployment and checks `?action=ping`. Pasting by hand stays documented for anyone without the repository secret (V6-08).
+5. ~~Rename test files by area?~~ **Decided (my call): yes**, in one rename-only commit at the start of S02, so `git log --follow` keeps history.
+6. ~~Translations?~~ **Decided: no.** English only in v6.
 7. ~~Classroom: send unreleased grades as drafts?~~ **Decided: yes.** Graded-but-unreleased scores go as `draftGrade` (only the teacher sees them in Classroom). Released scores go as `assignedGrade`.
 8. ~~Who deploys for Classroom sync?~~ **Decided: each teacher who wants sync uses their own deployment** (the existing "copy deployment" guide). Platform → the deployment checklist shows which account sync runs as.
 9. ~~Can other teachers use your tags?~~ **Decided: yes, but only tags that are on the Sheet,** meaning tags used by at least one published test. Every other tag stays in that teacher's browser storage, like a draft, until a test using it is published. See V6-09 B.
@@ -473,4 +472,4 @@ S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a ca
 
 - Google Sheets stays the database. v6 makes it faster, but a few hundred milliseconds per read and the Apps Script quotas (UrlFetch for `tokeninfo`, MailApp for release emails) remain.
 - "Race" stays a race against your own previous run on the same device. Real-time play is a 6.1+ candidate.
-- Without server grading (Open question 2 = no), answer keys stay visible to a determined student, as they are today.
+- Answer keys stay in the browser (Open question 2), so a determined student can find answers with developer tools. For high-stakes tests, teachers should rely on teacher-graded types (`short`, `open`) with no `sampleAnswer`.
