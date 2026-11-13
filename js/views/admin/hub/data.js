@@ -4,6 +4,7 @@ import { resource } from '../../../lib/store.js';
 import { CONFIG } from '../../../config.js';
 import { adminKey } from '../../../lib/admin-session.js';
 import { listAssignments, adminCall, getAssignmentStatus } from '../../../lib/api.js';
+import { formatDateTime } from '../../../lib/dates.js';
 
 export const creds = () => ({ gasUrl: CONFIG.GAS_WEB_APP_URL, adminKey: adminKey() });
 
@@ -53,10 +54,7 @@ export function toLocalInput(iso) {
 }
 export const fromLocalInput = (v) => (v ? new Date(v).toISOString() : '');
 
-export function fmtWhen(iso) {
-  const d = new Date(iso);
-  return !iso || Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+export const fmtWhen = (iso) => formatDateTime(iso);
 
 /** Where a teacher opens a student's page (S13a). */
 export const studentHref = (email) => `?admin=true&section=student&email=${encodeURIComponent(email)}`;

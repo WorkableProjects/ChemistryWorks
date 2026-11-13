@@ -5,6 +5,7 @@ import { h } from '../../ui.js';
 import { BADGES } from '../../lib/xp.js';
 import { modeById as getGame } from '../../lib/modes/index.js';
 import { getLocalResults } from '../../lib/submit.js';
+import { formatDate } from '../../lib/dates.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag, attrs = {}) => {
@@ -82,10 +83,7 @@ export function syncChip(state) {
   return el;
 }
 
-export const fmtDate = (v) => {
-  const t = typeof v === 'number' ? v : Date.parse(v);
-  return Number.isFinite(t) && t > 0 ? new Date(t).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '';
-};
+export const fmtDate = (v) => formatDate(v);
 export const modeLabel = (id) => (!id || id === 'study' ? 'Study' : (getGame(id) && getGame(id).title) || id);
 
 /** The local result payload for a profile result row, when this device has it. */

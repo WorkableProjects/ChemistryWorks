@@ -4,11 +4,9 @@
 
 import { h, mount, icon, appHeader, userBadge } from '../ui.js';
 import { statusPage } from './status-page.js';
+import { formatDateTime } from '../lib/dates.js';
 
-function fmtWhen(iso) {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+const fmtWhen = (iso) => formatDateTime(iso);
 
 export function render(root, ctx, params = {}) {
   const { test, source, status = {} } = params;

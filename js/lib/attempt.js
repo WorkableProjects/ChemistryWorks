@@ -8,7 +8,7 @@ import { gradeTest, gradeQuestion, isAnswered as answered } from './grading.js';
 import { groupQuestions } from './sections.js';
 import { buildPayload } from './submit.js';
 import { validConfidence } from './extras.js';
-import { load, save, remove } from './storage.js';
+import { load, save, remove, keys } from './storage.js';
 import { enabled } from '../config.js';
 import { attachAttempt } from './sync.js';
 
@@ -218,22 +218,21 @@ export function openAttempt(test, opts = {}) {
 
 /** Attempts on this device for one student: [{ code, title, answered, total, updatedAt, lastMode }] newest first. */
 export function listAttempts(email, { storage } = {}) {
-  const ls = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
-  if (!ls) return [];
   const prefix = `progress:${email}:`;
+  // `storage` (a Storage-like object) is for tests; the app reads through storage.js.
+  const entries = storage
+    ? Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter((k) => k && k.includes(prefix))
+      .map((k) => { try { return [k.slice(k.indexOf(prefix) + prefix.length), JSON.parse(storage.getItem(k))]; } catch { return null; } })
+    : keys(prefix).map((k) => [k.slice(prefix.length), load(k, null)]);
   const out = [];
-  for (let i = 0; i < ls.length; i++) {
-    const k = ls.key(i);
-    const at = k ? k.indexOf(prefix) : -1;
-    if (at < 0) continue;
-    try {
-      const rec = JSON.parse(ls.getItem(k));
-      if (!rec || typeof rec !== 'object') continue;
-      out.push({
-        code: k.slice(at + prefix.length), title: rec.title || '', answered: Object.keys(rec.answers || {}).length,
-        total: Number(rec.total) || 0, updatedAt: Number(rec.updatedAt) || 0, lastMode: rec.lastMode || 'study',
-      });
-    } catch { /* not a progress record */ }
+  for (const e of entries) {
+    if (!e) continue;
+    const [code, rec] = e;
+    if (!rec || typeof rec !== 'object') continue;
+    out.push({
+      code, title: rec.title || '', answered: Object.keys(rec.answers || {}).length,
+      total: Number(rec.total) || 0, updatedAt: Number(rec.updatedAt) || 0, lastMode: rec.lastMode || 'study',
+    });
   }
   return out.sort((a, b) => b.updatedAt - a.updatedAt);
 }

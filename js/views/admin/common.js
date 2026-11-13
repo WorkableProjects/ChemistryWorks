@@ -1,5 +1,6 @@
 // Small DOM helpers shared by the admin sub-views.
 import { h, icon } from '../../ui.js';
+import { formatDateTime } from '../../lib/dates.js';
 
 export function field(label, control, hint, { className = '' } = {}) {
   return h('label', { class: `field ${className}`.trim() },
@@ -59,10 +60,7 @@ export function debounce(fn, ms) {
   return d;
 }
 
-export function fmtDate(iso) {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+export const fmtDate = (iso) => formatDateTime(iso, '—');
 
 export const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 

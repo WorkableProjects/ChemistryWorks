@@ -21,11 +21,9 @@ import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
 
 import { ensureToolsCss } from './tools/settings.js';
+import { formatDateTime } from '../lib/dates.js';
 
-function fmtWhen(iso) {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+const fmtWhen = (iso) => formatDateTime(iso);
 
 function skeleton() {
   return h('div', { class: 'feedback-skeleton', 'aria-busy': 'true', 'aria-label': 'Loading feedback', dataset: { testid: 'feedback-loading' } },
