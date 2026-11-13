@@ -3,7 +3,7 @@ import { h, mount, toast, openModal } from '../../ui.js';
 import { saveSheetTag, deleteSheetTag, mergeSheetTags } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
 import { localTags, createLocalTag, updateLocalTag, deleteLocalTag, TAG_COLORS } from '../../lib/tags.js';
-import { field, emptyState } from './common.js';
+import { field } from './common.js';
 import { tagChip, teacherEmail, sheetTagsResource } from './tag-picker.js';
 
 const COLOR_LABELS = { navy: 'Navy', teal: 'Teal', green: 'Green', amber: 'Amber', red: 'Red', violet: 'Violet', slate: 'Slate' };
@@ -103,7 +103,6 @@ export function renderTags(root, ctx) {
   const unsub = sheet.subscribe(() => paint());
   paint();
   if (gasUrl && hasAdminAuth()) sheet.get().catch(() => {});
-  else if (!email) mount(host, emptyState('key', 'Sign in first', 'Tags are kept per teacher. Sign in to manage yours.', 'tags-no-auth'));
   mount(root, host);
   return () => { alive = false; unsub(); };
 }
