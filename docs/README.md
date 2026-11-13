@@ -15,7 +15,7 @@ Setup and upgrades live in [../DEPLOYMENT.md](../DEPLOYMENT.md). Release notes l
 
 | Version | Plan | Status |
 |---|---|---|
-| v6 | [v6/v6plan.md](v6/v6plan.md) | Planning |
+| v6 | [v6/v6plan.md](v6/v6plan.md) · [agent briefs](v6/delegations/README.md) | Ready to build |
 | v5 | [archive/v5/v5plan.md](archive/v5/v5plan.md) · [progress](archive/v5/v5-progress.md) · [agent briefs](archive/v5/delegations/README.md) | Shipped 5.0.0 / 5.0.1 |
 | v4 | [archive/v4/v4plan.md](archive/v4/v4plan.md) · [progress](archive/v4/v4-progress.md) | Shipped 4.0.0 – 4.1.1 |
 | v3 | [archive/v3/v3plan.md](archive/v3/v3plan.md) | Shipped 3.0.0 |

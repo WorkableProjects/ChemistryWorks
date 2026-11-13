@@ -1,7 +1,8 @@
 # ChemWorks v6.0 — Plan
 
-> **Status:** All Open questions answered (2026-11-13). Next: this plan gets split into agent briefs
-> (`docs/v6/delegations/`) the way v5 was.
+> **Status:** Ready to build: delegated. All Open questions answered (2026-11-13).
+> **Implementation:** the orchestrator follows `docs/v6/delegations/README.md` (Sonnet and Haiku agents only, worktrees, waves,
+> green before each next wave) and tracks progress in `docs/v6/v6-progress.md`.
 > **Version:** 6.0.0 (major: `apps-script/Code.gs` changes how submissions, tests and tokens are handled → `BACKEND_VERSION` raised)
 > **Builds on:** v5.0.1 (Class Hub, student home + profile, 12 game modes on one shared attempt, 42 question types, data store)
 
@@ -120,10 +121,7 @@ So v6 does three things, in this order:
 
 - **Files:** 52 unit and 22 e2e. 38 unit and 16 e2e files are named after the version that added them (`v2-*`, `v25-*`, `v4-*`).
 - **Unit tests:** **791 / 791 pass** (2026-11-13).
-- **E2E tests:** the full run was still in progress when this plan was written. At least three already fail:
-  - "library lists CHEM101 and the new bank tests"
-  - "short answer: score is provisional…"
-  - "hidden score: student only sees 'Submission received'"
+- **E2E tests:** the full run timed out after 15 minutes, partway through `runner.test.mjs`. **29 of the first 42 tests failed.** Most failures are tests that v5 left stale (landing copy, `code-input` → `home-code-input`, library card text, the Netlify channel). Each one waits out a 30 s timeout.
 - **No tests at all for:**
   - The v5 backend actions: `syncProgress`, profile, `getClassHub`, assignments, stream, `batch`, `remindMissing`, `markNotificationsRead`.
   - The v5 client modules: `sync`, `store`, `profile`, `xp`, `attempt`, modes, hub.
