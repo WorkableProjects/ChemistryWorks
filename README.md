@@ -40,7 +40,7 @@ Requirements: Node.js 20 or later.
 npm start
 ```
 
-Open <http://localhost:3000>. The local demo sign-in is enabled until a Google Client ID is configured. To open the admin panel, visit <http://localhost:3000/?admin=true> and use the demo code `chemadmin`.
+Open <http://localhost:3000>. The local demo sign-in is enabled until a Google Client ID is configured. To open the admin panel locally, visit <http://localhost:3000/?admin=true>. On a deployed site, admins sign in with Google.
 
 ## Tests and validation
 
@@ -54,9 +54,9 @@ The application and unit tests use Node's built-in runner and do not require add
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions for Google sign-in, Google Sheets and the Apps Script backend, and Netlify. Add the required project settings to `js/config.js` before deployment.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions for Google sign-in, Google Sheets, the Apps Script backend and GitHub Pages. Add the required project settings to `js/config.js` before deployment.
 
-For existing installations, consult the upgrade instructions in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-to-v4).
+For existing installations, consult the upgrade instructions in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-to-v6).
 
 ## Repository structure
 

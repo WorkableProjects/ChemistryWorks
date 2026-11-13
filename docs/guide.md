@@ -73,7 +73,7 @@ For updates the teacher gives you the test's current JSON; after the JSON block 
 
 ---
 
-## Sections and references (v2)
+## Sections and references
 
 Both are optional. A test without them behaves exactly as before.
 
@@ -826,6 +826,22 @@ Comments a teacher adds while grading use a different, small Markdown subset (`*
 
 ---
 
+## Tags
+
+Questions can carry up to 10 tags, for example a unit, a topic or a standard.
+
+```json
+{ "id": "q1", "type": "mcq", "text": "…", "tags": ["Ions", "Unit 3"] }
+```
+
+- In a saved test, `tags` holds tag IDs (`tg_ab12cd`). When you write a test by hand or with an AI, use tag **names** instead: on import, names are matched to the teacher's own tags first, then to tags other teachers have published, and any new names become new tags.
+- A new tag stays on the teacher's device until a published test uses it. Publishing puts it on the Sheet, where every teacher can use it and the owner can rename, recolour, merge or delete it (Admin → Tags).
+- Students see tag names in a "By topic" summary on released results and in their profile.
+
+## Google Classroom
+
+Teachers can link a class to a Google Classroom course, post assignments there and sync grades. Setup is in DEPLOYMENT.md, "Google Classroom grade sync". Test JSON needs no changes.
+
 ## Quality checklist for the AI
 
 Before outputting, check:
@@ -1012,7 +1028,7 @@ A complete, valid test using every type (copy this as a template):
 
 ---
 
-## Complete v2 example (sections, references, orbital, charges)
+## Complete example with sections, references, orbital and charges
 
 A shorter test using the v2 features. Note the canonical order: the unsectioned question first, then Part A, then Part B.
 
@@ -1317,7 +1333,7 @@ v2 additions to the grader: the **Full / Half / Zero** buttons set 100%, 50% or 
 
 To give feedback, add a **comment** to any question (supports `**bold**`, `*italic*`, `- ` and `1. ` lists and `[text](https://…)` links; empty comments are not saved). Comments are private until you tick **Release grade & comments to student** and save. After release, students see their score and your comments under **Your submitted tests > View feedback**. **Export PDF** (in an open submission) prints one student's reviewed submission, including correct answers and your comments (released or not), with math typeset. Each question is kept whole on one page, and the PDF has no browser header or footer.
 
-### Released feedback, one submission per student and retakes (v3)
+### Released feedback, one submission per student and retakes
 
 - **Students see released feedback from the test link, on any device.** After you release a grade (tick **Release grade & comments to student**, or **Release all graded** for a whole test), the student opens the same test link, signs in with Google, and sees the full review: score, every question, their answer (with diagrams and images), the correct answer (if *Show correct answers* is on), points per question, your comments and "Graded by". **Download PDF** gives them the same document as your export. Un-release it and it disappears on their next visit.
 - **Before release**, the student sees "You submitted this test on … Your teacher hasn't released grades yet." For normal tests there is a **Take again** button; for one-submission tests there isn't.
@@ -1329,7 +1345,7 @@ To give feedback, add a **comment** to any question (supports `**bold**`, `*ital
 
 Full technical reference (schema, scoring rules, module contracts): [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## v4 additions
+## More question types and extras
 
 Everything below is new in ChemistryWorks v4. Fields are optional; old tests keep working unchanged.
 
@@ -1413,7 +1429,7 @@ Students choose from picture cards for electron geometry and molecular geometry 
 ```
 Cells marked `"given": true` are shown; every other cell is a blank the student fills in, worth an equal share of the points. Number columns accept values within the column `tolerance` (absolute, default 0); text columns ignore case and extra spaces; a text column with `"formula": true` compares chemical formulas. Good for protons/neutrons/electrons tables and ICE tables. It renders as a real table with labelled inputs.
 
-### molarmass, imagechoice, particles, titration, estimate (S10)
+### molarmass, imagechoice, particles, titration, estimate
 See `data/tests/DEMOV4C.json` for a complete example of each.
 - **molarmass**: `{ "formula": "Ca(OH)2", "tolerance": 0.05, "toleranceType": "absolute", "showWork": true }` — the student enters the molar mass (optionally with a work table: symbol × count × atomic mass); graded on the final value; the work is shown to the teacher.
 - **imagechoice**: like `mcq` / `multi` (`"multiple": true`) but every option has an `image: { url, alt }`. Alt text is required.

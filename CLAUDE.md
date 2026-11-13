@@ -32,5 +32,5 @@ When you bump the version, do all of these in the same change:
 
 ## Commands
 
-- `npm start` — local server on http://localhost:3000 (`?admin=true`, code `chemadmin`)
+- `npm start` — local server on http://localhost:3000 (`?admin=true` opens admin without a backend)
 - `npm test` — unit tests; `npm run test:e2e` — Playwright browser tests
