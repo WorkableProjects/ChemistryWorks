@@ -2343,7 +2343,7 @@ function assignmentRow_(v) {
   return {
     id: String(v[0]), classId: String(v[1]), testCode: normalizeCode_(v[2]), title: String(v[3] || ''), instructions: String(v[4] || ''),
     opensAt: iso_(v[5]), dueAt: iso_(v[6]), lateAllowed: v[7] === '' ? true : boolCell_(v[7]), required: boolCell_(v[8]),
-    modes: parseJson_(v[9], []) || [], publishAt: iso_(v[10]), createdBy: String(v[11] || ''), createdAt: iso_(v[12])
+    modes: parseJson_(v[9], []) || [], publishAt: iso_(v[10]), createdBy: String(v[11] || ''), createdAt: iso_(v[12]), classroomCourseWorkId: String(v[14] || '')
   };
 }
 // All assignments (cached 120 s, busted by saveAssignment / deleteAssignment). Not personal data.

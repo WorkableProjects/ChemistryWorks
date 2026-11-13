@@ -40,6 +40,9 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
   const required = h('input', { type: 'checkbox', checked: fresh ? true : !!src.required, dataset: { testid: 'assign-required' } });
   const instructions = h('textarea', { class: 'textarea', rows: 3, maxlength: '2000', dataset: { testid: 'assign-instructions' } });
   instructions.value = src.instructions || '';
+  // Only classes linked to a Google Classroom course can post there; an assignment is posted once.
+  const linked = (classes || []).some((c) => c.classroomCourseId);
+  const toClassroom = h('input', { type: 'checkbox', checked: false, disabled: !linked || !!src.classroomCourseWorkId, dataset: { testid: 'assign-classroom' } });
 
   // Allowed modes come from the chosen test; every box ticked (or none) = every mode the test offers.
   const modeHost = h('div', { class: 'hub-modes', dataset: { testid: 'assign-modes' } });
@@ -70,6 +73,8 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
       h('div', { class: 'hub-grid' }, field('Opens', opens, 'Leave empty to open now'), field('Due', due)),
       h('label', { class: 'row' }, late, h('span', {}, 'Allow late work')),
       h('label', { class: 'row' }, required, h('span', {}, 'Required (otherwise optional practice)')),
+      h('label', { class: 'row', title: linked ? '' : 'Link a class to Google Classroom first (Classes)' }, toClassroom,
+        h('span', {}, src.classroomCourseWorkId ? 'Posted to Google Classroom' : 'Post to Google Classroom', linked ? null : h('span', { class: 'faint' }, ' · link a class first'))),
       field('Instructions', instructions),
       h('div', { class: 'field' }, h('span', { class: 'field__label' }, 'Allowed modes'), modeHost),
       field('Publish later', publish, 'Students see it from this time. Leave empty to publish now'),
@@ -81,12 +86,15 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
       const chosen = modeBoxes.filter((x) => x.box.checked).map((x) => x.id);
       const modes = chosen.length === modeBoxes.length ? [] : chosen;
       const base = { testCode: test.value, instructions: instructions.value.trim(), opensAt: fromLocalInput(opens.value), dueAt: fromLocalInput(due.value),
-        lateAllowed: late.checked, required: required.checked, modes, publishAt: fromLocalInput(publish.value) };
+        lateAllowed: late.checked, required: required.checked, modes, publishAt: fromLocalInput(publish.value),
+        ...(toClassroom.checked ? { postToClassroom: true } : {}) };
       const targets = editing ? [src.classId] : [...picked];
       const out = await assignmentsRes().optimistic((d) => d, async () => {
         const rs = await Promise.all(targets.map((cid) => saveAssignment({ ...creds(), assignment: { ...base, classId: cid, ...(editing ? { id: src.id } : {}) } })));
         const bad = rs.find((r) => !r.ok);
         if (bad) throw new Error(bad.error || 'Request failed');
+        const cErr = rs.find((r) => r.data.classroomError);
+        if (cErr) toast(`Saved, but not posted to Google Classroom (${cErr.data.classroomError.replace(/_/g, ' ')})`, { type: 'warning', timeout: 8000 });
         return { ok: true, rows: rs.map((r) => r.data.assignment).filter(Boolean) };
       }, { message: 'Could not save the assignment', retry: false,
         onSuccess: (d, r) => { const ids = new Set(r.rows.map((x) => x.id)); return [...(d || []).filter((x) => !ids.has(x.id)), ...r.rows]; } });

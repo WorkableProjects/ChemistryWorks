@@ -30,7 +30,7 @@ export const streamRes = (classId) => {
 export const statusRes = (id) => resource('hub', { key: `status:${id}`, ttl: 15000, fetch: async () => {
   const r = await getAssignmentStatus({ ...creds(), id });
   if (!r.ok) throw new Error(r.error || 'Request failed');
-  return { assignment: r.data.assignment, rows: r.data.rows || [] };
+  return { assignment: r.data.assignment, rows: r.data.rows || [], sync: r.data.classroomSync || {} };
 } });
 
 export const STATUS = {

@@ -1,7 +1,7 @@
 // Admin › Classes (V4-07, S11): create classes by pasting emails or importing a roster CSV (Google Classroom / Aeries),
 // edit, delete; per-member accommodations. Tests are assigned to classes in the builder's test settings.
 import { h, mount, icon, toast, openModal } from '../../ui.js';
-import { adminCall } from '../../lib/api.js';
+import { adminCall, listClassroomCourses, linkClassroomCourse, importClassroomRoster } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
 import { resource } from '../../lib/store.js';
 import { parseRoster } from '../../lib/importers.js';
@@ -45,6 +45,8 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
         h('span', { class: 'pill' }, `${c.emails.length} student${c.emails.length === 1 ? '' : 's'}`),
         h('span', { class: 'spacer' }),
         enabled('classHub') ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `class-open-${c.id}` }, on: { click: () => openHub(c) } }, 'Open class page') : null,
+        h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-classroom-${c.id}` }, on: { click: () => classroomDialog(c) } },
+          c.classroomCourseId ? 'Google Classroom: linked' : 'Link to Google Classroom'),
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-edit-${c.id}` }, on: { click: () => edit(c) } }, icon('pen', { size: 14 }), 'Edit'),
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-delete-${c.id}` }, on: { click: () => remove(c) } }, icon('trash', { size: 14 }), 'Delete')),
       h('details', { class: 'adm-class__roster' }, h('summary', {}, 'Roster'),
@@ -52,6 +54,33 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
           h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `acc-open-${e}` }, on: { click: () => openAccommodationEditor(ctx, { email: e }) } }, 'Accommodations'))))),
       h('p', { class: 'faint' }, `Updated ${fmtDate(c.updated_at)} by ${c.updated_by || '—'}`))));
   }
+  // Pick a course from the deploying account's active courses; optionally import its roster and auto-sync on release.
+  function classroomDialog(c) {
+    const sel = h('select', { class: 'select', dataset: { testid: 'classroom-course' } }, h('option', { value: '' }, 'Loading courses…'));
+    const auto = h('input', { type: 'checkbox', checked: !!c.classroomAutoSync, dataset: { testid: 'classroom-autosync' } });
+    const note = h('p', { class: 'faint' });
+    listClassroomCourses({ gasUrl }).then((r) => {
+      if (!r.ok) { sel.replaceChildren(h('option', { value: '' }, 'Google Classroom is not connected')); note.textContent = `Re-run setup in Apps Script to approve the Classroom permissions (${r.error.replace(/_/g, ' ')}).`; return; }
+      sel.replaceChildren(h('option', { value: '' }, 'Not linked'), ...r.data.courses.map((k) => h('option', { value: k.id, selected: k.id === c.classroomCourseId }, k.section ? `${k.name} · ${k.section}` : k.name)));
+      note.textContent = r.data.runsAs ? `Courses where ${r.data.runsAs} is a teacher. Grades sync as this account.` : '';
+    });
+    const save = async (close, importRoster) => {
+      const r = await linkClassroomCourse({ gasUrl, classId: c.id, courseId: sel.value, autoSync: auto.checked });
+      if (!r.ok) { toast(`Could not link: ${r.error}`, { type: 'error' }); return; }
+      if (importRoster && sel.value) {
+        const ir = await importClassroomRoster({ gasUrl, classId: c.id });
+        toast(ir.ok ? `Imported ${ir.data.cls?.emails?.length ?? 0} students from Google Classroom` : `Roster import failed: ${ir.error}`, { type: ir.ok ? 'success' : 'error' });
+      } else toast(sel.value ? 'Linked to Google Classroom' : 'Link removed', { type: 'success' });
+      close();
+      classesRes.refresh();
+    };
+    openModal({ title: `Google Classroom · ${c.name}`, testid: 'classroom-link',
+      body: h('div', { class: 'stack' }, field('Course', sel), note, h('label', { class: 'row' }, auto, h('span', {}, 'Sync grades when I release them'))),
+      actions: [{ label: 'Cancel', variant: 'ghost' },
+        { label: 'Save and import roster', variant: 'ghost', testid: 'classroom-import', onClick: (close) => save(close, true) },
+        { label: 'Save', variant: 'primary', testid: 'classroom-save', onClick: (close) => save(close, false) }] });
+  }
+
   function edit(c = { name: '', period: '', emails: [] }) {
     const name = h('input', { class: 'input', value: c.name, dataset: { testid: 'class-name' } });
     const period = h('input', { class: 'input', value: c.period || '', dataset: { testid: 'class-period' } });
