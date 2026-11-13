@@ -316,48 +316,95 @@ These two are the v6 features. Everything else that was listed as a candidate (p
 - **Backend, in the `vm` harness:** a fake `Classroom` service covering create coursework, list submissions, patch grades, the permission-denied path and paging.
 - **E2E:** link course → assign with "Post to Classroom" → grade + release → preview shows the right actions → sync → tracker shows "Synced".
 
-### B. Question tagging (tag library per teacher, stored in the Sheet)
+### B. Question tagging (local until published, then shared through the Sheet)
 
-**Goal:** a teacher keeps their own library of tags (e.g. "Ions", "Stoichiometry", "NGSS HS-PS1-7", "Unit 3") and puts them on questions. Once a test is published, its tags come from the Sheet, so the same tags show up everywhere: builder, grading, results, tracker and student profile. **There is no question bank feature here.** Tags are labels on the questions inside tests, nothing more.
+**Goal:** teachers make tags (e.g. "Ions", "Stoichiometry", "NGSS HS-PS1-7", "Unit 3") and put them on questions. A tag stays in the teacher's browser, like a draft, until a **published** test uses it. Publishing writes it to the Sheet, and from then on it is the same tag everywhere: builder, grading, results, tracker, student profile, and **other teachers' builders**. **There is no question bank feature here.** Tags are labels on the questions inside tests, nothing more.
+
+**Two places a tag can live**
+
+| | Local tag | Sheet tag |
+|---|---|---|
+| Where | Browser storage, `cw:tags:<email>` (the same device-only storage drafts use today) | `Tags` sheet |
+| When | Created in the builder or Admin → Tags and not yet used in any published test | Used by at least one published test |
+| Who sees it | Only the teacher who made it, on that device | Every admin; students see its name on tests that use it |
+| Who can change it | That teacher (changes stay local) | The teacher who owns it. A rename or recolour applies everywhere at once |
+
+- **Same lifetime as drafts:** a local tag is kept, lost or carried over exactly like a draft. If a teacher clears the browser or moves to another computer, their unpublished tags go with their drafts. Backup / restore (`js/lib/backup.js`) includes local tags alongside drafts.
+- **No sheet writes for local tags:** creating, renaming or deleting a local tag never calls the backend.
 
 **Data**
-- **New sheet `Tags`:** `id, ownerEmail, name, color, description, createdAt, updatedAt, deletedAt`.
-  - `id` is a stable short ID (`tg_xxxxxx`), so renaming a tag renames it everywhere without touching any test.
-  - `ownerEmail` is the admin who made it. Each teacher sees and edits **their own** library.
-  - Tags on a published test that belong to another teacher still display, read-only, so co-teachers see the same labels.
-  - Deleting sets `deletedAt` (soft delete), so old results still show the name.
-- **Test JSON:** each question gets an optional `tags: ["tg_ab12cd", …]` (IDs only, never names). Schema: an array of strings, at most 10 per question. `normalize` keeps it, `validate` warns about unknown IDs, and `stripKeys` (V6-02) keeps it because tags are not answers.
-  - `docs/guide.md` documents `tags` and how AI-written tests can use tag **names** on import (`"tags": ["Ions"]`): the importer resolves names to the teacher's IDs and offers to create missing ones.
+- **New sheet `Tags`:** `id, ownerEmail, name, color, description, firstTestCode, createdAt, updatedAt, deletedAt, mergedInto`.
+  - **Only tags used by a published test are in it.** It is not a full copy of anyone's library.
+  - `id` is a stable short ID (`tg_xxxxxx`) made in the browser when the tag is created, so it never changes when the tag reaches the Sheet. Renaming a tag never touches a test.
+  - `ownerEmail` is the teacher who first published it.
+  - Deleting sets `deletedAt` (soft delete), so old tests and results still show the name.
+  - `mergedInto` keeps old IDs pointing at the merged tag.
+- **Test JSON:** each question gets an optional `tags: ["tg_ab12cd", …]` (IDs only, never names).
+  - Schema: an array of strings, at most 10 per question.
+  - `normalize` keeps it.
+  - `validate` warns about IDs that are neither local nor on the Sheet.
+  - `stripKeys` (V6-02) keeps it, because tags are not answers.
+  - `docs/guide.md` documents `tags`, and how AI-written tests can use tag **names** on import (`"tags": ["Ions"]`). The importer matches names to the teacher's local tags first, then to Sheet tags, and offers to create local tags for the rest.
 
-**How tags resolve**
-- **Drafts (local):** the builder uses a local copy of the teacher's tag library (`cw:tags:<email>`, refreshed through the data store). New tags made while offline get a temporary ID and are created on the Sheet at the next save or publish, with IDs rewritten in the draft.
-- **Published tests:** when a test is published, the IDs in it are checked against the `Tags` sheet; unknown IDs are rejected with a clear message. Wherever a published test is shown, tag **names and colours are pulled from the Sheet** (one cached `listTags` read, CacheService + `store.js`), so a rename or colour change applies everywhere at once.
-- `getTest` and the student test payload return a small `tagIndex` (`{ id: { name, color } }`) for the tags that test uses, so students and the PDF export can show names without a second request.
+**Publishing**
+- `publishTest` sends the test plus `tagDefs`: the definitions of every tag its questions use.
+- The backend upserts them into `Tags` in the same locked write:
+  - A new ID becomes a Sheet tag owned by the publisher.
+  - An ID already on the Sheet keeps the Sheet's name and colour, because the Sheet wins. If the publisher owns that tag and changed it locally, the change is applied.
+- After a successful publish, the builder marks those tags as **on the Sheet** in local storage. From then on they are edited through the Sheet, not locally.
+- Unpublishing or deleting a test does not delete Sheet tags. A tag that no published test uses any more drops out of the **Shared tags** list in the picker, but its row stays so old results keep their names.
+
+**Using other teachers' tags**
+- The builder's tag picker has two groups:
+  - **Your tags:** your local tags plus the Sheet tags you own.
+  - **Shared tags:** Sheet tags other teachers own.
+- You can put any shared tag on your own questions. You use the same ID, so results group together across teachers (e.g. a department's "Unit 3").
+- You can't rename, recolour, merge or delete another teacher's tag. If you want a different name, make your own local tag.
+- Local tags of other teachers are never visible. They aren't on the Sheet.
+
+**How names resolve**
+- **Drafts:** local tags come from browser storage; Sheet tags come from one cached `listTags` read (CacheService + `store.js`).
+- **Published tests:** names and colours always come from the Sheet. `getTest`, the student test payload and `getFeedback` include a small `tagIndex` (`{ id: { name, color } }`) for that test's tags, so students and the PDF export need no second request.
 
 **Where tags appear**
-- **Builder:** a tag picker on each question (type to search your library, Enter to create). Filter the question list by tag. "Apply tag to selected questions" works on several questions at once.
-- **Admin → Tags** (new page in the admin sidebar): your library (create, rename, recolour, merge two tags, delete) with a "used in N questions across M tests" count.
+- **Builder:** the tag picker on each question (type to search, Enter to create a local tag), a filter for the question list by tag, and "Apply tag to selected questions" for several questions at once.
+- **Admin → Tags** (new page in the admin sidebar):
+  - **Local:** create, rename, recolour, delete.
+  - **On the Sheet, mine:** rename, recolour, merge, delete, with a "used in N questions across M published tests" count.
+  - **Shared:** read-only, with the owner's name.
 - **Grading and grade-by-question:** filter questions by tag, plus an average score per tag for the test.
 - **Assignment tracker:** a per-tag column group (class average per tag) and a per-student breakdown.
-- **Student results and feedback (released only):** "By topic" summary, e.g. "Ions 8/10 · Stoichiometry 3/6".
-- **Student profile:** accuracy by tag across all **released** results. This is the honest replacement for the removed Mastery page: it is built only from released, teacher-confirmed scores.
-- **Game modes:** "Mistake review" and "Flashcards" can filter by tag ("Practise only Ions").
+- **Student results and feedback (released only):** a "By topic" summary, e.g. "Ions 8/10 · Stoichiometry 3/6".
+- **Student profile:** accuracy by tag across all **released** results. This is the honest replacement for the removed Mastery page, because it is built only from released, teacher-confirmed scores.
+- **Game modes:** Mistake review and Flashcards can filter by tag ("Practise only Ions").
 - **Library:** filter tests by the tags their questions use.
 
 **Backend (`Code.gs`)**
 - **New admin actions:**
-  - `listTags` (own + any referenced by the requested tests)
-  - `saveTag`
-  - `deleteTag`
-  - `mergeTags` (rewrites IDs inside the caller's published tests in one locked pass)
-- **Publish check:** `publishTest` validates tag IDs.
+  - `listTags`: every non-deleted Sheet tag, with owner and usage counts.
+  - `saveTag`: owner only. Edits an existing Sheet tag; it **cannot create one**, because Sheet tags are only created by publishing.
+  - `deleteTag`: owner only, soft delete.
+  - `mergeTags`: owner only, both tags must be theirs. Rewrites IDs in the owner's published tests in one locked pass and sets `mergedInto`, so other teachers' tests using the old ID still resolve.
+- **`publishTest`:** accepts `tagDefs` and upserts them as described in Publishing.
 - **`tagIndex`:** `getTest`, `getTestFor_` and `getFeedback` include it.
 - **Formula injection:** tag `name` and `description` go through `text_()`.
 
 **Tests**
-- **Unit:** schema (`tags` normalize/validate, limit), the importer resolving names to IDs, per-tag score aggregation (released only, partial credit, teacher-graded items), the merge rewrite.
-- **Backend:** CRUD by owner only, soft delete, the publish check, `tagIndex` in test payloads.
-- **E2E:** create a tag in the builder → tag 3 questions → publish → rename the tag in Admin → Tags → the new name shows in grading, the student's released results and the profile.
+- **Unit:**
+  - Schema: `tags` normalize/validate and the 10-tag limit.
+  - Local tag store: create, rename, delete, and marking a tag "on the Sheet" after publish.
+  - Importer: names match local tags first, then Sheet tags.
+  - Per-tag score totals: released only, partial credit, teacher-graded items.
+  - Merge rewrite.
+- **Backend:**
+  - The Sheet only gets tags through `publishTest`, and `saveTag` can't create one.
+  - Owner-only edits, the Sheet winning for tags someone else owns, soft delete, `mergedInto` resolution.
+  - `tagIndex` in test payloads.
+- **E2E:**
+  1. Teacher A makes a local tag and tags 3 questions in a draft, and the tag doesn't appear on the Sheet.
+  2. A publishes, and the tag is on the Sheet.
+  3. Teacher B sees it under Shared tags and uses it, but can't rename it.
+  4. A renames it, and the new name shows in B's builder, grading, the student's released results and the profile.
 
 ## V6-10 — Docs and release
 
@@ -387,7 +434,7 @@ The work splits into sessions the same way as v5 (agent briefs to be written in 
 | S09 | Accessibility | V6-06 | S08 |
 | S10 | PWA | V6-07 | S08 |
 | S11 | Deployment | V6-08 | S03 |
-| S12a | Question tagging | V6-09 B: `Tags` sheet + actions, schema, builder picker, Admin → Tags, grading / tracker / results / profile views | S06 |
+| S12a | Question tagging | V6-09 B: local tag store, `Tags` sheet filled on publish + actions, schema, builder picker (yours / shared), Admin → Tags, grading / tracker / results / profile views | S06 |
 | S12b | Classroom grade sync | V6-09 A: scopes, course link + roster import, post to Classroom, preview + sync, auto-sync on release | S03, S04 |
 | S13 | Release | V6-10 | all |
 
@@ -408,7 +455,7 @@ S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a ca
 - **Pruning:** a daily trigger, retention settings and a `diag` action.
 - **Formula injection:** `text_()` on every user-supplied column.
 - **Classroom sync (V6-09 A):** new Classroom scopes, a `ClassroomSync` sheet, columns `Classes.classroomCourseId` and `Assignments.classroomCourseWorkId`, and actions `listClassroomCourses`, `linkClassroomCourse`, `importClassroomRoster`, `previewGradeSync`, `syncGrades`.
-- **Tags (V6-09 B):** a `Tags` sheet, actions `listTags`, `saveTag`, `deleteTag`, `mergeTags`, the publish check, and `tagIndex` in test payloads.
+- **Tags (V6-09 B):** a `Tags` sheet that only holds tags used by published tests; `publishTest` upserts `tagDefs`; actions `listTags`, `saveTag` (edit only), `deleteTag`, `mergeTags`; and `tagIndex` in test payloads.
 
 ## Open questions
 
@@ -418,9 +465,9 @@ S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a ca
 4. **clasp + a GitHub Action for the backend:** this needs a Google service login stored as a repository secret. Recommended: yes, as optional. Pasting by hand stays documented.
 5. **Rename test files by area instead of by version?** This touches 54 files, but only once. Recommended: yes.
 6. **Translations (i18n):** none today. Is Spanish (or another language) needed for students? If yes, add a string table during S08 (clean-up) while every view is being touched anyway.
-7. **Classroom: send unreleased grades as drafts?** Recommended: yes. Graded-but-unreleased scores go to Classroom as `draftGrade` (only the teacher sees them there), and released scores go as `assignedGrade`. The alternative is to send nothing until release.
-8. **Who deploys for Classroom sync?** Sync acts as the account that deployed the Apps Script. Recommended: each teacher who wants sync uses their own deployment (the existing "copy deployment" guide). The alternative is one shared deployment that is added as a co-teacher on every course.
-9. **Can other teachers use your tags?** Recommended for 6.0: they see them read-only on your tests but can't add your tags to their own questions. A shared department tag library is a 6.1+ candidate.
+7. ~~Classroom: send unreleased grades as drafts?~~ **Decided: yes.** Graded-but-unreleased scores go as `draftGrade` (only the teacher sees them in Classroom). Released scores go as `assignedGrade`.
+8. ~~Who deploys for Classroom sync?~~ **Decided: each teacher who wants sync uses their own deployment** (the existing "copy deployment" guide). Platform → the deployment checklist shows which account sync runs as.
+9. ~~Can other teachers use your tags?~~ **Decided: yes, but only tags that are on the Sheet,** meaning tags used by at least one published test. Every other tag stays in that teacher's browser storage, like a draft, until a test using it is published. See V6-09 B.
 
 ## Known limits that stay
 
