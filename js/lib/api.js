@@ -79,10 +79,10 @@ export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToke
   }
 }
 
-export async function publishTest(test, { gasUrl, adminKey, fetchImpl } = {}) {
+export async function publishTest(test, { gasUrl, adminKey, tagDefs, fetchImpl } = {}) {
   try {
-    const d = await adminPost(gasUrl, { action: 'publishTest', test }, adminKey, fetchImpl);
-    return d && d.result === 'success' ? { ok: true } : { ok: false, error: failure(d) };
+    const d = await adminPost(gasUrl, { action: 'publishTest', test, ...(tagDefs && tagDefs.length ? { tagDefs } : {}) }, adminKey, fetchImpl);
+    return d && d.result === 'success' ? { ok: true, tagsOnSheet: d.tagsOnSheet || [] } : { ok: false, error: failure(d) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -155,12 +155,14 @@ export async function fetchSubmissionCounts({ gasUrl, adminKey, fetchImpl } = {}
   }
 }
 
-// Student feedback for one of their own submissions (no admin key; needs the submission id + email).
+// Student feedback for one of their own submissions (no admin key; needs the submission id and the student's ID token).
 // -> { ok: true, released: false } | { ok: true, released: true, released_at, status, final_score, score_total,
 //      final_percentage, grades: { qid: points }, comments: { qid: text } } | { ok: false, error }
-export async function fetchFeedback({ gasUrl, submissionId, studentEmail, fetchImpl } = {}) {
+export async function fetchFeedback({ gasUrl, submissionId, studentEmail, idToken, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'getFeedback', submissionId, studentEmail }, fetchImpl);
+    let token = idToken;
+    if (!token) { try { token = await getFreshIdToken(); } catch { token = ''; } }
+    const d = await post(gasUrl, { action: 'getFeedback', submissionId, studentEmail, ...(token ? { idToken: token } : {}) }, fetchImpl);
     if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
     const { result, ...rest } = d;
     return { ok: true, ...rest, released: d.released === true };
@@ -271,12 +273,12 @@ export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchI
   }
 }
 // Public (student) actions: progressPing, getTest (POST, with idToken), submitGameScore, getLeaderboard, reportError.
-// `unavailable` is true when the deployed backend does not know the action yet (older Code.gs) or is unreachable.
+// `unavailable` is true when the backend could not be reached.
 export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {}) {
   try {
     const d = await post(gasUrl, { action, ...payload }, fetchImpl);
     if (d && d.result === 'success') return { ok: true, data: d };
-    return { ok: false, error: (d && d.error) || 'unknown_error', data: d, unavailable: !!d && d.error === 'unknown_action' };
+    return { ok: false, error: (d && d.error) || 'unknown_error', data: d };
   } catch (e) {
     return { ok: false, error: msg(e), unavailable: true };
   }
@@ -321,3 +323,19 @@ export const remindMissing = ({ gasUrl, adminKey, id, fetchImpl } = {}) => admin
 // Student.
 export const getClassHub = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getClassHub', {}, { gasUrl, idToken, fetchImpl });
 export const markNotificationsRead = ({ gasUrl, idToken, ids, all, fetchImpl } = {}) => studentCall('markNotificationsRead', { ids, all }, { gasUrl, idToken, fetchImpl });
+
+// ---------- tags ----------
+export const listTags = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTags', {}, { gasUrl, adminKey, fetchImpl });
+export const saveSheetTag = ({ gasUrl, adminKey, tag, fetchImpl } = {}) => adminCall('saveTag', { id: tag.id, tag }, { gasUrl, adminKey, fetchImpl });
+export const deleteSheetTag = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteTag', { id }, { gasUrl, adminKey, fetchImpl });
+export const mergeSheetTags = ({ gasUrl, adminKey, from, into, fetchImpl } = {}) => adminCall('mergeTags', { from, into }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- Google Classroom ----------
+export const listClassroomCourses = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listClassroomCourses', {}, { gasUrl, adminKey, fetchImpl });
+export const linkClassroomCourse = ({ gasUrl, adminKey, classId, courseId, autoSync, fetchImpl } = {}) => adminCall('linkClassroomCourse', { classId, courseId, autoSync }, { gasUrl, adminKey, fetchImpl });
+export const importClassroomRoster = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('importClassroomRoster', { classId }, { gasUrl, adminKey, fetchImpl });
+export const previewGradeSync = ({ gasUrl, adminKey, assignmentId, overwrite, fetchImpl } = {}) => adminCall('previewGradeSync', { assignmentId, overwrite }, { gasUrl, adminKey, fetchImpl });
+export const syncGrades = ({ gasUrl, adminKey, assignmentId, overwrite, cursor, fetchImpl } = {}) => adminCall('syncGrades', { assignmentId, overwrite, cursor }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- platform ----------
+export const getDiag = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('diag', {}, { gasUrl, adminKey, fetchImpl });

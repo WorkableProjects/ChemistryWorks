@@ -45,6 +45,14 @@
   --on-primary: #FFFFFF;
 
   /* Status (re-tuned for cool surfaces; always paired with an icon or text). */
+  /* Tag colours: ink on a soft fill. */
+  --tag-navy: #00224F; --tag-navy-soft: #E3ECF7;
+  --tag-teal: #005F62; --tag-teal-soft: #D9F1F1;
+  --tag-green: #14532D; --tag-green-soft: #DDF1E3;
+  --tag-amber: #7A3508; --tag-amber-soft: #FCEFD2;
+  --tag-red: #8E1B1B; --tag-red-soft: #FBE5E3;
+  --tag-violet: #4C1D95; --tag-violet-soft: #ECE6FA;
+  --tag-slate: #334155; --tag-slate-soft: #E2E8F0;
   --success: #08704F;
   --success-soft: #DDF3EA;
   --success-ink: #064E3B;
@@ -174,6 +182,13 @@
   --hover-tint: color-mix(in srgb, var(--primary) 8%, var(--bg-elev));
   --on-primary: #04121F;
 
+  --tag-navy: #B8CAE2; --tag-navy-soft: #13233A;
+  --tag-teal: #7FD6D8; --tag-teal-soft: #0E2C2D;
+  --tag-green: #86E0A6; --tag-green-soft: #11291A;
+  --tag-amber: #F5C46B; --tag-amber-soft: #33260E;
+  --tag-red: #FCA5A5; --tag-red-soft: #3A1B22;
+  --tag-violet: #C9B6F5; --tag-violet-soft: #241A3A;
+  --tag-slate: #CBD5E1; --tag-slate-soft: #1E2733;
   --success: #34D399;
   --success-soft: #0D2E28;
   --success-ink: #6EE7B7;

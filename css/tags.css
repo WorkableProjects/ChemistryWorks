@@ -1,0 +1,32 @@
+/* Question tags: chips, the builder picker, Admin > Tags and "By topic" summaries. */
+.tag-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 0.8125rem; line-height: 1.5;
+  color: var(--tag-slate); background: var(--tag-slate-soft); max-width: 100%; }
+.tag-chip__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-chip__x { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; border-radius: 4px; }
+.tag-chip__x:focus-visible { outline: 2px solid var(--primary-ring); outline-offset: 1px; }
+.tag-chip--navy { color: var(--tag-navy); background: var(--tag-navy-soft); }
+.tag-chip--teal { color: var(--tag-teal); background: var(--tag-teal-soft); }
+.tag-chip--green { color: var(--tag-green); background: var(--tag-green-soft); }
+.tag-chip--amber { color: var(--tag-amber); background: var(--tag-amber-soft); }
+.tag-chip--red { color: var(--tag-red); background: var(--tag-red-soft); }
+.tag-chip--violet { color: var(--tag-violet); background: var(--tag-violet-soft); }
+
+.tag-picker__chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
+.tag-picker__chips:not(:empty) { margin-bottom: 6px; }
+.tag-picker__box { position: relative; }
+.tag-picker__list { position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px); max-height: 240px; overflow: auto; padding: 6px;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-md); }
+.tag-picker__group { margin: 6px 4px 2px; font-size: 0.75rem; color: var(--text-muted); }
+.tag-picker__opt { display: flex; width: 100%; padding: 4px; border: 0; background: none; text-align: start; border-radius: 6px; cursor: pointer; color: var(--text); }
+.tag-picker__opt:hover, .tag-picker__opt:focus-visible { background: var(--primary-soft); }
+.tag-picker__new { padding: 6px 8px; }
+
+.adm-tagtools { gap: 8px; }
+.tags-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tags-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.tags-row:last-child { border-bottom: 0; }
+.tags-row__meta { font-size: 0.8125rem; }
+
+.by-topic { display: flex; flex-wrap: wrap; gap: 8px; }
+.by-topic__item { display: inline-flex; gap: 6px; align-items: center; }
+.by-topic__score { font-variant-numeric: tabular-nums; color: var(--text-muted); }

@@ -117,6 +117,11 @@ function normalizeQuestion(raw) {
       q.hint = { text: str(src.text), cost: src.cost === undefined || src.cost === null || src.cost === '' ? 0 : Number(src.cost) };
     } else delete q.hint;
   }
+  // Tags are IDs (tg_xxxxxx); names come from the teacher's local tags or the Tags sheet. Names are allowed on import.
+  if (q.tags !== undefined) {
+    const tags = Array.isArray(q.tags) ? [...new Set(q.tags.map((t) => str(t).trim()).filter(Boolean))] : [];
+    if (tags.length) q.tags = tags; else delete q.tags;
+  }
   switch (q.type) {
     case 'mcq':
       q.options = normOptions(q.options);
@@ -370,6 +375,10 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
     if (!nonEmptyStr(q.image.alt)) errors.push(`${where}: question images need alt text describing the image.`);
   }
   if (!isObj(q)) { errors.push(`${where}: must be an object.`); return; }
+  if (q.tags !== undefined) {
+    if (!Array.isArray(q.tags) || q.tags.some((t) => typeof t !== 'string')) errors.push(`${where}: tags must be a list of tag IDs.`);
+    else if (q.tags.length > 10) errors.push(`${where}: at most 10 tags per question.`);
+  }
 
   if (!nonEmptyStr(q.id)) errors.push(`${where}: id is required.`);
   else if (!ID_RE.test(q.id)) errors.push(`${where}: id may only contain letters, digits, "_" and "-".`);

@@ -18,6 +18,8 @@ import { gameOptionsPanel } from './game-options.js';
 import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
 import { testExtrasPanel } from './test-extras.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
+import { tagPicker, teacherEmail, currentLookup, sheetTagsResource } from './tag-picker.js';
+import { tagDefsFor, markOnSheet, tagIdsOf } from '../../lib/tags.js';
 
 const GUIDE_SOURCES = [
   'https://raw.githubusercontent.com/WorkableProjects/ChemistryWorks/main/docs/guide.md', // latest on main
@@ -281,7 +283,9 @@ export function renderBuilder(root, ctx) {
       buttons.publish.classList.add('is-loading');
       buttons.publish.disabled = true;
       try {
-        const res = await publishTest(t, { gasUrl });
+        const tagDefs = tagDefsFor(t, teacherEmail());
+        const res = await publishTest(t, { gasUrl, tagDefs });
+        if (res.ok) { markOnSheet(teacherEmail(), res.tagsOnSheet?.length ? res.tagsOnSheet : tagIdsOf(t)); sheetTagsResource().refresh?.(); }
         toast(res.ok ? `Published ${t.code}` : `Publish failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error', timeout: res.ok ? 3200 : 6000 });
         if (res.ok) showLink(t.code);
       } catch (e) {
@@ -507,6 +511,7 @@ export function renderBuilder(root, ctx) {
     }
     mount(listEl, nodes);
     renumber();
+    applyTagFilter();
     renderMath(listEl);
   }
 
@@ -804,6 +809,7 @@ export function renderBuilder(root, ctx) {
       richPrev,
       typeSection,
       field('Explanation', expl),
+      tagPicker(q, () => { changed(); applyTagFilter(); }),
       extrasPanel(q, changed),
       switchEl({ label: 'Required', hint: 'The student must answer this question before submitting (all questions are required when “All questions required” is on).',
         checked: !!q.required, testid: 'q-required',
@@ -1087,6 +1093,39 @@ export function renderBuilder(root, ctx) {
     return wrap;
   }
 
+  // Question list filter by tag, plus "apply a tag to every shown question".
+  let tagFilter = '';
+  function applyTagFilter() {
+    editors().forEach((el) => {
+      const q = S.test.questions[Number(el.dataset.index)];
+      el.hidden = !!tagFilter && !(q?.tags || []).includes(tagFilter);
+    });
+  }
+  function tagFilterEl() {
+    const look = currentLookup();
+    const used = [...new Set(S.test.questions.flatMap((q) => q.tags || []))];
+    const sel = h('select', { class: 'select select--sm', 'aria-label': 'Show questions with tag', dataset: { testid: 'builder-tag-filter' },
+      on: { change: () => { tagFilter = sel.value; applyTagFilter(); } } },
+      h('option', { value: '' }, 'All questions'),
+      used.map((id) => h('option', { value: id, selected: id === tagFilter }, look.get(id)?.name || 'Unknown tag')));
+    const all = [...look.values()];
+    const applySel = h('select', { class: 'select select--sm', 'aria-label': 'Tag to apply', dataset: { testid: 'builder-tag-apply-pick' } },
+      h('option', { value: '' }, 'Apply tag…'), all.map((t) => h('option', { value: t.id }, t.name)));
+    applySel.addEventListener('change', () => {
+      const id = applySel.value;
+      if (!id) return;
+      let n = 0;
+      editors().forEach((el) => {
+        if (el.hidden) return;
+        const q = S.test.questions[Number(el.dataset.index)];
+        if (q && !(q.tags || []).includes(id) && (q.tags || []).length < 10) { q.tags = [...(q.tags || []), id]; n++; }
+      });
+      applySel.value = '';
+      if (n) { renderList(); changed(); toast(`Tag added to ${n} question${n === 1 ? '' : 's'}`, { type: 'success' }); }
+    });
+    return h('span', { class: 'row adm-tagtools' }, sel, all.length ? applySel : null);
+  }
+
   function renderVisual() {
     listEl = h('div', { class: 'adm-qlist' });
     emptyHint = h('div', { class: 'adm-qempty', hidden: S.test.questions.length > 0 },
@@ -1098,6 +1137,7 @@ export function renderBuilder(root, ctx) {
       h('section', { class: 'adm-questions', 'aria-label': 'Questions' },
         h('div', { class: 'row' }, h('h3', { class: 'adm-h3' }, 'Questions'),
           h('span', { class: 'spacer' }),
+          tagFilterEl(),
           h('button', { class: 'btn btn--subtle btn--sm', type: 'button', on: { click: () => { const all = S.test.questions; const anyClosed = all.some((q) => !S.open.has(q)); all.forEach((q) => (anyClosed ? S.open.add(q) : S.open.delete(q))); editors().forEach((e) => e._sync()); } } }, 'Expand / collapse all')),
         emptyHint, listEl,
         h('div', { class: 'adm-addrow' }, addMenu())));

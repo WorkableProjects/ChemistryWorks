@@ -15,6 +15,7 @@ import { renderAccommodations } from './admin/accommodations.js';
 import { renderLive } from './admin/live.js';
 import { renderImport } from './admin/import.js';
 import { renderStudent } from './admin/student.js';
+import { renderTags } from './admin/tags.js';
 
 import { renderSettings } from './admin/settings.js';
 import { mountPalette } from './admin/palette.js';
@@ -35,6 +36,7 @@ registerNavItem({ id: 'classes', render: (host, ctx, o) => renderClasses(host, c
 registerNavItem({ id: 'accommodations', render: (host, ctx, o) => renderAccommodations(host, ctx, o) });
 registerNavItem({ id: 'live', render: (host, ctx, o) => renderLive(host, ctx, o) });
 registerNavItem({ id: 'import', render: (host, ctx, o) => renderImport(host, ctx, o) });
+registerNavItem({ id: 'tags', render: (host, ctx, o) => renderTags(host, ctx, o) });
 // Teacher student view (S13a): opened by link (?section=student&email=), not listed in the sidebar.
 registerNavItem({ id: 'student', label: 'Student', icon: 'user', hidden: true, render: (host, ctx, o) => renderStudent(host, ctx, o) });
 
