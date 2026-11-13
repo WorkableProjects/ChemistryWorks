@@ -1,4 +1,4 @@
-// Grading helpers for the `balance` question type (V3-05). Pure functions, no DOM.
+// Grading helpers for the `balance` question type. Pure functions, no DOM.
 
 const isPosInt = (n) => Number.isInteger(n) && n > 0;
 const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));

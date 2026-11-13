@@ -99,7 +99,7 @@ function safeValidate(test) {
 function totalPoints(test) {
   return Math.round(test.questions.reduce((s, q) => s + (Number(q.points) || 0), 0) * 100) / 100;
 }
-/** "Extras" disclosure in the common question settings (V4-03): confidence switch and a point-costing hint. */
+/** "Extras" disclosure in the common question settings: confidence switch and a point-costing hint. */
 function extrasPanel(q, changed) {
   const text = h('textarea', { class: 'textarea', rows: 2, placeholder: 'Hint shown when the student asks for it (leave empty for no hint)', dataset: { testid: 'q-hint-text' } });
   text.value = q.hint?.text || '';
@@ -147,7 +147,7 @@ function jsonErrorMessage(err, text) {
 }
 
 // ---------- render ----------
-// V4-01: icon + one-line description per question type (type picker, outline).
+// Icon + one-line description per question type (type picker, outline).
 export const TYPE_ICONS = {
   mcq: 'list', multi: 'check', truefalse: 'flag', numeric: 'type', short: 'pencil', open: 'pen',
   matching: 'layers', ordering: 'sort', fillblank: 'minus', categorize: 'grid',
@@ -469,7 +469,7 @@ export function renderBuilder(root, ctx) {
     setTimeout(() => { if (!el.contains(document.activeElement)) el.querySelector('[data-testid="q-text"]')?.focus({ preventScroll: true }); }, 120);
   }
 
-  // ----- sections (V2-04) -----
+  // ----- sections -----
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   const sectionSummary = (id) => {
     const n = S.test.questions.filter((q) => q.section === id).length;
@@ -573,7 +573,7 @@ export function renderBuilder(root, ctx) {
       body);
   }
 
-  // ----- references (V2-02) -----
+  // ----- references -----
   function referencesCard() {
     const body = h('div', { class: 'stack adm-secrows' });
     const addBtns = {};
@@ -863,7 +863,7 @@ export function renderBuilder(root, ctx) {
     orbital: 'Orbital diagram', short: 'Short answer', open: 'Open response', lewis: 'Lewis dots',
     structure: 'Lewis structure', hotspot: 'Label diagram', graph: 'Graph',
   };
-  // V4-03: registered v4 types join their group and bring their own short label.
+  // Registered v4 types join their group and bring their own short label.
   for (const t of registeredTypes().filter((x) => QUESTION_TYPES.includes(x))) {
     const d = typeDef(t);
     const g = TYPE_GROUPS.find((x) => x.title === d.group);
@@ -931,7 +931,7 @@ export function renderBuilder(root, ctx) {
   }
 
 
-  // ----- V4-01: outline (left pane), drag + keyboard reorder, preview as student -----
+  // ----- outline (left pane), drag + keyboard reorder, preview as student -----
   const outlineEl = h('aside', { class: 'bld2__outline', 'aria-label': 'Test outline', dataset: { testid: 'builder-outline' } });
   let dragging = false;
   let outlineFocus = null; // question object to re-focus after a redraw

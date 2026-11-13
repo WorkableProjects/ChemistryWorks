@@ -1,4 +1,4 @@
-// Per-test game options (V4-04). Pure, no DOM, no network. Stored as `gameOptions` in the test JSON.
+// Per-test game options. Pure, no DOM, no network. Stored as `gameOptions` in the test JSON.
 // normalizeGameOptions(test) -> a fully populated options object (defaults filled, values clamped).
 // validateGameOptions(test)  -> string[] of human-readable problems (empty = fine).
 // cleanGameOptions(raw)      -> the normalized object to store back on the test (schema.js hook).

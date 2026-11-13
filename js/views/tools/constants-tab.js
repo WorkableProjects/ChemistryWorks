@@ -1,4 +1,4 @@
-// "Units & constants" reference-pane tab (V4-05): constants table with a copy-into-calculator-friendly value, and a unit converter.
+// "Units & constants" reference-pane tab: constants table with a copy-into-calculator-friendly value, and a unit converter.
 import { h } from '../../ui.js';
 import { CONSTANTS, UNIT_CATEGORIES, convert } from './units.js';
 import { formatResult } from './calc-parser.js';

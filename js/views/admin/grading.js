@@ -156,8 +156,8 @@ export function renderGrading(root, ctx, { goSettings }) {
     const search = h('input', { class: 'input adm-search', type: 'search', placeholder: 'Search name or email', 'aria-label': 'Search submissions', value: G.query, dataset: { testid: 'grading-search' } });
     const tableHost = h('div', { class: 'adm-tablewrap', dataset: { testid: 'grading-table' } });
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
-    // V3-03: release every graded / auto-graded submission of the selected test.
-    // V4-02: re-run auto-grading on every submission of this test with the current answer key (overrides kept).
+    // Release every graded / auto-graded submission of the selected test.
+    // Re-run auto-grading on every submission of this test with the current answer key (overrides kept).
     // Average score per tag for the selected test (graded questions only), as a row of chips.
     const tagHost = h('div', { dataset: { testid: 'grading-by-tag' } });
     if (G.testCode !== 'all') {
@@ -616,7 +616,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 
-    // V3-03: allow this student one more submission (single-submission tests).
+    // Allow this student one more submission (single-submission tests).
     const retakeBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'allow-retake' }, 'aria-pressed': String(!!row.retake_allowed_at),
       on: { click: async () => {
         const allow = !row.retake_allowed_at;

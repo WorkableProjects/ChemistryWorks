@@ -31,7 +31,7 @@ async function post(gasUrl, body, fetchImpl) {
   return parse(await f(gasUrl, { method: 'POST', headers: TEXT_HEADERS, body: JSON.stringify(body) }));
 }
 
-// Admin POST (V4-07). The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
+// Admin POST. The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
 // Google admin, { adminKey } when a key is set); an explicit `adminKey` argument wins. When the Google token has
 // expired mid-session ('invalid_token') it is refreshed silently once and the request retried, never a password.
 async function adminPost(gasUrl, body, adminKey, fetchImpl, { idToken } = {}) {
@@ -67,7 +67,7 @@ export async function fetchPublishedTest(code, { gasUrl, fetchImpl } = {}) {
   return r.test || null;
 }
 
-// v4 S11/S12: { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
+// { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
 // POST form is used, which applies the student's extension and roster check server-side.
 export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToken } = {}) {
   try {
@@ -123,7 +123,7 @@ export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {
 
 // Saves a teacher's grade for one submission. grades: { [questionId]: points }. The backend recomputes
 // the final score from the stored responses and returns { final_score, score_total, final_percentage, graded_at }.
-// v2: comments ({ [questionId]: text }, omitted = keep existing) and release (true = release grade + comments
+// Comments ({ [questionId]: text }, omitted = keep existing) and release (true = release grade + comments
 // to the student, false = un-release, omitted = unchanged). grade also carries { comments, released_at }.
 export async function saveGrade({ gasUrl, adminKey, submissionId, grades, note = '', comments, release, gradedBy, fetchImpl } = {}) {
   try {
@@ -171,7 +171,7 @@ export async function fetchFeedback({ gasUrl, submissionId, studentEmail, idToke
   }
 }
 
-// V3-01: the signed-in student's submissions for one test (no admin key; identity verified on the server
+// The signed-in student's submissions for one test (no admin key; identity verified on the server
 // from the Google ID token). -> { ok: true, submitted, attempts, latest, feedback?, others? } |
 // { ok: false, error } (error 'identity_not_configured' / OUTDATED_BACKEND / network -> caller fails open).
 export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEmail, fetchImpl } = {}) {
@@ -284,7 +284,7 @@ export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {
   }
 }
 
-// ---------- v5 (B1): student profile + sync, batch ----------
+// ---------- v5: student profile + sync, batch ----------
 // Every wrapper resolves { ok: true, data } | { ok: false, error, unavailable? } and never throws.
 // No gasUrl or an old backend -> { ok: false, unavailable: true }: callers keep working from localStorage.
 async function studentCall(action, payload, { gasUrl, idToken, fetchImpl } = {}) {
@@ -303,13 +303,13 @@ export const getStudentProfileAdmin = ({ gasUrl, adminKey, email, fetchImpl } = 
 // requests: [{ action, ...fields }] (max 50). -> { ok, data: { results: [...] } }
 export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adminCall('batch', { requests }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v5 (B2): fast reads ----------
+// ---------- v5: fast reads ----------
 // -> { ok, data: { tests: [{ code, title, updatedAt, status, questionCount, points, needsGrading, submissionCount }] } }
 export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
 // since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
 export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v5 (B3): Class Hub ----------
+// ---------- v5: Class Hub ----------
 // Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
 export const saveAssignment = ({ gasUrl, adminKey, assignment, fetchImpl } = {}) => adminCall('saveAssignment', { assignment }, { gasUrl, adminKey, fetchImpl });
 export const deleteAssignment = ({ gasUrl, adminKey, id, deleteClassroom, fetchImpl } = {}) => adminCall('deleteAssignment', { id, deleteClassroom: deleteClassroom === true }, { gasUrl, adminKey, fetchImpl });

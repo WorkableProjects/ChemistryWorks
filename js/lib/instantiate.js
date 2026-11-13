@@ -7,7 +7,7 @@
 //                                              test.instance = { seed, drawn?: [questionIds] , ... } for the payload.
 // Steps register with addInstantiateStep(name, fn) from './instantiate-steps.js': fn(testCopy, { seed, email, rand })
 // mutates the copy; rand = seeded PRNG (0..1) made per step from seed + name, so steps stay independent.
-// './algorithmic.js' (S10) and './pools.js' (S11) register themselves when imported below.
+// './algorithmic.js' and './pools.js' register themselves when imported below.
 
 import { instantiateSteps } from './instantiate-steps.js';
 

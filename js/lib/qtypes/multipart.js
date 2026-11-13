@@ -1,4 +1,4 @@
-// `multipart` question type (V4-03): one stem, several labelled parts (a) (b) (c), each part a full question of any
+// `multipart` question type: one stem, several labelled parts (a) (b) (c), each part a full question of any
 // auto-graded type. Pure module, no DOM. Answer shape: { partId: partAnswer }.
 //   { type: 'multipart', stem?: text, parts: [ { id: 'a', type: 'mcq', text, points, ... }, ... ] }
 import { registerType, typeDef } from './registry.js';

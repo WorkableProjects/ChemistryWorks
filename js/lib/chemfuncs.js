@@ -1,4 +1,4 @@
-// Built-in chemistry functions (V4-09, S10). Pure, no DOM. Used by the algorithmic answer formulas
+// Built-in chemistry functions. Pure, no DOM. Used by the algorithmic answer formulas
 // (js/lib/algorithmic.js), the molar-mass question type and the builder previews.
 //
 //   parseFormulaCounts("Ca(OH)2") -> { Ca: 1, O: 2, H: 2 }      null when the formula cannot be read

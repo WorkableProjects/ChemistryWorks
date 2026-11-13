@@ -1,4 +1,4 @@
-// `bohr` question type (V5-07, S12a) — student widget, builder editor and review.
+// `bohr` question type — student widget, builder editor and review.
 // Answer: { shells: [n1, n2, n3, n4] }; see js/lib/qtypes/bohr.js.
 import { h, icon } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

@@ -1,4 +1,4 @@
-// Offline / waiting-submission banner (V4-05). networkBanner({ ctx }) -> { el, destroy() }
+// Offline / waiting-submission banner. networkBanner({ ctx }) -> { el, destroy() }
 // Shown in the runner and on the landing page: offline (answers are safe on the device) and "a submission is waiting".
 
 import { h, icon, toast } from '../../ui.js';

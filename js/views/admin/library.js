@@ -37,7 +37,7 @@ export function matchesLibraryFilter(item, { query = '', filters = [], counts = 
 }
 
 export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading }) {
-  let needGrading = null; // Set of upper-case codes with submissions waiting to be graded (V4-01 filter), null = unknown
+  let needGrading = null; // Set of upper-case codes with submissions waiting to be graded, null = unknown
   let alive = true;
   const unsubs = [];
   const knownCodes = new Set(); // every code in the library (bundled, drafts, published): new codes must not clash
@@ -168,7 +168,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
   }
 
 
-  /* ---- V5-11: library on the data store (one summary list, no per-test fetches, patched in place) ---- */
+  /* ---- library on the data store (one summary list, no per-test fetches, patched in place) ---- */
   const gasUrlNow = () => CONFIG.GAS_WEB_APP_URL;
   const catalogRes = resource('catalog', { ttl: 600000, fetch: async () => (await loadCatalog()) || [] });
   const testsRes = resource('tests', { fetch: async (signal) => {
@@ -254,7 +254,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
     if (out.ok) toast(`Deleted ${code}`, { type: 'success' });
   }
 
-  /* ---- V4-01: card grid / table, search, filters ---- */
+  /* ---- card grid / table, search, filters ---- */
   function rowEl(item, i) {
     const { code, title, test, source, note } = item;
     const n = counts ? Number(counts[String(code).toUpperCase()]) || 0 : null;

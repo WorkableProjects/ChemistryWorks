@@ -1,4 +1,4 @@
-// Printable view of one reviewed submission (V2-08). Renders into #print-root and calls window.print();
+// Printable view of one reviewed submission. Renders into #print-root and calls window.print();
 // css/print.css hides the rest of the app while printing. Row data goes through h()/richText()/commentBody() only.
 import { h, richText, renderMath, brandLogo } from '../../ui.js';
 import { buildExportModel } from '../../lib/export.js';

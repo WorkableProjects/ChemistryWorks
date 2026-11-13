@@ -1,4 +1,4 @@
-// UI for `datatable` (V4-03): a real <table>; given cells are text, the rest are inputs labelled "Row X, Column Y".
+// UI for `datatable`: a real <table>; given cells are text, the rest are inputs labelled "Row X, Column Y".
 // Answer = { rowId: { colId: 'typed text' } }.
 import { h } from '../../ui.js';
 import { field, switchEl } from '../admin/common.js';

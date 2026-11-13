@@ -1,4 +1,4 @@
-/* ChemWorks — "ChemWorks Lab" design tokens (V4-00), base elements, shared components.
+/* ChemWorks — "ChemWorks Lab" design tokens, base elements, shared components.
    Built from the logo: navy #00224F + teal #01A9AE on cool off-white (light) / deep navy (dark).
    Full documentation: docs/DESIGN.md. View CSS references tokens only (no hex literals outside this file and
    print.css; asserted by test/unit/v4-brand.test.mjs). */
@@ -24,7 +24,7 @@
   --paper: var(--bg);
   --ink: var(--text);
 
-  /* v2 graph paper is gone (V4-00). The variables stay so older rules (`background: var(--texture), var(--bg)`) work. */
+  /* V2 graph paper is gone. The variables stay so older rules (`background: var(--texture), var(--bg)`) work. */
   --texture-strength: 0;
   --texture: none;
   --grid-size: 24px;
@@ -121,17 +121,17 @@
   --radius: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
-  --radius-control: 10px; /* buttons, inputs, rows (v5) */
+  --radius-control: 10px; /* Buttons, inputs, rows */
 
   --shadow-sm: 0 1px 2px rgba(0, 34, 79, 0.08);
   --shadow: 0 1px 2px rgba(0, 34, 79, 0.06);
   --shadow-lg: 0 8px 24px rgba(0, 34, 79, 0.10);
 
-  /* Motion (V4-01): calm and quick, transform/opacity only, nothing longer than ~400 ms. */
+  /* Motion: calm and quick, transform/opacity only, nothing longer than ~400 ms. */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-spring: var(--ease-out); /* no bounce (v5): kept as an alias */
+  --ease-spring: var(--ease-out); /* No bounce: kept as an alias */
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-slow: 320ms;
@@ -145,7 +145,7 @@
   color-scheme: light;
 }
 
-/* ---------- Roles: same look for students and admins (V4-00); admin gets a darker header only. ---------- */
+/* ---------- Roles: same look for students and admins; admin gets a darker header only. ---------- */
 :root[data-role="admin"] { --header-bg: #001634; }
 
 /* ---------- Accent palettes (light). Navy is the default for students and admins. ---------- */
@@ -355,7 +355,7 @@ img { max-width: 100%; }
 .pill--danger { background: var(--danger-soft); color: var(--danger-ink); }
 .pill--warning { background: var(--warning-soft); color: var(--warning-ink); }
 
-/* ---------- Header (V4-01 app shell): slim navy bar ---------- */
+/* ---------- Header: slim navy bar ---------- */
 .app-header {
   position: sticky; top: 0; z-index: 50; height: var(--header-h);
   display: flex; align-items: center; gap: 14px; padding: 0 16px 0 18px;
@@ -589,7 +589,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 }
 @keyframes cw-rock { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(16deg); } }
 
-/* ---------- Motion pass (v5, S09b) ---------- */
+/* ---------- Motion pass ---------- */
 @property --primary { syntax: '<color>'; inherits: true; initial-value: #00224F; }
 @property --primary-hover { syntax: '<color>'; inherits: true; initial-value: #0A3A7A; }
 html.v5-motion { transition: --primary var(--dur-base) var(--ease-out), --primary-hover var(--dur-base) var(--ease-out); }

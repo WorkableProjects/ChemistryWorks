@@ -1,4 +1,4 @@
-// V3-01 / V3-02: "has this student already submitted this test?" — one place for the status check used by
+// V3-01 / "has this student already submitted this test?" — one place for the status check used by
 // app.js openTest() (routing) and the runner (pre-submit re-check). Never throws.
 //
 // checkSubmissionState(ctx, test) -> {
@@ -51,7 +51,7 @@ export async function checkSubmissionState(ctx, test) {
       latest: res.latest || null,
       feedback: res.feedback || null,
       others: Array.isArray(res.others) ? res.others : [],
-      // v4 S11/S12: accommodations, window (with this student's extension) and roster from the backend.
+      // Accommodations, window (with this student's extension) and roster from the backend.
       accommodations: res.accommodations || null,
       window: res.window || null,
       roster: res.roster || null,

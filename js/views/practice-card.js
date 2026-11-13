@@ -1,4 +1,4 @@
-// Assigned practice (V4-04): "Play Survival on CHEM101 and reach 2,000", from test.practice = [{ game, target, due? }].
+// Assigned practice: "Play Survival on CHEM101 and reach 2,000", from test.practice = [{ game, target, due? }].
 // practiceCard({ ctx, user }) -> Node | null. Looks at the tests this student has opened on this device (progress and
 // submitted results), loads at most 6 of them, and lists their practice items with the student's best score.
 // Completion is local (best scores live on this device) unless the test's leaderboard is on.

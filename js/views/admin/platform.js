@@ -1,4 +1,4 @@
-// Settings › Platform (V4-08, S17 + S12 settings): error reports and release emails toggles, recent client errors,
+// Settings › Platform: error reports and release emails toggles, recent client errors,
 // backup / restore of every test and the bank, and a link to import & templates.
 import { h, icon, toast, openModal } from '../../ui.js';
 import { adminCall, listPublishedTests, publishTest, fetchPublishedTest } from '../../lib/api.js';

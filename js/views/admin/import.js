@@ -1,4 +1,4 @@
-// Admin › Import & templates (V4-09, S11): paste questions as plain text, CSV or a Google Forms export → draft test to
+// Admin › Import & templates: paste questions as plain text, CSV or a Google Forms export → draft test to
 // review in the builder; or start from a unit template (data/templates).
 import { h, mount, icon, toast } from '../../ui.js';
 import { parsePlainText, parseQuestionCsv, parseFormsCsv } from '../../lib/importers.js';

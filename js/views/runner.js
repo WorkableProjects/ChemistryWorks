@@ -51,9 +51,9 @@ export function render(root, ctx, params = {}) {
   const user = ctx.user || (preview ? { name: 'Preview', email: 'preview@local', picture: null, provider: 'demo' } : null);
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
-  // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
+  // Tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
   const toolsOn = true;
-  // V5-01: the attempt owns the question order, the answers, flags and autosave. Game modes open the same attempt,
+  // The attempt owns the question order, the answers, flags and autosave. Game modes open the same attempt,
   // so work done there shows up here and the other way round.
   const attempt = openAttempt(test, { user, email: user.email, preview, tools: toolsOn });
   const groups = groupQuestions(test);
@@ -163,7 +163,7 @@ export function render(root, ctx, params = {}) {
       h('span', { class: 'q-section__pts' }, `${points} pts`));
   }
 
-  /** Per-question extras (V4-03): a point-costing hint and the "How sure are you?" row. Both are off unless the question asks. */
+  /** Per-question extras: a point-costing hint and the "How sure are you?" row. Both are off unless the question asks. */
   function buildExtras(q) {
     if (!q.hint && !q.confidence) return { el: null, refresh() {} };
     let hintBtn = null; let hintBox = null; let confRow = null; let confBtns = [];
@@ -223,7 +223,7 @@ export function render(root, ctx, params = {}) {
     }, 'Clear answer');
     const clearSlot = h('div', { class: 'q-clear-slot' });
     const extras = buildExtras(q);
-    // V4-05: optional note to the teacher that goes with the flag.
+    // Optional note to the teacher that goes with the flag.
     const noteInput = toolsOn ? h('input', {
       class: 'input q-flagnote__input', type: 'text', maxlength: '200', 'aria-label': 'Note for your teacher (optional)',
       placeholder: 'Note for your teacher (optional)', dataset: { testid: 'flag-note' },
@@ -654,7 +654,7 @@ export function render(root, ctx, params = {}) {
         submitModal?.close();
         ctx.navigate('results', { test, grade, payload: null, submission: null, preview: true });
       } else {
-        // V3-02: re-check just before sending (second tab / device). Network errors send anyway (server backstop).
+        // Re-check just before sending (second tab / device). Network errors send anyway (server backstop).
         if (test.singleSubmission && await preSubmitBlocked(ctx, test)) {
           attempt.finish();
           submitModal?.close();
@@ -759,7 +759,7 @@ export function render(root, ctx, params = {}) {
   if (tools.calculator) extraTabs.push({ id: 'tool-calc', title: 'Calculator', build: calculatorPanel });
   if (tools.constants) extraTabs.push({ id: 'tool-constants', title: 'Units & constants', build: constantsPanel });
   const refPane = referencePane(test, { storageKey: `refpane:${test.code}`, extraTabs });
-  // V4-02: teacher announcement shown above the questions (dismissible); late-work notice when in the late window.
+  // Teacher announcement shown above the questions (dismissible); late-work notice when in the late window.
   const announceEl = test.announcement && String(test.announcement).trim()
     ? h('div', { class: 'notice notice--info runner-announcement', role: 'note', dataset: { testid: 'test-announcement' } }, icon('info'),
       h('span', { class: 'runner-announcement__text' }, String(test.announcement)),
@@ -783,7 +783,7 @@ export function render(root, ctx, params = {}) {
   if (saved && attempt.answeredCount) toast('Your answers were restored', { type: 'success' });
   cards.forEach((c) => c.refresh());
   updateChrome();
-  if (params.review && !preview) openSubmit(); // V5-01: "Review & submit" from a game mode
+  if (params.review && !preview) openSubmit(); // "Review & submit" from a game mode
 
   // V4-02 S13 live monitor: tell the backend how far along this student is, every 60 s (silently stops on older backends).
   let pingTimer = null;

@@ -1,4 +1,4 @@
-// Pure helpers for the `categorize` question type (V3-05). Answer shape: { itemId: categoryId }.
+// Pure helpers for the `categorize` question type. Answer shape: { itemId: categoryId }.
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 

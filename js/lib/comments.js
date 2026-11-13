@@ -1,4 +1,4 @@
-// Instructor comments on submitted questions (V2-07). Pure parser, no DOM, no HTML strings.
+// Instructor comments on submitted questions. Pure parser, no DOM, no HTML strings.
 //
 // Supported formatting (a small, safe Markdown subset):
 //   **bold**   *italic* or _italic_   [link text](https://example.com)   bare https://… / http://… URLs
@@ -110,7 +110,7 @@ export function commentToText(text) {
     : b.items.map((it, i) => `${b.type === 'ol' ? `${i + 1}.` : '•'} ${inl(it)}`).join('\n'))).join('\n\n');
 }
 
-/* ------------------------------------------------------------------ comment bank (V4-02)
+/* ------------------------------------------------------------------ comment bank
  * Reusable comments saved on this device (localStorage `cw:commentBank`), plus optional per-question rubrics
  * keyed by test code + question id. Shape: { comments: [{ id, text }], rubrics: { 'CODE|qid': [{ text, points }] } }.
  * Pure functions return a new bank; the load/save pair below touches storage and never throws. */

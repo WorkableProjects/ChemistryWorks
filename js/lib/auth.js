@@ -2,7 +2,7 @@
 // The signed-in user is kept in sessionStorage so a refresh mid-test does not sign the student out.
 //
 // User shape: { name: string, email: string, picture: string|null, provider: 'google'|'demo', idToken?: string, idTokenExp?: number }
-// v3: the Google ID token is kept (sessionStorage) so the backend can verify the student's email (V3-00).
+// The Google ID token is kept (sessionStorage) so the backend can verify the student's email.
 
 import { load, save, remove } from './storage.js';
 

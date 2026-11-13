@@ -1,4 +1,4 @@
-// UI for `vsepr` (V4-03): three radio-card groups (electron geometry, molecular geometry, bond angle) with small
+// UI for `vsepr`: three radio-card groups (electron geometry, molecular geometry, bond angle) with small
 // ball-and-stick pictures. Native radio inputs, so arrow keys / Tab / screen readers work with no extra code.
 // Answer = { electron, molecular, angle }.
 import { h } from '../../ui.js';

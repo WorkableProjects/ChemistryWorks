@@ -1,4 +1,4 @@
-// Class leaderboard client (V4-04). Active ONLY when the test has gameMode and gameOptions.leaderboard; otherwise nothing
+// Class leaderboard client. Active ONLY when the test has gameMode and gameOptions.leaderboard; otherwise nothing
 // here ever touches the network. Sends only the final, capped score with the ID token. Names are "Ada L." or a nickname
 // picked from a generated list ("Brave Boron"). The backend actions (submitGameScore, getLeaderboard) arrive in T21; an
 // `unknown_action` answer means "leaderboard unavailable" and the UI renders nothing.

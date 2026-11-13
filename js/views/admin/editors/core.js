@@ -24,7 +24,7 @@ import { formatHelpFor } from '../../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../../lib/blanks.js';
 import { field, switchEl, debounce, iconButton } from '../common.js';
 import { typeUI } from '../../qtypes/registry.js';
-import '../../qtypes/index.js'; // V4-03: registers the v4 question-type widgets/editors
+import '../../qtypes/index.js'; // Registers the v4 question-type widgets/editors
 
 // ---------- helpers ----------
 function uniqueId(prefix, items) {
@@ -48,7 +48,7 @@ function parseSci(raw) {
 }
 
 // ---------- per-type editors ----------
-/** V4-09: numeric / sigfigs editors get the "Randomize with variables" panel underneath. */
+/** Numeric / sigfigs editors get the "Randomize with variables" panel underneath. */
 function withVariables(q, editor, redraw, changed) {
   const panel = variablesEditor(q, redraw, changed);
   return panel ? h('div', { class: 'stack' }, editor, panel) : editor;
@@ -494,7 +494,7 @@ function structureEditor(q, redraw, changed) {
     on: { input: () => { q.charge = charge.value.trim() === '' ? 0 : Number(charge.value); update(); } } });
   drawPreview();
 
-  // Student-drawn brackets & charges (V2-06): the key lives in forms()[0]; zero values are omitted.
+  // Student-drawn brackets & charges: the key lives in forms()[0]; zero values are omitted.
   const chargeInput = (value, label, testid, onValue) => {
     const inp = h('input', { class: 'input', type: 'number', min: String(-MAX_CHARGE), max: String(MAX_CHARGE), step: '1', value: String(value || 0), 'aria-label': label, dataset: { testid },
       on: { input: () => {

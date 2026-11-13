@@ -1,4 +1,4 @@
-// `solubility` question type (V5-07, S12c) — student widget, builder editor and review.
+// `solubility` question type — student widget, builder editor and review.
 // Answer: { [itemId]: 's'|'aq' } (mode 'state') | { precipitate: itemId } (mode 'precipitate'); see js/lib/qtypes/solubility.js.
 import { h, icon } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

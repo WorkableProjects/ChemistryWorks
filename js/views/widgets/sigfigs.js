@@ -1,4 +1,4 @@
-// Student widget for `sigfigs`: a number box that also shows how many significant figures it was read as (V3-05).
+// Student widget for `sigfigs`: a number box that also shows how many significant figures it was read as.
 import { h } from '../../ui.js';
 import { parseNumber } from '../../lib/grading.js';
 import { countSigFigs } from '../../lib/qtypes/sigfigs.js';

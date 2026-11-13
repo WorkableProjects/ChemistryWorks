@@ -1,4 +1,4 @@
-// `oxidation` question type (V5-07, S12b) — student widget, builder editor and review.
+// `oxidation` question type — student widget, builder editor and review.
 // Answer: array of integers or null, one per atom position; see js/lib/qtypes/oxidation.js.
 import { h } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

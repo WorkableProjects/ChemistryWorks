@@ -1,4 +1,4 @@
-// Paper version of a test (V4-02): a student copy without answers and an answer key, versions A / B.
+// Paper version of a test: a student copy without answers and an answer key, versions A / B.
 // Renders into #print-root with the export classes and opens the browser print dialog, like the PDF export of a
 // submission (js/views/admin/export-view.js). Interactive question types (drawing, graphs, ...) get an answer box.
 import { h, richText, renderMath, brandLogo } from '../../ui.js';

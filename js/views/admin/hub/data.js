@@ -1,4 +1,4 @@
-// Class Hub (teacher) data on the store (V5-10): assignments, stream posts and per-assignment status are cached
+// Class Hub (teacher) data on the store: assignments, stream posts and per-assignment status are cached
 // resources under the `hub` name. Writes are optimistic and roll back with a Retry toast.
 import { resource } from '../../../lib/store.js';
 import { CONFIG } from '../../../config.js';
@@ -56,5 +56,5 @@ export const fromLocalInput = (v) => (v ? new Date(v).toISOString() : '');
 
 export const fmtWhen = (iso) => formatDateTime(iso);
 
-/** Where a teacher opens a student's page (S13a). */
+/** Where a teacher opens a student's page. */
 export const studentHref = (email) => `?admin=true&section=student&email=${encodeURIComponent(email)}`;

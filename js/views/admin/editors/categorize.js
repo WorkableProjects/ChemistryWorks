@@ -1,4 +1,4 @@
-// Builder editor for `categorize` (V3-05): the groups, then the items with the group each one belongs to.
+// Builder editor for `categorize`: the groups, then the items with the group each one belongs to.
 import { h, icon } from '../../../ui.js';
 import { field, switchEl, iconButton } from '../common.js';
 

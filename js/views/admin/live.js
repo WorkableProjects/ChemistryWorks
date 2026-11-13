@@ -1,4 +1,4 @@
-// Admin › Live monitor (V4-02, S13): who has started a test, how far along, time left, who submitted, who went idle
+// Admin › Live monitor: who has started a test, how far along, time left, who submitted, who went idle
 // (no ping for 3 minutes). Auto-refreshes every 30 s while open. Students' runners ping every 60 s.
 import { h, mount, icon } from '../../ui.js';
 import { adminCall } from '../../lib/api.js';

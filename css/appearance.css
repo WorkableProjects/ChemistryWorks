@@ -1,4 +1,4 @@
-/* Appearance panel, command palette, empty state and the data-* switches set by js/lib/theme.js (V5-06).
+/* Appearance panel, command palette, empty state and the data-* switches set by js/lib/theme.js.
    The accent swatches are the only colour in the panel. */
 
 .ap { display: flex; flex-direction: column; gap: var(--space-5); max-width: 640px; }

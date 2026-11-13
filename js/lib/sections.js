@@ -1,4 +1,4 @@
-// Assessment sections (V2-04) and per-test reference resources (V2-02). Pure functions, no DOM.
+// Assessment sections and per-test reference resources. Pure functions, no DOM.
 //
 //   test.sections    [{ id, title, instructions }]      optional named sections, in display order
 //   question.section  section id, or absent / ""         unsectioned questions are allowed
@@ -70,7 +70,7 @@ export function nextSectionId(sections) {
   return `sec${n}`;
 }
 
-/* ------------------------------------------------------------------ references (V2-02) */
+/* ------------------------------------------------------------------ references */
 
 // Reference = { id, type: 'periodic-table', title? }
 //           | { id, type: 'text',  title, content }          content: richText (KaTeX allowed), e.g. constants

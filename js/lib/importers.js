@@ -1,4 +1,4 @@
-// V4-09 import (S11): turn pasted text, CSV or a Google Forms export into a draft test, and roster CSVs into email lists.
+// V4-09 import: turn pasted text, CSV or a Google Forms export into a draft test, and roster CSVs into email lists.
 // Pure, no DOM. Every parser returns { test, warnings } (or { emails, warnings }) and never throws.
 //
 // Plain text format (numbered questions; options a)-d); "*" marks the right option; "Answer:" for numeric/short):

@@ -159,7 +159,7 @@ export function render(root, ctx, params = {}) {
       on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'classic', studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
   }
 
-  // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
+  // Released feedback -> Mistake Review game (only for tests with game mode on).
   function mistakeReviewButton() {
     if (!true || test?.gameMode !== true) return null;
     ensureToolsCss();
@@ -199,7 +199,7 @@ export function render(root, ctx, params = {}) {
     await ensureTest();
     if (!alive) return;
 
-    // 1) Server copy (V3-01): any device, verified identity.
+    // 1) Server copy: any device, verified identity.
     let status = params.status || null;
     if (!status && code) status = await checkSubmissionState(ctx, test || { code });
     if (!alive) return;
@@ -209,7 +209,7 @@ export function render(root, ctx, params = {}) {
       if (status.submitted && !payload) { pending('Your teacher hasn’t released grades and comments for this test yet.'); return; }
     }
 
-    // 2) Fallback (v2.5): local payload + getFeedback (needs the submission id from this device).
+    // 2) Fallback: local payload + getFeedback (needs the submission id from this device).
     if (!payload) { pending('Your teacher hasn’t released grades and comments for this test yet.'); return; }
     const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, studentEmail: user?.email, idToken: getIdToken() || undefined });
     if (!alive) return;

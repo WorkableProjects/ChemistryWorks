@@ -1,4 +1,4 @@
-// `ionicformula` UI (V5-07, S11a): ion tiles (drag or tap) into a cation slot and an anion slot, counts with steppers,
+// `ionicformula` UI: ion tiles (drag or tap) into a cation slot and an anion slot, counts with steppers,
 // live formula and charge balance, optional name field. Answer = { cation, anion, nCation, nAnion, name? }.
 import { h } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

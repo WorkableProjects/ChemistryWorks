@@ -1,4 +1,4 @@
-// XP, levels, badges, cosmetics, personal history and assigned-practice progress (V4-04). Local only: one localStorage
+// XP, levels, badges, cosmetics, personal history and assigned-practice progress. Local only: one localStorage
 // entry per student (`cw:xp:<email>`). The functions that change state are pure (state in, state out); loadXp / saveXp /
 // awardRound are the only ones that touch storage.
 

@@ -1,4 +1,4 @@
-// UI for `nuclear` (V4-03): stacked A / Z / symbol notation with inputs in place of the missing particles.
+// UI for `nuclear`: stacked A / Z / symbol notation with inputs in place of the missing particles.
 // Isotope answer = { A, Z, symbol }; equation answer = { R1: { A, Z, symbol }, … } (keys L<i> / R<i>).
 import { h } from '../../ui.js';
 import { field, switchEl } from '../admin/common.js';

@@ -1,4 +1,4 @@
-// UI for `reaction` (V4-03): predict the products. The student types the product side; a live preview shows how it was read.
+// UI for `reaction`: predict the products. The student types the product side; a live preview shows how it was read.
 // Answer = the typed text, e.g. "AgCl(s) + NaNO3(aq)".
 import { h } from '../../ui.js';
 import { field, switchEl } from '../admin/common.js';

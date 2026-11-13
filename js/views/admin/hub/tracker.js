@@ -1,4 +1,4 @@
-// Assignment tracker (V5-10): roster grid with status chips, filters, % and last mode for in progress, Remind missing.
+// Assignment tracker: roster grid with status chips, filters, % and last mode for in progress, Remind missing.
 import { h, mount, icon, toast, openModal } from '../../../ui.js';
 import { remindMissing, deleteAssignment, previewGradeSync, syncGrades } from '../../../lib/api.js';
 import { skeleton, emptyState } from '../common.js';

@@ -1,4 +1,4 @@
-// Backup / restore (V4-08, S17). One JSON bundle with every test (published + drafts) and the question bank.
+// Backup / restore. One JSON bundle with every test (published + drafts) and the question bank.
 // Pure helpers; the Settings view does the network and file work.
 //   makeBundle({ tests, bank, tags, site }) -> { kind: 'chemworks-backup', version: 1, createdAt, site, tests, bank, tags }
 //   readBundle(text) -> { ok, tests, bank, tags, errors }   (tags = this teacher's local tags, like drafts)   (each test validated with the schema)

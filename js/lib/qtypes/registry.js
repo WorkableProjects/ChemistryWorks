@@ -27,7 +27,7 @@ export function registerType(def) {
   DEFS.set(def.type, def);
 }
 
-/** The definition for a registered (v4) type, or null for built-in / unknown types. */
+/** The definition for a registered type, or null for built-in / unknown types. */
 export function typeDef(type) {
   return DEFS.get(type) || null;
 }

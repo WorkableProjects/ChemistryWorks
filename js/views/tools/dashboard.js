@@ -1,4 +1,4 @@
-// "My dashboard" for the signed-in landing page (V4-05). dashboardSection(ctx, { progress, results }) -> HTMLElement | null
+// "My dashboard" for the signed-in landing page. dashboardSection(ctx, { progress, results }) -> HTMLElement | null
 // Mounts the practice card from ../practice-card.js when that module exists (built by the games work) via a dynamic import.
 
 import { h, icon } from '../../ui.js';

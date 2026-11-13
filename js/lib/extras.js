@@ -1,4 +1,4 @@
-// Per-question extras (V4-03): "How sure are you?" confidence, point-costing hints. Pure functions, no DOM.
+// Per-question extras: "How sure are you?" confidence, point-costing hints. Pure functions, no DOM.
 //   question.confidence = true                  ask the student how sure they are after answering
 //   question.hint = { text, cost }              a hint the student may reveal for `cost` points
 

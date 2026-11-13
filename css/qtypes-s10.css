@@ -129,7 +129,7 @@ button.q-part__p--placed:hover { outline: 2px solid var(--text); outline-offset:
   .q-mm__in, .q-mm__row .q-mm__in:first-child { width: 4.8em; }
 }
 
-/* ---------- builder: variables panel (V4-09) ---------- */
+/* ---------- builder: variables panel ---------- */
 .adm-vars { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; background: var(--bg-elev); }
 .adm-vars > summary { cursor: pointer; font-weight: 600; min-height: var(--touch, 44px); display: flex; align-items: center; }
 .adm-vars > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-sm); }

@@ -1,4 +1,4 @@
-// Builder editor for `sigfigs` (V3-05): the value, how many significant figures are required, tolerance.
+// Builder editor for `sigfigs`: the value, how many significant figures are required, tolerance.
 import { h } from '../../../ui.js';
 import { parseNumber } from '../../../lib/grading.js';
 import { formatWithSigFigs } from '../../../lib/qtypes/sigfigs.js';

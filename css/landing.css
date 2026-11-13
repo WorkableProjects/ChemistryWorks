@@ -1,4 +1,4 @@
-/* ChemistryWorks — landing (V4-01). Tokens come from base.css. */
+/* ChemistryWorks — landing. Tokens come from base.css. */
 
 .landing { position: relative; overflow: hidden; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
 
@@ -75,5 +75,5 @@ button.test-card { cursor: pointer; font: inherit; color: inherit; background: v
   .tests-grid { grid-template-columns: 1fr; }
 }
 
-/* v5: decoration removed — the page is the code field and the student's work. */
+/* Decoration removed — the page is the code field and the student's work. */
 .landing__pattern, .landing__bubbles { display: none; }

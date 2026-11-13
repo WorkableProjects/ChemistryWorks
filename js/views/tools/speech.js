@@ -1,4 +1,4 @@
-// Read-aloud text preparation (V4-05). Pure: speakableText(text) turns question text into something a speech
+// Read-aloud text preparation. Pure: speakableText(text) turns question text into something a speech
 // engine says sensibly ("H2O" -> "H two O"); questionSpeech(q) builds the full utterance for a question.
 
 import { ELEMENTS } from '../../lib/elements.js';

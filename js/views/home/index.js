@@ -1,4 +1,4 @@
-// Student home (V5-02, behind true). Paints from local data at once, then updates when the server answers.
+// Student home. Paints from local data at once, then updates when the server answers.
 // Order: header band (avatar, greeting, level ring, code field) -> Up next -> In progress -> Results -> Practice (side column on wide screens).
 // Contract testids: home, home-header, home-code-input, home-code-submit, up-next, continue-btn, in-progress, in-progress-<CODE>,
 // remove-attempt-<CODE>, results-list, practice-shelf, sync-chip.

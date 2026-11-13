@@ -1,4 +1,4 @@
-// Reference pane for the student runner (V2-02): a resizable, collapsible panel beside the questions with the
+// Reference pane for the student runner: a resizable, collapsible panel beside the questions with the
 // test's reference materials (periodic table, resources, text, image). It is a sibling of the question stage,
 // built once, and never touches answers, timing or navigation.
 //
@@ -135,7 +135,7 @@ function panelContent(ref) {
 /* ------------------------------------------------------------------ pane */
 
 /**
- * `extraTabs` (V4-05 student tools): [{ id, title, build() -> Node }] shown after the test's own references, e.g. the
+ * `extraTabs`: [{ id, title, build() -> Node }] shown after the test's own references, e.g. the
  * calculator. A pane with only extra tabs is still built. Ids must be unique and are used in the test ids
  * (`ref-tab-<id>`, `ref-panel-<id>`).
  */

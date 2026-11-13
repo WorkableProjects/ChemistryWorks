@@ -1,4 +1,4 @@
-// `ionbuilder` question type (V5-07, S11b) — student widget, builder editor and review.
+// `ionbuilder` question type — student widget, builder editor and review.
 // Answer: { p, n, e } (mode 'particles') | { symbol, massNumber, charge } (mode 'symbol'); see js/lib/qtypes/ionbuilder.js.
 import { h, icon } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

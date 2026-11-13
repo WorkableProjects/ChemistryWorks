@@ -1,4 +1,4 @@
-// `naming` question type (V4-03) — student widget and builder editor. Contract: js/views/qtypes/registry.js.
+// `naming` question type — student widget and builder editor. Contract: js/views/qtypes/registry.js.
 import { h } from '../../ui.js';
 import { formulaToHTML } from '../../lib/formula.js';
 import { registerTypeUI } from './registry.js';

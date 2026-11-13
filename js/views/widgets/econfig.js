@@ -1,4 +1,4 @@
-// Student widget for `econfig`: a text box with a live superscript preview (V3-05).
+// Student widget for `econfig`: a text box with a live superscript preview.
 import { h, icon } from '../../ui.js';
 import { configToHTML, parseConfig } from '../../lib/qtypes/econfig.js';
 

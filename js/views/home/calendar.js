@@ -1,4 +1,4 @@
-// 7-day strip on the student home: one cell per day with the assignments due that day (V5-10).
+// 7-day strip on the student home: one cell per day with the assignments due that day.
 import { h } from '../../ui.js';
 import { dueOf, isDone } from './upnext.js';
 

@@ -1,4 +1,4 @@
-/* Student home + profile (V5-02). Quiet neutral page; the level ring is the one moment. Tokens only. */
+/* Student home + profile. Quiet neutral page; the level ring is the one moment. Tokens only. */
 
 .home { max-width: 1120px; margin: 0 auto; padding: var(--space-5) var(--space-5) var(--space-7); display: flex; flex-direction: column; gap: var(--space-5); }
 @media (min-width: 960px) { .home { padding: var(--space-6) var(--space-6) var(--space-7); } }

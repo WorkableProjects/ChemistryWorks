@@ -1,4 +1,4 @@
-// Builder editor for `ptable` (V3-05): click the correct element(s) on the same table students use.
+// Builder editor for `ptable`: click the correct element(s) on the same table students use.
 import { h } from '../../../ui.js';
 import { ptableWidget } from '../../widgets/ptable.js';
 import { switchEl } from '../common.js';

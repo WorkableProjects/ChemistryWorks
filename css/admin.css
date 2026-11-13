@@ -135,7 +135,7 @@
 /* Ordering editor row: number, text, up, down, remove (was squeezed into the two-column "plain" grid and wrapped over three lines). */
 .adm-opt--order { grid-template-columns: 24px minmax(0, 1fr) 36px 36px 36px; }
 @media (max-width: 480px) { .adm-opt--order { grid-template-columns: 22px minmax(0, 1fr) 36px 36px 36px; gap: 6px; } }
-/* Optional per-choice image (V2.5) */
+/* Optional per-choice image */
 .adm-optwrap { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .adm-optimg { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding-left: 32px; }
 .adm-optimg__body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
@@ -276,7 +276,7 @@
   .adm-blank, .adm-atom, .adm-bondrow { grid-template-columns: 1fr 1fr; }
 }
 
-/* ---------- Sections, references, orbital + charge editors (v2) ---------- */
+/* ---------- Sections, references, orbital + charge editors ---------- */
 .adm-secrows { gap: 12px; }
 .adm-sec { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-sunken); }
 .adm-sec__top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 10px; }
@@ -383,11 +383,11 @@
 .adm-errors { margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .runner-announcement { margin-bottom: 12px; align-items: center; }
 .runner-announcement__text { flex: 1; }
-/* v4: more library actions (duplicate with new code, version B, print) — let them wrap instead of overflowing. */
+/* More library actions (duplicate with new code, version B, print) — let them wrap instead of overflowing. */
 .adm-item__actions { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 @media (max-width: 640px) { .adm-item__actions { justify-content: flex-start; } }
 
-/* V5-11: library row leaving (delete) */
+/* Library row leaving (delete) */
 .adm-item.is-leaving, .lib2-table tr.is-leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) { .adm-item.is-leaving, .lib2-table tr.is-leaving { transition: none; } }
 

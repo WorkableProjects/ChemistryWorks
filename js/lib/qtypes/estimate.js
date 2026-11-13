@@ -1,4 +1,4 @@
-// `estimate` question type (V4-03, S10): the student sets a slider (and may type the number) to estimate a quantity.
+// `estimate` question type: the student sets a slider (and may type the number) to estimate a quantity.
 // Pure definition, no DOM.
 //   { type: 'estimate', min: 0, max: 14, step: 0.1, answer: 7, tolerance: 0.5, toleranceType: 'absolute'|'percent', unit: 'pH' }
 //   Answer: a number (text from the readout box is accepted and parsed).

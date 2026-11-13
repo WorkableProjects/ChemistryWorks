@@ -1,4 +1,4 @@
-// `gaslaw` question type (V5-07, S12e): gas-law setup. Pure definition, no DOM.
+// `gaslaw` question type: gas-law setup. Pure definition, no DOM.
 //   The student picks the law, puts each given value into its slot of the formula, then solves for the unknown.
 //   { type: 'gaslaw', law: 'combined', unknown: 'V2', unit: 'L',
 //     knowns: { P1: { value: '1.20', unit: 'atm' }, V1: {...}, T1: {...}, P2: {...}, T2: {...} },   (every variable but `unknown`)
@@ -6,7 +6,7 @@
 //     sigFigs?: 3,             when set, the answer needs this many significant figures for full numeric credit
 //     vary?: { P1: { min: 0.8, max: 2, step: 0.1 } } }   algorithmic: variables drawn per student (same format as
 //       js/lib/algorithmic.js); "{P1}" in text and in known values is replaced by the draw.
-//   Answer: { law, setup: { P1: 'P1', ..., V2: '?' }, value: '2.5' }   (setup: slot -> key of the known placed there, or '?')
+//   Answer: { law, setup: { P1: 'P1', ..., '?' }, value: '2.5' }   (setup: slot -> key of the known placed there, or '?')
 //   Score: law 0.25, setup 0.25 (share of slots right), numeric answer 0.5 (half of it when sigFigs is set and wrong).
 import { registerType } from './registry.js';
 import { addInstantiateStep } from '../instantiate-steps.js';

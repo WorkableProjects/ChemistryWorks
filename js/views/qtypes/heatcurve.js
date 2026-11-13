@@ -1,4 +1,4 @@
-// `heatcurve` question type (V5-07, S12d) — student widget, builder editor and review.
+// `heatcurve` question type — student widget, builder editor and review.
 // Answer: { segments: [{ phase, process }] } in segment order; see js/lib/qtypes/heatcurve.js.
 import { h } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

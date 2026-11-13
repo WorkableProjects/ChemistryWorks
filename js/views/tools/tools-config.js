@@ -1,7 +1,7 @@
-// Which student tools a test turns on (V4-05). Pure.
+// Which student tools a test turns on. Pure.
 //   toolsFor(test, { enabled, accommodations }) -> { calculator, constants, scratchpad, highlighter, readAloud }
 // `enabled` is true; with it off every tool is off. test.tools = { calculator, constants, scratchpad,
-// highlighter, readAloud } (booleans). A student's accommodation (S12) can switch read-aloud on: accommodations.readAloud.
+// Highlighter, readAloud } (booleans). A student's accommodation can switch read-aloud on: accommodations.readAloud.
 
 export const TOOL_KEYS = ['calculator', 'constants', 'scratchpad', 'highlighter', 'readAloud'];
 

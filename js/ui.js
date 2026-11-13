@@ -119,7 +119,7 @@ const ICONS = {
 };
 export const ICON_NAMES = Object.keys(ICONS);
 /**
- * One icon set (V4-01): every icon is a <symbol> in a single hidden SVG sprite injected once into <body>; icon()
+ * One icon set: every icon is a <symbol> in a single hidden SVG sprite injected once into <body>; icon()
  * returns a small <svg><use href="#i-name"></svg>. Unknown names render empty.
  */
 function ensureSprite() {
@@ -504,7 +504,7 @@ export function themeControl({ floating = false } = {}) {
 /* ---------- Brand: logo images + animated flask loader ---------- */
 
 /**
- * Brand logo (V4-00): inline SVG built from assets/brand/source/chemworks-mark.svg, so it is sharp at any size and
+ * Brand logo: inline SVG built from assets/brand/source/chemworks-mark.svg, so it is sharp at any size and
  * recolours through CSS variables (--brand-navy, --brand-teal, --brand-mark-gap; dark mode and the navy header swap
  * them). kind: 'mark' (flask only) or 'wordmark' (flask + "ChemWorks"). mono: one colour (currentColor) for print and
  * high contrast. The PNGs in assets/brand stay for the favicon, touch icon and PDF.
@@ -554,7 +554,7 @@ export function flaskLoader({ size = 64, label = '', className = '', testid } = 
 }
 
 /**
- * App shell header (V4-01): slim navy bar with the ChemWorks mark + short name, the current title, any `right`
+ * App shell header: slim navy bar with the ChemWorks mark + short name, the current title, any `right`
  * nodes and one settings popover (theme, motion, accent). Under 480 px only the mark shows.
  *   appHeader({ title, subtitle, right, onHome })   title 'ChemistryWorks' (default) means "no page title".
  */
@@ -612,5 +612,5 @@ export function emptyState({ icon: name = 'list', title = '', action = null, tes
     action ? h('button', { type: 'button', class: 'btn btn--subtle btn--sm', on: { click: action.onClick } }, action.label) : null);
 }
 
-// V4-05: re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).
+// Re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).
 applyStoredSettings();

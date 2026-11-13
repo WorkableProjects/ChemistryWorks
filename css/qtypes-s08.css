@@ -1,4 +1,4 @@
-/* ChemWorks — v4 question types (S08: multipart, naming, dropdown) and the builder "Extras" disclosure. Tokens only. */
+/* ChemWorks — v4 question types and the builder "Extras" disclosure. Tokens only. */
 
 /* ---- naming ---- */
 .q-naming { display: flex; flex-direction: column; gap: 10px; }

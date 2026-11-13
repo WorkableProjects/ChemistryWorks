@@ -1,4 +1,4 @@
-// Pure helpers for the `hotspot` question type (V3-05). Answer shape: { labelId: { x, y } } with x, y as
+// Pure helpers for the `hotspot` question type. Answer shape: { labelId: { x, y } } with x, y as
 // fractions (0-1) of the image width / height. A label is right when the distance to its target, measured in those
 // fractions, is at most `radius` (a fraction of the image width; on a non-square image the hit area is slightly oval).
 

@@ -1,4 +1,4 @@
-// Admin › Classes (V4-07, S11): create classes by pasting emails or importing a roster CSV (Google Classroom / Aeries),
+// Admin › Classes: create classes by pasting emails or importing a roster CSV (Google Classroom / Aeries),
 // edit, delete; per-member accommodations. Tests are assigned to classes in the builder's test settings.
 import { h, mount, icon, toast, openModal } from '../../ui.js';
 import { adminCall, listClassroomCourses, linkClassroomCourse, importClassroomRoster } from '../../lib/api.js';

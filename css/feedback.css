@@ -25,7 +25,7 @@
 
 /* Landing: past submissions */
 
-/* v3: released review on the export model (V3-01) */
+/* Released review on the export model */
 .feedback-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .feedback-doc { padding: 20px 22px; overflow-x: auto; }
 .feedback-doc .export-doc { font-size: 15px; }
@@ -41,7 +41,7 @@
 /* V3 a11y: touch targets for feedback controls */
 .feedback .btn, .feedback .icon-btn { min-height: 44px; }
 
-/* v4: score header card + teacher comments */
+/* Score header card + teacher comments */
 .feedback-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 20px 24px; border-top: 4px solid var(--brand-teal); }
 .feedback-summary__score { display: flex; flex-direction: column; gap: 2px; }
 .feedback-summary__pct { font-family: var(--font-display); font-size: 36px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }

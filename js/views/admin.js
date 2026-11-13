@@ -24,7 +24,7 @@ import { clearAdminConfirmed } from '../lib/admin-session.js';
 
 export * from './admin/stats.js';
 
-// Removed sections (v5 S01): old links and remembered tabs land on the closest kept section.
+// Removed sections: old links and remembered tabs land on the closest kept section.
 const LEGACY_TABS = { insights: 'grading', mastery: 'dashboard' };
 const resolveTab = (id) => LEGACY_TABS[id] || id;
 // `?section=` is the old deep link; `params.tab` wins when a caller passes one.
@@ -37,7 +37,7 @@ registerNavItem({ id: 'accommodations', render: (host, ctx, o) => renderAccommod
 registerNavItem({ id: 'live', render: (host, ctx, o) => renderLive(host, ctx, o) });
 registerNavItem({ id: 'import', render: (host, ctx, o) => renderImport(host, ctx, o) });
 registerNavItem({ id: 'tags', render: (host, ctx, o) => renderTags(host, ctx, o) });
-// Teacher student view (S13a): opened by link (?section=student&email=), not listed in the sidebar.
+// Teacher student view: opened by link (?section=student&email=), not listed in the sidebar.
 registerNavItem({ id: 'student', label: 'Student', icon: 'user', hidden: true, render: (host, ctx, o) => renderStudent(host, ctx, o) });
 
 export function render(root, ctx, params = {}) {
@@ -142,7 +142,7 @@ function renderShelled(root, ctx, params = {}) {
   drawTab();
   shell.setRecent(load('adminRecent', []));
 
-  // V5-06: command palette (Ctrl/Cmd K) to jump to a section or a test.
+  // Command palette (Ctrl/Cmd K) to jump to a section or a test.
   const palette = mountPalette({ getItems: async () => [
     ...NAV_ITEMS.filter(isAvailable).map((t) => ({ id: t.id, label: t.label, kind: 'Section', icon: t.icon, run: () => select(t.id) })),
     ...((await loadCatalog().catch(() => [])) || []).map((c) => ({ id: c.code, label: `${c.code} ${c.title || ''}`.trim(), kind: 'Test', icon: 'flask', run: () => { setLibraryQuery(c.code); select('library', { force: true }); } })),

@@ -1,4 +1,4 @@
-// Student bell (V5-10): unread count, panel of derived notifications; opening marks them read.
+// Student bell: unread count, panel of derived notifications; opening marks them read.
 import { h, icon } from '../ui.js';
 import { CONFIG } from '../config.js';
 import { markNotificationsRead } from '../lib/api.js';

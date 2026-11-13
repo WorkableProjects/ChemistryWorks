@@ -1,4 +1,4 @@
-// Per-question scratchpad (V4-05): typed notes + a simple pen canvas. Lives inside the question card as a <details>.
+// Per-question scratchpad: typed notes + a simple pen canvas. Lives inside the question card as a <details>.
 // scratchpad({ qid, get, set }) -> { el, refresh() }; get() returns the stored scratch, set(scratch) saves it (debounced by the caller).
 // Never submitted: the runner keeps it in saved progress only.
 

@@ -1,4 +1,4 @@
-// `datatable` question type (V4-03): complete the table. Pure definition, no DOM.
+// `datatable` question type: complete the table. Pure definition, no DOM.
 //   Question: { columns: [{ id, label, type: 'number'|'text', tolerance?, formula? }],
 //               rows: [{ id, label?, cells: { colId: { value, given } } }] }
 //   Answer:   { rowId: { colId: 'typed text' } } for the cells that are not given. One point share per blank cell.

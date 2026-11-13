@@ -42,7 +42,7 @@
   .mode-card { padding: var(--space-4); }
 }
 
-/* Flashcards, Mistake review, Tower, Boss battle (V5 S03b). Tokens only. */
+/* Flashcards, Mistake review, Tower, Boss battle. Tokens only. */
 .mode-stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .flash__face { padding: var(--space-4); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius); }
 .flash__face[hidden] { display: none; }
@@ -69,7 +69,7 @@
 :root[data-reduce-motion="true"] .tower.is-wobble .tower__stack { animation: none; }
 :root[data-reduce-motion="true"] .boss__fill { transition: none; }
 
-/* Match-Up, Quiz show, Race, Bingo (V5 S04a). Tokens only. */
+/* Match-Up, Quiz show, Race, Bingo. Tokens only. */
 .matchup { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .matchup__col { display: flex; flex-direction: column; gap: var(--space-2); }
 .matchup__item { text-align: left; padding: var(--space-3); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text); font: inherit; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }

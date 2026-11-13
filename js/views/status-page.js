@@ -1,4 +1,4 @@
-// Shared status-page layout (V4-01): centered card with art, heading, lines, note and actions.
+// Shared status-page layout: centered card with art, heading, lines, note and actions.
 // statusPage({ icon, tone, title, lines, note, actions, testid, art }) -> <main class="status-page">
 // The heading carries tabindex=-1 and class .status-page__title; callers focus it after render.
 

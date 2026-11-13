@@ -1,4 +1,4 @@
-// `isotopemass` question type (V5-07, S11c) — student widget, builder editor and review.
+// `isotopemass` question type — student widget, builder editor and review.
 // Answer: { result } | { missing } | { rows: [{ mass, abundance }], result }; see js/lib/qtypes/isotopemass.js.
 import { h } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

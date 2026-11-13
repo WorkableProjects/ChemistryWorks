@@ -1,4 +1,4 @@
-// "You already submitted this test" notice (V3-01 / V3-02), shown from the test link when a submission exists
+// "You already submitted this test" notice, shown from the test link when a submission exists
 // but grades are not released yet.
 // render(root, ctx, { test, source, status, canRetake }) -> cleanup()
 

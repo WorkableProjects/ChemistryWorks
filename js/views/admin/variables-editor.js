@@ -1,4 +1,4 @@
-// Builder panel for algorithmic questions (V4-09, S10): variables (random range / pick list / derived formula), the answer
+// Builder panel for algorithmic questions: variables (random range / pick list / derived formula), the answer
 // formula, and a live sample (re-roll) so the teacher sees real numbers and the computed answer while editing.
 // Mounted under the numeric and sigfigs editors in js/views/admin/editors/core.js.
 //   variablesEditor(q, redraw, changed) -> Node

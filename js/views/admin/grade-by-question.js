@@ -1,4 +1,4 @@
-// "By question" grading (V4-02): pick a test and a question, then grade that one question for every student in a
+// "By question" grading: pick a test and a question, then grade that one question for every student in a
 // column. Saves through the same saveGrade action as the per-student view, always sending the student's FULL
 // grades object with only this question's points changed (mergeGrade), so nothing else is touched.
 import { h, mount, icon, richText, renderMath, toast } from '../../ui.js';

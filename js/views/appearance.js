@@ -1,4 +1,4 @@
-// Appearance panel (V5-06, feature 'appearance'): theme, accent, custom colour, text size, density, reduce motion and a
+// Appearance panel: theme, accent, custom colour, text size, density, reduce motion and a
 // dyslexia-friendly font. One component for student Settings, the profile page and admin Settings. Choices are saved on
 // this device at once and, for a signed-in student, through savePrefs() so they follow the student.
 

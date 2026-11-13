@@ -1,4 +1,4 @@
-// Admin Dashboard (V4-01): the first screen after sign-in when true is on.
+// Admin Dashboard: the first screen after sign-in when true is on.
 // One combined load (submissions, published tests, activity log, backend version); every card hides when its data is missing.
 // computeDashboard() is pure and unit-tested.
 
@@ -25,7 +25,7 @@ function countBy(rows, keyFn) {
   return [...m.entries()].map(([code, n]) => ({ code, n })).sort((a, b) => b.n - a.n || a.code.localeCompare(b.code));
 }
 
-/** Teacher flags on a submission (V4-05 stores them in flags); 0 until that feature exists. */
+/** Teacher flags on a submission; 0 until that feature exists. */
 export function flaggedCount(row) {
   const f = (row && row.flags) || {};
   const list = f.teacher_flags || f.flagged_for_teacher || f.flaggedQuestions;

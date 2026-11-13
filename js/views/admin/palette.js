@@ -1,4 +1,4 @@
-// Admin command palette (V5-06): Ctrl/Cmd K opens a search to jump to a section, a test or a student.
+// Admin command palette: Ctrl/Cmd K opens a search to jump to a section, a test or a student.
 // Keyboard: type to filter, Up/Down to move, Enter to go, Escape to close.
 
 import { h, icon } from '../../ui.js';

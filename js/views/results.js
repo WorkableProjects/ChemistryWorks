@@ -307,7 +307,7 @@ export function render(root, ctx, params = {}) {
   if (test.showCorrectAnswers && showScore) {
     const items = grade.results.map((r, i) => reviewItem(r, i, test, Math.min(i, 12)));
     const counts = { all: items.length, incorrect: grade.results.filter((r) => !r.isCorrect).length, correct: grade.results.filter((r) => r.isCorrect).length };
-    // Section headings (V2-04): unsectioned questions first without a heading, then each section in order.
+    // Section headings: unsectioned questions first without a heading, then each section in order.
     const rowIndex = new Map(grade.results.map((r, i) => [r.questionId, i]));
     const listNodes = [];
     const sectionBlocks = []; // { heading, idx: number[] }

@@ -19,7 +19,7 @@ import { graphWidget } from '../widgets/graph.js';
 import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../../lib/blanks.js';
 import { typeUI } from '../qtypes/registry.js';
-import '../qtypes/index.js'; // V4-03: registers the v4 question-type widgets/editors
+import '../qtypes/index.js'; // Registers the v4 question-type widgets/editors
 
 const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻', '+': '⁺' };
 

@@ -144,7 +144,7 @@ function heroPattern() {
 export function render(root, ctx, params = {}) {
   const user = getUser();
   if (user) return home.render(root, ctx, params);
-  // V4-05: "My dashboard" and the waiting-submission banner (student tools flag).
+  // "My dashboard" and the waiting-submission banner (student tools flag).
   const tools = !!user;
   ensureToolsCss(); // the merged tests list uses the dashboard styles
   const banner = tools ? networkBanner({ config: ctx.config }) : null;

@@ -1,4 +1,4 @@
-// Printable export of one reviewed submission (V2-08). Pure functions, no DOM.
+// Printable export of one reviewed submission. Pure functions, no DOM.
 import { groupQuestions } from './sections.js';
 
 const round1 = (x) => Math.round(x * 10) / 10;

@@ -1,5 +1,5 @@
 // Loads every v4 question-type definition so it registers itself (js/lib/qtypes/registry.js).
-// S08: multipart, naming, dropdown. S09: dimensional, nuclear, reaction, vsepr, datatable.
+// Multipart, naming, dropdown. dimensional, nuclear, reaction, vsepr, datatable.
 import './multipart.js';
 import './naming.js';
 import './dropdown.js';

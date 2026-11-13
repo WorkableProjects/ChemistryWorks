@@ -11,7 +11,7 @@ import { parseConfig } from './qtypes/econfig.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
 import { cleanGameOptions, validateGameOptions } from './games/options.js';
 
-import './qtypes/v4-types.js'; // V4-03: registers the v4 question types
+import './qtypes/v4-types.js'; // Registers the v4 question types
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
 // Types a teacher always grades by hand in the admin Grading tab.
@@ -86,7 +86,7 @@ function normOptions(list) {
   return list.map((o) => {
     const src = isObj(o) ? o : { id: o, text: o };
     const out = { ...src, id: str(src.id).trim(), text: str(src.text) };
-    // Optional picture for this choice / item (V2.5): kept only with a url, so existing tests normalize unchanged.
+    // Optional picture for this choice / item: kept only with a url, so existing tests normalize unchanged.
     if (isObj(src.image) && str(src.image.url).trim()) out.image = { url: str(src.image.url).trim(), alt: str(src.image.alt) };
     else delete out.image;
     return out;

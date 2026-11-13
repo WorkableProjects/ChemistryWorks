@@ -1,7 +1,7 @@
-// Admin shell (V4-01, behind true): Classroom-style top bar, left sidebar, in-test tabs, profile menu.
+// Admin shell: Classroom-style top bar, left sidebar, in-test tabs, profile menu.
 // js/views/admin.js owns the views and the routing; this module only builds the frame and reports clicks.
 //
-// Extending the navigation (S11 Bank/Classes, S13 Live/...): call registerNavItem({ id, label, icon, group, render })
+// Extending the navigation: call registerNavItem({ id, label, icon, group, render })
 // once at import time. `render(host, ctx, helpers) -> cleanup?` mounts the view; an item without `render` (and not built in)
 // stays hidden, so entries for views that do not exist yet cost nothing.
 

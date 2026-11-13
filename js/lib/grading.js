@@ -235,7 +235,7 @@ const GRADING_HELPERS = {
 };
 
 /**
- * Grade one answer. `opts.hintUsed` (V4-03): the student revealed the question's hint, so `hint.cost` points are
+ * Grade one answer. `opts.hintUsed`: the student revealed the question's hint, so `hint.cost` points are
  * subtracted from what they earned (never below 0). Two-argument calls behave exactly as before.
  */
 export function gradeQuestion(question, answer, opts = {}) {

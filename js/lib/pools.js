@@ -1,4 +1,4 @@
-// V4-02 question pools (S11). A section with `pool: { draw: N, tags?: [..] }` gives each student N of its questions,
+// V4-02 question pools. A section with `pool: { draw: N, tags?: [..] }` gives each student N of its questions,
 // drawn with the per-student seeded PRNG, so the same student gets the same questions on every device and in grading.
 // The drawn ids are recorded in test.instance.drawn (sent with the submission; the Submissions sheet keeps them).
 // Pure; registered as an instantiate step (js/lib/instantiate.js).

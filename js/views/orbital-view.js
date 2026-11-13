@@ -1,4 +1,4 @@
-// Energy orbital diagrams (V2-05): interactive student widget + static diagram.
+// Energy orbital diagrams: interactive student widget + static diagram.
 //
 // Layout: one row per sublevel, highest energy at the top, boxes side by side. Each box shows ↑ and/or ↓
 // (spin is conveyed by arrow direction, never by colour).

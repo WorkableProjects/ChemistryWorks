@@ -52,7 +52,7 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
     responses: grade?.results || [],
     needs_grading: Number(grade?.pendingCount) > 0,
     single_submission: !!test?.singleSubmission,
-    // v4: per-student instance (seed, drawn pool questions) and the time limit actually applied (accommodations).
+    // Per-student instance (seed, drawn pool questions) and the time limit actually applied (accommodations).
     ...(test?.instance ? { instance: { seed: test.instance.seed || '', drawn: Array.isArray(test.instance.drawn) ? test.instance.drawn : [] } } : {}),
     ...(test?.instance && test.instance.timeLimitApplied ? { time_limit_applied: test.instance.timeLimitApplied } : {}),
     started_at: start.toISOString(),
@@ -63,7 +63,7 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
       tab_switches: Number(f.tab_switches ?? f.tabSwitches) || 0,
       auto_submitted: Boolean(f.auto_submitted ?? f.autoSubmitted),
       mode: f.mode === 'scroll' ? 'scroll' : 'focus',
-      // V4-05: { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
+      // { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
       ...(cleanFlagNotes(f.questions) ? { questions: cleanFlagNotes(f.questions) } : {}),
     },
   };
@@ -168,7 +168,7 @@ export function getLocalResults() {
   return readList(LOCAL_RESULTS_KEY);
 }
 
-/** V3-02: true when this device already holds a submission (sent or queued) for this email + test code. */
+/** True when this device already holds a submission (sent or queued) for this email + test code. */
 export function hasLocalSubmission(email, code) {
   const e = String(email || '').trim().toLowerCase();
   const c = String(code || '').trim().toUpperCase();

@@ -5,11 +5,11 @@
  * Run setup() once from the editor, set the ADMIN_KEY script property, then deploy as a Web App
  * (Execute as: Me, Who has access: Anyone). See DEPLOYMENT.md.
  *
- * v3: set the GOOGLE_CLIENT_ID script property (same OAuth client as js/config.js) so student identity is
+ * Set the GOOGLE_CLIENT_ID script property (same OAuth client as js/config.js) so student identity is
  * verified from Google ID tokens (getStudentStatus, single-submission enforcement). Optional: ALLOWED_DOMAINS
  * (comma-separated, e.g. "myschool.org"), ALLOW_UNVERIFIED_EMAIL=true (local/demo only).
  *
- * v4: admins sign in with Google. Every admin request carries the admin's ID token (idToken); the verified email
+ * Admins sign in with Google. Every admin request carries the admin's ID token (idToken); the verified email
  * must be on the Admins sheet (seeded from the ADMIN_EMAILS script property). ADMIN_KEY still works during the
  * upgrade period (adminKey in the request body). Every admin write is appended to the Log sheet.
  */
@@ -37,9 +37,9 @@ var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
 var STATUS_GRADED = 'Graded';
-var STATUS_CLOSED = 'Closed (not counted)'; // v4 S12: arrived after the window (and late window) closed
-var STATUS_NOT_ROSTER = 'Not on roster';      // v4 S11: roster-only test, student on no assigned class
-var STATUS_EXTRA = 'Extra attempt'; // v3: a second submission to a single-submission test (stored, never counted)
+var STATUS_CLOSED = 'Closed (not counted)'; // Arrived after the window (and late window) closed
+var STATUS_NOT_ROSTER = 'Not on roster';      // Roster-only test, student on no assigned class
+var STATUS_EXTRA = 'Extra attempt'; // A second submission to a single-submission test (stored, never counted)
 var TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
 var TOKEN_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
 var TEST_HEADERS = ['Code', 'Title', 'Updated At', 'Test JSON'];
@@ -325,7 +325,7 @@ function normalizeSubmission_(body) {
   };
 }
 
-// v4 (S10): the per-student instance seed (payload.instance.seed, or instance_json / instance_seed form fields). Text, max 200 chars.
+// The per-student instance seed (payload.instance.seed, or instance_json / instance_seed form fields). Text, max 200 chars.
 function seedOf_(d) {
   var inst = d.instance;
   if (typeof d.instance_json === 'string' && d.instance_json) inst = parseJson_(d.instance_json, null);
@@ -398,7 +398,7 @@ function handleSubmission_(body) {
     if (findRow_(sheet, 2, s.submission_id)) return { result: 'success', duplicate: true };
     // v3 backstop: a second submission to a single-submission test is stored (never lost) but marked Extra attempt.
     var extra = false;
-    // v4 S11/S12: roster-only tests and the open/close window are enforced here too (the row is kept, never counted).
+    // Roster-only tests and the open/close window are enforced here too (the row is kept, never counted).
     var gate = submissionGate_(s, body);
     if (s.single_submission || testIsSingleSubmission_(s.test_code)) {
       var prior = findRowsByEmailCode_(sheet, s.student_email, s.test_code);
@@ -460,7 +460,7 @@ function readTest_(code) {
 function getTest_(code) {
   var test = readTest_(code);
   if (!test) return { result: 'error', error: 'not_found' };
-  // v4 S12: before it opens / after it closes (and after any late window) the test itself is not served.
+  // Before it opens / after it closes (and after any late window) the test itself is not served.
   var w = windowState_(test, null, new Date());
   if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
   if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
@@ -816,7 +816,7 @@ function listTests_(body) {
   return { result: 'success', tests: tests };
 }
 
-// v5 B2: one pass over Tests + Submissions (only the needed columns). onlyCode limits it to one test.
+// One pass over Tests + Submissions (only the needed columns). onlyCode limits it to one test.
 // status: scheduled (before opensAt) | open | closed (after closesAt, late window ignored).
 function testSummaries_(onlyCode) {
   var only = normalizeCode_(onlyCode);
@@ -935,7 +935,7 @@ function submissionRow_(v) {
       });
 }
 
-// v5 B2: cache keys cleared by each write (reads cache tests:list, settings, classes:list, roster:<id>).
+// Cache keys cleared by each write (reads cache tests:list, settings, classes:list, roster:<id>).
 function bustFor_(body) {
   switch (body.action) {
     case 'publishTest': case 'deleteTest': case 'saveGrade': case 'releaseAll': case 'allowRetake': case 'applyRegrade':
@@ -977,7 +977,7 @@ function cleanComments_(map) {
 
 // Completed submissions per test code. Every row in Submissions is a completed submission (in-progress
 // answers only live in the student's browser; there are no drafts or soft-deleted rows in the sheet).
-// Rows marked Extra attempt (v3) are skipped.
+// Rows marked Extra attempt are skipped.
 function getSubmissionCounts_() {
   var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   var last = sheet.getLastRow();
@@ -986,7 +986,7 @@ function getSubmissionCounts_() {
     var values = sheet.getRange(2, 1, last - 1, COL.STATUS).getValues();
     for (var i = 0; i < values.length; i++) {
       if (values[i][1] === '' || values[i][1] === null) continue; // no submission id
-      if (String(values[i][COL.STATUS - 1]) === STATUS_EXTRA) continue; // v3: extra attempts are not counted
+      if (String(values[i][COL.STATUS - 1]) === STATUS_EXTRA) continue; // Extra attempts are not counted
       var code = normalizeCode_(values[i][4]);
       if (!code) continue;
       counts[code] = (counts[code] || 0) + 1;
@@ -1072,7 +1072,7 @@ function saveGrade_(body) {
 }
 
 // ---------------------------------------------------------------------------
-// v3: verified student identity, student status, teacher tools
+// Verified student identity, student status, teacher tools
 // ---------------------------------------------------------------------------
 
 function hex_(bytes) {
@@ -1213,7 +1213,7 @@ function getStudentStatus_(body) {
     return { submission_id: r.submission_id, submitted_at: r.submitted_at, status: r.status, released: !!r.released_at, retake_allowed: !!r.retake_allowed_at };
   };
   var out = { result: 'success', email: who.email, submitted: rows.length > 0, blocking: blocking, attempts: rows.length, latest: rows.length ? summary(rows[rows.length - 1]) : null, others: [] };
-  // v4 S11/S12: accommodations, window (incl. this student's extension) and roster for the client to act on.
+  // Accommodations, window (incl. this student's extension) and roster for the client to act on.
   var acc = accommodationFor_(who.email, code);
   var ptest = publishedTest_(code);
   out.accommodations = acc;
@@ -1272,7 +1272,7 @@ function releaseAll_(testCode) {
     var statuses = sheet.getRange(2, COL.STATUS, last - 1, 1).getValues();
     var relRange = sheet.getRange(2, COL.RELEASED_AT, last - 1, 1);
     var rel = relRange.getValues();
-    var who = sheet.getRange(2, 4, last - 1, 3).getValues(); // email, code, title (v4 release emails)
+    var who = sheet.getRange(2, 4, last - 1, 3).getValues(); // Email, code, title
     var now = new Date();
     var n = 0;
     var mail = [];
@@ -1358,7 +1358,7 @@ function drawnOf_(d) {
   return drawn.length ? JSON.stringify(drawn.map(String)).slice(0, 5000) : '';
 }
 
-// ---------- classes / rosters (S11) ----------
+// ---------- classes / rosters ----------
 function listClasses_() {
   return { result: 'success', classes: classesCached_() };
 }
@@ -1415,7 +1415,7 @@ function rosterOk_(test, email) {
   return { ok: test.rosterOnly !== true, classId: '' };
 }
 
-// ---------- question bank (S11), shared by all admins ----------
+// ---------- question bank, shared by all admins ----------
 function listBank_() {
   var r = sheetRows_(BANK_SHEET, BANK_HEADERS);
   return { result: 'success', items: r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
@@ -1452,7 +1452,7 @@ function deleteBankItem_(body) {
   });
 }
 
-// ---------- accommodations + extensions (S12) ----------
+// ---------- accommodations + extensions ----------
 function accRow_(v) {
   return {
     email: normEmail_(v[0]), testCode: normalizeCode_(v[1]) || '*', extraTime: num_(v[2], 1) || 1, extraAttempts: Math.max(0, Math.floor(num_(v[3], 0))),
@@ -1521,7 +1521,7 @@ function deleteAccommodation_(body) {
   });
 }
 
-// ---------- open / close window + late work (S12) ----------
+// ---------- open / close window + late work ----------
 // -> { state: 'open'|'before'|'late'|'closed', opensAt, closesAt, lateUntil, extensionUntil, penalty }
 function windowState_(test, acc, now) {
   var t = now instanceof Date ? now.getTime() : Date.now();
@@ -1596,7 +1596,7 @@ function getTestFor_(body) {
   return { result: 'success', test: test, window: w, accommodations: acc, tagIndex: tagIndex_(test) };
 }
 
-// ---------- regrade (S12): the admin client re-grades stored answers with the fixed key and sends the new responses ----------
+// ---------- regrade: the admin client re-grades stored answers with the fixed key and sends the new responses ----------
 function applyRegrade_(body) {
   var code = normalizeCode_(body.testCode);
   var updates = Array.isArray(body.updates) ? body.updates : [];
@@ -1733,7 +1733,7 @@ function sendReleaseEmails_(rows) {
   } catch (err) { return 0; }
 }
 
-// ---------- live monitor (S13): one row per student per test, overwritten in place ----------
+// ---------- live monitor: one row per student per test, overwritten in place ----------
 function progressPing_(body) {
   var who = verifyStudent_(body);
   if (who.error) return { result: 'error', error: who.error };
@@ -1764,7 +1764,7 @@ function getLive_(body) {
   }) };
 }
 
-// ---------- class leaderboard (S15): only for tests with gameMode and gameOptions.leaderboard ----------
+// ---------- class leaderboard: only for tests with gameMode and gameOptions.leaderboard ----------
 function boardAllowed_(code) {
   var test = publishedTest_(code);
   return !!(test && test.gameMode === true && test.gameOptions && test.gameOptions.leaderboard === true);
@@ -1833,7 +1833,7 @@ function hideLeaderboardEntry_(body) {
   });
 }
 
-// ---------- error reports (S17): off unless Settings > errorReports; rate-limited; never stores answers ----------
+// ---------- error reports: off unless Settings > errorReports; rate-limited; never stores answers ----------
 function reportError_(body) {
   if (!readSettings_().errorReports) return { result: 'error', error: 'error_reports_off' };
   try {
@@ -1860,7 +1860,7 @@ function getErrors_(body) {
 
 
 // ===========================================================================
-// v5 B1: Students, Attempts, profile + sync, cache and batch base.
+// Students, Attempts, profile + sync, cache and batch base.
 // ===========================================================================
 
 var STUDENTS_SHEET = 'Students';
@@ -2253,7 +2253,7 @@ function batch_(body, auth) {
 
 
 // ===========================================================================
-// v5 B3: Class Hub (assignments, stream, status, derived notifications).
+// Class Hub (assignments, stream, status, derived notifications).
 // ===========================================================================
 
 var ASSIGNMENTS_SHEET = 'Assignments';

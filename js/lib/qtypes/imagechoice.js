@@ -1,4 +1,4 @@
-// `imagechoice` question type (V4-03, S10): pick the picture(s) that answer the question. Pure definition, no DOM.
+// `imagechoice` question type: pick the picture(s) that answer the question. Pure definition, no DOM.
 //   { type: 'imagechoice', multiple: false, options: [{ id: 'a', text?: 'caption', image: { url, alt } }, ...],
 //     correctAnswer: 'a' (single) | ['a', 'c'] (multiple), partialCredit: false (multiple only) }
 //   Answer: an option id (single) or an array of option ids (multiple). Every option needs a picture with alt text.

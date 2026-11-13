@@ -362,7 +362,7 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 .results-structure { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .results-structure__form { display: flex; flex-direction: column; gap: 2px; }
 
-/* ---------- Sections (V2-04) ---------- */
+/* ---------- Sections ---------- */
 .q-section { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: -4px 0 20px; padding: 0 0 14px; border-bottom: 2px solid var(--primary-line); }
 .q-section__title { margin: 0; flex: 1 1 auto; font-size: 18px; font-weight: 600; color: var(--primary-ink); letter-spacing: -0.01em; }
 .q-section__pts { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
@@ -406,7 +406,7 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 .runner-hbtn, .q-flag, .runner-top .icon-btn, .nav-drawer .icon-btn, .runner-jump, .q-order__btn { min-width: 44px; }
 .q-clear { min-width: 44px; padding: 10px 8px; }
 
-/* ---- per-question extras (V4-03): hint + "How sure are you?" ---- */
+/* ---- per-question extras: hint + "How sure are you?" ---- */
 .q-extras { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
 .q-extras [hidden] { display: none; }
 .q-hintbtn { align-self: flex-start; min-height: 44px; }

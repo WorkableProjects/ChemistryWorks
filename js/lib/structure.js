@@ -9,7 +9,7 @@
 //   answer           { bonds: [order per skeleton bond], lonePairs: { atomId: count } }
 //   correctAnswer    one answer object, or an array of them (resonance structures: any one is accepted)
 //
-// V2-06: question.studentCharges = true lets the student also draw brackets, an overall bracket charge and
+// Question.studentCharges = true lets the student also draw brackets, an overall bracket charge and
 // per-atom formal charges. Such questions are teacher graded (see isManualQuestion in schema.js). The answer
 // (and the reference key) then also carries:
 //   bracket        boolean                    brackets drawn around the whole structure

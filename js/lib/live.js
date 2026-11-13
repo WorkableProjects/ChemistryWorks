@@ -1,4 +1,4 @@
-// Live monitor helpers (V4-02, S13): pure summary of the students who started a test. No DOM.
+// Live monitor helpers: pure summary of the students who started a test. No DOM.
 //
 //   liveSummary(students) -> { started, submitted, idle, working }
 

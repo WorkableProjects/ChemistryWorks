@@ -1,4 +1,4 @@
-// Electron-configuration parsing and comparison (V3-05). Pure functions, no DOM.
+// Electron-configuration parsing and comparison. Pure functions, no DOM.
 //   parseConfig("[Ne] 3s1")      -> Map { "1s" => 2, "2s" => 2, "2p" => 6, "3s" => 1 }   (null when it cannot be read)
 //   configsEqual(a, b)           -> true when both parse and have the same orbital -> count map (order does not matter)
 

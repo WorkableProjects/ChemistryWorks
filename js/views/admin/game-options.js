@@ -1,4 +1,4 @@
-// Builder "Game mode" panel for test.gameOptions (V4-04). S05 mounts it in the builder's test settings (shown while
+// Builder "Game mode" panel for test.gameOptions. S05 mounts it in the builder's test settings (shown while
 // gameMode is on). Contract: gameOptionsPanel(test, changed) -> Node | null (null = game mode is off, nothing to show).
 // It edits test.gameOptions in place and calls changed() after every edit; empty fields mean "game default".
 

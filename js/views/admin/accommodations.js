@@ -1,4 +1,4 @@
-// Admin › Accommodations (V4-02, S12): per student (by email), for all tests or one test: extra time, extra attempts,
+// Admin › Accommodations: per student (by email), for all tests or one test: extra time, extra attempts,
 // reduced answer choices, read-aloud, and a deadline extension. Stored in the Accommodations sheet; the backend returns
 // them with getStudentStatus, so they apply on any device the student signs in on.
 import { h, mount, icon, toast, openModal } from '../../ui.js';

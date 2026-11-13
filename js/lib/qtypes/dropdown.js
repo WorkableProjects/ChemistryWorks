@@ -1,4 +1,4 @@
-// `dropdown` question type (V4-03): a cloze passage where each blank is a <select>. Pure module, no DOM.
+// `dropdown` question type: a cloze passage where each blank is a <select>. Pure module, no DOM.
 // Answer shape: { blankId: chosenOption }.
 //   { type: 'dropdown', text: 'Na is a [[b1]] and Cl is a [[b2]].', blanks: [{ id: 'b1', options: ['metal', 'nonmetal'], answer: 'metal' }, ...],
 //     partialCredit: true }
