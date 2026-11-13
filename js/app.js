@@ -32,6 +32,7 @@ import * as runner from './views/runner.js';
 import * as results from './views/results.js';
 import * as feedback from './views/feedback.js';
 import * as submitted from './views/submitted.js';
+import { startPwa } from './lib/pwa.js';
 
 // Rarely needed heavy views are lazy: an entry may be a loader `() => import(...)` that navigate() awaits once.
 const VIEWS = {
@@ -281,3 +282,4 @@ window.addEventListener('error', (e) => console.error('[ChemistryWorks]', e.erro
 // V4-08: opt-in error reports (the backend refuses them unless Settings > Error reports is on).
 if (!navigator.webdriver) installErrorReporting(CONFIG);
 start();
+startPwa();

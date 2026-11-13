@@ -611,3 +611,8 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 @keyframes skeleton-pulse { from { opacity: 0.6; } to { opacity: 1; } }
 
 .stagger-item { animation: rise var(--dur-slow) var(--ease-out) both; }
+
+/* Offline and update banners */
+.pwa-banner { position: fixed; inset-inline: 16px; bottom: 16px; z-index: 90; margin-inline: auto; max-width: 520px; display: flex; gap: 12px; align-items: center;
+  justify-content: space-between; padding: 10px 14px; border-radius: 10px; background: var(--bg-elev); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.pwa-banner--warning { background: var(--warning-soft); color: var(--warning-ink); border-color: var(--warning-line); }

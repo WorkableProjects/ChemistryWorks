@@ -1,0 +1,43 @@
+name: Deploy Apps Script backend
+
+# Manual. Pushes apps-script/ with clasp and updates the EXISTING deployment, so the web app URL never changes,
+# then checks ?action=ping reports the version in Code.gs.
+# Secrets: CLASPRC_JSON (contents of ~/.clasprc.json), GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID. Variable: GAS_WEB_APP_URL.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm install -g @google/clasp@2.4.2
+      - name: Credentials
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$GAS_SCRIPT_ID" > apps-script/.clasp.json
+      - name: Push and update the deployment
+        working-directory: apps-script
+        env:
+          GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+        run: |
+          clasp push --force
+          VERSION=$(grep -oP "^var VERSION = '\K[^']+" Code.gs)
+          clasp deploy -i "$GAS_DEPLOYMENT_ID" -d "ChemistryWorks $VERSION"
+      - name: Check the live version
+        env:
+          GAS_WEB_APP_URL: ${{ vars.GAS_WEB_APP_URL }}
+        run: |
+          WANT=$(grep -oP "^var VERSION = '\K[^']+" apps-script/Code.gs)
+          GOT=$(curl -sL "$GAS_WEB_APP_URL?action=ping" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version||"")}catch{console.log("")}})')
+          echo "Expected $WANT, got $GOT"
+          test "$WANT" = "$GOT"

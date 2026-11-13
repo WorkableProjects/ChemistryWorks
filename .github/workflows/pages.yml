@@ -1,7 +1,10 @@
 name: Deploy to GitHub Pages
 
+# Deploys main only after CI passed for that commit.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -15,29 +18,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-      - run: npm test
-
   deploy:
-    needs: test
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Assemble site (runtime files only; no build step)
+        env:
+          GAS_WEB_APP_URL: ${{ vars.GAS_WEB_APP_URL }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          SHEET_URL: ${{ vars.SHEET_URL }}
         run: |
           mkdir _site
-          cp -r index.html 404.html .nojekyll css js data assets changelog _site/
+          cp -r index.html 404.html .nojekyll manifest.webmanifest sw.js css js data assets changelog _site/
+          # The builder's fallback copy of the guide.
+          mkdir -p _site/docs && cp docs/guide.md _site/docs/
           # Old /test?code= links: static fallback page (404.html also covers this).
           mkdir -p _site/test && cp 404.html _site/test/index.html
+          # Per-deployment config from repository variables (a fork deploys without editing code).
+          node -e '
+            const o = {};
+            for (const k of ["GAS_WEB_APP_URL", "GOOGLE_CLIENT_ID", "SHEET_URL"]) if (process.env[k]) o[k] = process.env[k];
+            require("fs").writeFileSync("_site/js/config.local.js", "window.CHEMISTRYWORKS_LOCAL = " + JSON.stringify(o) + ";\n");
+          '
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

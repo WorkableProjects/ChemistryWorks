@@ -2,3 +2,4 @@ node_modules/
 test-results/
 .DS_Store
 .claude/worktrees/
+apps-script/.clasp.json

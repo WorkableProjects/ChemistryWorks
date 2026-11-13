@@ -1,0 +1,14 @@
+{
+  "name": "ChemistryWorks",
+  "short_name": "ChemWorks",
+  "description": "Chemistry tests, practice and games for your class.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#00224F",
+  "icons": [
+    { "src": "assets/brand/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "assets/brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
