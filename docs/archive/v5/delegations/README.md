@@ -1,7 +1,7 @@
 # v5 delegations — orchestrator runbook
 
 Every piece of v5 is pre-briefed here. The orchestrating session **does not plan or write feature code**: it launches
-these agents, merges their work, runs the tests and keeps `docs/v5/v5-progress.md` current. Target: done over one weekend.
+these agents, merges their work, runs the tests and keeps `docs/archive/v5/v5-progress.md` current. Target: done over one weekend.
 
 ## Files
 | File | Agents |
@@ -36,7 +36,7 @@ Agent({
   subagent_type: "general-purpose",
   model: "<sonnet|haiku>",
   isolation: "worktree",
-  prompt: "You are v5 agent <ID>. Read docs/v5/delegations/00-common.md, then do the section '## <ID>' in docs/v5/delegations/<FILE>. Report in the format 00-common.md gives."
+  prompt: "You are v5 agent <ID>. Read docs/archive/v5/delegations/00-common.md, then do the section '## <ID>' in docs/archive/v5/delegations/<FILE>. Report in the format 00-common.md gives."
 })
 ```
 Worktrees branch from the current HEAD, so **commit every merge before launching agents that depend on it**.
@@ -98,7 +98,7 @@ Suggested weekend order (each wave = one parallel launch, ≤5 running):
 3. `npm test`. After every 3–4 merges also `npm run test:e2e` and `npm run validate:tests`.
    A failure goes back to the agent that caused it (SendMessage if still alive, else a new Sonnet agent with the brief +
    the failing output). Don't fix features in the orchestrator beyond one-line merge fixes.
-4. Tick the agent in `docs/v5/v5-progress.md` (ID, sha, notes). Commit and push the integration branch.
+4. Tick the agent in `docs/archive/v5/v5-progress.md` (ID, sha, notes). Commit and push the integration branch.
 
 ## Branches
 Integration branch = the orchestrator session's designated branch (earlier sessions could only push their own branch).

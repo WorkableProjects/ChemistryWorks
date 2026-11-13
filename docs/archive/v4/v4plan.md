@@ -435,7 +435,7 @@ ChemWorks stays **browser only**: no installable app, web manifest or service wo
 v4 is too big for one sitting. It is split into **sessions**, each sized for about one 5-hour Claude quota. Every session must leave the project working.
 
 **Rules for every session**
-1. Start: read this plan, `docs/v3/v4-progress.md` and the last session's handoff notes. Pull `v4`.
+1. Start: read this plan, `docs/archive/v4/v4-progress.md` and the last session's handoff notes. Pull `v4`.
 2. Work on a branch `claude/v4-sNN-<topic>` cut from `v4`. Merge back into `v4` (PR) at the end. `main` only gets v4 when it's released.
 3. Unfinished features hide behind `FEATURES` flags (V4-08) so `v4` always runs.
 4. Before ending: `npm run test:all` and `npm run validate:tests` green; commit; push; update `v4-progress.md` (done, in progress, next step, any surprises). Stop early rather than leave things half-wired.

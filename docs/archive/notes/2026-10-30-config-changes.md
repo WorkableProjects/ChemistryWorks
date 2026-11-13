@@ -82,7 +82,7 @@ In Google Cloud Console → **APIs & Services → Credentials** → your OAuth c
 - **Teacher grading:** the new **Short answer** question type is graded by you in the **Grading** tab. You can also override auto-graded points, add a private note, and **Export grades** to a CSV for Aeries or Google Classroom.
 - **Hide scores:** the per-test **Show score to students** switch. When it's off, students only see "Submission received".
 - **Home screen:** a single login panel.
-- **AI test guide:** [`docs/guide.md`](guide.md). Give it to an AI to write tests in the right JSON format, then import them via Builder → Import JSON.
+- **AI test guide:** [`docs/guide.md`](../../guide.md). Give it to an AI to write tests in the right JSON format, then import them via Builder → Import JSON.
 
 ---
 

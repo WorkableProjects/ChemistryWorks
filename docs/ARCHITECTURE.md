@@ -4,10 +4,10 @@ This is the source of truth for data shapes and module interfaces. Every module 
 
 ## Stack
 
-- Static site, **no build step**. Native ES modules (`<script type="module">`), plain CSS. Netlify publishes the repo root.
+- Static site, **no build step**. Native ES modules (`<script type="module">`), plain CSS. GitHub Pages publishes the runtime files (`.github/workflows/pages.yml`; see `docs/hosting/github-pages.md`). `netlify.toml` is kept only for rollback.
 - KaTeX 0.16.11 + mhchem + auto-render from cdnjs (globals `katex`, `renderMathInElement`). Use `renderMath(root)` from `js/ui.js`; never call KaTeX directly from views.
 - Google Identity Services for sign-in (`js/lib/auth.js`). Demo sign-in when no client ID is configured.
-- Submissions: Google Apps Script Web App (primary) + Netlify Forms (backup). Apps Script also stores **published tests** and serves **results** to the admin Grading tab.
+- Submissions: Google Apps Script Web App (Netlify Forms backup is off on Pages: `NETLIFY_FORMS: false`). Apps Script also stores **published tests** and serves **results** to the admin Grading tab.
 - Tests: Node's built-in runner (`node --test`), zero npm dependencies. E2E uses the pre-installed `playwright` package (`require('playwright')` / `import { chromium } from 'playwright'`).
 
 ## File map
@@ -265,7 +265,7 @@ Admin: `admin`, `tab-library`, `tab-builder`, `tab-grading`, `tab-settings`, `lo
 - `js/lib/theme.js`: `applyRole('student'|'admin')` is called by `navigate()` in js/app.js (admin view and admin previews use the teacher accent). `themeControl()` in js/ui.js renders the header menu; `appHeader()` includes it automatically and the landing page shows it floating.
 - index.html has a tiny inline script that applies the saved theme/accent before first paint.
 
-## V2 contracts (docs/v2plan.md)
+## V2 contracts
 
 ### Test JSON additions
 
@@ -325,7 +325,7 @@ Scores stay numeric in `Grades (JSON)` `{ questionId: points }` — any number 0
 
 `css/references.css` (reference pane, periodic table), `css/diagrams.css` (orbital + structure charge widgets/diagrams), `css/grading.css` (grader additions), `css/feedback.css` (student feedback view, landing results list), `css/print.css` (export). Design tokens for the Lab notebook look are documented in `docs/DESIGN.md` (V2-09).
 
-## V3 contracts (docs/v2.5/v3.0plan.md)
+## V3 contracts (docs/archive/v3/v3plan.md)
 
 ### Identity (V3-00)
 - `js/lib/auth.js`: the Google user keeps `idToken` + `idTokenExp` (sessionStorage). `getIdToken()` returns it with > 60 s left,
@@ -369,7 +369,7 @@ excluded from counts, from `getStudentStatus`, and from the default grading list
 The runner tags them (`required-pill`) and the submit modal lists unanswered required questions (`required-warning`) without a
 **Submit test** button. A timer auto-submit is never blocked. Builder: `opt-requireAllQuestions`, `q-required`.
 
-## V4 contracts (docs/v3/v4.0plan.md)
+## V4 contracts (docs/archive/v4/v4plan.md)
 
 ### Feature flags (V4-08, S01)
 - `js/config.js` `CONFIG.FEATURES` = `{ adminShell, adminAccounts, teacherTools, studentTools }` (all `false`).
@@ -475,7 +475,7 @@ and `instance {seed,drawn}` + `time_limit_applied`.
   registered as classic tabs and as sidebar items (`registerNavItem`).
 - Flags (`js/config.js`): `adminShell`, `teacherTools`, `studentTools`, `v4Types` on; `adminAccounts` off until Code.gs 4.0.0 + Admins sheet.
 
-## V5 contracts (docs/v5/v5plan.md)
+## V5 contracts (docs/archive/v5/v5plan.md)
 
 Written by W0. Later agents code against this; if you must change a contract, edit it here in the same commit.
 Defaults used for the plan's open questions: shared attempt (1), "Saved" when answers are hidden (2), `Attempts` sheet on (3),
