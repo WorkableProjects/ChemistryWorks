@@ -9,8 +9,11 @@
 //   params.practiceOnly — offer Game mode practice (single-submission test already submitted)
 //   params.canRetake — show "Take again" (single-submission tests: only when the teacher allowed a retake)
 
+import { scoresByTag, tagLookup } from '../lib/tags.js';
+import { tagChip } from './tag-chip.js';
 import { h, mount, icon, renderMath, appHeader, userBadge, toast } from '../ui.js';
 import { fetchFeedback } from '../lib/api.js';
+import { getIdToken } from '../lib/auth.js';
 import { loadTest } from '../lib/tests.js';
 import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
@@ -100,7 +103,21 @@ function reviewView(fb, test, { onDownload } = {}) {
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'feedback-download-pdf' },
         on: { click: () => onDownload?.(row, t) } }, icon('download', { size: 16 }), 'Download PDF')),
     summaryCard(row, fb),
+    byTopic(t, fb),
     h('section', { class: 'card feedback-doc', 'aria-label': 'Your reviewed test' }, exportDocument(model)));
+}
+
+const fmtPts = (n) => String(Math.round(Number(n) * 100) / 100);
+
+// "By topic": points per tag over this released attempt (teacher grades included).
+export function byTopic(test, fb) {
+  const scores = scoresByTag(test, fb.responses || [], fb.grades || {});
+  if (!scores.length) return null;
+  const look = tagLookup({ local: [], index: { ...(test?.tagIndex || {}), ...(fb.tagIndex || {}) } });
+  return h('section', { class: 'card stack-sm', 'aria-label': 'By topic', dataset: { testid: 'feedback-by-topic' } },
+    h('h2', { class: 'adm-h3' }, 'By topic'),
+    h('div', { class: 'by-topic' }, scores.map((s) => h('span', { class: 'by-topic__item' },
+      tagChip(look.get(s.id) || { name: 'Topic', color: 'slate' }), h('span', { class: 'by-topic__score' }, `${fmtPts(s.earned)}/${fmtPts(s.possible)}`)))));
 }
 
 function otherAttempts(others) {
@@ -196,7 +213,7 @@ export function render(root, ctx, params = {}) {
 
     // 2) Fallback (v2.5): local payload + getFeedback (needs the submission id from this device).
     if (!payload) { pending('Your teacher hasn’t released grades and comments for this test yet.'); return; }
-    const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, studentEmail: user?.email });
+    const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, studentEmail: user?.email, idToken: getIdToken() || undefined });
     if (!alive) return;
     if (!res.ok) {
       mount(content, h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'feedback-error' } }, icon('alert'),

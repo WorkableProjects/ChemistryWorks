@@ -1,12 +1,13 @@
 // Tag picker for one question (builder) plus small shared tag helpers for admin views.
 // "Your tags" = local tags + Sheet tags you own; "Shared tags" = Sheet tags other teachers own (use only).
 import { h, mount } from '../../ui.js';
+import { tagChip } from '../tag-chip.js';
 import { CONFIG } from '../../config.js';
 import { resource } from '../../lib/store.js';
 import { listTags } from '../../lib/api.js';
 import { confirmedAdminEmail, hasAdminAuth } from '../../lib/admin-session.js';
 import { getUser } from '../../lib/auth.js';
-import { localTags, createLocalTag, tagLookup, MAX_TAGS } from '../../lib/tags.js';
+import { createLocalTag, tagLookup, MAX_TAGS } from '../../lib/tags.js';
 
 /** The teacher whose local tags this device shows. */
 export function teacherEmail() {
@@ -28,13 +29,7 @@ export function currentLookup(extraIndex = {}) {
   return tagLookup({ email: teacherEmail(), sheet: sheetTagsResource().peek() || [], index: extraIndex });
 }
 
-/** A coloured tag chip. `onRemove` adds a remove button. */
-export function tagChip(tag, { onRemove, testid } = {}) {
-  const name = tag?.name || 'Unknown tag';
-  return h('span', { class: ['tag-chip', `tag-chip--${tag?.color || 'slate'}`], dataset: { testid: testid || 'tag-chip' } },
-    h('span', { class: 'tag-chip__name' }, name),
-    onRemove ? h('button', { class: 'tag-chip__x', type: 'button', 'aria-label': `Remove tag ${name}`, on: { click: onRemove } }, '×') : null);
-}
+export { tagChip };
 
 /** Picker for q.tags. Type to search; Enter creates a local tag when nothing matches. */
 export function tagPicker(q, onChange) {

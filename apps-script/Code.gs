@@ -1237,6 +1237,7 @@ function getStudentStatus_(body) {
     var finalScore = v[COL.FINAL_SCORE - 1];
     var finalPct = v[COL.FINAL_PCT - 1];
     out.feedback = {
+      tagIndex: tagIndex_(test),
       submission_id: String(v[1]),
       test_code: String(v[4]),
       test_title: String(v[5]),
@@ -2059,9 +2060,54 @@ function assignedTests_(email, classIds) {
   return out;
 }
 
+// Accuracy per tag across this student's released results only: [{ topic, percent, color }].
+function tagAccuracy_(email) {
+  var rows = readCols_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS), ['Student Email', 'Test Code', 'Detailed Responses (JSON)', 'Grades (JSON)', 'Released At', 'Status']);
+  var tests = {}, sums = {};
+  rows.forEach(function (r) {
+    if (normEmail_(r['Student Email']) !== email || !r['Released At']) return;
+    var st = String(r.Status || '');
+    if (st === STATUS_EXTRA || st === STATUS_CLOSED || st === STATUS_NOT_ROSTER) return;
+    var code = normalizeCode_(r['Test Code']);
+    if (!(code in tests)) tests[code] = readTest_(code);
+    var t = tests[code];
+    if (!t || !Array.isArray(t.questions)) return;
+    var idx = tagIndex_(t);
+    var resp = parseJson_(r['Detailed Responses (JSON)'], []) || [];
+    var grades = parseJson_(r['Grades (JSON)'], {}) || {};
+    var byQ = {};
+    resp.forEach(function (x) { if (x) byQ[String(x.questionId)] = x; });
+    t.questions.forEach(function (q) {
+      if (!q || !Array.isArray(q.tags) || !q.tags.length) return;
+      var x = byQ[String(q.id)];
+      if (!x) return;
+      var g = grades[q.id];
+      var hasGrade = g !== undefined && g !== null && g !== '';
+      if (!hasGrade && x.needsGrading) return;
+      var earned = hasGrade ? num_(g) : num_(x.pointsEarned);
+      var possible = num_(x.pointsPossible, num_(q.points, 1));
+      q.tags.forEach(function (id) {
+        var tag = idx[id];
+        if (!tag) return;
+        var k = tag.id || id;
+        var s = sums[k] || (sums[k] = { topic: tag.name, color: tag.color, earned: 0, possible: 0 });
+        s.earned += earned; s.possible += possible;
+      });
+    });
+  });
+  return Object.keys(sums).filter(function (k) { return sums[k].possible > 0; }).map(function (k) {
+    var s = sums[k];
+    return { topic: s.topic, color: s.color, percent: Math.round(1000 * s.earned / s.possible) / 10 };
+  });
+}
+
 function studentBundle_(email, row, admin) {
   var profile = profileOf_(row);
   var out = { result: 'success', profile: profile, results: submissionsOf_(email, admin), attempts: attemptsOf_(email), assigned: assignedTests_(email, profile.classIds) };
+  try {
+    var topics = tagAccuracy_(email);
+    if (topics.length) { profile.stats = profile.stats || {}; profile.stats.topics = topics; }
+  } catch (e) { /* topics are optional */ }
   // B3 supplies getClassHub_({ _email }) (already-verified email); until then hub is absent.
   if (!admin && typeof getClassHub_ === 'function') {
     try { out.hub = getClassHub_({ _email: email }); } catch (e) { out.hub = null; }

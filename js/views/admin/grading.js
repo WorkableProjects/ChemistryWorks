@@ -8,6 +8,8 @@ import { saveGrade, releaseAll, allowRetake, batchCall } from '../../lib/api.js'
 import { resultsResource, patchResultRow } from './data.js';
 import { TYPE_LABELS, MANUAL_TYPES } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
+import { scoresByTag } from '../../lib/tags.js';
+import { tagChip, currentLookup } from './tag-picker.js';
 import { groupQuestions } from '../../lib/sections.js';
 import { cleanComments, MAX_COMMENT_CHARS } from '../../lib/comments.js';
 import { commentBody, commentBankPicker } from '../comment-view.js';
@@ -156,6 +158,25 @@ export function renderGrading(root, ctx, { goSettings }) {
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
     // V3-03: release every graded / auto-graded submission of the selected test.
     // V4-02: re-run auto-grading on every submission of this test with the current answer key (overrides kept).
+    // Average score per tag for the selected test (graded questions only), as a row of chips.
+    const tagHost = h('div', { dataset: { testid: 'grading-by-tag' } });
+    if (G.testCode !== 'all') {
+      ensureTest(G.testCode).then(() => {
+        const t = testCache.get(G.testCode);
+        if (!t || !alive) return;
+        const totals = new Map();
+        for (const r of byTest) for (const sc of scoresByTag(t, r.responses || [], r.grades || {})) {
+          const a = totals.get(sc.id) || { earned: 0, possible: 0 };
+          a.earned += sc.earned; a.possible += sc.possible;
+          totals.set(sc.id, a);
+        }
+        if (!totals.size) return;
+        const look = currentLookup(t.tagIndex || {});
+        mount(tagHost, h('section', { class: 'card stack-sm', 'aria-label': 'Average by tag' }, h('h3', { class: 'adm-h3' }, 'Average by tag'),
+          h('div', { class: 'by-topic' }, [...totals].map(([id, a]) => h('span', { class: 'by-topic__item' },
+            tagChip(look.get(id) || { name: 'Unknown tag' }), h('span', { class: 'by-topic__score' }, a.possible ? `${Math.round((100 * a.earned) / a.possible)}%` : '—'))))));
+      });
+    }
     const regradeBtn = G.testCode === 'all' ? null : h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'regrade' }, on: { click: () => {
       openModal({ title: `Regrade ${G.testCode}?`, testid: 'regrade-modal',
         body: 'Every submission of this test is auto-graded again with the current answer key. Teacher-graded questions and your point overrides are kept.',
@@ -315,6 +336,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Status'), statusSel),
         h('span', { class: 'spacer' }), releaseAllBtn, regradeBtn, refreshBtn),
+      tagHost,
       G.error
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
         : h('section', { class: 'card adm-card-results', 'aria-label': 'Submissions to grade' },

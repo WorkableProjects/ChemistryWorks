@@ -15,7 +15,7 @@
 .tag-picker__chips:not(:empty) { margin-bottom: 6px; }
 .tag-picker__box { position: relative; }
 .tag-picker__list { position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px); max-height: 240px; overflow: auto; padding: 6px;
-  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-md); }
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
 .tag-picker__group { margin: 6px 4px 2px; font-size: 0.75rem; color: var(--text-muted); }
 .tag-picker__opt { display: flex; width: 100%; padding: 4px; border: 0; background: none; text-align: start; border-radius: 6px; cursor: pointer; color: var(--text); }
 .tag-picker__opt:hover, .tag-picker__opt:focus-visible { background: var(--primary-soft); }
