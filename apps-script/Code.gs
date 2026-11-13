@@ -14,7 +14,7 @@
  * upgrade period (adminKey in the request body). Every admin write is appended to the Log sheet.
  */
 
-var VERSION = '5.0.0';
+var VERSION = '6.0.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
@@ -27,12 +27,12 @@ var SUBMISSION_HEADERS = [
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
   'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed',
-  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At'
+  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At', 'Unverified'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29, ASSIGNMENT: 30, DUE: 31 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29, ASSIGNMENT: 30, DUE: 31, UNVERIFIED: 32 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
@@ -58,14 +58,27 @@ var MAX_CELL_CHARS = 49000; // Sheets cells hold at most 50,000 characters.
 // Entry points
 // ---------------------------------------------------------------------------
 
+// Logs the full error to the Errors sheet; the client only gets a code and a short reference.
+function serverError_(err) {
+  var ref = Math.floor(Math.random() * 0xffffff).toString(16);
+  try {
+    getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), 'server', text_('ref ' + ref), text_(String(err && err.stack || err).slice(0, 2000)), '']);
+  } catch (e) { /* the log is best effort */ }
+  return { result: 'error', error: 'server_error', ref: ref };
+}
+
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
     if (p.action === 'ping') return json_({ result: 'success', version: VERSION });
-    if (p.action === 'getTest') return json_(getTest_(p.code));
+    if (p.action === 'getTest') {
+      var t = readTest_(p.code);
+      if (t && t.rosterOnly) return json_({ result: 'error', error: 'not_on_roster' });
+      return json_(getTest_(p.code));
+    }
     return json_({ result: 'error', error: 'unknown_action' });
   } catch (err) {
-    return json_({ result: 'error', error: String(err) });
+    return json_(serverError_(err));
   }
 }
 
@@ -121,6 +134,16 @@ function doPost(e) {
       case 'getAssignmentStatus':
       case 'remindMissing':
       case 'batch':
+      case 'diag':
+      case 'listTags':
+      case 'saveTag':
+      case 'deleteTag':
+      case 'mergeTags':
+      case 'listClassroomCourses':
+      case 'linkClassroomCourse':
+      case 'importClassroomRoster':
+      case 'previewGradeSync':
+      case 'syncGrades':
         return json_(handleAdmin_(body));
       case 'getTest':
         return json_(getTestFor_(body));
@@ -155,7 +178,7 @@ function doPost(e) {
         return json_({ result: 'error', error: 'unknown_action' });
     }
   } catch (err) {
-    return json_({ result: 'error', error: String(err) });
+    return json_(serverError_(err));
   }
 }
 
@@ -164,29 +187,23 @@ function doPost(e) {
 // ---------------------------------------------------------------------------
 
 function setup() {
-  getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
-  getSheet_(TESTS_SHEET, TEST_HEADERS);
+  [[SUBMISSIONS_SHEET, SUBMISSION_HEADERS], [TESTS_SHEET, TEST_HEADERS], [LOG_SHEET, LOG_HEADERS], [STUDENTS_SHEET, STUDENT_HEADERS],
+    [ATTEMPTS_SHEET, ATTEMPT_HEADERS], [ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS], [STREAM_SHEET, STREAM_HEADERS], [CLASSES_SHEET, CLASS_HEADERS],
+    [ACC_SHEET, ACC_HEADERS], [SETTINGS_SHEET, SETTINGS_HEADERS], [LIVE_SHEET, LIVE_HEADERS], [BOARD_SHEET, BOARD_HEADERS],
+    [ERRORS_SHEET, ERROR_HEADERS], [TAGS_SHEET, TAG_HEADERS], [SYNC_SHEET, SYNC_HEADERS]].forEach(function (x) { getSheet_(x[0], x[1]); });
   var admins = ensureAdmins_();
-  getSheet_(LOG_SHEET, LOG_HEADERS);
-  getSheet_(STUDENTS_SHEET, STUDENT_HEADERS);
-  getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS);
-  getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS);
-  getSheet_(STREAM_SHEET, STREAM_HEADERS);
-  var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
-  Logger.log('Sheets "' + SUBMISSIONS_SHEET + '", "' + TESTS_SHEET + '", "' + ADMINS_SHEET + '" and "' + LOG_SHEET + '" are ready.');
-  if (admins.length) {
-    Logger.log(admins.length + ' admin(s) on the "' + ADMINS_SHEET + '" sheet. Add or remove rows there to change who can sign in as an admin.');
-  } else {
-    Logger.log('NEXT STEP: no admins yet. Add a row to the "' + ADMINS_SHEET + '" sheet (Email, Role = owner) or set the ADMIN_EMAILS script property ' +
-      '(comma-separated, first = owner) and run setup again.');
-  }
-  if (hasKey) {
-    Logger.log('ADMIN_KEY is set (still accepted during the upgrade to admin accounts; remove it once every admin is on the list).');
-  } else {
-    Logger.log('ADMIN_KEY is not set: only admins on the "' + ADMINS_SHEET + '" sheet (signed in with Google) can use the admin panel. ' +
-      'To also allow the old shared key: Project Settings > Script properties > ADMIN_KEY.');
-  }
-  Logger.log('Then: Deploy > New deployment > Web app > Execute as "Me", Who has access "Anyone".');
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ALLOW_UNVERIFIED_EMAIL') === null) props.setProperty('ALLOW_UNVERIFIED_EMAIL', 'false');
+  var triggerAdded = setupTriggers();
+  var missing = [];
+  if (!props.getProperty('GOOGLE_CLIENT_ID')) missing.push('Script property GOOGLE_CLIENT_ID (the OAuth client ID from Google Cloud).');
+  if (!admins.length) missing.push('An owner: add a row to the "' + ADMINS_SHEET + '" sheet (Email, Role = owner) or set ADMIN_EMAILS and run setup again.');
+  if (!props.getProperty('ADMIN_KEY')) missing.push('Optional: script property ADMIN_KEY, used only for set-up and recovery.');
+  Logger.log('All sheets are ready. Version ' + VERSION + '.');
+  Logger.log(triggerAdded ? 'Daily clean-up trigger added.' : 'Daily clean-up trigger already present.');
+  Logger.log(missing.length ? 'Still to do:\n- ' + missing.join('\n- ') : 'Nothing left to set up.');
+  Logger.log('Then: Deploy > Manage deployments > Edit > New version (keeps the same URL).');
+  return { version: VERSION, missing: missing };
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +220,10 @@ function getSpreadsheet_() {
   return ss;
 }
 
+var SHEET_MEMO_ = {};
 function getSheet_(name, headers) {
+  var memo = SHEET_MEMO_[name];
+  if (memo && memo.width >= headers.length) return memo.sheet;
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(name);
   if (!sheet) sheet = ss.insertSheet(name);
@@ -220,6 +240,7 @@ function getSheet_(name, headers) {
       }
     }
   }
+  SHEET_MEMO_[name] = { sheet: sheet, width: headers.length };
   return sheet;
 }
 
@@ -259,12 +280,18 @@ function normalizeCode_(code) {
   return String(code === undefined || code === null ? '' : code).trim().toUpperCase();
 }
 
+var LOCK_DEPTH_ = 0;
+var LOCK_WAIT_MS_ = 10000;
+// One script lock for writes that must be atomic. Nested calls reuse the held lock.
 function withLock_(fn) {
+  if (LOCK_DEPTH_ > 0) return fn();
   var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  if (!lock.tryLock(LOCK_WAIT_MS_)) throw new Error('busy');
+  LOCK_DEPTH_++;
   try {
     return fn();
   } finally {
+    LOCK_DEPTH_--;
     lock.releaseLock();
   }
 }
@@ -346,6 +373,19 @@ function text_(v) {
 
 function handleSubmission_(body) {
   var s = normalizeSubmission_(body);
+  var props = PropertiesService.getScriptProperties();
+  var clientId = props.getProperty('GOOGLE_CLIENT_ID');
+  var unverified = false;
+  if (body && body.idToken && clientId) {
+    var who = verifyIdToken_(String(body.idToken), clientId);
+    if (who.error || !who.email) return { result: 'error', error: 'invalid_token' };
+    s.student_email = who.email;
+    if (who.name) s.student_name = String(who.name).slice(0, 120);
+  } else if (props.getProperty('ALLOW_UNVERIFIED_EMAIL') === 'true' || !clientId) {
+    unverified = true;
+  } else {
+    return { result: 'error', error: 'unauthorized' };
+  }
   if (!s.submission_id) return { result: 'error', error: 'missing_submission_id' };
   if (!s.test_code) return { result: 'error', error: 'missing_test_code' };
   var responsesJson = JSON.stringify(s.responses);
@@ -395,7 +435,8 @@ function handleSubmission_(body) {
       gate.late ? true : '',
       text_(gate.classId || ''),
       text_(gate.assignmentId || ''),
-      text_(gate.dueAt || '')
+      text_(gate.dueAt || ''),
+      unverified ? true : ''
     ]);
     bust_('tests:list');
     if (gate.status) return { result: 'success', not_counted: gate.status };
@@ -423,7 +464,7 @@ function getTest_(code) {
   var w = windowState_(test, null, new Date());
   if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
   if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
-  return { result: 'success', test: test };
+  return { result: 'success', test: test, tagIndex: tagIndex_(test) };
 }
 
 // ---------------------------------------------------------------------------
@@ -452,8 +493,23 @@ function requireAdmin_(body) {
   }
   var key = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
   if (!key) return { ok: false, error: 'admin_key_not_configured' };
-  if (!body || !body.adminKey || String(body.adminKey) !== key) return { ok: false, error: 'unauthorized' };
+  var cache = null, failKey = 'keyfail:' + Math.floor(new Date().getTime() / 3600000);
+  try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+  var fails = cache ? Number(cache.get(failKey) || 0) : 0;
+  if (fails >= ADMIN_KEY_MAX_FAILS) return { ok: false, error: 'locked_out' };
+  if (!body || !body.adminKey || !safeEqual_(String(body.adminKey), key)) {
+    if (cache) cache.put(failKey, String(fails + 1), 3700);
+    return { ok: false, error: 'unauthorized' };
+  }
   return { ok: true, email: '', role: ROLE_ADMIN, via: 'key' };
+}
+
+var ADMIN_KEY_MAX_FAILS = 10;
+// Compares without stopping at the first differing character, so timing does not leak the key.
+function safeEqual_(a, b) {
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
 }
 
 // Admins sheet rows: [{ row, email, role, added_by, added_at }]. Emails trimmed + lower-cased, blank and duplicate
@@ -579,7 +635,7 @@ function dispatchAdmin_(body, auth) {
 
 function dispatchAdminRaw_(body, auth) {
   switch (body.action) {
-    case 'publishTest': return publishTest_(body.test);
+    case 'publishTest': return publishTest_(body.test, body.tagDefs, auth);
     case 'listTests': return listTests_(body);
     case 'deleteTest': return deleteTest_(body.code);
     case 'getResults': return getResults_(body.testCode, body);
@@ -588,7 +644,7 @@ function dispatchAdminRaw_(body, auth) {
       if (auth.via === 'google' && !String(body.gradedBy == null ? '' : body.gradedBy).trim()) body.gradedBy = auth.email;
       return saveGrade_(body);
     case 'getSubmissionCounts': return getSubmissionCounts_();
-    case 'releaseAll': return releaseAll_(body.testCode);
+    case 'releaseAll': { var rel = releaseAll_(body.testCode); if (rel.result === 'success' && rel.released) autoSyncAfterRelease_(body.testCode, auth); return rel; }
     case 'allowRetake': return allowRetake_(body);
     case 'whoami': return whoami_(auth);
     case 'listAdmins': return listAdmins_();
@@ -614,6 +670,16 @@ function dispatchAdminRaw_(body, auth) {
     case 'saveSettings': return saveSettings_(body);
     case 'getStudentProfileAdmin': return getStudentProfileAdmin_(body);
     case 'batch': return batch_(body, auth);
+    case 'diag': return diag_();
+    case 'listTags': return listTags_(auth);
+    case 'saveTag': return saveTag_(body, auth);
+    case 'deleteTag': return deleteTag_(body, auth);
+    case 'mergeTags': return mergeTags_(body, auth);
+    case 'listClassroomCourses': return listClassroomCourses_();
+    case 'linkClassroomCourse': return linkClassroomCourse_(body);
+    case 'importClassroomRoster': return importClassroomRoster_(body, auth);
+    case 'previewGradeSync': return previewGradeSync_(body);
+    case 'syncGrades': return syncGrades_(body, auth);
     case 'saveAssignment': return saveAssignment_(body, auth);
     case 'deleteAssignment': return deleteAssignment_(body);
     case 'listAssignments': return listAssignments_(body);
@@ -714,13 +780,14 @@ function getLog_(body) {
   return { result: 'success', rows: rows };
 }
 
-function publishTest_(test) {
+function publishTest_(test, tagDefs, auth) {
   if (!test || typeof test !== 'object') return { result: 'error', error: 'invalid_test' };
   var code = normalizeCode_(test.code);
   if (!/^[A-Z0-9_-]{2,32}$/.test(code)) return { result: 'error', error: 'invalid_test: code must be 2-32 characters (A-Z, 0-9, _ or -)' };
   if (!test.title || !String(test.title).trim()) return { result: 'error', error: 'invalid_test: title is required' };
   if (!Array.isArray(test.questions) || test.questions.length === 0) return { result: 'error', error: 'invalid_test: questions must be a non-empty array' };
   test.code = code;
+  if (auth && auth.email) test.publishedBy = auth.email;
   var testJson = JSON.stringify(test);
   if (testJson.length > MAX_CELL_CHARS) return { result: 'error', error: 'test_too_large' };
 
@@ -730,7 +797,8 @@ function publishTest_(test) {
     var values = [code, String(test.title), new Date(), testJson];
     if (row) sheet.getRange(row, 1, 1, 4).setValues([values]);
     else sheet.appendRow(values);
-    return { result: 'success', code: code, updated: !!row };
+    var tags = upsertTagDefs_(test, tagDefs, auth);
+    return { result: 'success', code: code, updated: !!row, tagsOnSheet: questionTagIds_(test), tagsWritten: tags };
   });
 }
 
@@ -808,7 +876,9 @@ function getResults_(testCode, opts) {
       if (filter && normalizeCode_(v[4]) !== filter) continue;
       if (statusFilter && String(v[COL.STATUS - 1] || '').toLowerCase() !== statusFilter) continue;
       if (since !== null && changedMs_(v) <= since) continue;
-      rows.push(submissionRow_(v));
+      var row = submissionRow_(v);
+      if (opts.includeAnswers === false) delete row.responses;
+      rows.push(row);
     }
   }
   return { result: 'success', rows: rows, now: now };
@@ -930,7 +1000,9 @@ function getSubmissionCounts_() {
 // the teacher released them; otherwise { released: false }. Unknown id / wrong email -> not_found.
 function getFeedback_(body) {
   var id = body && body.submissionId ? String(body.submissionId) : '';
-  var email = body && body.studentEmail ? String(body.studentEmail).trim().toLowerCase() : '';
+  var who = verifyStudent_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var email = who.email;
   if (!id || !email) return { result: 'error', error: 'not_found' };
   var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   var row = findRow_(sheet, 2, id);
@@ -951,7 +1023,8 @@ function getFeedback_(body) {
     final_percentage: finalPct === '' || finalPct === null ? num_(v[8]) : num_(finalPct),
     grades: parseJson_(v[COL.GRADES - 1], {}) || {},
     comments: parseJson_(v[COL.COMMENTS - 1], {}) || {},
-    graded_by: String(v[COL.GRADED_BY - 1] || '')
+    graded_by: String(v[COL.GRADED_BY - 1] || ''),
+    tagIndex: tagIndex_(readTest_(v[4]))
   };
 }
 
@@ -1238,7 +1311,7 @@ function allowRetake_(body) {
 // ===========================================================================
 
 var CLASSES_SHEET = 'Classes';
-var CLASS_HEADERS = ['ID', 'Name', 'Period', 'Emails (JSON)', 'Updated By', 'Updated At'];
+var CLASS_HEADERS = ['ID', 'Name', 'Period', 'Emails (JSON)', 'Updated By', 'Updated At', 'Classroom Course ID', 'Classroom Auto Sync'];
 var BANK_SHEET = 'Bank';
 var BANK_HEADERS = ['ID', 'Question (JSON)', 'Tags (JSON)', 'Added By', 'Added At', 'Edited By', 'Edited At'];
 var ACC_SHEET = 'Accommodations';
@@ -1253,7 +1326,9 @@ var ERRORS_SHEET = 'Errors';
 var ERROR_HEADERS = ['Time', 'Page', 'Message', 'Detail', 'Browser'];
 var BOARD_MAX_SCORE = 100000;
 var BOARD_TOP = 10;
-var ERRORS_PER_HOUR = 60;
+var BOARD_PER_QUESTION = 1000;
+var ERRORS_PER_HOUR = 600;
+var ERRORS_PER_SENDER = 20;
 var ID_SAFE_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 function actorOf_(auth) { return auth && auth.via === 'google' ? auth.email : 'ADMIN_KEY'; }
@@ -1290,7 +1365,8 @@ function classesCached_() {
   return cached_('classes:list', CACHE_TTL, function () {
     var r = sheetRows_(CLASSES_SHEET, CLASS_HEADERS);
     return r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
-      return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]) };
+      return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]),
+        classroomCourseId: String(v[6] || ''), classroomAutoSync: v[7] === true || v[7] === 'true' };
     });
   });
 }
@@ -1391,10 +1467,12 @@ function getAccommodations_(body) {
   return { result: 'success', accommodations: list };
 }
 // Merged accommodation for a student on a test: test-specific values win over the '*' (all tests) row.
+var ACC_MEMO_ = null;
 function accommodationFor_(email, code) {
   var e = normEmail_(email);
   if (!e) return null;
-  var list = getAccommodations_({}).accommodations.filter(function (a) { return a.email === e && (a.testCode === '*' || a.testCode === normalizeCode_(code)); });
+  if (!ACC_MEMO_) ACC_MEMO_ = getAccommodations_({}).accommodations;
+  var list = ACC_MEMO_.filter(function (a) { return a.email === e && (a.testCode === '*' || a.testCode === normalizeCode_(code)); });
   if (!list.length) return null;
   list.sort(function (a, b) { return a.testCode === '*' ? -1 : b.testCode === '*' ? 1 : 0; });
   var out = { extraTime: 1, extraAttempts: 0, reducedChoices: false, readAloud: false, extensionUntil: '', notes: '' };
@@ -1514,7 +1592,7 @@ function getTestFor_(body) {
   if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
   if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
   if (test.rosterOnly === true && (!who.email || !rosterOk_(test, who.email).ok)) return { result: 'error', error: 'not_on_roster', title: test.title || '' };
-  return { result: 'success', test: test, window: w, accommodations: acc };
+  return { result: 'success', test: test, window: w, accommodations: acc, tagIndex: tagIndex_(test) };
 }
 
 // ---------- regrade (S12): the admin client re-grades stored answers with the fixed key and sends the new responses ----------
@@ -1547,11 +1625,78 @@ function applyRegrade_(body) {
 }
 
 // ---------- settings (error reports, release emails) ----------
+var RETENTION_KEYS = ['liveDays', 'logDays', 'errorDays', 'streamDays'];
+
+// Keeps the rows `keep` accepts and rewrites the data range in one call. Returns how many rows went.
+function rewriteRows_(sheet, width, keep) {
+  var last = sheet.getLastRow();
+  if (last < 2) return 0;
+  var vals = sheet.getRange(2, 1, last - 1, width).getValues();
+  var kept = vals.filter(keep);
+  var removed = vals.length - kept.length;
+  if (!removed) return 0;
+  sheet.getRange(2, 1, vals.length, width).clearContent();
+  if (kept.length) sheet.getRange(2, 1, kept.length, width).setValues(kept);
+  return removed;
+}
+
+function olderThan_(v, days, now) {
+  var t = v instanceof Date ? v.getTime() : Date.parse(v);
+  return isFinite(t) && now - t > days * 86400000;
+}
+
+// Daily: trims Live, Log and Errors, and moves old Stream posts to Stream_archive. Retention comes from Settings.
+function pruneSheets() {
+  var set = readSettings_();
+  var now = new Date().getTime();
+  var out = {};
+  withLock_(function () {
+    out.live = rewriteRows_(getSheet_(LIVE_SHEET, LIVE_HEADERS), LIVE_HEADERS.length, function (v) { return !olderThan_(v[7], set.liveDays, now); });
+    out.log = rewriteRows_(getSheet_(LOG_SHEET, LOG_HEADERS), LOG_HEADERS.length, function (v) { return !olderThan_(v[0], set.logDays, now); });
+    out.errors = rewriteRows_(getSheet_(ERRORS_SHEET, ERROR_HEADERS), ERROR_HEADERS.length, function (v) { return !olderThan_(v[0], set.errorDays, now); });
+    var stream = getSheet_(STREAM_SHEET, STREAM_HEADERS);
+    var old = [];
+    out.stream = rewriteRows_(stream, STREAM_HEADERS.length, function (v) {
+      if (olderThan_(v[6], set.streamDays, now)) { old.push(v); return false; }
+      return true;
+    });
+    if (old.length) {
+      var arch = getSheet_('Stream_archive', STREAM_HEADERS);
+      arch.getRange(arch.getLastRow() + 1, 1, old.length, STREAM_HEADERS.length).setValues(old);
+    }
+  });
+  return out;
+}
+
+// Installs the daily pruning trigger once.
+function setupTriggers() {
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'pruneSheets'; });
+  if (!has) ScriptApp.newTrigger('pruneSheets').timeBased().everyDays(1).atHour(3).create();
+  return !has;
+}
+
+// Admin: row counts per sheet and how long the hot reads take, for Platform.
+function diag_() {
+  var ss = getSpreadsheet_();
+  var sheets = ss.getSheets().map(function (sh) { return { name: sh.getName(), rows: Math.max(0, sh.getLastRow() - 1) }; });
+  var timings = {};
+  var time = function (name, fn) { var t = new Date().getTime(); try { fn(); } catch (e) { /* timing only */ } timings[name] = new Date().getTime() - t; };
+  time('listTests', function () { testSummaries_(); });
+  time('getResults', function () { getResults_('', { includeAnswers: false }); });
+  time('accommodations', function () { getAccommodations_({}); });
+  time('listAssignments', function () { listAssignments_({}); });
+  return { result: 'success', version: VERSION, sheets: sheets, timings: timings };
+}
+
 function readSettings_() {
   return cached_('settings', CACHE_TTL, function () {
     var r = sheetRows_(SETTINGS_SHEET, SETTINGS_HEADERS);
-    var out = { errorReports: false, releaseEmails: false };
-    r.values.forEach(function (v) { var k = String(v[0]); if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true'; });
+    var out = { errorReports: false, releaseEmails: false, liveDays: 1, logDays: 180, errorDays: 180, streamDays: 365 };
+    r.values.forEach(function (v) {
+      var k = String(v[0]);
+      if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true';
+      else if (RETENTION_KEYS.indexOf(k) >= 0 && num_(v[1], 0) > 0) out[k] = Math.floor(num_(v[1], 0));
+    });
     return out;
   });
 }
@@ -1559,10 +1704,10 @@ function saveSettings_(body) {
   var incoming = body.settings && typeof body.settings === 'object' ? body.settings : {};
   return withLock_(function () {
     var sheet = getSheet_(SETTINGS_SHEET, SETTINGS_HEADERS);
-    ['errorReports', 'releaseEmails'].forEach(function (k) {
+    ['errorReports', 'releaseEmails'].concat(RETENTION_KEYS).forEach(function (k) {
       if (incoming[k] === undefined) return;
       var row = findRow_(sheet, 1, k);
-      var vals = [k, incoming[k] === true];
+      var vals = [k, RETENTION_KEYS.indexOf(k) >= 0 ? Math.max(1, Math.floor(num_(incoming[k], 1))) : incoming[k] === true];
       if (row) sheet.getRange(row, 1, 1, 2).setValues([vals]); else sheet.appendRow(vals);
     });
     bust_('settings');
@@ -1630,7 +1775,10 @@ function submitGameScore_(body) {
   var game = String(body.gameId || body.game || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
   if (!code || !game) return { result: 'error', error: 'missing_fields' };
   if (!boardAllowed_(code)) return { result: 'error', error: 'leaderboard_off' };
-  var score = Math.max(0, Math.min(BOARD_MAX_SCORE, Math.floor(num_(body.score, 0))));
+  var t = readTest_(code);
+  var qn = t && Array.isArray(t.questions) ? t.questions.length : 0;
+  var cap = Math.min(BOARD_MAX_SCORE, Math.max(1000, qn * BOARD_PER_QUESTION));
+  var score = Math.max(0, Math.min(cap, Math.floor(num_(body.score, 0))));
   var name = String(body.name || body.displayName || '').trim().slice(0, 60);
   return withLock_(function () {
     var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
@@ -1667,11 +1815,9 @@ function clearLeaderboard_(body) {
   var code = normalizeCode_(body.testCode);
   return withLock_(function () {
     var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
-    var removed = 0;
-    for (var row = sheet.getLastRow(); row >= 2; row--) {
-      var v = sheet.getRange(row, 1, 1, 2).getValues()[0];
-      if (normalizeCode_(v[0]) === code && (!body.gameId || String(v[1]) === String(body.gameId))) { sheet.deleteRow(row); removed++; }
-    }
+    var removed = rewriteRows_(sheet, BOARD_HEADERS.length, function (v) {
+      return !(normalizeCode_(v[0]) === code && (!body.gameId || String(v[1]) === String(body.gameId)));
+    });
     return { result: 'success', removed: removed };
   });
 }
@@ -1691,10 +1837,13 @@ function reportError_(body) {
   if (!readSettings_().errorReports) return { result: 'error', error: 'error_reports_off' };
   try {
     var cache = CacheService.getScriptCache();
-    var key = 'errors:' + Math.floor(new Date().getTime() / 3600000);
-    var n = Number(cache.get(key) || 0);
-    if (n >= ERRORS_PER_HOUR) return { result: 'error', error: 'rate_limited' };
+    var hour = Math.floor(new Date().getTime() / 3600000);
+    var sender = String(body.clientId || body.studentEmail || 'anon').slice(0, 80);
+    var key = 'errors:' + hour, skey = 'errors:' + hour + ':' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, sender));
+    var n = Number(cache.get(key) || 0), sn = Number(cache.get(skey) || 0);
+    if (n >= ERRORS_PER_HOUR || sn >= ERRORS_PER_SENDER) return { result: 'error', error: 'rate_limited' };
     cache.put(key, String(n + 1), 3700);
+    cache.put(skey, String(sn + 1), 3700);
   } catch (e) { /* no cache: still accept */ }
   return withLock_(function () {
     getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), text_(String(body.page || '').slice(0, 200)), text_(String(body.message || '').slice(0, 500)),
@@ -1714,6 +1863,8 @@ function getErrors_(body) {
 // ===========================================================================
 
 var STUDENTS_SHEET = 'Students';
+var KNOWN_BADGES = ['first_round', 'ten_in_row', 'noble_gas_master', 'perfect_round', 'high_scorer', 'all_rounder', 'balance_pro',
+  'boss_slayer', 'puzzle_solver', 'daily_3', 'daily_7', 'level_5'];
 var STUDENT_HEADERS = ['email', 'name', 'picture', 'firstSeen', 'lastSeen', 'classIds', 'xp', 'level', 'streakDays', 'lastActiveDate', 'badgesJson', 'prefsJson', 'statsJson', 'updatedAt'];
 var ATTEMPTS_SHEET = 'Attempts';
 var ATTEMPT_HEADERS = ['email', 'code', 'mode', 'answeredCount', 'total', 'percentDone', 'updatedAt', 'answersJson'];
@@ -1771,29 +1922,42 @@ function bust_() {
 
 // Insert or merge one row by key columns (header names). `row` is { header: value }; only given fields change.
 // -> { row: sheetRowNumber, created: bool, values: { header: value } (the stored row) }
+// Remembers key -> row number in CacheService so most upserts read one row instead of the whole sheet.
+function rowIndexKey_(sheet, keyCols, row) {
+  return 'ri:' + sheet.getName() + ':' + keyCols.map(function (k) { return String(row[k]).trim().toLowerCase(); }).join('|');
+}
 function upsertByKey_(sheet, keyCols, row) {
   return withLock_(function () {
     var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var last = sheet.getLastRow();
-    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, head.length).getValues();
     var kidx = keyCols.map(function (k) { return head.indexOf(k); });
-    var found = -1;
-    for (var i = 0; i < vals.length && found < 0; i++) {
-      var ok = true;
+    var matches = function (v) {
       for (var k = 0; k < kidx.length; k++) {
-        var a = String(vals[i][kidx[k]]).trim().toLowerCase();
-        var b = String(row[keyCols[k]]).trim().toLowerCase();
-        if (a !== b) { ok = false; break; }
+        if (String(v[kidx[k]]).trim().toLowerCase() !== String(row[keyCols[k]]).trim().toLowerCase()) return false;
       }
-      if (ok) found = i;
+      return true;
+    };
+    var cache = null, ckey = rowIndexKey_(sheet, keyCols, row);
+    try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+    var found = -1, cur = null;
+    var hint = cache ? Number(cache.get(ckey) || 0) : 0;
+    if (hint >= 2 && hint <= last) {
+      var one = sheet.getRange(hint, 1, 1, head.length).getValues()[0];
+      if (matches(one)) { found = hint - 2; cur = one.slice(); }
     }
-    var cur = found >= 0 ? vals[found].slice() : head.map(function () { return ''; });
+    if (found < 0) {
+      var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, head.length).getValues();
+      for (var i = 0; i < vals.length; i++) if (matches(vals[i])) { found = i; cur = vals[i].slice(); break; }
+    }
+    if (!cur) cur = head.map(function () { return ''; });
     for (var h = 0; h < head.length; h++) if (Object.prototype.hasOwnProperty.call(row, head[h])) cur[h] = row[head[h]];
     if (found >= 0) sheet.getRange(found + 2, 1, 1, head.length).setValues([cur]);
     else sheet.appendRow(cur);
     var stored = {};
     for (var s = 0; s < head.length; s++) stored[head[s]] = cur[s];
-    return { row: found >= 0 ? found + 2 : sheet.getLastRow(), created: found < 0, values: stored };
+    var rowNum = found >= 0 ? found + 2 : sheet.getLastRow();
+    if (cache) { try { cache.put(ckey, String(rowNum), 21600); } catch (e) { /* best effort */ } }
+    return { row: rowNum, created: found < 0, values: stored };
   });
 }
 
@@ -1842,10 +2006,10 @@ function ensureStudent_(email, claims) {
   var classes = classesOfEmail_(email).map(function (c) { return c.id; }).join(',');
   var patch = { email: email, lastSeen: now, classIds: classes };
   if (!existing) {
-    patch.name = claims && claims.name ? String(claims.name).slice(0, 120) : '';
+    patch.name = claims && claims.name ? text_(String(claims.name).slice(0, 120)) : '';
     patch.firstSeen = now; patch.xp = 0; patch.level = 1; patch.streakDays = 0; patch.lastActiveDate = '';
     patch.badgesJson = '[]'; patch.prefsJson = '{}'; patch.statsJson = '{}'; patch.updatedAt = now;
-  } else if (!existing.name && claims && claims.name) patch.name = String(claims.name).slice(0, 120);
+  } else if (!existing.name && claims && claims.name) patch.name = text_(String(claims.name).slice(0, 120));
   return upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
 }
 
@@ -1943,6 +2107,17 @@ function saveStudentProfile_(body) {
 }
 
 function syncProgress_(body) {
+  LOCK_WAIT_MS_ = 1500;
+  try {
+    return syncProgressLocked_(body);
+  } catch (err) {
+    if (String(err && err.message) === 'busy') return { result: 'error', error: 'retry_later' };
+    throw err;
+  } finally {
+    LOCK_WAIT_MS_ = 10000;
+  }
+}
+function syncProgressLocked_(body) {
   var who = studentFromToken_(body);
   if (who.error) return { result: 'error', error: who.error };
   var att = body && body.attempt && typeof body.attempt === 'object' ? body.attempt : null;
@@ -1954,7 +2129,7 @@ function syncProgress_(body) {
     var total = Math.max(0, Math.floor(num_(att.total, 0)));
     var answered = Math.max(0, Math.floor(num_(att.answeredCount, 0)));
     if (total) answered = Math.min(total, answered);
-    var row = { email: who.email, code: code, mode: String(att.mode || '').slice(0, 32), answeredCount: answered, total: total,
+    var row = { email: who.email, code: code, mode: text_(String(att.mode || '').slice(0, 32)), answeredCount: answered, total: total,
       percentDone: total ? Math.round(1000 * answered / total) / 10 : 0, updatedAt: Date.now() };
     if (att.answers !== undefined && att.answers !== null) {
       var aj = JSON.stringify(att.answers);
@@ -1976,14 +2151,20 @@ function syncProgress_(body) {
     var badges = parseJson_(cur.badgesJson, []) || [];
     (Array.isArray(xpIn.badges) ? xpIn.badges : []).forEach(function (b) {
       b = String(b).slice(0, 64);
+      if (KNOWN_BADGES.indexOf(b) < 0) return;
       if (b && badges.indexOf(b) < 0 && badges.length < 200) badges.push(b);
     });
     patch.xp = xp;
     patch.level = Math.max(num_(cur.level, 1), levelForXp_(xp));
     patch.badgesJson = JSON.stringify(badges);
     patch.statsJson = JSON.stringify(stats);
-    if (xpIn.streakDays !== undefined) patch.streakDays = Math.max(num_(cur.streakDays, 0), Math.min(3650, Math.floor(num_(xpIn.streakDays, 0))));
-    if (xpIn.lastActiveDate) patch.lastActiveDate = String(xpIn.lastActiveDate).slice(0, 10);
+    var last = String(cur.lastActiveDate || '').slice(0, 10);
+    if (last !== day) {
+      var y = new Date(); y.setDate(y.getDate() - 1);
+      var yesterday = Utilities.formatDate(y, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      patch.streakDays = last === yesterday ? num_(cur.streakDays, 0) + 1 : 1;
+      patch.lastActiveDate = day;
+    }
   }
   var stored = upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
   out.profile = profileOf_(stored);
@@ -2030,7 +2211,7 @@ function batch_(body, auth) {
 // ===========================================================================
 
 var ASSIGNMENTS_SHEET = 'Assignments';
-var ASSIGNMENT_HEADERS = ['id', 'classId', 'testCode', 'title', 'instructions', 'opensAt', 'dueAt', 'lateAllowed', 'required', 'modesJson', 'publishAt', 'createdBy', 'createdAt'];
+var ASSIGNMENT_HEADERS = ['id', 'classId', 'testCode', 'title', 'instructions', 'opensAt', 'dueAt', 'lateAllowed', 'required', 'modesJson', 'publishAt', 'createdBy', 'createdAt', 'classroomCourseId', 'classroomCourseWorkId'];
 var STREAM_SHEET = 'Stream';
 var STREAM_HEADERS = ['id', 'classId', 'type', 'body', 'pinned', 'createdBy', 'createdAt'];
 var STREAM_BODY_MAX = 2000;
@@ -2146,7 +2327,7 @@ function appendStream_(classId, type, bodyText, pinned, by, meta) {
   var id = newId_('post');
   var body = type === 'post' ? bodyText : JSON.stringify({ text: bodyText, assignmentId: meta && meta.assignmentId || '', testCode: meta && meta.testCode || '', emails: meta && meta.emails || [] });
   var createdAt = new Date();
-  withLock_(function () { getSheet_(STREAM_SHEET, STREAM_HEADERS).appendRow([id, classId, type, text_(body), !!pinned, by, createdAt]); });
+  getSheet_(STREAM_SHEET, STREAM_HEADERS).appendRow([id, text_(classId), type, text_(body), !!pinned, text_(by), createdAt]);
   return { id: id, classId: classId, type: type, body: bodyText, pinned: !!pinned, createdBy: by, createdAt: createdAt.toISOString() };
 }
 function publicPost_(p) { return { id: p.id, classId: p.classId, type: p.type, body: p.body, pinned: p.pinned, createdAt: p.createdAt, createdBy: p.createdBy }; }
@@ -2181,12 +2362,21 @@ function saveAssignment_(body, auth) {
   var id = existing ? existing.id : newId_('asg');
   var by = actorOf_(auth);
   var stored = upsertByKey_(getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS), ['id'], {
-    id: id, classId: classId, testCode: code, title: text_(title), instructions: text_(instructions), opensAt: opens.value, dueAt: due.value,
+    id: id, classId: text_(classId), testCode: code, title: text_(title), instructions: text_(instructions), opensAt: opens.value, dueAt: due.value,
     lateAllowed: a.lateAllowed !== false, required: a.required === true, modesJson: JSON.stringify(modes), publishAt: pub.value,
-    createdBy: existing ? existing.createdBy : by, createdAt: existing ? existing.createdAt : new Date()
+    createdBy: existing ? existing.createdBy : text_(by), createdAt: existing ? existing.createdAt : new Date()
   }).values;
   var row = assignmentRow_(ASSIGNMENT_HEADERS.map(function (h) { return stored[h]; }));
   var out = { result: 'success', assignment: row };
+  row.classroomCourseWorkId = String(stored.classroomCourseWorkId || '');
+  if (a.postToClassroom === true && !row.classroomCourseWorkId) {
+    var posted = postAssignmentToClassroom_(row, publishedTest_(code));
+    if (posted.error) out.classroomError = posted.error;
+    else {
+      upsertByKey_(getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS), ['id'], { id: id, classroomCourseId: posted.courseId, classroomCourseWorkId: posted.courseWorkId });
+      row.classroomCourseWorkId = posted.courseWorkId;
+    }
+  }
   if (!existing) out.post = appendStream_(classId, 'assignment', title, false, by, { assignmentId: id, testCode: code });
   return out;
 }
@@ -2200,6 +2390,11 @@ function deleteAssignment_(body) {
     var at = -1;
     for (var i = 0; i < vals.length; i++) if (String(vals[i][0]) === id) { at = i + 2; break; }
     if (at < 0) return { result: 'error', error: 'not_found' };
+    if (body.deleteClassroom === true) {
+      var full = sheet.getRange(at, 1, 1, ASSIGNMENT_HEADERS.length).getValues()[0];
+      var cid = String(full[ASSIGNMENT_HEADERS.indexOf('classroomCourseId')] || ''), wid = String(full[ASSIGNMENT_HEADERS.indexOf('classroomCourseWorkId')] || '');
+      if (cid && wid) { try { classroom_().Courses.CourseWork.remove(cid, wid); } catch (e) { /* the coursework may already be gone */ } }
+    }
     sheet.deleteRow(at);
     var ss = getSheet_(STREAM_SHEET, STREAM_HEADERS);
     var n = ss.getLastRow();
@@ -2297,7 +2492,7 @@ function getAssignmentStatus_(body) {
   var id = String(body && body.id || '').trim();
   var a = assignmentsCached_().filter(function (x) { return x.id === id; })[0];
   if (!a) return { result: 'error', error: 'not_found' };
-  return { result: 'success', assignment: a, rows: assignmentRows_(a) };
+  return { result: 'success', assignment: a, rows: assignmentRows_(a), classroomSync: syncStatusFor_(a.id) };
 }
 function assignmentRows_(a) {
   var now = Date.now();
@@ -2441,4 +2636,419 @@ function assignmentGate_(email, testCode, acc, now) {
   });
   if (!best) return null;
   return { id: best.a.id, dueAt: new Date(best.due).toISOString(), pastDue: nowMs > best.due, lateAllowed: best.a.lateAllowed !== false };
+}
+
+
+// ===========================================================================
+// Question tags: only tags used by a published test live on the Sheet.
+// ===========================================================================
+
+var TAGS_SHEET = 'Tags';
+var TAG_HEADERS = ['id', 'ownerEmail', 'name', 'color', 'description', 'firstTestCode', 'createdAt', 'updatedAt', 'deletedAt', 'mergedInto'];
+var TAG_ID_RE = /^tg_[A-Za-z0-9]{4,16}$/;
+var TAG_COLOR_RE = /^[a-z0-9-]{1,24}$/;
+
+function tagRow_(v) {
+  return { id: String(v[0]), ownerEmail: normEmail_(v[1]), name: String(v[2] || ''), color: String(v[3] || ''), description: String(v[4] || ''),
+    firstTestCode: String(v[5] || ''), createdAt: iso_(v[6]), updatedAt: iso_(v[7]), deletedAt: iso_(v[8]), mergedInto: String(v[9] || '') };
+}
+function tagsAll_() {
+  return cached_('tags:list', CACHE_TTL, function () {
+    return sheetRows_(TAGS_SHEET, TAG_HEADERS).values.filter(function (v) { return String(v[0]); }).map(tagRow_);
+  });
+}
+// Follows mergedInto links (at most 10 hops) to the tag that now stands for `id`.
+function resolveTag_(byId, id) {
+  var t = byId[id], hops = 0;
+  while (t && t.mergedInto && byId[t.mergedInto] && hops++ < 10) t = byId[t.mergedInto];
+  return t || null;
+}
+function questionTagIds_(test) {
+  var ids = {};
+  (test && Array.isArray(test.questions) ? test.questions : []).forEach(function (q) {
+    (q && Array.isArray(q.tags) ? q.tags : []).forEach(function (id) { ids[String(id)] = true; });
+  });
+  return Object.keys(ids);
+}
+// { id: { name, color } } for the tags a test uses; merged IDs point at the surviving tag's name.
+function tagIndex_(test) {
+  var ids = questionTagIds_(test);
+  if (!ids.length) return {};
+  var byId = {};
+  tagsAll_().forEach(function (t) { byId[t.id] = t; });
+  var out = {};
+  ids.forEach(function (id) {
+    var t = resolveTag_(byId, id);
+    if (t) out[id] = { name: t.name, color: t.color, id: t.id };
+  });
+  return out;
+}
+function cleanTagDef_(d) {
+  return { name: String(d && d.name || '').trim().slice(0, 60), color: TAG_COLOR_RE.test(String(d && d.color || '')) ? String(d.color) : '',
+    description: String(d && d.description || '').slice(0, 300) };
+}
+// Called inside publishTest_'s lock. New IDs become Sheet tags owned by the publisher. For an existing ID the Sheet
+// wins, unless the publisher owns it, in which case their local edits are applied.
+function upsertTagDefs_(test, tagDefs, auth) {
+  var used = questionTagIds_(test);
+  if (!used.length) return [];
+  var defs = {};
+  (Array.isArray(tagDefs) ? tagDefs : []).forEach(function (d) { if (d && TAG_ID_RE.test(String(d.id))) defs[String(d.id)] = d; });
+  var owner = auth && auth.email ? auth.email : '';
+  var sheet = getSheet_(TAGS_SHEET, TAG_HEADERS);
+  var last = sheet.getLastRow();
+  var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, TAG_HEADERS.length).getValues();
+  var rowOf = {};
+  vals.forEach(function (v, i) { rowOf[String(v[0])] = i + 2; });
+  var now = new Date();
+  var touched = [];
+  used.forEach(function (id) {
+    if (!TAG_ID_RE.test(id)) return;
+    var d = defs[id] ? cleanTagDef_(defs[id]) : null;
+    var at = rowOf[id];
+    if (!at) {
+      if (!d || !d.name) return;
+      sheet.appendRow([id, owner, text_(d.name), d.color, text_(d.description), test.code, now, now, '', '']);
+      touched.push(id);
+    } else if (d && d.name && owner && normEmail_(vals[at - 2][1]) === owner) {
+      sheet.getRange(at, 3, 1, 3).setValues([[text_(d.name), d.color, text_(d.description)]]);
+      sheet.getRange(at, 8).setValue(now);
+      touched.push(id);
+    }
+  });
+  if (touched.length) bust_('tags:list');
+  return touched;
+}
+// How many questions and published tests use each tag.
+function tagUsage_() {
+  var usage = {};
+  sheetRows_(TESTS_SHEET, TEST_HEADERS).values.forEach(function (v) {
+    var t = parseJson_(v[3], null);
+    if (!t || !Array.isArray(t.questions)) return;
+    var seen = {};
+    t.questions.forEach(function (q) {
+      (q && Array.isArray(q.tags) ? q.tags : []).forEach(function (id) {
+        var u = usage[id] || (usage[id] = { questions: 0, tests: 0 });
+        u.questions++;
+        if (!seen[id]) { seen[id] = true; u.tests++; }
+      });
+    });
+  });
+  return usage;
+}
+function listTags_(auth) {
+  var usage = tagUsage_();
+  var me = auth && auth.email ? auth.email : '';
+  var tags = tagsAll_().filter(function (t) { return !t.deletedAt && !t.mergedInto; }).map(function (t) {
+    var u = usage[t.id] || { questions: 0, tests: 0 };
+    return { id: t.id, name: t.name, color: t.color, description: t.description, ownerEmail: t.ownerEmail, mine: !!me && t.ownerEmail === me,
+      questions: u.questions, tests: u.tests, updatedAt: t.updatedAt };
+  });
+  return { result: 'success', tags: tags };
+}
+function ownTagRow_(sheet, id, auth) {
+  var row = findRow_(sheet, 1, id);
+  if (!row) return { error: 'not_found' };
+  var v = sheet.getRange(row, 1, 1, TAG_HEADERS.length).getValues()[0];
+  if (!auth || !auth.email || normEmail_(v[1]) !== auth.email) return { error: 'not_owner' };
+  return { row: row, values: v };
+}
+// Edits a Sheet tag. Never creates one: Sheet tags come only from publishTest.
+function saveTag_(body, auth) {
+  var id = String(body.id || (body.tag && body.tag.id) || '');
+  if (!TAG_ID_RE.test(id)) return { result: 'error', error: 'invalid_id' };
+  var d = cleanTagDef_(body.tag || body);
+  if (!d.name) return { result: 'error', error: 'missing_name' };
+  return withLock_(function () {
+    var sheet = getSheet_(TAGS_SHEET, TAG_HEADERS);
+    var own = ownTagRow_(sheet, id, auth);
+    if (own.error) return { result: 'error', error: own.error };
+    sheet.getRange(own.row, 3, 1, 3).setValues([[text_(d.name), d.color, text_(d.description)]]);
+    sheet.getRange(own.row, 8).setValue(new Date());
+    bust_('tags:list');
+    return { result: 'success', tag: { id: id, name: d.name, color: d.color, description: d.description } };
+  });
+}
+function deleteTag_(body, auth) {
+  var id = String(body.id || '');
+  return withLock_(function () {
+    var sheet = getSheet_(TAGS_SHEET, TAG_HEADERS);
+    var own = ownTagRow_(sheet, id, auth);
+    if (own.error) return { result: 'error', error: own.error };
+    sheet.getRange(own.row, 9).setValue(new Date());
+    bust_('tags:list');
+    return { result: 'success', id: id, deleted: true };
+  });
+}
+// Merges `from` into `into` (both the caller's): rewrites IDs in the caller's published tests and leaves a
+// mergedInto pointer so other teachers' tests that use the old ID still resolve.
+function mergeTags_(body, auth) {
+  var from = String(body.from || ''), into = String(body.into || '');
+  if (!from || !into || from === into) return { result: 'error', error: 'invalid_request' };
+  return withLock_(function () {
+    var sheet = getSheet_(TAGS_SHEET, TAG_HEADERS);
+    var a = ownTagRow_(sheet, from, auth), b = ownTagRow_(sheet, into, auth);
+    if (a.error || b.error) return { result: 'error', error: a.error || b.error };
+    var tests = getSheet_(TESTS_SHEET, TEST_HEADERS);
+    var last = tests.getLastRow();
+    var vals = last < 2 ? [] : tests.getRange(2, 1, last - 1, 4).getValues();
+    var changed = 0;
+    vals.forEach(function (v, i) {
+      var t = parseJson_(v[3], null);
+      if (!t || !Array.isArray(t.questions) || normEmail_(t.publishedBy) !== auth.email) return;
+      var hit = false;
+      t.questions.forEach(function (q) {
+        if (!q || !Array.isArray(q.tags) || q.tags.indexOf(from) < 0) return;
+        q.tags = q.tags.map(function (x) { return x === from ? into : x; }).filter(function (x, k, arr) { return arr.indexOf(x) === k; });
+        hit = true;
+      });
+      if (hit) { tests.getRange(i + 2, 4).setValue(JSON.stringify(t)); changed++; }
+    });
+    sheet.getRange(a.row, 10).setValue(into);
+    sheet.getRange(a.row, 8).setValue(new Date());
+    bust_('tags:list', 'tests:list');
+    return { result: 'success', from: from, into: into, testsChanged: changed };
+  });
+}
+
+
+// ===========================================================================
+// Google Classroom grade sync (Classroom advanced service, runs as the deploying account).
+// ===========================================================================
+
+var SYNC_SHEET = 'ClassroomSync';
+var SYNC_HEADERS = ['assignmentId', 'email', 'courseWorkId', 'submissionId', 'sentGrade', 'sentAt', 'status', 'error'];
+var CLASSROOM_PAUSE_MS = 100;
+var SYNC_BATCH = 60;
+
+function classroom_() {
+  if (typeof Classroom === 'undefined') throw new Error('classroom_not_enabled');
+  return Classroom;
+}
+function classroomError_(err) {
+  var m = String(err && err.message || err);
+  if (/classroom_not_enabled/.test(m)) return 'classroom_not_enabled';
+  if (/ProjectPermissionDenied|@ProjectPermissionDenied/.test(m)) return 'project_permission_denied';
+  if (/permission|forbidden|403/i.test(m)) return 'permission_denied';
+  if (/not ?found|404/i.test(m)) return 'not_found';
+  return 'classroom_error';
+}
+function runsAs_() {
+  try { return Session.getEffectiveUser().getEmail(); } catch (e) { return ''; }
+}
+function classRowById_(id) {
+  var sheet = getSheet_(CLASSES_SHEET, CLASS_HEADERS);
+  var row = findRow_(sheet, 1, id);
+  return row ? { sheet: sheet, row: row, values: sheet.getRange(row, 1, 1, CLASS_HEADERS.length).getValues()[0] } : null;
+}
+function listClassroomCourses_() {
+  try {
+    var out = [], token = null;
+    do {
+      var res = classroom_().Courses.list({ teacherId: 'me', courseStates: ['ACTIVE'], pageSize: 100, pageToken: token || undefined });
+      (res.courses || []).forEach(function (c) { out.push({ id: String(c.id), name: String(c.name || ''), section: String(c.section || '') }); });
+      token = res.nextPageToken;
+    } while (token);
+    return { result: 'success', courses: out, runsAs: runsAs_() };
+  } catch (err) {
+    return { result: 'error', error: classroomError_(err), runsAs: runsAs_() };
+  }
+}
+function linkClassroomCourse_(body) {
+  var id = String(body.classId || '');
+  var courseId = String(body.courseId || '').replace(/[^0-9A-Za-z_-]/g, '').slice(0, 40);
+  return withLock_(function () {
+    var c = classRowById_(id);
+    if (!c) return { result: 'error', error: 'not_found' };
+    var col = CLASS_HEADERS.indexOf('Classroom Course ID') + 1;
+    c.sheet.getRange(c.row, col, 1, 2).setValues([[courseId, body.autoSync === true]]);
+    bust_('classes:list');
+    return { result: 'success', classId: id, classroomCourseId: courseId, autoSync: body.autoSync === true };
+  });
+}
+function courseStudents_(courseId) {
+  var out = [], token = null;
+  do {
+    var res = classroom_().Courses.Students.list(courseId, { pageSize: 100, pageToken: token || undefined });
+    (res.students || []).forEach(function (s) {
+      var email = normEmail_(s.profile && s.profile.emailAddress);
+      if (email) out.push({ userId: String(s.userId), email: email, name: String(s.profile && s.profile.name && s.profile.name.fullName || '') });
+    });
+    token = res.nextPageToken;
+  } while (token);
+  return out;
+}
+function importClassroomRoster_(body, auth) {
+  var c = classRowById_(String(body.classId || ''));
+  if (!c) return { result: 'error', error: 'not_found' };
+  var courseId = String(c.values[CLASS_HEADERS.indexOf('Classroom Course ID')] || '');
+  if (!courseId) return { result: 'error', error: 'not_linked' };
+  try {
+    var emails = courseStudents_(courseId).map(function (s) { return s.email; });
+    return saveClass_({ cls: { id: String(c.values[0]), name: String(c.values[1]), period: String(c.values[2]), emails: emails } }, auth);
+  } catch (err) {
+    return { result: 'error', error: classroomError_(err) };
+  }
+}
+// Called by saveAssignment_ when postToClassroom is on. Creates the coursework (DRAFT when publishAt is set).
+function postAssignmentToClassroom_(a, test) {
+  var cls = classesCached_().filter(function (c) { return c.id === a.classId; })[0];
+  var c = cls ? classRowById_(cls.id) : null;
+  var courseId = c ? String(c.values[CLASS_HEADERS.indexOf('Classroom Course ID')] || '') : '';
+  if (!courseId) return { error: 'not_linked' };
+  var site = PropertiesService.getScriptProperties().getProperty('SITE_URL') || '';
+  var work = {
+    title: a.title, description: a.instructions || '', workType: 'ASSIGNMENT', state: a.publishAt ? 'DRAFT' : 'PUBLISHED',
+    maxPoints: testPoints_(test)
+  };
+  if (site) work.materials = [{ link: { url: site.replace(/\/?$/, '/') + '?code=' + encodeURIComponent(a.testCode) } }];
+  if (a.publishAt) work.scheduledTime = new Date(a.publishAt).toISOString();
+  if (a.dueAt) {
+    var d = new Date(a.dueAt);
+    work.dueDate = { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+    work.dueTime = { hours: d.getUTCHours(), minutes: d.getUTCMinutes() };
+  }
+  try {
+    var created = classroom_().Courses.CourseWork.create(work, courseId);
+    return { courseId: courseId, courseWorkId: String(created.id) };
+  } catch (err) {
+    return { error: classroomError_(err) };
+  }
+}
+function testPoints_(test) {
+  var n = 0;
+  (test && Array.isArray(test.questions) ? test.questions : []).forEach(function (q) { n += num_(q && q.points, 1); });
+  return n || 1;
+}
+// Final score per email for one assignment's test: { email: { score, released, submissionId } }.
+function finalScoresFor_(a) {
+  var rows = readCols_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS),
+    ['Submission ID', 'Student Email', 'Test Code', 'Score Achieved', 'Status', 'Final Score', 'Released At', 'Assignment ID']);
+  var out = {};
+  rows.forEach(function (r) {
+    if (normalizeCode_(r['Test Code']) !== a.testCode) return;
+    if (r['Assignment ID'] && String(r['Assignment ID']) !== a.id) return;
+    var st = String(r.Status || '');
+    if (st === STATUS_EXTRA || st === STATUS_CLOSED || st === STATUS_NOT_ROSTER || st === STATUS_NEEDS_GRADING) return;
+    var fs = r['Final Score'];
+    var score = fs === '' || fs === null ? num_(r['Score Achieved']) : num_(fs);
+    out[normEmail_(r['Student Email'])] = { score: score, released: !!r['Released At'], submissionId: String(r['Submission ID']) };
+  });
+  return out;
+}
+function lastSent_(assignmentId) {
+  var map = {};
+  sheetRows_(SYNC_SHEET, SYNC_HEADERS).values.forEach(function (v) {
+    if (String(v[0]) === assignmentId && String(v[6]) === 'ok') map[normEmail_(v[1])] = { grade: v[4] === '' ? null : num_(v[4]), at: iso_(v[5]) };
+  });
+  return map;
+}
+function assignmentById_(id) {
+  return sheetRows_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS).values.filter(function (v) { return String(v[0]) === id; }).map(function (v) {
+    var a = assignmentRow_(v);
+    a.classroomCourseWorkId = String(v[ASSIGNMENT_HEADERS.indexOf('classroomCourseWorkId')] || '');
+    a.classroomCourseId = String(v[ASSIGNMENT_HEADERS.indexOf('classroomCourseId')] || '');
+    return a;
+  })[0] || null;
+}
+// Pure: the action for one student. Exported for unit tests through the vm harness.
+function gradeSyncAction_(mine, current, last, overwrite) {
+  if (!mine) return { action: 'no_score' };
+  var target = mine.score;
+  var field = mine.released ? 'assignedGrade' : 'draftGrade';
+  var have = mine.released ? current.assignedGrade : current.draftGrade;
+  if (have !== undefined && have !== null && Number(have) === target) return { action: 'no_change', field: field, grade: target };
+  var changedInClassroom = have !== undefined && have !== null && (!last || Number(have) !== last.grade);
+  if (changedInClassroom && !overwrite) return { action: 'skip_teacher_changed', field: field, grade: target, classroom: Number(have) };
+  return { action: have === undefined || have === null ? 'new' : 'update', field: field, grade: target };
+}
+function gradeSyncPlan_(body) {
+  var a = assignmentById_(String(body.assignmentId || ''));
+  if (!a) return { error: 'not_found' };
+  if (!a.classroomCourseWorkId || !a.classroomCourseId) return { error: 'not_linked' };
+  var scores = finalScoresFor_(a);
+  var last = lastSent_(a.id);
+  var subs = [], token = null;
+  do {
+    var res = classroom_().Courses.CourseWork.StudentSubmissions.list(a.classroomCourseId, a.classroomCourseWorkId, { pageSize: 100, pageToken: token || undefined });
+    (res.studentSubmissions || []).forEach(function (s) { subs.push(s); });
+    token = res.nextPageToken;
+  } while (token);
+  var students = courseStudents_(a.classroomCourseId);
+  var byUser = {};
+  students.forEach(function (s) { byUser[s.userId] = s; });
+  var rows = [], onRoster = {};
+  subs.forEach(function (s) {
+    var st = byUser[String(s.userId)];
+    if (!st) return;
+    onRoster[st.email] = true;
+    var plan = gradeSyncAction_(scores[st.email], s, last[st.email], body.overwrite === true);
+    rows.push({ email: st.email, name: st.name, score: scores[st.email] ? scores[st.email].score : null, released: scores[st.email] ? scores[st.email].released : false,
+      classroom: s.assignedGrade !== undefined ? s.assignedGrade : (s.draftGrade !== undefined ? s.draftGrade : null),
+      action: plan.action, field: plan.field || '', grade: plan.grade, submissionId: String(s.id) });
+  });
+  Object.keys(scores).forEach(function (email) {
+    if (!onRoster[email]) rows.push({ email: email, score: scores[email].score, released: scores[email].released, classroom: null, action: 'not_on_roster' });
+  });
+  return { assignment: a, rows: rows };
+}
+function previewGradeSync_(body) {
+  try {
+    var p = gradeSyncPlan_(body);
+    if (p.error) return { result: 'error', error: p.error };
+    return { result: 'success', rows: p.rows, runsAs: runsAs_() };
+  } catch (err) {
+    return { result: 'error', error: classroomError_(err) };
+  }
+}
+// Sends up to SYNC_BATCH grades per call; the reply carries a cursor when more are left.
+function syncGrades_(body, auth) {
+  var p;
+  try { p = gradeSyncPlan_(body); } catch (err) { return { result: 'error', error: classroomError_(err) }; }
+  if (p.error) return { result: 'error', error: p.error };
+  var todo = p.rows.filter(function (r) { return r.action === 'new' || r.action === 'update'; });
+  var start = Math.max(0, Math.floor(num_(body.cursor, 0)));
+  var slice = todo.slice(start, start + SYNC_BATCH);
+  var log = [], done = [];
+  slice.forEach(function (r) {
+    var patch = {};
+    patch[r.field] = r.grade;
+    var mask = r.field;
+    if (r.field === 'assignedGrade') { patch.draftGrade = r.grade; mask = 'assignedGrade,draftGrade'; }
+    var status = 'ok', error = '';
+    try {
+      classroom_().Courses.CourseWork.StudentSubmissions.patch(patch, p.assignment.classroomCourseId, p.assignment.classroomCourseWorkId, r.submissionId, { updateMask: mask });
+    } catch (err) { status = 'error'; error = classroomError_(err); }
+    log.push([p.assignment.id, r.email, p.assignment.classroomCourseWorkId, r.submissionId, r.grade, new Date(), status, error]);
+    done.push({ email: r.email, status: status, error: error, grade: r.grade });
+    Utilities.sleep(CLASSROOM_PAUSE_MS);
+  });
+  if (log.length) {
+    var sh = getSheet_(SYNC_SHEET, SYNC_HEADERS);
+    sh.getRange(sh.getLastRow() + 1, 1, log.length, SYNC_HEADERS.length).setValues(log);
+    appendLog_(auth, 'syncGrades', p.assignment.id, done.filter(function (d) { return d.status === 'ok'; }).length + ' of ' + log.length + ' sent');
+  }
+  var next = start + slice.length;
+  return { result: 'success', results: done, cursor: next < todo.length ? next : null, syncedAt: new Date().toISOString() };
+}
+// Last sync per student for the tracker: { email: { at, status, grade } }.
+function syncStatusFor_(assignmentId) {
+  var out = {};
+  sheetRows_(SYNC_SHEET, SYNC_HEADERS).values.forEach(function (v) {
+    if (String(v[0]) === assignmentId) out[normEmail_(v[1])] = { at: iso_(v[5]), status: String(v[6]), grade: v[4] === '' ? null : num_(v[4]), error: String(v[7] || '') };
+  });
+  return out;
+}
+// Best-effort auto-sync after releaseAll for assignments whose class has auto-sync on.
+function autoSyncAfterRelease_(testCode, auth) {
+  try {
+    var classes = sheetRows_(CLASSES_SHEET, CLASS_HEADERS).values;
+    var autoCol = CLASS_HEADERS.indexOf('Classroom Auto Sync');
+    var auto = {};
+    classes.forEach(function (v) { if (v[autoCol] === true || v[autoCol] === 'true') auto[String(v[0])] = true; });
+    sheetRows_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS).values.forEach(function (v) {
+      var a = assignmentRow_(v);
+      if (a.testCode === normalizeCode_(testCode) && auto[a.classId] && v[ASSIGNMENT_HEADERS.indexOf('classroomCourseWorkId')]) syncGrades_({ assignmentId: a.id }, auth);
+    });
+  } catch (err) { /* failures show on the tracker; Retry re-runs syncGrades */ }
 }
