@@ -7,7 +7,7 @@ import { parseSide, parseSpecies } from '../../lib/qtypes/reaction.js';
 import { registerTypeUI } from './registry.js';
 
 /** Species as formatted HTML (formulaToHTML escapes its input). */
-const speciesHTML = (sp) => `${sp.coefficient && sp.coefficient !== 1 ? `<span class="q-rxn__coef">${sp.coefficient}</span> ` : ''}<span class="formula">${formulaToHTML(sp.formula)}</span>${sp.state ? `<span class="q-rxn__state">(${sp.state})</span>` : ''}`;
+const speciesHTML = (sp) => `${sp.coefficient && sp.coefficient !== 1 ? `<span class="q-rxn__coef">${Number(sp.coefficient) || ''}</span> ` : ''}<span class="formula">${formulaToHTML(sp.formula)}</span>${sp.state ? `<span class="q-rxn__state">(${String(sp.state).replace(/[^a-z]/g, '')})</span>` : ''}`;
 const joinHTML = (list) => list.map(speciesHTML).join('<span class="q-rxn__plus"> + </span>');
 
 function widget(q, api) {

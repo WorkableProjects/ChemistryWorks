@@ -19,7 +19,7 @@ function toState(a) {
   });
 }
 
-/** Shell diagram as SVG markup. Only numbers and element symbols go in, so no user text is injected. */
+/** Shell diagram as SVG markup. Counts are numbers and the symbol is reduced to letters, so no markup can get in. */
 function diagram(counts, symbol) {
   const rings = RADII.map((r) => `<circle class="bh-ring" cx="100" cy="100" r="${r}"/>`).join('');
   const dots = [];
@@ -31,7 +31,8 @@ function diagram(counts, symbol) {
       dots.push(`<circle class="bh-dot" cx="${x}" cy="${y}" r="4.5"/>`);
     }
   });
-  const label = symbol ? `<text class="bh-sym" x="100" y="106" text-anchor="middle">${symbol}</text>` : '';
+  const safe = String(symbol || '').replace(/[^A-Za-z]/g, '').slice(0, 3);
+  const label = safe ? `<text class="bh-sym" x="100" y="106" text-anchor="middle">${safe}</text>` : '';
   return `<svg class="bh-svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">`
     + `<circle class="bh-nucleus" cx="100" cy="100" r="20"/>${label}${rings}${dots.join('')}</svg>`;
 }
