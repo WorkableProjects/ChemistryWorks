@@ -20,7 +20,7 @@ v5 added a lot in one weekend, and its own progress log (`docs/archive/v5/v5-pro
 So v6 does three things, in this order:
 1. **Trust:** CI that blocks bad releases, tests for everything v5 added, and the security holes closed.
 2. **Debt:** finish v5's skipped work and remove the v2–v5 layers that slow every change.
-3. **Features:** a small set of new teacher and student features, chosen in Open question 1.
+3. **Features:** two teacher-facing features: Google Classroom grade sync and question tagging.
 
 ## Scope
 
@@ -34,7 +34,7 @@ So v6 does three things, in this order:
 | V6-06 | Accessibility audit (WCAG 2.1 AA), carried over from S14a | Medium |
 | V6-07 | Offline and install (PWA), carried over from S13b | Medium |
 | V6-08 | Deployment automation (clasp, config, post-deploy check) | Medium |
-| V6-09 | New features (pick in Open question 1) | Medium |
+| V6-09 | New features: Google Classroom grade sync + question tagging | Medium |
 | V6-10 | Docs, changelog, release | High (last) |
 
 ---
@@ -262,16 +262,102 @@ Each item is checked against `Code.gs` 5.0.0.
 - **Pages:** publish `docs/guide.md` in the site artifact so the builder's fallback works.
 - **Admin → Platform:** the "copy deployment for another teacher" guide becomes a checklist that marks what is done (backend version, OAuth origin reachable, Admins row present).
 
-## V6-09 — New features (pick in Open question 1)
+## V6-09 — New features: Google Classroom grade sync + question tagging
 
-v6 should not grow as much as v5 did. These are candidates, small enough to finish properly:
+These two are the v6 features. Everything else that was listed as a candidate (practice sets, live class game, bank sharing, rubric grading) moves to 6.1+.
 
-1. **Practice sets** (the old S13c brief): the teacher bundles bank questions into a practice that reshuffles on every attempt and has no submission. Made for the game modes.
-2. **Google Classroom grade passback:** a "Sync grades" button per assignment, through the Classroom API from Apps Script (needs an extra OAuth scope). The alternative is a better Classroom-format CSV.
-3. **Student mastery by standard, done properly:** tag questions with standards or topics (bank + builder). The profile and the teacher tracker then show accuracy by topic from **released** results only. This brings back what Mastery tried to do, on real data.
-4. **Live class game:** the teacher starts a session and students join with a 4-digit PIN. A question is shown on the projector and answers come in from devices (Apps Script polling every 2 s; locks from V6-03 needed). This would be a live version of Quiz show, not a copy of any existing product.
-5. **Question bank sharing:** export and import a bank or test as a file between teachers or schools, with a preview.
-6. **Rubric grading for `open`:** click rubric cells to grade, show the rubric with the feedback, and bulk-apply a level to selected students.
+### A. Google Classroom grade sync
+
+**Goal:** a teacher links a ChemistryWorks assignment to Google Classroom and clicks **Sync grades**, and released scores land in the Classroom gradebook. No more CSV export and copy-paste.
+
+**Facts that shape the design** (Classroom API, called from Apps Script through the **Classroom advanced service**):
+- **The coursework must be created by the same Google Cloud project.** The API lets a project change grades only on coursework that project created (`ProjectPermissionDenied` otherwise). So ChemistryWorks **creates** the Classroom assignment itself; it cannot write grades into an assignment a teacher already made by hand in Classroom.
+- **The script acts as the person who deployed it** (`executeAs: USER_DEPLOYING`). Sync works only for courses where that account is a teacher or co-teacher. Each teacher who wants sync runs their own copy of the deployment, or adds the deploying account as a co-teacher. The admin UI says which account sync runs as.
+- **New OAuth scopes** in `appsscript.json`:
+  - `classroom.courses.readonly`
+  - `classroom.rosters.readonly`
+  - `classroom.profile.emails` (match students by email)
+  - `classroom.coursework.students` (create coursework and set grades)
+  
+  Re-running `setup` asks the deployer to approve them once. No client-side Google scopes change, and students never see a Classroom prompt.
+- Grades are written as `draftGrade` and/or `assignedGrade` on each student's submission, out of the coursework's `maxPoints`.
+
+**Teacher flow**
+1. **Admin → Classes → a class → Link to Google Classroom:** pick a course from the deploying account's courses (`Courses.list({ teacherId: 'me', courseStates: ['ACTIVE'] })`). The link is saved on the class (`Classes.classroomCourseId`).
+   - Optional **Import roster from Classroom** fills the class's email list from `Courses.Students.list` (replaces pasting a CSV).
+2. **Assign** (the existing Class Hub assign dialog) gets a **Post to Google Classroom** switch.
+   - When on, ChemistryWorks creates a Classroom assignment with the same title, instructions, due date and `maxPoints` = the test's points, and a link to the test (`?code=…`).
+   - It stores the IDs on the assignment (`Assignments.classroomCourseWorkId`).
+   - Publishing on a schedule (`publishAt`) creates the coursework as a draft (`state: DRAFT`), then publishes it at the same time.
+3. **Sync grades** (assignment tracker + grading view):
+   - **What is sent:** each student's **final** score (after teacher grading and regrades). Only **released** submissions are sent as `assignedGrade`; graded-but-unreleased ones are sent as `draftGrade` only (Open question 7).
+   - **Who it matches:** students are matched by email via `userProfiles.emailAddress`.
+   - **Before syncing:** a preview table shows email, ChemistryWorks score, the current Classroom grade, and the action (new / update / no change / not on the Classroom roster).
+   - **After syncing:** the result per student goes to `Log` and shows in the tracker as "Synced 3:41 PM".
+   - **Never overwrite** a grade a teacher typed directly in Classroom unless the teacher ticks "Overwrite Classroom changes". ChemistryWorks stores the last value it sent (`ClassroomSync` sheet) and compares.
+4. **Auto-sync on release:** with the class setting on, releasing grades also syncs them (best effort; failures show on the tracker with Retry).
+
+**Backend (`Code.gs`)**
+- **New admin actions:**
+  - `listClassroomCourses`
+  - `linkClassroomCourse`
+  - `importClassroomRoster`
+  - `previewGradeSync`
+  - `syncGrades` (batched; uses `batch` + the narrower locks from V6-03)
+- **Changes to existing actions:** `saveAssignment` gains `postToClassroom`; `deleteAssignment` asks whether to delete the Classroom coursework too.
+- **New sheet `ClassroomSync`:** `assignmentId, email, courseWorkId, submissionId, sentGrade, sentAt, status, error`.
+- **New columns:** `Classes.classroomCourseId` and `Assignments.classroomCourseWorkId`. `getSheet_` adds missing columns as it does today.
+- **Rate limits:** Classroom API calls are throttled (about 1 per 100 ms). A class of 35 is a few seconds, and larger syncs continue in the next request with a cursor.
+
+**Without Classroom:** the CSV export stays and is reformatted as a CSV that Classroom's "Import grades" accepts.
+
+**Tests**
+- **Unit:** score-to-grade mapping, released vs draft rules, the overwrite guard, email matching (case, missing students).
+- **Backend, in the `vm` harness:** a fake `Classroom` service covering create coursework, list submissions, patch grades, the permission-denied path and paging.
+- **E2E:** link course → assign with "Post to Classroom" → grade + release → preview shows the right actions → sync → tracker shows "Synced".
+
+### B. Question tagging (tag library per teacher, stored in the Sheet)
+
+**Goal:** a teacher keeps their own library of tags (e.g. "Ions", "Stoichiometry", "NGSS HS-PS1-7", "Unit 3") and puts them on questions. Once a test is published, its tags come from the Sheet, so the same tags show up everywhere: builder, grading, results, tracker and student profile. **There is no question bank feature here.** Tags are labels on the questions inside tests, nothing more.
+
+**Data**
+- **New sheet `Tags`:** `id, ownerEmail, name, color, description, createdAt, updatedAt, deletedAt`.
+  - `id` is a stable short ID (`tg_xxxxxx`), so renaming a tag renames it everywhere without touching any test.
+  - `ownerEmail` is the admin who made it. Each teacher sees and edits **their own** library.
+  - Tags on a published test that belong to another teacher still display, read-only, so co-teachers see the same labels.
+  - Deleting sets `deletedAt` (soft delete), so old results still show the name.
+- **Test JSON:** each question gets an optional `tags: ["tg_ab12cd", …]` (IDs only, never names). Schema: an array of strings, at most 10 per question. `normalize` keeps it, `validate` warns about unknown IDs, and `stripKeys` (V6-02) keeps it because tags are not answers.
+  - `docs/guide.md` documents `tags` and how AI-written tests can use tag **names** on import (`"tags": ["Ions"]`): the importer resolves names to the teacher's IDs and offers to create missing ones.
+
+**How tags resolve**
+- **Drafts (local):** the builder uses a local copy of the teacher's tag library (`cw:tags:<email>`, refreshed through the data store). New tags made while offline get a temporary ID and are created on the Sheet at the next save or publish, with IDs rewritten in the draft.
+- **Published tests:** when a test is published, the IDs in it are checked against the `Tags` sheet; unknown IDs are rejected with a clear message. Wherever a published test is shown, tag **names and colours are pulled from the Sheet** (one cached `listTags` read, CacheService + `store.js`), so a rename or colour change applies everywhere at once.
+- `getTest` and the student test payload return a small `tagIndex` (`{ id: { name, color } }`) for the tags that test uses, so students and the PDF export can show names without a second request.
+
+**Where tags appear**
+- **Builder:** a tag picker on each question (type to search your library, Enter to create). Filter the question list by tag. "Apply tag to selected questions" works on several questions at once.
+- **Admin → Tags** (new page in the admin sidebar): your library (create, rename, recolour, merge two tags, delete) with a "used in N questions across M tests" count.
+- **Grading and grade-by-question:** filter questions by tag, plus an average score per tag for the test.
+- **Assignment tracker:** a per-tag column group (class average per tag) and a per-student breakdown.
+- **Student results and feedback (released only):** "By topic" summary, e.g. "Ions 8/10 · Stoichiometry 3/6".
+- **Student profile:** accuracy by tag across all **released** results. This is the honest replacement for the removed Mastery page: it is built only from released, teacher-confirmed scores.
+- **Game modes:** "Mistake review" and "Flashcards" can filter by tag ("Practise only Ions").
+- **Library:** filter tests by the tags their questions use.
+
+**Backend (`Code.gs`)**
+- **New admin actions:**
+  - `listTags` (own + any referenced by the requested tests)
+  - `saveTag`
+  - `deleteTag`
+  - `mergeTags` (rewrites IDs inside the caller's published tests in one locked pass)
+- **Publish check:** `publishTest` validates tag IDs.
+- **`tagIndex`:** `getTest`, `getTestFor_` and `getFeedback` include it.
+- **Formula injection:** tag `name` and `description` go through `text_()`.
+
+**Tests**
+- **Unit:** schema (`tags` normalize/validate, limit), the importer resolving names to IDs, per-tag score aggregation (released only, partial credit, teacher-graded items), the merge rewrite.
+- **Backend:** CRUD by owner only, soft delete, the publish check, `tagIndex` in test payloads.
+- **E2E:** create a tag in the builder → tag 3 questions → publish → rename the tag in Admin → Tags → the new name shows in grading, the student's released results and the profile.
 
 ## V6-10 — Docs and release
 
@@ -279,7 +365,7 @@ v6 should not grow as much as v5 did. These are candidates, small enough to fini
 - **`docs/ARCHITECTURE.md`:** rewrite it as **current state**. Today it is a stack of "V2 / V3 / V4 / V5 contracts" sections, so readers must replay history to know the present. Move the old sections to `docs/archive/architecture-v5.md`.
 - **`DEPLOYMENT.md`:** Pages-first, an "Upgrading to v6" section (re-run `setup`, new trigger, clasp option), and a current ping example and type list.
 - **`README.md`:** Pages deployment and the current upgrade link.
-- **`docs/guide.md`:** remove the per-version sections ("v2 additions", "v4 additions") and list every type in one ordered table. Add standards/topic tags if V6-09 #3 is in.
+- **`docs/guide.md`:** remove the per-version sections ("v2 additions", "v4 additions") and list every type in one ordered table. Document question `tags` (V6-09 B) and Classroom sync setup (V6-09 A).
 - When v6 ships, move `docs/v6/` to `docs/archive/v6/` (see `docs/README.md`).
 
 ---
@@ -301,10 +387,11 @@ The work splits into sessions the same way as v5 (agent briefs to be written in 
 | S09 | Accessibility | V6-06 | S08 |
 | S10 | PWA | V6-07 | S08 |
 | S11 | Deployment | V6-08 | S03 |
-| S12 | Features | V6-09 items chosen | S06 |
+| S12a | Question tagging | V6-09 B: `Tags` sheet + actions, schema, builder picker, Admin → Tags, grading / tracker / results / profile views | S06 |
+| S12b | Classroom grade sync | V6-09 A: scopes, course link + roster import, post to Classroom, preview + sync, auto-sync on release | S03, S04 |
 | S13 | Release | V6-10 | all |
 
-S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12 can start as soon as S06 is merged.
+S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a can start as soon as S06 is merged; S12b needs S03 + S04 (narrower locks), and S12a and S12b can run in parallel.
 
 **Lessons from v5 for the runbook:**
 - No "ASAP" override that skips tests.
@@ -320,18 +407,23 @@ S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12 can
 - **Locks and indexes:** narrower locks, row-index cache, column-limited reads, accommodation N+1 fixed.
 - **Pruning:** a daily trigger, retention settings and a `diag` action.
 - **Formula injection:** `text_()` on every user-supplied column.
+- **Classroom sync (V6-09 A):** new Classroom scopes, a `ClassroomSync` sheet, columns `Classes.classroomCourseId` and `Assignments.classroomCourseWorkId`, and actions `listClassroomCourses`, `linkClassroomCourse`, `importClassroomRoster`, `previewGradeSync`, `syncGrades`.
+- **Tags (V6-09 B):** a `Tags` sheet, actions `listTags`, `saveTag`, `deleteTag`, `mergeTags`, the publish check, and `tagIndex` in test payloads.
 
 ## Open questions
 
-1. **Which V6-09 features are in 6.0?** Recommended: 1 (practice sets) and 3 (mastery by topic). The rest go to 6.1+.
+1. ~~Which V6-09 features are in 6.0?~~ **Decided:** Google Classroom grade sync + question tagging. Practice sets, live class game, bank sharing and rubric grading move to 6.1+.
 2. **Server-side grading + tests without keys (V6-02 #3)?** This is the biggest change in v6. It stops answer lookup in dev tools and faked scores, but instant feedback then needs a server call (about 0.5–1 s) unless the test is marked "practice". Recommended: yes, keys stripped for anything that isn't a practice.
 3. **Remove legacy access:** the `ADMIN_KEY` fallback, the `chemadmin` access code and `netlify.toml`? Recommended: remove all three. Google admin sign-in becomes the only way in.
 4. **clasp + a GitHub Action for the backend:** this needs a Google service login stored as a repository secret. Recommended: yes, as optional. Pasting by hand stays documented.
 5. **Rename test files by area instead of by version?** This touches 54 files, but only once. Recommended: yes.
 6. **Translations (i18n):** none today. Is Spanish (or another language) needed for students? If yes, add a string table during S08 (clean-up) while every view is being touched anyway.
+7. **Classroom: send unreleased grades as drafts?** Recommended: yes. Graded-but-unreleased scores go to Classroom as `draftGrade` (only the teacher sees them there), and released scores go as `assignedGrade`. The alternative is to send nothing until release.
+8. **Who deploys for Classroom sync?** Sync acts as the account that deployed the Apps Script. Recommended: each teacher who wants sync uses their own deployment (the existing "copy deployment" guide). The alternative is one shared deployment that is added as a co-teacher on every course.
+9. **Can other teachers use your tags?** Recommended for 6.0: they see them read-only on your tests but can't add your tags to their own questions. A shared department tag library is a 6.1+ candidate.
 
 ## Known limits that stay
 
 - Google Sheets stays the database. v6 makes it faster, but a few hundred milliseconds per read and the Apps Script quotas (UrlFetch for `tokeninfo`, MailApp for release emails) remain.
-- "Race" stays a race against your own previous run on the same device. Real-time play is V6-09 #4.
+- "Race" stays a race against your own previous run on the same device. Real-time play is a 6.1+ candidate.
 - Without server grading (Open question 2 = no), answer keys stay visible to a determined student, as they are today.
