@@ -1,9 +1,9 @@
-// Student profile (?view=profile, behind feature('studentHome')): stats from released results only, badges, history,
+// Student profile (?view=profile, behind true): stats from released results only, badges, history,
 // an `#profile-appearance` slot (S10 fills it) and sign out. Paints local data first, updates when the server answers.
 
 import { h, mount, icon } from '../ui.js';
 import { getUser } from '../lib/auth.js';
-import { feature } from '../config.js';
+
 import { appearancePanel } from './appearance.js';
 import { loadProfile, subscribeProfile } from '../lib/profile.js';
 import { getSyncState, onSyncState } from '../lib/sync.js';
@@ -35,7 +35,7 @@ export function render(root, ctx) {
       chip),
     body);
   mount(root, main);
-  const appearancePanelEl = feature('appearance') ? appearancePanel({ user }) : null;
+  const appearancePanelEl = appearancePanel({ user });
   if (appearancePanelEl) appearance.querySelector('#profile-appearance')?.append(appearancePanelEl);
 
   function paint(p) {

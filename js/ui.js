@@ -3,7 +3,7 @@
 
 import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange,
   prefersReducedMotion, getReduceMotionPref, setReduceMotion } from './lib/theme.js';
-import { feature } from './config.js';
+
 import { FONT_STEPS, FONT_LABELS, loadSettings, saveSettings, applySettings, applyStoredSettings } from './views/tools/settings.js';
 import { hasUnseenChangelog } from './lib/changelog.js';
 import { SITE_VERSION } from './version.js';
@@ -158,9 +158,17 @@ export function richText(text, tag = 'span', className = '') {
 const KATEX_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/';
 const NEEDS_MATH = /\$|\\\(|\\\[/;
 let katexPromise = null;
+// Subresource integrity for the pinned KaTeX files.
+const KATEX_SRI = {
+  'katex.min.js': 'sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg',
+  'contrib/mhchem.min.js': 'sha384-ifpG+NlgMq0kvOSGqGQxW1mJKpjjMDmZdpKGq3tbvD3WPhyshCEEYClriK/wRVU0',
+  'contrib/auto-render.min.js': 'sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk',
+};
 function addScript(src) {
   return new Promise((resolve) => {
     const s = document.createElement('script');
+    const sri = KATEX_SRI[src.replace(KATEX_BASE, '')];
+    if (sri) { s.integrity = sri; s.crossOrigin = 'anonymous'; }
     s.src = src;
     s.onload = () => resolve(true);
     s.onerror = () => resolve(false);
@@ -434,7 +442,7 @@ export function themeControl({ floating = false } = {}) {
   }));
   const roleNote = h('p', { class: 'theme-ctl__note' });
   // V4-05 student tools: font size (3 steps) + dyslexia-friendly spacing, saved on this device.
-  const toolsOn = feature('studentTools');
+  const toolsOn = true;
   const fontBtns = toolsOn ? FONT_STEPS.map((f) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `font-${f}` },
     on: { click: () => { applySettings(saveSettings({ ...loadSettings(), font: f })); sync(); } } }, FONT_LABELS[f])) : [];
   const spacingBox = toolsOn ? h('input', { type: 'checkbox', dataset: { testid: 'dyslexia-spacing' }, 'aria-label': 'Dyslexia-friendly spacing',

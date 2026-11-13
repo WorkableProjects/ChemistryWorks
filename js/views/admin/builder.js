@@ -4,7 +4,7 @@
 
 import { h, mount, icon, richText, renderMath, toast, openModal, prefersReducedMotion } from '../../ui.js';
 import { resourcesTable } from '../reference-pane.js';
-import { CONFIG, feature } from '../../config.js';
+import { CONFIG } from '../../config.js';
 import { load, save } from '../../lib/storage.js';
 import { saveDraft } from '../../lib/tests.js';
 import { QUESTION_TYPES, TYPE_LABELS, MANUAL_TYPES, normalizeTest, validateTest, blankQuestion, nextQuestionId, blankTest } from '../../lib/schema.js';
@@ -164,7 +164,6 @@ export const TYPE_DESCRIPTIONS = {
 
 export function renderBuilder(root, ctx) {
   ensure();
-  const v2 = feature('adminShell');
   const cleanups = [];
   const gasUrl = CONFIG.GAS_WEB_APP_URL;
 
@@ -231,7 +230,7 @@ export function renderBuilder(root, ctx) {
     publishNote.textContent = why && valid ? why : '';
   }
   // The admin shell listens for this to refresh the breadcrumb and in-test tabs (test code changes).
-  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); if (v2) drawOutline(); document.dispatchEvent(new CustomEvent('cw:builder-change')); };
+  const changed = () => { persistSoon(); refreshValidation(); updateSectionLabels(); drawOutline(); document.dispatchEvent(new CustomEvent('cw:builder-change')); };
 
   const normalizedOrNull = () => { try { return normalizeTest(S.test); } catch { return null; } };
 
@@ -860,16 +859,16 @@ export function renderBuilder(root, ctx) {
     let open = false;
     const grouped = new Set(TYPE_GROUPS.flatMap((g) => g.types));
     const groups = [...TYPE_GROUPS, { title: 'More', types: QUESTION_TYPES.filter((t) => !grouped.has(t)) }]
-      .map((g) => ({ ...g, types: g.types.filter((t) => QUESTION_TYPES.includes(t) && (!typeDef(t)?.v5 || feature('v5Types'))) })).filter((g) => g.types.length);
+      .map((g) => ({ ...g, types: g.types.filter((t) => QUESTION_TYPES.includes(t)) })).filter((g) => g.types.length);
     const items = [];
     const groupEls = groups.map((g) => {
       const btns = g.types.map((t) => {
-        const b = h('button', { class: 'adm-menu__item', type: 'button', role: 'menuitem', title: v2 ? null : TYPE_LABELS[t], 'aria-label': v2 ? `${TYPE_LABELS[t]}. ${TYPE_DESCRIPTIONS[t] || ''}`.trim() : null, dataset: { testid: `add-question-${t}` },
+        const b = h('button', { class: 'adm-menu__item', type: 'button', role: 'menuitem', 'aria-label': `${TYPE_LABELS[t]}. ${TYPE_DESCRIPTIONS[t] || ''}`.trim(), dataset: { testid: `add-question-${t}` },
           on: { click: () => { setOpen(false); addQuestion(t); } } },
-        v2 ? h('span', { class: 'adm-menu__icon' }, icon(TYPE_ICONS[t] || 'sparkle', { size: 16 })) : null,
+        h('span', { class: 'adm-menu__icon' }, icon(TYPE_ICONS[t] || 'sparkle', { size: 16 })),
         h('span', { class: 'adm-menu__name' }, SHORT_LABELS[t] || TYPE_LABELS[t]),
         MANUAL_TYPES.includes(t) ? h('span', { class: 'adm-menu__tag' }, 'Teacher') : null,
-        v2 ? h('span', { class: 'adm-menu__desc', role: 'tooltip' }, TYPE_DESCRIPTIONS[t] || typeDef(t)?.description || TYPE_LABELS[t]) : null);
+        h('span', { class: 'adm-menu__desc', role: 'tooltip' }, TYPE_DESCRIPTIONS[t] || typeDef(t)?.description || TYPE_LABELS[t]));
         b._search = `${TYPE_LABELS[t]} ${SHORT_LABELS[t] || ''} ${t} ${g.title}`.toLowerCase();
         items.push(b);
         return b;
@@ -918,7 +917,7 @@ export function renderBuilder(root, ctx) {
 
 
   // ----- V4-01: outline (left pane), drag + keyboard reorder, preview as student -----
-  const outlineEl = v2 ? h('aside', { class: 'bld2__outline', 'aria-label': 'Test outline', dataset: { testid: 'builder-outline' } }) : null;
+  const outlineEl = h('aside', { class: 'bld2__outline', 'aria-label': 'Test outline', dataset: { testid: 'builder-outline' } });
   let dragging = false;
   let outlineFocus = null; // question object to re-focus after a redraw
   const prevTops = new WeakMap();
@@ -1044,8 +1043,8 @@ export function renderBuilder(root, ctx) {
 
   // Preview as student: the real runner widgets (not wired to any submission) on a per-student instance of the test.
   let previewOn = false;
-  const previewBtn = v2 ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-pressed': 'false', dataset: { testid: 'builder-preview-toggle' },
-    on: { click: () => { previewOn = !previewOn; previewBtn.setAttribute('aria-pressed', String(previewOn)); renderMain(); } } }, icon('eye', { size: 16 }), 'Preview as student') : null;
+  const previewBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-pressed': 'false', dataset: { testid: 'builder-preview-toggle' },
+    on: { click: () => { previewOn = !previewOn; previewBtn.setAttribute('aria-pressed', String(previewOn)); renderMain(); } } }, icon('eye', { size: 16 }), 'Preview as student');
   async function renderPreview() {
     const email = h('input', { class: 'input', type: 'email', value: load('builderPreviewEmail', 'student@example.org'), autocomplete: 'off', 'aria-label': 'Fake student email for the preview', dataset: { testid: 'preview-email' } });
     const seedNote = h('span', { class: 'faint', dataset: { testid: 'preview-seed' } });
@@ -1107,7 +1106,7 @@ export function renderBuilder(root, ctx) {
   }
 
   function renderMain() {
-    if (v2 && previewOn && S.mode === 'visual') {
+    if (previewOn && S.mode === 'visual') {
       listEl = null; // the visual editor is not on screen while previewing
       mount(mainEl, h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'This is what a student sees. Switch the preview off to keep editing.')));
       renderPreview().then((node) => { if (previewOn) mainEl.appendChild(node); });
@@ -1118,8 +1117,8 @@ export function renderBuilder(root, ctx) {
     drawOutline();
   }
 
-  mount(root, h('div', { class: v2 ? 'adm-builder bld2' : 'adm-builder', dataset: { testid: 'builder' } },
-    v2 ? outlineEl : null,
+  mount(root, h('div', { class: 'adm-builder bld2', dataset: { testid: 'builder' } },
+    outlineEl,
     h('div', { class: 'adm-builder__col' }, h('div', { class: 'adm-toolbar' }, segEl, h('span', { class: 'spacer' }), previewBtn, guideBtn), mainEl),
     side));
   renderMain();

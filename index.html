@@ -6,6 +6,8 @@
   <title>ChemistryWorks</title>
   <meta name="description" content="ChemistryWorks — a fluid, auto-graded chemistry testing platform." />
   <meta name="theme-color" content="#00224F" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://accounts.google.com https://oauth2.googleapis.com; frame-src https://accounts.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <script>
     // Apply the saved theme before first paint (js/lib/theme.js takes over once the app loads).
     (function () {
@@ -26,73 +28,55 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;800&display=swap" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous" />
 
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/runner.css" />
-  <link rel="stylesheet" href="css/results.css" />
-  <link rel="stylesheet" href="css/landing.css?v=5.0.1" />
-  <link rel="stylesheet" href="css/status.css" />
-  <link rel="stylesheet" href="css/home.css" />
-  <link rel="stylesheet" href="css/hub.css" />
-  <link rel="stylesheet" href="css/export.css" />
-  <link rel="stylesheet" href="css/qtypes.css" />
-  <link rel="stylesheet" href="css/qtypes-s08.css" />
-  <link rel="stylesheet" href="css/qtypes-s09.css" />
-  <link rel="stylesheet" href="css/qtypes-s10.css" />
-  <link rel="stylesheet" href="css/qt-ionicformula.css" />
-  <link rel="stylesheet" href="css/qt-isotopemass.css" />
-  <link rel="stylesheet" href="css/qt-ionbuilder.css" />
-  <link rel="stylesheet" href="css/qt-heatcurve.css" />
-  <link rel="stylesheet" href="css/qt-molbuild.css" />
-  <link rel="stylesheet" href="css/qt-oxidation.css" />
-  <link rel="stylesheet" href="css/qt-solubility.css" />
-  <link rel="stylesheet" href="css/qt-bohr.css" />
-  <link rel="stylesheet" href="css/qt-gaslaw.css" />
-  <link rel="stylesheet" href="css/tools.css" />
-  <link rel="stylesheet" href="css/admin-shell.css" />
-  <link rel="stylesheet" href="css/game.css" />
-  <link rel="stylesheet" href="css/modes.css" />
-  <link rel="stylesheet" href="css/admin.css" />
-  <link rel="stylesheet" href="css/hub-admin.css" />
-  <link rel="stylesheet" href="css/admin-student.css" />
-  <link rel="stylesheet" href="css/references.css" />
-  <link rel="stylesheet" href="css/diagrams.css" />
-  <link rel="stylesheet" href="css/grading.css" />
-  <link rel="stylesheet" href="css/feedback.css" />
-  <link rel="stylesheet" href="css/appearance.css" />
-  <link rel="stylesheet" href="css/print.css" />
+  <link rel="stylesheet" href="css/base.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/runner.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/results.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/landing.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/status.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/home.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/hub.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/export.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qtypes.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qtypes-s08.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qtypes-s09.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qtypes-s10.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-ionicformula.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-isotopemass.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-ionbuilder.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-heatcurve.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-molbuild.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-oxidation.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-solubility.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-bohr.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/qt-gaslaw.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/tools.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/game.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/modes.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/admin.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/hub-admin.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/admin-student.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/references.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/diagrams.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/grading.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/feedback.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/appearance.css?v=6.0.0" />
+  <link rel="stylesheet" href="css/print.css?v=6.0.0" />
 
   <!-- KaTeX + mhchem are loaded on demand by js/ui.js (loadKatex) when content contains math. -->
   <!-- Google Identity Services -->
   <script async defer src="https://accounts.google.com/gsi/client"></script>
 
-  <script type="module" src="js/app.js?v=5.0.1"></script>
+  <!-- Optional per-deployment overrides (written by the Pages workflow; missing file is fine). -->
+  <script src="js/config.local.js"></script>
+  <script type="module" src="js/app.js?v=6.0.0"></script>
 </head>
 <body>
   <a class="skip-link" href="#app">Skip to content</a>
+  <p id="cw-announce" class="sr-only" aria-live="polite" aria-atomic="true"></p>
 
-  <!-- Netlify Forms: detected at deploy time; populated and posted by js/lib/submit.js -->
-  <form name="chemistryworks-submissions" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden>
-    <input type="hidden" name="form-name" value="chemistryworks-submissions" />
-    <input type="hidden" name="bot-field" />
-    <input type="hidden" name="submission_id" />
-    <input type="hidden" name="student_name" />
-    <input type="hidden" name="student_email" />
-    <input type="hidden" name="test_code" />
-    <input type="hidden" name="test_title" />
-    <input type="hidden" name="score_achieved" />
-    <input type="hidden" name="score_total" />
-    <input type="hidden" name="percentage" />
-    <input type="hidden" name="duration_seconds" />
-    <input type="hidden" name="needs_grading" />
-    <input type="hidden" name="single_submission" />
-    <input type="hidden" name="responses_json" />
-    <input type="hidden" name="flags_json" />
-    <input type="hidden" name="submitted_at" />
-  </form>
-
-  <div id="app" class="app" aria-live="polite">
+  <div id="app" class="app">
     <!-- Boot loader: same markup as flaskSvg() in js/ui.js (keep in sync). -->
     <div class="boot cw-loader" role="status">
       <span class="cw-loader__art"><svg class="cw-flask" width="96" height="96" viewBox="-6 -22 112 130" aria-hidden="true" focusable="false">

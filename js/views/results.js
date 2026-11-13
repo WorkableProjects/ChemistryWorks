@@ -33,8 +33,8 @@ function statusChip(label, state) {
 function chipsFor(submission) {
   if (!submission) return [statusChip('Not submitted (preview)', 'none')];
   const gas = { sent: 'Saved to Google Sheet ✓', skipped: 'Google Sheet: Not configured', failed: 'Google Sheet: Failed' }[submission.gas] || 'Google Sheet: Not configured';
-  const net = { sent: 'Netlify backup ✓', skipped: 'Netlify backup: Not configured', failed: 'Netlify backup: Failed' }[submission.netlify] || 'Netlify backup: Not configured';
-  return [statusChip(gas, submission.gas), statusChip(net, submission.netlify)];
+  if (submission.queued) return [statusChip('Not sent yet — we\'ll retry', 'failed')];
+  return [statusChip(gas, submission.gas)];
 }
 
 function scoreRing(pct, grade) {
@@ -208,7 +208,7 @@ export function render(root, ctx, params = {}) {
   /* ---- submission confirmation */
   const statusEl = h('div', {
     class: 'results-status', dataset: {
-      testid: 'submission-status', gas: submission?.gas ?? 'none', netlify: submission?.netlify ?? 'none', queued: String(!!submission?.queued),
+      testid: 'submission-status', gas: submission?.gas ?? 'none', queued: String(!!submission?.queued),
     },
   }, chipsFor(submission));
 

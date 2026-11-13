@@ -1,15 +1,14 @@
 // Admin "Library" tab: bundled tests, local drafts, and tests published to the Google Sheet.
 import { h, mount, icon, toast, openModal } from '../../ui.js';
-import { CONFIG, feature } from '../../config.js';
+import { CONFIG } from '../../config.js';
 import { load, save } from '../../lib/storage.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { duplicateTest, versionTest, suggestCopyCode, validateNewCode } from '../../lib/versions.js';
 import { loadCatalog, loadTest, getDrafts, deleteDraft } from '../../lib/tests.js';
 import { resource } from '../../lib/store.js';
 import { normalizeTest } from '../../lib/schema.js';
-import { listPublishedTests, deletePublishedTest, fetchPublishedTest, fetchSubmissionCounts, fetchResults, listTestsSummary } from '../../lib/api.js';
+import { deletePublishedTest, fetchPublishedTest, listTestsSummary } from '../../lib/api.js';
 import { skeleton, emptyState, copyText, fmtDate, round2, iconButton } from './common.js';
-import { normalizeRow, STATUS } from './stats.js';
 
 const points = (t) => round2((t.questions || []).reduce((s, q) => s + (Number(q.points) || 0), 0));
 
@@ -35,8 +34,6 @@ export function matchesLibraryFilter(item, { query = '', filters = [], counts = 
 }
 
 export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading }) {
-  const v2 = feature('adminShell');
-  const store = feature('perfStore');
   let needGrading = null; // Set of upper-case codes with submissions waiting to be graded (V4-01 filter), null = unknown
   let alive = true;
   const unsubs = [];
@@ -79,7 +76,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
     if (source !== 'bundled') {
       add('trash', source === 'draft' ? 'Delete draft' : 'Delete published test', () => confirmDelete(code, source), `delete-${code}`, { className: 'icon-btn--danger' });
     }
-    if (v2 && goGrading && counts && Number(counts[String(code).toUpperCase()]) > 0) add('pen', 'Grade submissions', () => goGrading(code), `grade-${code}`);
+    if (goGrading && counts && Number(counts[String(code).toUpperCase()]) > 0) add('pen', 'Grade submissions', () => goGrading(code), `grade-${code}`);
     return actions;
   }
 
@@ -154,13 +151,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
         { label: 'Cancel', variant: 'ghost', autofocus: true },
         { label: 'Delete', variant: 'danger', testid: 'confirm-action', onClick: async (close) => {
           close();
-          if (store) { await storeDelete(code, source); return; }
-          if (source === 'draft') { deleteDraft(code); toast(`Draft ${code} deleted`, { type: 'success' }); }
-          else {
-            const res = await deletePublishedTest(code, { gasUrl: CONFIG.GAS_WEB_APP_URL, adminKey: adminKey() });
-            toast(res.ok ? `Deleted ${code}` : `Delete failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error' });
-          }
-          if (alive) refresh();
+          await storeDelete(code, source);
         } },
       ],
     });
@@ -170,79 +161,19 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
     h('div', { class: 'adm-section__head' }, h('h3', { class: 'adm-h3' }, title), hint ? h('span', { class: 'faint' }, hint) : null), content);
 
   async function refresh() {
-    if (store) return refreshStore();
-    mount(body, skeleton(4));
-    const gasUrl = CONFIG.GAS_WEB_APP_URL;
-    const authed = hasAdminAuth();
-    const settle = (p) => p.then((v) => v, () => null);
-    // Counts load in parallel with everything else; without a backend + key (or on error) no counts are shown.
-    const countsP = gasUrl && authed ? settle(fetchSubmissionCounts({ gasUrl, adminKey: adminKey() })) : Promise.resolve(null);
-    const gradingP = v2 && gasUrl && authed ? settle(fetchResults({ gasUrl, adminKey: adminKey() })) : Promise.resolve(null);
-
-    // Bundled
-    const catalog = (await settle(loadCatalog())) || [];
-    const bundled = await Promise.all(catalog.map(async (c) => {
-      const r = await settle(loadTest(c.code, { config: {} }));
-      return { code: c.code, title: c.title, test: r?.test || null, note: r ? '' : 'Could not load' };
-    }));
-    catalog.forEach((c) => knownCodes.add(String(c.code).toUpperCase()));
-    const countsRes = await countsP;
-    counts = countsRes && countsRes.ok ? countsRes.counts : null;
-    const gradingRes = await gradingP;
-    needGrading = gradingRes && gradingRes.ok
-      ? new Set(gradingRes.rows.map(normalizeRow).filter((r) => r.status === STATUS.NEEDS_GRADING).map((r) => String(r.test_code).toUpperCase()))
-      : null;
-    // Drafts
-    const drafts = Object.values(getDrafts()).map((d) => {
-      let test = null;
-      try { test = normalizeTest(d); } catch { /* shown without stats */ }
-      return { code: d.code, title: d.title, test, updatedAt: d.updatedAt };
-    }).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-    drafts.forEach((d) => knownCodes.add(String(d.code).toUpperCase()));
-    // Published
-    let publishedContent;
-    let pubItems = null;
-    if (gasUrl && authed) {
-      const res = await settle(listPublishedTests({ gasUrl, adminKey: adminKey() }));
-      if (!res || !res.ok) {
-        publishedContent = h('div', { class: 'notice notice--error' }, icon('alert'), h('span', {}, `Could not load published tests${res?.error ? `: ${res.error}` : ''}. Check your admin key in Settings.`));
-      } else if (!res.tests.length) {
-        publishedContent = emptyState('sheet', 'Nothing published yet', 'Use “Publish to Sheet” in the builder.');
-      } else {
-        res.tests.forEach((t) => knownCodes.add(String(t.code).toUpperCase()));
-        const items = await Promise.all(res.tests.map(async (t) => {
-          const raw = await settle(fetchPublishedTest(t.code, { gasUrl }));
-          return { code: t.code, title: t.title, test: raw ? normalizeTest(raw) : null, source: 'published', note: t.updatedAt ? `Updated ${fmtDate(t.updatedAt)}` : '' };
-        }));
-        pubItems = items;
-        publishedContent = h('ul', { class: 'adm-items' }, items.map(itemEl));
-      }
-    } else {
-      publishedContent = h('div', { class: 'notice notice--info' }, icon('info'),
-        h('span', {}, 'Publishing needs an Apps Script URL and your admin key. ',
-          h('a', { href: '#settings', on: { click: (e) => { e.preventDefault(); goSettings(); } } }, 'Open Settings')));
-    }
-    if (!alive) return;
-
-    if (v2) { drawV2({ bundled: bundled.map((b) => ({ ...b, source: 'bundled' })), drafts: drafts.map((d) => ({ ...d, source: 'draft', note: d.test ? '' : 'Needs repair' })), pubItems, publishedContent }); return; }
-    mount(body,
-      section('Bundled (data/tests)', 'Committed to the repository',
-        bundled.length ? h('ul', { class: 'adm-items' }, bundled.map((b) => itemEl({ ...b, source: 'bundled' }))) : emptyState('flask', 'No bundled tests', 'Add JSON files to data/tests/ and list them in index.json.'), 'library-bundled'),
-      section('Drafts on this device', 'Stored in this browser only',
-        drafts.length ? h('ul', { class: 'adm-items' }, drafts.map((d) => itemEl({ ...d, source: 'draft', note: d.test ? '' : 'Needs repair' }))) : emptyState('list', 'No drafts yet', 'Save a draft from the builder and it will show up here.'), 'library-drafts'),
-      section('Published to Google Sheet', 'Available to students by code', publishedContent, 'library-published'));
+    return refreshStore();
   }
 
 
   /* ---- V5-11: library on the data store (one summary list, no per-test fetches, patched in place) ---- */
   const gasUrlNow = () => CONFIG.GAS_WEB_APP_URL;
-  const catalogRes = store ? resource('catalog', { ttl: 600000, fetch: async () => (await loadCatalog()) || [] }) : null;
-  const testsRes = store ? resource('tests', { fetch: async (signal) => {
+  const catalogRes = resource('catalog', { ttl: 600000, fetch: async () => (await loadCatalog()) || [] });
+  const testsRes = resource('tests', { fetch: async (signal) => {
     const r = await listTestsSummary({ gasUrl: gasUrlNow(), adminKey: adminKey() });
     if (signal && signal.aborted) return null;
     if (!r.ok) throw new Error(r.error || 'unknown error');
     return Array.isArray(r.data.tests) ? r.data.tests : [];
-  } }) : null;
+  } });
   let storeErr = '';
   const pubAvailable = () => !!(gasUrlNow() && hasAdminAuth());
 
@@ -291,13 +222,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
         h('span', {}, 'Publishing needs an Apps Script URL and your admin key. ',
           h('a', { href: '#settings', on: { click: (e) => { e.preventDefault(); goSettings(); } } }, 'Open Settings')));
     }
-    if (v2) { drawV2({ bundled, drafts, pubItems, publishedContent }); return; }
-    mount(body,
-      section('Bundled (data/tests)', 'Committed to the repository',
-        bundled.length ? h('ul', { class: 'adm-items' }, bundled.map(itemEl)) : emptyState('flask', 'No bundled tests', 'Add JSON files to data/tests/ and list them in index.json.'), 'library-bundled'),
-      section('Drafts on this device', 'Stored in this browser only',
-        drafts.length ? h('ul', { class: 'adm-items' }, drafts.map(itemEl)) : emptyState('list', 'No drafts yet', 'Save a draft from the builder and it will show up here.'), 'library-drafts'),
-      section('Published to Google Sheet', 'Available to students by code', pubItems && pubItems.length ? h('ul', { class: 'adm-items' }, pubItems.map(itemEl)) : publishedContent, 'library-published'));
+    drawV2({ bundled, drafts, pubItems, publishedContent });
   }
 
   async function refreshStore() {
@@ -374,5 +299,5 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
   }
 
   refresh();
-  return () => { alive = false; unsubs.forEach((u) => u()); if (store) { catalogRes.cancel(); testsRes.cancel(); } };
+  return () => { alive = false; unsubs.forEach((u) => u()); catalogRes.cancel(); testsRes.cancel(); };
 }

@@ -1,4 +1,4 @@
-// Admin shell (V4-01, behind feature('adminShell')): Classroom-style top bar, left sidebar, in-test tabs, profile menu.
+// Admin shell (V4-01, behind true): Classroom-style top bar, left sidebar, in-test tabs, profile menu.
 // js/views/admin.js owns the views and the routing; this module only builds the frame and reports clicks.
 //
 // Extending the navigation (S11 Bank/Classes, S13 Live/...): call registerNavItem({ id, label, icon, group, render })
@@ -8,7 +8,7 @@
 import { h, icon, brandLogo, themeControl } from '../../ui.js';
 import { load, save } from '../../lib/storage.js';
 import { getUser } from '../../lib/auth.js';
-import { feature } from '../../config.js';
+
 import { THEMES, getThemePref, setThemePref, onThemeChange, prefersReducedMotion } from '../../lib/theme.js';
 
 /* ------------------------------------------------------------------ nav model (pure) */
@@ -135,7 +135,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   if (st.pref && typeof st.pref === 'object') st.pref = typeof st.pref.collapsed === 'boolean' ? st.pref.collapsed : null;
   else if (typeof st.pref !== 'boolean') st.pref = null;
   const cleanups = [];
-  const motion = feature('v5Motion');
+  const motion = true;
   const reduced = () => { try { return prefersReducedMotion(); } catch { return false; } };
 
   /* ---- top bar ---- */

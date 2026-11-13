@@ -1,7 +1,7 @@
 // Admin "Grading" tab: review every submission from the Google Sheet, grade open-ended answers,
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
 import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
-import { CONFIG, feature } from '../../config.js';
+import { CONFIG, enabled } from '../../config.js';
 import { load, save as saveLocal } from '../../lib/storage.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { saveGrade, releaseAll, allowRetake, batchCall } from '../../lib/api.js';
@@ -289,7 +289,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         return h('tr', { class: 'adm-row', tabindex: '0', 'aria-label': `Grade ${r.student_name || r.student_email}`, dataset: { testid: 'grading-row' },
           on: { click: open, keydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } } },
         h('td', { class: 'adm-td-check', on: { click: stop, keydown: stop } }, pick),
-        h('td', {}, r.student_email && feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
+        h('td', {}, r.student_email && enabled('classHub') ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
         h('td', { class: 'adm-td-email' }, r.student_email || '—'),
         h('td', {}, h('span', { class: 'adm-item__code adm-item__code--sm' }, r.test_code)),
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
@@ -488,7 +488,7 @@ export function renderGrading(root, ctx, { goSettings }) {
     let baseline = '';
     const isDirty = () => snapshot() !== baseline;
 
-    const split = feature('adminShell');
+    const split = true;
     const list = visibleRows();
     const pos = list.findIndex((r) => r.submission_id === row.submission_id);
     const neighbor = (d) => (pos >= 0 ? list[pos + d] : null);

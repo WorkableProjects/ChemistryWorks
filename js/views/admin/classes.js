@@ -7,7 +7,7 @@ import { resource } from '../../lib/store.js';
 import { parseRoster } from '../../lib/importers.js';
 import { field, emptyState, skeleton, fmtDate } from './common.js';
 import { openAccommodationEditor } from './accommodations.js';
-import { feature } from '../../config.js';
+import { enabled } from '../../config.js';
 import { renderClassHub } from './hub/index.js';
 import { studentHref } from './hub/data.js';
 
@@ -44,11 +44,11 @@ export function renderClasses(root, ctx, { goSettings } = {}) {
         h('h3', { class: 'adm-h3' }, c.name, c.period ? h('span', { class: 'faint' }, ` · Period ${c.period}`) : null),
         h('span', { class: 'pill' }, `${c.emails.length} student${c.emails.length === 1 ? '' : 's'}`),
         h('span', { class: 'spacer' }),
-        feature('classHub') ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `class-open-${c.id}` }, on: { click: () => openHub(c) } }, 'Open class page') : null,
+        enabled('classHub') ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `class-open-${c.id}` }, on: { click: () => openHub(c) } }, 'Open class page') : null,
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-edit-${c.id}` }, on: { click: () => edit(c) } }, icon('pen', { size: 14 }), 'Edit'),
         h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `class-delete-${c.id}` }, on: { click: () => remove(c) } }, icon('trash', { size: 14 }), 'Delete')),
       h('details', { class: 'adm-class__roster' }, h('summary', {}, 'Roster'),
-        h('ul', { class: 'adm-roster' }, c.emails.map((e) => h('li', {}, feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(e) }, e) : h('span', {}, e),
+        h('ul', { class: 'adm-roster' }, c.emails.map((e) => h('li', {}, enabled('classHub') ? h('a', { class: 'hub-link', href: studentHref(e) }, e) : h('span', {}, e),
           h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `acc-open-${e}` }, on: { click: () => openAccommodationEditor(ctx, { email: e }) } }, 'Accommodations'))))),
       h('p', { class: 'faint' }, `Updated ${fmtDate(c.updated_at)} by ${c.updated_by || '—'}`))));
   }

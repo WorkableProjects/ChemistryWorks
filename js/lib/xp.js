@@ -3,7 +3,7 @@
 // awardRound are the only ones that touch storage.
 
 import { load, save } from './storage.js';
-import { feature } from '../config.js';
+import { enabled } from '../config.js';
 import { queueXp } from './sync.js';
 
 export const HISTORY_LIMIT = 10;
@@ -200,7 +200,7 @@ export const saveXp = (email, state) => save(xpKey(email), normalizeXp(state));
 export function awardRound(email, round, now = Date.now()) {
   const res = recordRoundXp(loadXp(email), round, now);
   saveXp(email, res.state);
-  if (feature('studentHome') && (res.gained > 0 || res.newBadges.length)) {
+  if (enabled('studentSync') && (res.gained > 0 || res.newBadges.length)) {
     try { queueXp(email, { delta: res.gained, badges: res.newBadges, streakDays: res.state.dailyStreak }); } catch (e) { console.error(e); }
   }
   return res;

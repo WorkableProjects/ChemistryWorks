@@ -16,7 +16,7 @@ import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
 import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
-import { feature } from '../config.js';
+
 import { ensureToolsCss } from './tools/settings.js';
 
 function fmtWhen(iso) {
@@ -146,7 +146,7 @@ export function render(root, ctx, params = {}) {
 
   // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
   function mistakeReviewButton() {
-    if (!feature('studentTools') || test?.gameMode !== true) return null;
+    if (!true || test?.gameMode !== true) return null;
     ensureToolsCss();
     return h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'review-mistakes' },
       on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'mistakes', studyBlocked: true }) } },

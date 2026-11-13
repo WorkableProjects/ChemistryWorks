@@ -13,7 +13,7 @@
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
 
-import { CONFIG, feature } from './config.js';
+import { CONFIG, enabled } from './config.js';
 import { clearStore } from './lib/store.js';
 import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
 import { whoAmI } from './lib/api.js';
@@ -23,8 +23,8 @@ import { loadTest, normalizeCode } from './lib/tests.js';
 import { instantiateTest } from './lib/instantiate.js';
 import { windowState, applyAccommodations } from './lib/schedule.js';
 import { installErrorReporting } from './lib/errors.js';
-import { load, save } from './lib/storage.js';
-import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
+import { load } from './lib/storage.js';
+import { h, mount, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
@@ -71,6 +71,19 @@ export const ctx = {
   openTest,
 };
 
+// One polite live region names the new view; focus moves to its heading so keyboard users start there.
+function announceView() {
+  requestAnimationFrame(() => {
+    const heading = root.querySelector('h1');
+    const region = document.getElementById('cw-announce');
+    if (region) region.textContent = heading ? heading.textContent.trim() : document.title;
+    if (heading && !root.contains(document.activeElement)) {
+      if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+    }
+  });
+}
+
 function navigate(view, params = {}) {
   if (!VIEWS[view]) throw new Error(`Unknown view ${view}`);
   // Single-submission tests may only be started after openTest() has checked this student's submissions;
@@ -96,6 +109,7 @@ function navigate(view, params = {}) {
     if (seq !== navSeq) return; // a newer navigation won the race
     const res = resolveView(view).render(root, ctx, params);
     cleanup = typeof res === 'function' ? res : null;
+    announceView();
   };
   const start = () => {
     if (seq !== navSeq) return;
@@ -160,11 +174,8 @@ async function openTest(code, opts = {}) {
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
     // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
-    if (feature('v5Attempt')) {
-      const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
-      if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
-      return navigate('runner', { test, source, cleared: true });
-    }
+    const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode
+    if (enabled('gameModes') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
     navigate('runner', { test, source, cleared: true });
   } catch (err) {
     if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });
@@ -179,7 +190,7 @@ function openAdmin() {
 }
 
 async function runVersionCheck() {
-  if (!feature('adminAccounts') || !CONFIG.GAS_WEB_APP_URL) return; // behind the flag until the v4 backend is the norm
+  if (!CONFIG.GAS_WEB_APP_URL) return;
   const info = await checkBackendVersion({ gasUrl: CONFIG.GAS_WEB_APP_URL });
   if (!info.outdated) return;
   for (let i = 0; i < 40 && !(currentView === 'admin' && loaded.has('admin') && root.firstChild); i++) await new Promise((r) => setTimeout(r, 50));
@@ -189,12 +200,10 @@ async function runVersionCheck() {
 
 let adminGateBusy = false; // true while the Google admin sign-in modal is open (the landing sign-in toast stays quiet)
 
-// V4-07: the signed-in Google user is the admin. Falls back to the access-code flow when the flag is off,
-// Google or the backend is not configured, the user is not signed in (offered a Google button + a code link),
-// or the account is not on the Admins list.
+// Admins sign in with Google only; the backend checks the account against the Admins sheet. Without Google or a
+// backend configured (local preview) the panel opens with no data access: the backend still checks every request.
 async function adminGate() {
-  if (load('adminUnlocked', false, 'session')) return openAdmin();
-  if (!feature('adminAccounts') || !googleConfigured(CONFIG) || !CONFIG.GAS_WEB_APP_URL) return accessCodeGate();
+  if (!googleConfigured(CONFIG) || !CONFIG.GAS_WEB_APP_URL) return openAdmin();
   if (confirmedAdminEmail()) return openAdmin();
 
   const u = getUser();
@@ -208,8 +217,8 @@ async function adminGate() {
       }
       clearAdminConfirmed();
       return googleGateModal({ notice: res.error === 'not_admin'
-        ? `${u.email} is not on the admin list. Ask an owner to add you, or use the access code.`
-        : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.` });
+        ? `${u.email} is not on the admin list. Ask an owner to add you.`
+        : `Could not confirm admin access (${res.error || 'no response'}). Try again in a moment.` });
     }
   }
   return googleGateModal({});
@@ -224,8 +233,7 @@ function googleGateModal({ notice = '' }) {
   const done = () => { adminGateBusy = false; off(); };
   const m = openModal({
     title: 'Admin access', testid: 'admin-gate', onClose: done,
-    body: h('div', { class: 'stack' }, msgEl, buttonHost,
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'admin-use-code' }, on: { click: () => { m.close(); accessCodeGate(); } } }, 'Use access code instead')),
+    body: h('div', { class: 'stack' }, msgEl, buttonHost),
     actions: [{ label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } }],
   });
   const confirm = async (user) => {
@@ -241,40 +249,11 @@ function googleGateModal({ notice = '' }) {
     }
     msgEl.className = 'field-error';
     msgEl.textContent = res.error === 'not_admin'
-      ? `${user.email} is not on the admin list. Ask an owner to add you, or use the access code.`
-      : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.`;
+      ? `${user.email} is not on the admin list. Ask an owner to add you.`
+      : `Could not confirm admin access (${res.error || 'no response'}). Try again in a moment.`;
   };
   off = onAuthChange(confirm);
   renderGoogleButton(buttonHost, CONFIG, { onError: (e) => { msgEl.className = 'field-error'; msgEl.textContent = e; } });
-}
-
-function accessCodeGate() {
-  if (load('adminUnlocked', false, 'session')) return openAdmin();
-  const input = h('input', { class: 'input', type: 'password', placeholder: 'Admin access code', autocomplete: 'off', dataset: { testid: 'admin-code-input' } });
-  const err = h('p', { class: 'field-error', role: 'alert' });
-  const tryUnlock = (close) => {
-    if (input.value === CONFIG.ADMIN_ACCESS_CODE) {
-      save('adminUnlocked', true, 'session');
-      close();
-      openAdmin();
-    } else {
-      err.textContent = 'Incorrect access code.';
-      input.classList.add('shake');
-      setTimeout(() => input.classList.remove('shake'), 400);
-    }
-  };
-  navigate('landing');
-  const m = openModal({
-    title: 'Admin access',
-    testid: 'admin-gate',
-    body: h('form', { class: 'stack', on: { submit: (e) => { e.preventDefault(); tryUnlock(m.close); } } },
-      h('p', { class: 'muted' }, 'Enter the admin access code to build tests and grade submissions.'), input, err),
-    actions: [
-      { label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } },
-      { label: 'Unlock', variant: 'primary', testid: 'admin-unlock', onClick: (close) => tryUnlock(close) },
-    ],
-  });
-  setTimeout(() => input.focus(), 50);
 }
 
 function start() {
@@ -284,8 +263,8 @@ function start() {
   if (params.get('admin') === 'true') return adminGate();
 
   if (code && getUser()) return openTest(code);
-  if (params.get('view') === 'profile' && getUser() && feature('studentHome')) return navigate('profile');
-  if (params.get('view') === 'class' && params.get('id') && getUser() && feature('classHub')) return navigate('class', { id: params.get('id') });
+  if (params.get('view') === 'profile' && getUser()) return navigate('profile');
+  if (params.get('view') === 'class' && params.get('id') && getUser() && enabled('classHub')) return navigate('class', { id: params.get('id') });
   navigate('landing', { code: code ? normalizeCode(code) : undefined });
 }
 

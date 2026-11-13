@@ -6,7 +6,7 @@ import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn 
 import { keys, load, remove } from '../lib/storage.js';
 import { getLocalResults } from '../lib/submit.js';
 import { SITE_VERSION } from '../version.js';
-import { feature } from '../config.js';
+
 import { dashboardSection } from './tools/dashboard.js';
 import { networkBanner } from './tools/banner.js';
 import { ensureToolsCss } from './tools/settings.js';
@@ -143,9 +143,9 @@ function heroPattern() {
 
 export function render(root, ctx, params = {}) {
   const user = getUser();
-  if (user && feature('studentHome')) return home.render(root, ctx, params); // V5-02: the student home replaces this screen
+  if (user) return home.render(root, ctx, params);
   // V4-05: "My dashboard" and the waiting-submission banner (student tools flag).
-  const tools = !!user && feature('studentTools');
+  const tools = !!user;
   ensureToolsCss(); // the merged tests list uses the dashboard styles
   const banner = tools ? networkBanner({ config: ctx.config }) : null;
   mount(root,

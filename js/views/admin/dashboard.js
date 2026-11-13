@@ -1,4 +1,4 @@
-// Admin Dashboard (V4-01): the first screen after sign-in when feature('adminShell') is on.
+// Admin Dashboard (V4-01): the first screen after sign-in when true is on.
 // One combined load (submissions, published tests, activity log, backend version); every card hides when its data is missing.
 // computeDashboard() is pure and unit-tested.
 

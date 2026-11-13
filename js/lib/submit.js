@@ -1,6 +1,5 @@
-// Payload building and dual submission (Apps Script + Netlify Forms) with an offline outbox.
+// Payload building and submission to Apps Script with an offline outbox.
 // submitResults / flushOutbox never throw.
-import { netlifyFormsEnabled } from '../config.js';
 import { load, save } from './storage.js';
 import { getIdToken } from './auth.js';
 
@@ -70,77 +69,31 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
   };
 }
 
-export function toNetlifyFields(payload) {
-  return {
-    'form-name': 'chemistryworks-submissions',
-    submission_id: String(payload.submission_id ?? ''),
-    student_name: String(payload.student_name ?? ''),
-    student_email: String(payload.student_email ?? ''),
-    test_code: String(payload.test_code ?? ''),
-    test_title: String(payload.test_title ?? ''),
-    score_achieved: String(payload.score_achieved ?? ''),
-    score_total: String(payload.score_total ?? ''),
-    percentage: String(payload.percentage ?? ''),
-    duration_seconds: String(payload.duration_seconds ?? ''),
-    needs_grading: String(!!payload.needs_grading),
-    single_submission: String(!!payload.single_submission),
-    responses_json: JSON.stringify(payload.responses ?? []),
-    flags_json: JSON.stringify(payload.flags ?? {}),
-    submitted_at: String(payload.submitted_at ?? ''),
-  };
-}
+const SEND_TIMEOUT_MS = 20000;
 
+/** Posts to Apps Script with normal CORS (text/plain avoids a preflight) and reads the reply.
+ *  'sent' only when the backend answered success; anything else stays in the outbox. */
 async function sendGas(payload, config, fetchImpl) {
-  if (!config?.GAS_WEB_APP_URL) return 'skipped';
+  if (!config?.GAS_WEB_APP_URL) return { status: 'skipped' };
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), SEND_TIMEOUT_MS) : null;
   try {
-    await fetchImpl(config.GAS_WEB_APP_URL, {
+    const res = await fetchImpl(config.GAS_WEB_APP_URL, {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      // The verified ID token rides along at send time only (never stored in the outbox): roster / extension checks.
+      // The verified ID token rides along at send time only (never stored in the outbox).
       body: JSON.stringify(withToken(payload)),
+      ...(ctrl ? { signal: ctrl.signal } : {}),
     });
-    return 'sent';
+    let reply = null;
+    try { reply = await res.json(); } catch { reply = null; }
+    if (reply && reply.result === 'success') return { status: 'sent', reply };
+    return { status: 'failed', error: reply?.error || (res && res.status ? `http_${res.status}` : 'no_reply') };
   } catch {
-    return 'failed';
+    return { status: 'failed', error: 'network' };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-}
-
-async function sendNetlify(payload, config, fetchImpl, hostname) {
-  let enabled = false;
-  try {
-    enabled = netlifyFormsEnabled(config, hostname);
-  } catch {
-    enabled = false;
-  }
-  if (!enabled) return 'skipped';
-  try {
-    const res = await fetchImpl('/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(toNetlifyFields(payload)).toString(),
-    });
-    return res && res.ok ? 'sent' : 'failed';
-  } catch {
-    return 'failed';
-  }
-}
-
-async function sendAll(payload, config, fetchImpl, hostname) {
-  const [gas, netlify] = await Promise.all([
-    sendGas(payload, config, fetchImpl),
-    sendNetlify(payload, config, fetchImpl, hostname),
-  ]);
-  return { gas, netlify };
-}
-
-function anySent(r) {
-  return r.gas === 'sent' || r.netlify === 'sent';
-}
-
-function allFailed(r) {
-  const used = [r.gas, r.netlify].filter((s) => s !== 'skipped');
-  return used.length > 0 && used.every((s) => s === 'failed');
 }
 
 function readList(key) {
@@ -155,21 +108,21 @@ function upsert(list, payload) {
   return list;
 }
 
-export async function submitResults(payload, { config, fetchImpl, hostname } = {}) {
+export async function submitResults(payload, { config, fetchImpl } = {}) {
   const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
-  const host = hostname ?? (typeof location !== 'undefined' ? location.hostname : '');
-  let result = { gas: 'failed', netlify: 'failed' };
+  let result = { gas: 'failed' };
   try {
     if (!doFetch) throw new Error('fetch unavailable');
-    result = await sendAll(payload, config, doFetch, host);
+    const r = await sendGas(payload, config, doFetch);
+    result = { gas: r.status, ...(r.error ? { error: r.error } : {}), ...(r.reply?.extra_attempt ? { extraAttempt: true } : {}) };
   } catch {
-    result = { gas: config?.GAS_WEB_APP_URL ? 'failed' : 'skipped', netlify: 'failed' };
+    result = { gas: config?.GAS_WEB_APP_URL ? 'failed' : 'skipped' };
   }
   let queued = false;
   try {
     const local = upsert(readList(LOCAL_RESULTS_KEY), payload);
     save(LOCAL_RESULTS_KEY, local.slice(-LOCAL_RESULTS_CAP));
-    if (allFailed(result)) {
+    if (result.gas === 'failed') {
       save(OUTBOX_KEY, upsert(readList(OUTBOX_KEY), payload));
       queued = true;
     }
@@ -179,18 +132,17 @@ export async function submitResults(payload, { config, fetchImpl, hostname } = {
   return { ...result, queued };
 }
 
-export async function flushOutbox({ config, fetchImpl, hostname } = {}) {
+export async function flushOutbox({ config, fetchImpl } = {}) {
   let sent = 0;
   try {
     const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
     if (!doFetch) return 0;
-    const host = hostname ?? (typeof location !== 'undefined' ? location.hostname : '');
     const pending = readList(OUTBOX_KEY);
     const done = new Set();
     for (const payload of pending) {
       try {
-        const r = await sendAll(payload, config, doFetch, host);
-        if (anySent(r)) {
+        const r = await sendGas(payload, config, doFetch);
+        if (r.status === 'sent') {
           done.add(payload.submission_id);
           sent++;
         }

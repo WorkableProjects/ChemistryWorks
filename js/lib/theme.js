@@ -5,7 +5,7 @@
 //   <html data-theme="light|dark" data-accent="navy|blue|violet|teal|rose|orange|green" data-role="student|admin">
 
 import { load, save } from './storage.js';
-import { feature } from './../config.js';
+
 import { fixAccent, parseHex, toHex } from './contrast.js';
 
 export const THEMES = ['system', 'light', 'dark'];
@@ -107,10 +107,6 @@ export function applyAppearance() {
   const el = root();
   if (!el) return;
   CUSTOM_VARS.forEach((v) => el.style.removeProperty(v));
-  if (!feature('appearance')) {
-    for (const k of ['textSize', 'density', 'dyslexia']) delete el.dataset[k];
-    return;
-  }
   const a = getAppearance();
   el.dataset.textSize = a.textSize;
   el.dataset.density = a.density;
@@ -151,7 +147,7 @@ export function applyTheme() {
   const el = root();
   if (!el) return;
   applyMotion();
-  if (feature('v5Motion')) el.classList.add('v5-motion');
+  el.classList.add('v5-motion');
   el.dataset.theme = resolvedTheme();
   el.dataset.accent = getAccent(role);
   el.dataset.role = role;
@@ -171,7 +167,7 @@ if (typeof document !== 'undefined') {
 /** Run a theme/accent change with a circular reveal (View Transitions) or a short token cross-fade. */
 function withThemeTransition(fn) {
   const el = root();
-  if (!el || !feature('v5Motion') || prefersReducedMotion()) { fn(); return; }
+  if (!el || prefersReducedMotion()) { fn(); return; }
   const recent = Date.now() - lastPress.t < 1500;
   const x = recent ? lastPress.x : window.innerWidth - 48;
   const y = recent ? lastPress.y : 32;

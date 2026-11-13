@@ -18,7 +18,7 @@ import { load, save } from '../lib/storage.js';
 import { openAttempt } from '../lib/attempt.js';
 import { modeSwitcher } from './runner/mode-switcher.js';
 import { referencePane } from './reference-pane.js';
-import { feature } from '../config.js';
+
 import { toolsFor } from './tools/tools-config.js';
 import { calculatorPanel } from './tools/calculator.js';
 import { constantsPanel } from './tools/constants-tab.js';
@@ -52,7 +52,7 @@ export function render(root, ctx, params = {}) {
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
   // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
-  const toolsOn = feature('studentTools');
+  const toolsOn = true;
   // V5-01: the attempt owns the question order, the answers, flags and autosave. Game modes open the same attempt,
   // so work done there shows up here and the other way round.
   const attempt = openAttempt(test, { user, email: user.email, preview, tools: toolsOn });
@@ -125,7 +125,7 @@ export function render(root, ctx, params = {}) {
   const runnerBar = h('div', { class: 'runner-bar' },
     h('div', { class: 'runner-bar__inner' },
       h('span', { class: 'runner-bar__title', title: test.title }, test.title),
-      !preview && feature('v5Attempt') ? modeSwitcher({
+      !preview ? modeSwitcher({
         test, attempt, current: 'study',
         onPick: (id) => { attempt.setMode(id); ctx.navigate('game', { test, source: params.source, gameId: id, cleared: true }); },
       }) : null,

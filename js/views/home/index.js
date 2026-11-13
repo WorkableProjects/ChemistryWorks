@@ -1,4 +1,4 @@
-// Student home (V5-02, behind feature('studentHome')). Paints from local data at once, then updates when the server answers.
+// Student home (V5-02, behind true). Paints from local data at once, then updates when the server answers.
 // Order: header band (avatar, greeting, level ring, code field) -> Up next -> In progress -> Results -> Practice (side column on wide screens).
 // Contract testids: home, home-header, home-code-input, home-code-submit, up-next, continue-btn, in-progress, in-progress-<CODE>,
 // remove-attempt-<CODE>, results-list, practice-shelf, sync-chip.
@@ -14,7 +14,7 @@ import { modeById as getGame } from '../../lib/modes/index.js';
 import { paintHubUpNext, reminderBanner } from './upnext.js';
 import { calendarStrip } from './calendar.js';
 import { bell } from '../notifications.js';
-import { feature } from '../../config.js';
+import { enabled } from '../../config.js';
 import { elementTile, symbolOf, levelRing, trendLine, badgeShelf, syncChip, resultRow, modeLabel } from './parts.js';
 
 const section = (title, testid, ...body) => h('section', { class: 'home-section', 'aria-label': title, dataset: { testid } },
@@ -76,7 +76,7 @@ export function render(root, ctx, params = {}) {
       h('div', { class: 'home-header__code' }, form, err)),
     ringSlot);
 
-  const hubOn = feature('classHub');
+  const hubOn = enabled('classHub');
   const bellEl = hubOn ? bell(ctx, () => (profile && profile.hub) || null) : null;
   const upnext = h('div', { id: 'home-upnext', class: 'home-upnext-slot' });
   const inprog = h('div', { class: 'home-slot' });

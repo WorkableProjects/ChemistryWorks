@@ -1,6 +1,6 @@
 // Admin "Settings" tab: admin key, backend ping, setup checklist, current config.
 import { h, mount, icon, toast } from '../../ui.js';
-import { CONFIG, netlifyFormsEnabled, feature } from '../../config.js';
+import { CONFIG } from '../../config.js';
 import { load, save, remove } from '../../lib/storage.js';
 import { pingBackend } from '../../lib/api.js';
 import { hasAdminAuth } from '../../lib/admin-session.js';
@@ -17,7 +17,6 @@ export function setupChecks(config = CONFIG) {
     { key: 'client-id', ok: gsi, label: 'Google Client ID configured', fix: 'Set GOOGLE_CLIENT_ID in js/config.js.', doc: 'DEPLOYMENT.md#2-google-cloud-oauth-client-for-google-sign-in' },
     { key: 'gas-url', ok: !!config.GAS_WEB_APP_URL, label: 'Apps Script URL configured', fix: 'Deploy apps-script/Code.gs and set GAS_WEB_APP_URL.', doc: 'DEPLOYMENT.md#3-google-sheet-and-apps-script' },
     { key: 'sheet-url', ok: !!config.SHEET_URL, label: 'Sheet URL configured', fix: 'Set SHEET_URL so the admin header can link to your sheet.', doc: 'DEPLOYMENT.md#3-google-sheet-and-apps-script' },
-    { key: 'netlify', ok: netlifyFormsEnabled(config), label: 'Netlify Forms backup active', fix: 'Off on GitHub Pages (no form handling). Apps Script is the only submission backend; NETLIFY_FORMS: true only on Netlify.', doc: 'DEPLOYMENT.md#5-netlify', warnOnly: true },
     { key: 'demo', ok: !(config.ALLOW_DEMO_SIGNIN && !gsi), label: 'Demo sign-in disabled in production', fix: 'Demo sign-in is on because no Google Client ID is set. Set ALLOW_DEMO_SIGNIN to false once Google sign-in works.', doc: 'DEPLOYMENT.md#2-google-cloud-oauth-client-for-google-sign-in', warnOnly: true },
   ];
 }
@@ -66,17 +65,17 @@ export function renderSettings(root, ctx, { onKeyChange, go } = {}) {
         h('h3', { class: 'adm-h3' }, 'Current configuration'),
         h('table', { class: 'adm-table adm-table--cfg' }, h('tbody', {},
           cfgRow('GOOGLE_CLIENT_ID', truncate(CONFIG.GOOGLE_CLIENT_ID)), cfgRow('GAS_WEB_APP_URL', truncate(CONFIG.GAS_WEB_APP_URL, 32)), cfgRow('SHEET_URL', truncate(CONFIG.SHEET_URL, 32)),
-          cfgRow('NETLIFY_FORMS', String(CONFIG.NETLIFY_FORMS)), cfgRow('ALLOW_DEMO_SIGNIN', String(CONFIG.ALLOW_DEMO_SIGNIN)), cfgRow('ALLOWED_EMAIL_DOMAINS', CONFIG.ALLOWED_EMAIL_DOMAINS), cfgRow('DEFAULT_MODE', CONFIG.DEFAULT_MODE))),
+          cfgRow('ALLOW_DEMO_SIGNIN', String(CONFIG.ALLOW_DEMO_SIGNIN)), cfgRow('ALLOWED_EMAIL_DOMAINS', CONFIG.ALLOWED_EMAIL_DOMAINS), cfgRow('DEFAULT_MODE', CONFIG.DEFAULT_MODE))),
         h('p', { class: 'field__hint' }, 'Edit js/config.js (or define window.CHEMISTRYWORKS_CONFIG) to change these.'))),
     h('section', { class: 'card stack', 'aria-label': 'Setup checklist' },
       h('h3', { class: 'adm-h3' }, 'Setup checklist'), checklist)));
   // V5-06: appearance panel.
-  if (feature('appearance')) root.querySelector('.adm-settings-tab')?.prepend(h('section', { class: 'card stack', 'aria-label': 'Appearance', dataset: { testid: 'admin-appearance' } }, h('h3', { class: 'adm-h3' }, 'Appearance'), appearancePanel({ user: null, role: 'admin' })));
+  root.querySelector('.adm-settings-tab')?.prepend(h('section', { class: 'card stack', 'aria-label': 'Appearance', dataset: { testid: 'admin-appearance' } }, h('h3', { class: 'adm-h3' }, 'Appearance'), appearancePanel({ user: null, role: 'admin' })));
   // V4-08: platform settings, backup / restore, errors (needs a connected backend + admin auth).
   if (hasAdminAuth()) root.querySelector('.adm-settings-tab')?.append(platformPanel(ctx, { go }));
   // V4-07: Admins (owner only) and Activity log, behind the adminAccounts flag.
   const cleanups = [];
-  if (feature('adminAccounts') && hasAdminAuth()) {
+  if (hasAdminAuth()) {
     const extra = h('div', { class: 'stack', dataset: { testid: 'admin-accounts' } });
     root.querySelector('.adm-settings-tab')?.append(extra);
     cleanups.push(renderAdmins(extra, ctx), renderActivityLog(extra));

@@ -2,7 +2,7 @@
 // Pure helpers + a tiny DOM applier. Everything is a no-op without a document / storage.
 
 import { load, save } from '../../lib/storage.js';
-import { feature } from '../../config.js';
+
 
 export const FONT_STEPS = ['normal', 'large', 'xlarge'];
 export const FONT_LABELS = { normal: 'Normal', large: 'Large', xlarge: 'Extra large' };
@@ -48,6 +48,6 @@ export function applySettings(s, root = typeof document !== 'undefined' ? docume
 /** Called once at startup: re-applies the stored settings when the student tools flag is on. */
 export function applyStoredSettings() {
   try {
-    if (feature('studentTools')) applySettings(loadSettings());
+    applySettings(loadSettings());
   } catch { /* never block the page */ }
 }
