@@ -390,3 +390,9 @@
 /* V5-11: library row leaving (delete) */
 .adm-item.is-leaving, .lib2-table tr.is-leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) { .adm-item.is-leaving, .lib2-table tr.is-leaving { transition: none; } }
+
+/* Platform: deployment checklist */
+.adm-checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.adm-checklist li { display: flex; gap: 8px; align-items: baseline; }
+.adm-checklist .is-done { color: var(--success-ink); }
+.adm-checklist .is-todo { color: var(--warning-ink); }

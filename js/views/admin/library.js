@@ -6,6 +6,8 @@ import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { duplicateTest, versionTest, suggestCopyCode, validateNewCode } from '../../lib/versions.js';
 import { loadCatalog, loadTest, getDrafts, deleteDraft } from '../../lib/tests.js';
 import { resource } from '../../lib/store.js';
+import { tagIdsOf } from '../../lib/tags.js';
+import { currentLookup } from './tag-picker.js';
 import { normalizeTest } from '../../lib/schema.js';
 import { deletePublishedTest, fetchPublishedTest, listTestsSummary } from '../../lib/api.js';
 import { skeleton, emptyState, copyText, fmtDate, round2, iconButton } from './common.js';
@@ -17,12 +19,12 @@ export function testLink(code) {
 }
 
 // V4-01 library view state (card grid / table, search, filters); the view mode is remembered per device.
-const L = { query: '', filters: new Set() };
+const L = { query: '', filters: new Set(), tag: '' };
 export function setLibraryQuery(q) { L.query = String(q || ''); L.filters = new Set(); }
 export const LIBRARY_FILTERS = ['published', 'submissions', 'grading'];
 
 /** Pure: does a library item pass the search text and the active filters? counts = { CODE: n }, grading = Set of codes. */
-export function matchesLibraryFilter(item, { query = '', filters = [], counts = null, grading = null } = {}) {
+export function matchesLibraryFilter(item, { query = '', filters = [], counts = null, grading = null, tag = '' } = {}) {
   const q = String(query || '').trim().toLowerCase();
   if (q && !`${item.code} ${item.title || ''}`.toLowerCase().includes(q)) return false;
   const f = new Set(filters);
@@ -30,6 +32,7 @@ export function matchesLibraryFilter(item, { query = '', filters = [], counts = 
   if (f.has('published') && item.source !== 'published') return false;
   if (f.has('submissions') && !(counts && Number(counts[code]) > 0)) return false;
   if (f.has('grading') && !(grading && grading.has(code))) return false;
+  if (tag && !(item.tags || (item.test ? tagIdsOf(item.test) : [])).includes(tag)) return false;
   return true;
 }
 
@@ -268,7 +271,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
   function drawV2({ bundled, drafts, pubItems, publishedContent }) {
     const view = () => load('adminLibView', 'grid');
     const host = h('div', { class: 'stack', dataset: { testid: 'library-sections' } });
-    const pass = (it) => matchesLibraryFilter(it, { query: L.query, filters: [...L.filters], counts, grading: needGrading });
+    const pass = (it) => matchesLibraryFilter(it, { query: L.query, filters: [...L.filters], counts, grading: needGrading, tag: L.tag });
     const listFor = (items, empty) => {
       if (!items.length) return empty;
       const shown = items.filter(pass);
@@ -294,7 +297,13 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
       on: { click: (e) => { if (L.filters.has(id)) L.filters.delete(id); else L.filters.add(id); e.currentTarget.setAttribute('aria-pressed', String(L.filters.has(id))); paint(); } } }, icon(ic, { size: 16 }), label));
     const viewBtns = ['grid', 'table'].map((m) => h('button', { type: 'button', title: m === 'grid' ? 'Card view' : 'Table view', 'aria-label': m === 'grid' ? 'Card view' : 'Table view', 'aria-pressed': String(view() === m),
       dataset: { testid: `lib-view-${m}` }, on: { click: () => { save('adminLibView', m); viewBtns.forEach((b, k) => b.setAttribute('aria-pressed', String(['grid', 'table'][k] === m))); paint(); } } }, icon(m === 'grid' ? 'grid' : 'list', { size: 18 })));
-    mount(body, h('div', { class: 'lib2-bar' }, search, h('div', { class: 'lib2-chips', role: 'group', 'aria-label': 'Filters' }, chips), h('div', { class: 'lib2-view', role: 'group', 'aria-label': 'View' }, viewBtns)), host);
+    const allItems = [...bundled, ...drafts, ...(pubItems || [])];
+    const usedTags = [...new Set(allItems.flatMap((it) => it.tags || (it.test ? tagIdsOf(it.test) : [])))];
+    const look = currentLookup();
+    const tagSel = usedTags.length ? h('select', { class: 'select select--sm', 'aria-label': 'Filter by tag', dataset: { testid: 'lib-filter-tag' },
+      on: { change: (e) => { L.tag = e.currentTarget.value; paint(); } } },
+      h('option', { value: '' }, 'Any tag'), usedTags.map((id) => h('option', { value: id, selected: id === L.tag }, look.get(id)?.name || 'Unknown tag'))) : null;
+    mount(body, h('div', { class: 'lib2-bar' }, search, h('div', { class: 'lib2-chips', role: 'group', 'aria-label': 'Filters' }, chips, tagSel), h('div', { class: 'lib2-view', role: 'group', 'aria-label': 'View' }, viewBtns)), host);
     paint();
   }
 

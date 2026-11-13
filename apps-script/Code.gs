@@ -844,7 +844,7 @@ function testSummaries_(onlyCode) {
     var closes = t.closesAt ? Date.parse(t.closesAt) : NaN;
     var status = isFinite(opens) && now < opens ? 'scheduled' : (isFinite(closes) && now > closes ? 'closed' : 'open');
     out.push({ code: code, title: String(r.Title), updatedAt: iso_(r['Updated At']), status: status, questionCount: qs.length,
-      points: round2_(points), needsGrading: needs[normalizeCode_(code)] || 0, submissionCount: counts[normalizeCode_(code)] || 0 });
+      points: round2_(points), needsGrading: needs[normalizeCode_(code)] || 0, submissionCount: counts[normalizeCode_(code)] || 0, tags: questionTagIds_(t) });
   });
   return out;
 }

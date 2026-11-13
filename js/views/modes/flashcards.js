@@ -4,11 +4,13 @@ import { h, mount, richText, renderMath } from '../../ui.js';
 import { correctAnswerText } from '../../lib/grading.js';
 import { isManual } from '../../lib/modes/common.js';
 import { flashcards, advanceCards } from '../../lib/modes/flashcards.js';
+import { tagFilter, idsWithTag } from './tag-filter.js';
 
 export function render(host, attempt, ctx) {
   const byId = new Map(attempt.questions.map((q) => [q.id, q]));
-  let queue = attempt.questions.map((q) => q.id);
-  const total = queue.length;
+  const allIds = attempt.questions.map((q) => q.id);
+  let queue = allIds;
+  let total = queue.length;
   const startedAt = Date.now();
   let knew = 0;
   let ended = false;
@@ -19,10 +21,15 @@ export function render(host, attempt, ctx) {
 
   function intro() {
     const start = h('button', { class: 'btn btn--primary btn--lg', type: 'button', dataset: { testid: 'mode-start' }, on: { click: card } }, 'Start');
+    const note = h('p', { class: 'mode-card__note' });
+    const drawNote = () => { note.textContent = `${total} ${total === 1 ? 'card' : 'cards'}. Cards you review again come back later`; };
+    drawNote();
+    const filter = tagFilter(attempt.questions, attempt.test, (tag) => { queue = idsWithTag(allIds, byId, tag); total = queue.length; drawNote(); drawHud(); start.disabled = !total; });
     mount(host, h('section', { class: 'mode-card', dataset: { testid: 'mode-intro' } },
       h('h1', { class: 'mode-card__title', tabindex: '-1' }, flashcards.title),
       h('p', { class: 'mode-card__lead' }, flashcards.blurb),
-      h('p', { class: 'mode-card__note' }, `${total} ${total === 1 ? 'card' : 'cards'}. Cards you review again come back later`),
+      filter,
+      note,
       h('div', { class: 'mode-actions' }, start)));
     drawHud();
     start.focus();

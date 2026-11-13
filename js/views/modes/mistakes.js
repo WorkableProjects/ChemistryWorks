@@ -3,14 +3,29 @@ import { mount, h } from '../../ui.js';
 import { playSeq, emptyCard } from './play.js';
 import { mistakes, mistakeIds, FIX_POINTS } from '../../lib/modes/mistakes.js';
 import { checkSubmissionState } from '../../lib/student-status.js';
+import { tagFilter, idsWithTag } from './tag-filter.js';
 
 export function render(host, attempt, ctx) {
   let inner = null;
   let dead = false;
   const toStudy = () => ctx.onEnd({ modeId: 'mistakes', score: 0, answered: attempt.answeredCount, correct: 0, total: attempt.total, durationMs: 0 });
 
+  // With tagged questions, first offer "Practise only <tag>".
+  let picked = false;
   function show(ids) {
     if (dead) return;
+    if (!picked && ids.length) {
+      const byId = new Map(attempt.questions.map((q) => [q.id, q]));
+      let tag = '';
+      const filter = tagFilter(attempt.questions.filter((q) => ids.includes(q.id)), attempt.test, (v) => { tag = v; });
+      if (filter) {
+        const go = h('button', { class: 'btn btn--primary btn--lg', type: 'button', dataset: { testid: 'mode-start' }, on: { click: () => { picked = true; show(idsWithTag(ids, byId, tag)); } } }, 'Start');
+        mount(host, h('section', { class: 'mode-card', dataset: { testid: 'mode-intro' } },
+          h('h1', { class: 'mode-card__title', tabindex: '-1' }, 'Mistake review'), filter, h('div', { class: 'mode-actions' }, go)));
+        return;
+      }
+    }
+    picked = true;
     inner?.destroy();
     if (!ids.length) {
       inner = null;

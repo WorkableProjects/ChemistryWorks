@@ -19,7 +19,7 @@ import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
 import { testExtrasPanel } from './test-extras.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 import { tagPicker, teacherEmail, currentLookup, sheetTagsResource } from './tag-picker.js';
-import { tagDefsFor, markOnSheet, tagIdsOf } from '../../lib/tags.js';
+import { tagDefsFor, markOnSheet, tagIdsOf, resolveTagNames, localTags } from '../../lib/tags.js';
 
 const GUIDE_SOURCES = [
   'https://raw.githubusercontent.com/WorkableProjects/ChemistryWorks/main/docs/guide.md', // latest on main
@@ -244,7 +244,7 @@ export function renderBuilder(root, ctx) {
       try {
         const parsed = JSON.parse(await f.text());
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('The file must contain a test object.');
-        setBuilderTest(normalizeTest(parsed));
+        setBuilderTest(withTagIds(normalizeTest(parsed)));
         toast(`Imported ${S.test.code || 'test'}`, { type: 'success' });
         renderMain();
         refreshValidation();
@@ -353,12 +353,21 @@ export function renderBuilder(root, ctx) {
   }
 
   // ----- JSON mode -----
+  // Imported tests may use tag names ("tags": ["Ions"]): match local tags, then Sheet tags, and create local tags for the rest.
+  function withTagIds(test) {
+    const before = new Set(localTags(teacherEmail()).map((t) => t.id));
+    const res = resolveTagNames(test, { email: teacherEmail(), sheet: sheetTagsResource().peek() || [], createMissing: true });
+    const made = localTags(teacherEmail()).filter((t) => !before.has(t.id));
+    if (made.length) toast(`Created ${made.length} new tag${made.length === 1 ? '' : 's'}: ${made.map((t) => t.name).join(', ')}`, { type: 'info', timeout: 5000 });
+    return res.test;
+  }
+
   function applyJson({ silent = false } = {}) {
     const text = jsonText.value;
     try {
       const parsed = JSON.parse(text);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Top level must be a test object { … }.');
-      S.test = { ...blankTest(), ...normalizeTest(parsed) };
+      S.test = { ...blankTest(), ...withTagIds(normalizeTest(parsed)) };
       openDefaults();
       persistNow();
       jsonText.value = JSON.stringify(S.test, null, 2);
