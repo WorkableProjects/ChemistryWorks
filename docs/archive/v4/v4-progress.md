@@ -1,6 +1,6 @@
 # ChemWorks v4 — Progress
 
-Session tracker for `docs/v3/v4.0plan.md`. Update at the end of every session.
+Session tracker for `docs/archive/v4/v4plan.md`. Update at the end of every session.
 
 **Integration branch:** `v4` (not created yet). S00–S04 were built on `claude/elegant-knuth-3ig53s` (the session branch).
 

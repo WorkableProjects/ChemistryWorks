@@ -1,7 +1,7 @@
 # Rules for every v5 delegation agent
 
 You are one worker on ChemWorks v5. The orchestrator gave you one **agent ID** (e.g. `S03a`). Your brief is the
-section with that ID in `docs/v5/delegations/<session>.md`. Do only that brief.
+section with that ID in `docs/archive/v5/delegations/<session>.md`. Do only that brief.
 
 ## ASAP override (from the user — wins over every brief)
 - **No testing.** Don't write new test files, don't rewrite old ones, don't run `npm test` or any e2e. Skip every
@@ -40,10 +40,10 @@ Direction: **exact, calm, a little lab-notebook.** World: the lab bench — navy
 3. The files your brief names. Use Grep to find more; don't read whole large files (`runner.js`, `builder.js`,
    `Code.gs`) top to bottom — jump to the parts you need.
 
-`docs/v5/v5plan.md` is the full plan. Read only the section your brief points to.
+`docs/archive/v5/v5plan.md` is the full plan. Read only the section your brief points to.
 
 ## Open-question answers
-Use the answers in `docs/v5/delegations/README.md` → **Decisions**. Don't re-ask.
+Use the answers in `docs/archive/v5/delegations/README.md` → **Decisions**. Don't re-ask.
 
 ## Work rules
 - You run in your own git worktree. Commit there on the current branch with a clear message. **Don't push, don't open a PR.**
@@ -53,7 +53,7 @@ Use the answers in `docs/v5/delegations/README.md` → **Decisions**. Don't re-a
 - Follow existing patterns: ES modules, no build step, no new npm deps, no frameworks, colours from tokens only
   (unit test rejects raw hex in views), every animation off under reduced motion, existing `data-testid`s kept.
 - Writing for users (labels, help text) is plain and short, for teachers and students.
-- Don't touch: `js/version.js`, `package.json` version, `changelog/`, `docs/v5/v5-progress.md`, `docs/v5/v5plan.md`
+- Don't touch: `js/version.js`, `package.json` version, `changelog/`, `docs/archive/v5/v5-progress.md`, `docs/archive/v5/v5plan.md`
   (orchestrator / S14c own these).
 
 ## Hotspot files (append-only, keep edits tiny so merges are trivial)
