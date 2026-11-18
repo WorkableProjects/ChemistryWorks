@@ -41,7 +41,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S06a | sonnet | todo | | | |
 | S06b | sonnet | todo | | | |
 | S11 | sonnet | todo | | | |
-| B3 | sonnet | todo | | | |
+| B3 | sonnet | done | 158c1ce | unit 1304 | Tests sheet gains Owner column. S12a must extend api.js publishTest to send tagDefs and keep reply tags/ids |
 | B4 | sonnet | todo | | | |
 | S07 | sonnet | todo | | | |
 | S08a | haiku | todo | | | |
