@@ -37,6 +37,7 @@ So v6 does three things, in this order:
 | V6-08 | Deployment automation (clasp, config, post-deploy check) | Medium |
 | V6-09 | New features: Google Classroom grade sync + question tagging | Medium |
 | V6-10 | Docs, changelog, release | High (last) |
+| V6-11 | Full-width student question view (runner, game modes, results, feedback) | High |
 
 ---
 
@@ -403,6 +404,59 @@ These two are the v6 features. Everything else that was listed as a candidate (p
   3. Teacher B sees it under Shared tags and uses it, but can't rename it.
   4. A renames it, and the new name shows in B's builder, grading, the student's released results and the profile.
 
+## V6-11 — Full-width student question view
+
+**Problem:** on a laptop or classroom monitor, students answer questions in a narrow column down the middle third of the
+screen, with empty space on both sides. Long matching tables, categorize buckets, graphs, structure editors and images
+are squeezed or scroll sideways, and options stack in one long list that pushes Next below the fold.
+
+**Where the width is capped today:**
+
+| Selector | File | Cap |
+|---|---|---|
+| `.runner-main` | `css/runner.css:16` | `min(760px, 100%)` |
+| `.runner-footer__inner` | `css/runner.css:140` | `min(760px, 100%)` |
+| `.runner-bar__inner` | `css/runner.css:10` | `min(1200px, 100%)` |
+| `.mode-main` / `.mode-bar__inner` | `css/modes.css:6,4` | `720px` / `960px` |
+| `.results` | `css/results.css:4` | `min(820px, 100%)` |
+| `.feedback` | `css/feedback.css:2` | `min(820px, 100%)` |
+| `.q-image` | `css/runner.css:380` | 40% beside the prompt |
+| `.q-hot__stage--*` | `css/qtypes.css:75-77` | 280 / 420 / 640px |
+
+**Change:**
+- **One token for the student page width:** `--student-w: 100%` and `--student-gutter: clamp(16px, 3vw, 48px)` in
+  `base.css`. The runner (main, bar, footer), game modes, results and feedback all use it, so every student screen lines up
+  edge to edge. No fixed pixel cap; on very wide screens (≥ 2200px) a soft cap of `2000px` stops it looking stretched.
+- **The question card fills the width; only text keeps a reading measure.** The prompt, passage text and explanations
+  keep `max-width: 75ch` so lines stay readable. Answer areas (options, tables, diagrams, canvases) use the full width.
+- **Two-column question layout at ≥ 1200px:** prompt + image/resources on the left, answer area on the right
+  (`.q-split`, grid `minmax(0, 1fr) minmax(0, 1.2fr)`). Types whose answer is itself wide (matching, categorize,
+  ordering, graph, structure, lewis, molbuild, hotspot, ptable) stay single-column and get the full width. Each
+  `TypeDef` declares `layout: 'split' | 'wide'` (default `split`), which fits V6-04's single registry.
+- **Options in columns:** mcq / multi / truefalse options flow into 2 columns ≥ 900px and 3 columns ≥ 1400px when every
+  option is short (≤ 40 characters, no image). Long options stay one per row. Keyboard order stays row by row.
+- **Images and diagrams grow:** `.q-image` loses its 40% / 360px cap in split layout (it has its own column);
+  hotspot stages scale to the available width, keeping their aspect ratio and click-point maths (hotspot coordinates
+  are already relative, so grading doesn't change).
+- **Docked question rail:** at ≥ 1024px with the rail open, the content takes the remaining width (`margin-left` stays,
+  but the content is no longer re-centred into 760px).
+- **Scroll mode** (`.runner--scroll`) uses the same width; each question card is full width.
+- **Footer:** Prev / progress / Next spread across the full bar, Next stays at the right edge where the eye ends.
+- **Teacher preview** and the admin "student view" use the same CSS, so teachers see what students see.
+- **Small screens are unchanged:** below 760px the layout is the same single column as today.
+- **Print / PDF export** keep their own widths (`print.css`, `export.css`); not touched.
+
+**Not doing:** a per-student "narrow / wide" toggle. If teachers ask for one after release, it's a 6.1 Appearance option.
+
+**Tests**
+- **E2E** (`test/e2e/student-layout.test.mjs`): at 1920×1080, `.runner-main`, `.mode-main`, `.results` and `.feedback`
+  are ≥ 90% of the viewport width; a short-option mcq renders in 3 columns; a matching question has no horizontal
+  scroll; the prompt text box is ≤ 75ch. At 1280×800 with the rail open, content fills the rest of the width. At 360px,
+  no horizontal page scroll and the layout matches today.
+- **Every type** via the V6-04 conformance test at 1920px: no element overflows the viewport, hotspot clicks still
+  grade correctly after the stage is scaled.
+- **Screenshots** of the runner at 1920 / 1280 / 360 in both themes attached to the agent report.
+
 ## V6-10 — Docs and release
 
 - **Version 6.0.0:** `js/version.js` (`SITE_VERSION`, `BACKEND_VERSION` = 6.0.0), `package.json`, `Code.gs` `VERSION`, `changelog/6.0.0.md`, and the front of `changelog/index.json` (see `CLAUDE.md`).
@@ -433,9 +487,10 @@ The work splits into sessions the same way as v5 (agent briefs to be written in 
 | S11 | Deployment | V6-08 | S03 |
 | S12a | Question tagging | V6-09 B: local tag store, `Tags` sheet filled on publish + actions, schema, builder picker (yours / shared), Admin → Tags, grading / tracker / results / profile views | S06 |
 | S12b | Classroom grade sync | V6-09 A: scopes, course link + roster import, post to Classroom, preview + sync, auto-sync on release | S03, S04 |
+| S14 | Full-width student view | V6-11: width token, split / wide layouts per type, option columns, rail, modes, results, feedback | S06, S08 |
 | S13 | Release | V6-10 | all |
 
-S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S12a can start as soon as S06 is merged; S12b needs S03 + S04 (narrower locks), and S12a and S12b can run in parallel.
+S03 and S11 can run alongside S02. S04, S05 and S11 can run in parallel. S14 runs after S08 (the runner split and view CSS loading) and before S09, so the accessibility audit checks the new layout. S12a can start as soon as S06 is merged; S12b needs S03 + S04 (narrower locks), and S12a and S12b can run in parallel.
 
 **Lessons from v5 for the runbook:**
 - No "ASAP" override that skips tests.
