@@ -42,7 +42,14 @@ var STATUS_NOT_ROSTER = 'Not on roster';      // v4 S11: roster-only test, stude
 var STATUS_EXTRA = 'Extra attempt'; // v3: a second submission to a single-submission test (stored, never counted)
 var TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
 var TOKEN_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
-var TEST_HEADERS = ['Code', 'Title', 'Updated At', 'Test JSON'];
+var TEST_HEADERS = ['Code', 'Title', 'Updated At', 'Test JSON', 'Owner'];
+var TAGS_SHEET = 'Tags';
+var TAG_HEADERS = ['id', 'ownerEmail', 'name', 'color', 'description', 'firstTestCode', 'createdAt', 'updatedAt', 'deletedAt', 'mergedInto'];
+var TAG_COLORS = ['blue', 'violet', 'teal', 'green', 'orange', 'rose', 'gray'];
+var TAG_ID_RE = /^tg_[0-9a-z]{6}$/;
+var TAG_NAME_MAX = 40;
+var TAG_DESC_MAX = 200;
+var TAG_USAGE_KEY = 'tags:usage';
 var ADMIN_HEADERS = ['Email', 'Role', 'Added by', 'Added at'];
 var LOG_HEADERS = ['Time', 'Admin', 'Action', 'Target', 'Details'];
 var ROLE_OWNER = 'owner';
@@ -141,6 +148,10 @@ function doPost(e) {
       case 'deleteStreamPost':
       case 'getAssignmentStatus':
       case 'remindMissing':
+      case 'listTags':
+      case 'saveTag':
+      case 'deleteTag':
+      case 'mergeTags':
       case 'batch':
         return json_(handleAdmin_(body));
       case 'getTest':
@@ -560,7 +571,7 @@ function getTest_(code) {
   if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
   // Roster-only tests are served only through the POST path with a token (getTestFor_).
   if (test.rosterOnly === true) return { result: 'error', error: 'not_on_roster', title: test.title || '' };
-  return { result: 'success', test: test };
+  return { result: 'success', test: test, tagIndex: tagIndexFor_(test) };
 }
 
 // ---------------------------------------------------------------------------
@@ -676,7 +687,8 @@ function appendLog_(auth, action, target, details) {
 var LOGGED_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll: 1, allowRetake: 1, saveAdmin: 1, removeAdmin: 1,
   saveClass: 1, deleteClass: 1, saveBankItem: 1, deleteBankItem: 1, saveAccommodation: 1, deleteAccommodation: 1, extendWindow: 1,
   applyRegrade: 1, clearLeaderboard: 1, hideLeaderboardEntry: 1, saveSettings: 1,
-  saveAssignment: 1, deleteAssignment: 1, postStream: 1, deleteStreamPost: 1, remindMissing: 1 };
+  saveAssignment: 1, deleteAssignment: 1, postStream: 1, deleteStreamPost: 1, remindMissing: 1,
+  saveTag: 1, deleteTag: 1, mergeTags: 1 };
 
 function logTarget_(body) {
   switch (body.action) {
@@ -701,6 +713,9 @@ function logTarget_(body) {
     case 'deleteStreamPost':
     case 'remindMissing': return String(body.id || '');
     case 'postStream': return String(body.classId || '');
+    case 'saveTag': return String((body.tag && body.tag.id) || '');
+    case 'deleteTag': return String(body.id || '');
+    case 'mergeTags': return String(body.from || '') + ' > ' + String(body.into || '');
   }
   return '';
 }
@@ -737,7 +752,7 @@ function dispatchAdmin_(body, auth) {
 
 function dispatchAdminRaw_(body, auth) {
   switch (body.action) {
-    case 'publishTest': return publishTest_(body.test);
+    case 'publishTest': return publishTest_(body.test, body.tagDefs, auth);
     case 'listTests': return listTests_(body);
     case 'deleteTest': return deleteTest_(body.code);
     case 'getResults': return getResults_(body.testCode, body);
@@ -781,6 +796,10 @@ function dispatchAdminRaw_(body, auth) {
     case 'deleteStreamPost': return deleteStreamPost_(body);
     case 'getAssignmentStatus': return getAssignmentStatus_(body);
     case 'remindMissing': return remindMissing_(body, auth);
+    case 'listTags': return listTags_();
+    case 'saveTag': return saveTag_(body, auth);
+    case 'deleteTag': return deleteTag_(body, auth);
+    case 'mergeTags': return mergeTags_(body, auth);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -873,7 +892,7 @@ function getLog_(body) {
   return { result: 'success', rows: rows };
 }
 
-function publishTest_(test) {
+function publishTest_(test, tagDefs, auth) {
   if (!test || typeof test !== 'object') return { result: 'error', error: 'invalid_test' };
   var code = normalizeCode_(test.code);
   if (!/^[A-Z0-9_-]{2,32}$/.test(code)) return { result: 'error', error: 'invalid_test: code must be 2-32 characters (A-Z, 0-9, _ or -)' };
@@ -882,16 +901,276 @@ function publishTest_(test) {
   test.code = code;
   var testJson = JSON.stringify(test);
   if (testJson.length > MAX_CELL_CHARS) return { result: 'error', error: 'test_too_large' };
+  var who = tagOwner_(auth);
+  var used = testTagIds_(test);
 
   return withLock_(function () {
+    var tagResult = used.length ? upsertTagDefs_(used, tagDefs, who, code) : { tags: [] };
+    if (tagResult.error) return tagResult;
     var sheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
     var row = findRow_(sheet, 1, code);
     var values = [code, text_(String(test.title)), new Date(), testJson];
-    if (row) sheet.getRange(row, 1, 1, 4).setValues([values]);
-    else sheet.appendRow(values);
+    if (row) {
+      sheet.getRange(row, 1, 1, 4).setValues([values]);
+      if (who && String(sheet.getRange(row, 5).getValue() || '') === '') sheet.getRange(row, 5).setValue(text_(who));
+    } else {
+      sheet.appendRow(values.concat([text_(who)]));
+    }
     bust_(testShapeKey_(code, iso_(values[2])));
-    return { result: 'success', code: code, updated: !!row };
+    return { result: 'success', code: code, updated: !!row, tags: tagResult.tags };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Tags: local in the browser until a published test uses them, then rows on the Tags sheet
+// ---------------------------------------------------------------------------
+
+// The caller's lower-cased email; '' for an ADMIN_KEY caller (who owns the rows with an empty owner).
+function tagOwner_(auth) { return auth && auth.email ? String(auth.email).trim().toLowerCase() : ''; }
+
+// Distinct tag ids used by a test's questions, in first-seen order.
+function testTagIds_(test) {
+  var seen = {};
+  var out = [];
+  var qs = test && Array.isArray(test.questions) ? test.questions : [];
+  qs.forEach(function (q) {
+    (q && Array.isArray(q.tags) ? q.tags : []).forEach(function (id) {
+      id = String(id);
+      if (!seen[id]) { seen[id] = 1; out.push(id); }
+    });
+  });
+  return out;
+}
+
+function tagRowValues_(t) {
+  return [t.id, text_(t.ownerEmail), text_(t.name), t.color, text_(t.description), text_(t.firstTestCode), t.createdAt, t.updatedAt, t.deletedAt, t.mergedInto];
+}
+function tagFromRow_(v, row) {
+  return { row: row, id: String(v[0]), ownerEmail: String(v[1] || '').toLowerCase(), name: String(v[2] || ''), color: String(v[3] || 'gray'),
+    description: String(v[4] || ''), firstTestCode: String(v[5] || ''), createdAt: iso_(v[6]), updatedAt: iso_(v[7]), deletedAt: iso_(v[8]), mergedInto: String(v[9] || '') };
+}
+// Every Tags row, deleted ones too. Reading never creates the sheet.
+function readTagRows_() {
+  var existing = getSpreadsheet_().getSheetByName(TAGS_SHEET);
+  if (!existing || existing.getLastRow() < 2) return [];
+  var sheet = getSheet_(TAGS_SHEET, TAG_HEADERS);
+  var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, TAG_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < vals.length; i++) if (vals[i][0] !== '') out.push(tagFromRow_(vals[i], i + 2));
+  return out;
+}
+function tagMap_(rows) {
+  var m = {};
+  rows.forEach(function (t) { m[t.id] = t; });
+  return m;
+}
+function writeTagRow_(t) {
+  getSheet_(TAGS_SHEET, TAG_HEADERS).getRange(t.row, 1, 1, TAG_HEADERS.length).setValues([tagRowValues_(t)]);
+}
+function cleanTagName_(v) { return String(v == null ? '' : v).trim().slice(0, TAG_NAME_MAX); }
+function cleanTagDesc_(v) { return String(v == null ? '' : v).trim().slice(0, TAG_DESC_MAX); }
+function cleanTagColor_(v, fallback) { v = String(v == null ? '' : v); return TAG_COLORS.indexOf(v) >= 0 ? v : fallback; }
+function publicTag_(t) {
+  return { id: t.id, ownerEmail: t.ownerEmail, name: t.name, color: t.color, description: t.description,
+    firstTestCode: t.firstTestCode, createdAt: t.createdAt, updatedAt: t.updatedAt, mergedInto: t.mergedInto };
+}
+// Follows mergedInto to the live end of a chain (cycle-safe). null when the id is unknown.
+function resolveTag_(map, id) {
+  var cur = map[id];
+  var hops = 0;
+  while (cur && cur.mergedInto && map[cur.mergedInto] && hops < 20) { cur = map[cur.mergedInto]; hops++; }
+  return cur || null;
+}
+
+// Runs inside the publish lock. -> { tags: [...] } or { result: 'error', error: 'unknown_tag', ids }
+function upsertTagDefs_(used, tagDefs, who, testCode) {
+  var defs = {};
+  (Array.isArray(tagDefs) ? tagDefs : []).forEach(function (d) {
+    if (d && typeof d === 'object' && TAG_ID_RE.test(String(d.id))) defs[String(d.id)] = d;
+  });
+  var rows = readTagRows_();
+  var map = tagMap_(rows);
+  var unknown = used.filter(function (id) { return !defs[id] && !map[id]; });
+  if (unknown.length) return { result: 'error', error: 'unknown_tag', ids: unknown };
+  var now = new Date();
+  var nextRow = rows.reduce(function (m, t) { return Math.max(m, t.row); }, 1) + 1;
+  var out = [];
+  used.forEach(function (id) {
+    var def = defs[id];
+    var cur = map[id];
+    var applied;
+    if (!cur) {
+      cur = { row: nextRow++, id: id, ownerEmail: who, name: cleanTagName_(def.name) || 'Tag', color: cleanTagColor_(def.color, 'gray'),
+        description: cleanTagDesc_(def.description), firstTestCode: testCode, createdAt: now, updatedAt: now, deletedAt: '', mergedInto: '' };
+      writeTagRow_(cur);
+      map[id] = cur;
+      applied = 'created';
+    } else if (def && cur.ownerEmail === who) {
+      var name = cleanTagName_(def.name) || cur.name;
+      var color = cleanTagColor_(def.color, cur.color);
+      var desc = def.description === undefined ? cur.description : cleanTagDesc_(def.description);
+      if (name !== cur.name || color !== cur.color || desc !== cur.description) {
+        cur.name = name; cur.color = color; cur.description = desc; cur.updatedAt = now;
+        writeTagRow_(cur);
+        applied = 'updated';
+      } else applied = 'unchanged';
+    } else if (def && cur.ownerEmail !== who && (cleanTagName_(def.name) !== cur.name || cleanTagColor_(def.color, cur.color) !== cur.color)) {
+      applied = 'sheet_wins';
+    } else applied = 'unchanged';
+    var pub = publicTag_(cur);
+    pub.applied = applied;
+    out.push(pub);
+  });
+  return { tags: out };
+}
+
+// Counts over published tests, against the live end of any merge chain: { id: { questions, tests } }.
+function tagUsage_(map) {
+  var sheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
+  var usage = {};
+  var last = sheet.getLastRow();
+  if (last < 2) return usage;
+  sheet.getRange(2, 4, last - 1, 1).getValues().forEach(function (r) {
+    var t = parseJson_(r[0], null);
+    if (!t || !Array.isArray(t.questions)) return;
+    var inTest = {};
+    t.questions.forEach(function (q) {
+      var seen = {};
+      (q && Array.isArray(q.tags) ? q.tags : []).forEach(function (raw) {
+        var end = resolveTag_(map, String(raw));
+        var id = end ? end.id : String(raw);
+        if (seen[id]) return;
+        seen[id] = 1;
+        usage[id] = usage[id] || { questions: 0, tests: 0 };
+        usage[id].questions++;
+        if (!inTest[id]) { inTest[id] = 1; usage[id].tests++; }
+      });
+    });
+  });
+  return usage;
+}
+
+function listTags_() {
+  var map = tagMap_(readTagRows_());
+  var rows = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return a.row - b.row; });
+  var usage = cached_(TAG_USAGE_KEY, CACHE_TTL, function () { return tagUsage_(map); });
+  return {
+    result: 'success',
+    tags: rows.filter(function (t) { return !t.deletedAt; }).map(function (t) {
+      var pub = publicTag_(t);
+      pub.ownerName = t.ownerEmail ? t.ownerEmail.split('@')[0] : '';
+      pub.usage = usage[t.id] || { questions: 0, tests: 0 };
+      return pub;
+    })
+  };
+}
+
+// -> { tag } | { error: 'not_on_sheet' | 'owner_only' }
+function ownedTag_(map, id, auth) {
+  var t = map[String(id || '')];
+  if (!t) return { error: 'not_on_sheet' };
+  if (t.ownerEmail !== tagOwner_(auth)) return { error: 'owner_only' };
+  return { tag: t };
+}
+
+function saveTag_(body, auth) {
+  var d = body && body.tag;
+  if (!d || typeof d !== 'object' || !TAG_ID_RE.test(String(d.id))) return { result: 'error', error: 'invalid_request' };
+  return withLock_(function () {
+    var map = tagMap_(readTagRows_());
+    var o = ownedTag_(map, d.id, auth);
+    if (o.error) return { result: 'error', error: o.error };
+    var t = o.tag;
+    if (d.name !== undefined) t.name = cleanTagName_(d.name) || t.name;
+    if (d.color !== undefined) t.color = cleanTagColor_(d.color, t.color);
+    if (d.description !== undefined) t.description = cleanTagDesc_(d.description);
+    t.updatedAt = new Date();
+    writeTagRow_(t);
+    return { result: 'success', tag: publicTag_(t) };
+  });
+}
+
+function deleteTag_(body, auth) {
+  var id = String(body && body.id || '');
+  return withLock_(function () {
+    var map = tagMap_(readTagRows_());
+    var o = ownedTag_(map, id, auth);
+    if (o.error) return { result: 'error', error: o.error };
+    var t = o.tag;
+    if (!t.deletedAt) {
+      t.deletedAt = new Date();
+      t.updatedAt = t.deletedAt;
+      writeTagRow_(t);
+    }
+    return { result: 'success', id: id };
+  });
+}
+
+// Replaces `from` with `into` in the caller's own published tests (the Tests sheet's Owner column) and marks `from` merged.
+function mergeTags_(body, auth) {
+  var from = String(body && body.from || '');
+  var into = String(body && body.into || '');
+  if (!from || !into || from === into) return { result: 'error', error: 'invalid_request' };
+  return withLock_(function () {
+    var map = tagMap_(readTagRows_());
+    var a = ownedTag_(map, from, auth);
+    if (a.error) return { result: 'error', error: a.error };
+    var b = ownedTag_(map, into, auth);
+    if (b.error) return { result: 'error', error: b.error };
+    if (a.tag.deletedAt || b.tag.deletedAt) return { result: 'error', error: 'not_on_sheet' };
+    var end = resolveTag_(map, into);
+    if (end && end.id === from) return { result: 'error', error: 'invalid_request' };
+    var who = tagOwner_(auth);
+    var sheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
+    var last = sheet.getLastRow();
+    var rewrittenTests = 0;
+    var rewrittenQuestions = 0;
+    var now = new Date();
+    if (last >= 2) {
+      var vals = sheet.getRange(2, 1, last - 1, 5).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][4] || '').trim().toLowerCase() !== who) continue;
+        var t = parseJson_(vals[i][3], null);
+        if (!t || !Array.isArray(t.questions)) continue;
+        var changed = 0;
+        t.questions.forEach(function (q) {
+          if (!q || !Array.isArray(q.tags) || q.tags.map(String).indexOf(from) < 0) return;
+          var next = [];
+          q.tags.forEach(function (x) {
+            x = String(x) === from ? into : String(x);
+            if (next.indexOf(x) < 0) next.push(x);
+          });
+          q.tags = next;
+          changed++;
+        });
+        if (!changed) continue;
+        var json = JSON.stringify(t);
+        if (json.length > MAX_CELL_CHARS) continue;
+        sheet.getRange(i + 2, 3, 1, 2).setValues([[now, json]]);
+        rewrittenTests++;
+        rewrittenQuestions += changed;
+      }
+    }
+    a.tag.mergedInto = into;
+    a.tag.deletedAt = now;
+    a.tag.updatedAt = now;
+    writeTagRow_(a.tag);
+    return { result: 'success', into: publicTag_(b.tag), rewrittenTests: rewrittenTests, rewrittenQuestions: rewrittenQuestions };
+  });
+}
+
+// { id: { name, color } } for the ids a test uses, keyed by the id as stored. Deleted tags keep their name, merged ids
+// resolve to the live target, unknown ids are left out.
+function tagIndexFor_(test) {
+  var ids = testTagIds_(test);
+  if (!ids.length) return {};
+  var map = tagMap_(readTagRows_());
+  var out = {};
+  ids.forEach(function (id) {
+    var t = resolveTag_(map, id);
+    if (t) out[id] = { name: t.name, color: t.color };
+  });
+  return out;
 }
 
 function listTests_(body) {
@@ -1046,8 +1325,12 @@ function submissionRow_(v) {
 // v5 B2: cache keys cleared by each write (reads cache tests:list, settings, classes:list, roster:<id>).
 function bustFor_(body) {
   switch (body.action) {
-    case 'publishTest': case 'deleteTest': case 'saveGrade': case 'releaseAll': case 'allowRetake': case 'applyRegrade':
+    case 'publishTest': case 'deleteTest':
+      return bust_('tests:list', TAG_USAGE_KEY);
+    case 'saveGrade': case 'releaseAll': case 'allowRetake': case 'applyRegrade':
       return bust_('tests:list');
+    case 'saveTag': case 'deleteTag': return bust_(TAG_USAGE_KEY);
+    case 'mergeTags': return bust_(TAG_USAGE_KEY, 'tests:list');
     case 'saveClass': return bust_('classes:list', 'roster:' + String((body.cls && body.cls.id) || body.id || ''));
     case 'deleteClass': return bust_('classes:list', 'roster:' + String(body.id || ''));
     case 'saveSettings': return bust_('settings');
@@ -1121,12 +1404,14 @@ function getFeedback_(body) {
   var v = sheet.getRange(row, 1, 1, SUBMISSION_HEADERS.length).getValues()[0];
   if (String(v[COL.EMAIL - 1]).trim().toLowerCase() !== who.email) return { result: 'error', error: 'not_authorized' };
   var releasedAt = iso_(v[COL.RELEASED_AT - 1]);
-  if (!releasedAt) return { result: 'success', released: false };
+  var idx = tagIndexFor_(publishedTest_(normalizeCode_(v[4])));
+  if (!releasedAt) return { result: 'success', released: false, tagIndex: idx };
   var finalScore = v[COL.FINAL_SCORE - 1];
   var finalPct = v[COL.FINAL_PCT - 1];
   return {
     result: 'success',
     released: true,
+    tagIndex: idx,
     released_at: releasedAt,
     status: String(v[COL.STATUS - 1] || ''),
     final_score: finalScore === '' || finalScore === null ? num_(v[6]) : num_(finalScore),
@@ -1740,7 +2025,7 @@ function getTestFor_(body) {
   if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
   if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
   if (test.rosterOnly === true && (!who.email || !rosterOk_(test, who.email).ok)) return { result: 'error', error: 'not_on_roster', title: test.title || '' };
-  return { result: 'success', test: test, window: w, accommodations: acc };
+  return { result: 'success', test: test, window: w, accommodations: acc, tagIndex: tagIndexFor_(test) };
 }
 
 // ---------- regrade (S12): the admin client re-grades stored answers with the fixed key and sends the new responses ----------

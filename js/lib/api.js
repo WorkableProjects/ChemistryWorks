@@ -327,3 +327,12 @@ export const remindMissing = ({ gasUrl, adminKey, id, fetchImpl } = {}) => admin
 // Student.
 export const getClassHub = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getClassHub', {}, { gasUrl, idToken, fetchImpl });
 export const markNotificationsRead = ({ gasUrl, idToken, ids, all, fetchImpl } = {}) => studentCall('markNotificationsRead', { ids, all }, { gasUrl, idToken, fetchImpl });
+
+// ---------- v6 (B3): tags ----------
+// -> { ok, data: { tags: [{ id, ownerEmail, ownerName, name, color, description, firstTestCode, createdAt, updatedAt, mergedInto, usage: { questions, tests } }] } }
+export const listTags = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTags', {}, { gasUrl, adminKey, fetchImpl });
+// tag: { id, name?, color?, description? }. Owner only; edits a Sheet tag, never creates one.
+export const saveTag = ({ gasUrl, adminKey, tag, fetchImpl } = {}) => adminCall('saveTag', { tag }, { gasUrl, adminKey, fetchImpl });
+export const deleteTag = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteTag', { id }, { gasUrl, adminKey, fetchImpl });
+// -> { ok, data: { into, rewrittenTests, rewrittenQuestions } }
+export const mergeTags = ({ gasUrl, adminKey, from, into, fetchImpl } = {}) => adminCall('mergeTags', { from, into }, { gasUrl, adminKey, fetchImpl });
