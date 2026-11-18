@@ -616,3 +616,286 @@ Partial credit follows the existing `partialCredit` flag. Demo: one question per
 ### S06a profile data layer (`js/lib/profile.js`, `js/lib/sync.js`)
 - `profile:<email>` also holds `xpMigrated` (one-time local XP sent as the first sync delta) and `server` (cached `getStudentProfile` result: profile, results, attempts, assigned, hub). `sync.js` keeps its queue in `syncq:<email>`.
 - Profile shape for the home page is documented at the top of `js/lib/profile.js`. `openAttempt` attaches sync when `studentHome` is on (`attempt.unsync()` detaches).
+
+## V6 contracts (docs/v6/v6plan.md)
+
+Written by W0. Every v6 agent codes against this section. If you must change a contract, change it here in the same commit and say so in your report. Each agent adds notes only under its own `### <agent ID> …` heading at the end of this section.
+
+Decisions that bind every contract below (see `docs/v6/delegations/README.md`): answer keys stay in the browser (no server-side grading, no key stripping, no `checkAnswer`); admin sign-in is Google only (no access code); `ADMIN_KEY` is only the backend's Sheet credential; tags stay local until a published test uses them; Classroom grades go as `draftGrade` until released; Classroom sync runs as the deploying account.
+
+### TypeDef (all 42 types)
+
+All 42 types (the 20 built-ins and the 22 registry types) use one contract. A type is three modules plus a fixture:
+
+| Module | Path | Loaded | Holds |
+|---|---|---|---|
+| Definition | `js/lib/qtypes/<type>.js` | statically, by `js/lib/qtypes/index.js` (the renamed `v4-types.js`) | pure logic, no DOM, runs in Node |
+| UI | `js/views/qtypes/<type>.js` | lazily, `loadTypeUI(type)` | `render`, optional `review` |
+| Editor | `js/views/admin/editors/<type>.js` | lazily, `loadTypeEditor(type)` | `edit` |
+| Fixture | `test/fixtures/types/<type>.json` | by tests only | answers for the conformance test |
+
+Definitions stay small and synchronous, so `schema.js`, `grading.js`, export and the modes never wait on a type and never import UI code. A definition registers itself with `registerType(def)` when `qtypes/index.js` imports it. Registry API (`js/lib/qtypes/registry.js`): `registerType(def)`, `typeDef(type)` (now non-null for every one of the 42 types), `registeredTypes()`. After S06b no consumer has a `switch` on a type name; an unknown type is a validation error.
+
+**Definition (`js/lib/qtypes/<type>.js`).** Every function is required unless marked optional.
+```js
+{
+  type: 'mcq', label: 'Multiple choice', shortLabel: 'MCQ',
+  group: 'Basics' | 'Match & sort' | 'Chemistry' | 'Diagrams & graphs',
+  manual: false,                                  // true = teacher graded (short, open, orbital, ...)
+  normalize(q, H),                                // mutate q in place: defaults, coercion, tags kept. q.type/id/points/text are already done
+  validate(q, where, errors, H),                  // push strings `${where}: ...`; never throw
+  blank(base) -> question,                        // builder "Add question" template; base = { id, type, text, points }
+  isAnswered(q, answer) -> boolean,
+  grade(q, answer, H) -> { fraction, full },      // fraction 0..1, full = fraction === 1. Manual types return { fraction: 0, full: false }
+  format(q, answer) -> string,                    // the student's answer as text (results, CSV, grading list)
+  keyText(q) -> string,                           // the correct answer as text
+  correctAnswer(q) -> any,                        // stored as `correctAnswer` in graded results
+  toPdf(q, answer, H) -> string[],                // optional; lines of text the PDF / print export prints for this response. Default: [format(q, answer)]
+}
+```
+`score(q, answer, H)` in the 22 existing definitions is renamed `grade` (S05, one pass). `answerText` is renamed `format`. `H` is the helper bag the callers pass in, so type modules never import `schema.js` or `grading.js` (no import cycle): `{ normalizeQuestion, validateQuestion, gradeQuestion, isAnswered, formatAnswer, correctAnswerText, parseNumber }`.
+
+**UI module (`js/views/qtypes/<type>.js`).** Default export:
+```js
+export default {
+  type: 'mcq',
+  render(widgetCtx) -> { el, refresh(answer), focus(), destroy?() },   // student widget
+  review(q, answer, { key, size }) -> Node | null,                    // optional visual for results, grading, export
+};
+// widgetCtx = { q, api: { get(id), set(id, value, { debounce }) }, readOnly, uid }
+```
+`widgetCtx.api` is the same `api` the runner has always passed to `buildWidget(q, api)`. The answer value `render` writes with `api.set` is the answer value every definition function receives. Every widget root keeps `data-testid="<type>-widget"` and its existing part testids.
+
+**Editor module (`js/views/admin/editors/<type>.js`).** Default export `{ type, edit(editorCtx) -> Node }`, `editorCtx = { q, redraw, changed, uid }` (the arguments `typeEditor(q, redraw, changed, uid)` always had).
+
+**Loaders (`js/lib/qtypes/registry.js` for the map, called from the views):** `loadTypeUI(type) -> Promise<UIModule>` and `loadTypeEditor(type) -> Promise<EditorModule>`. Each is a static map of `type -> () => import(...)`, so the paths stay relative and statically analysable. Both cache the promise. `typeUI(type)` returns the module synchronously once loaded, else `null`. An unknown type rejects with `unknown_type:<type>`. The landing page loads no type UI.
+
+**CSS per type:** `css/qt-<type>.css`, loaded by the type's UI module through `ensureCss('qt-<type>')`. Shared widget styles stay in `css/qtypes.css`.
+
+**Answer fixtures (`test/fixtures/types/<type>.json`).** One file per type, 42 in total:
+```json
+{ "question": { "id": "mcq-1", "type": "mcq", "text": "...", "points": 2 },
+  "correct": "<answer value>", "wrong": "<answer value>", "partial": "<answer value, optional>" }
+```
+- `question` is a raw question, as a teacher would write it.
+- `correct`, `wrong` and `partial` are values the widget would produce through `api.set`.
+- `partial` is present only when the type gives partial credit.
+- The conformance test runs `normalize` on `question` first. Then it requires: `validate` returns no errors; `grade(correct).full`; `grade(wrong).fraction === 0`; `0 < grade(partial).fraction < 1`; `format`, `keyText` and `toPdf` return non-empty text for `correct`; the question renders in the runner and every mode, accepts the `correct` answer, and shows in results and the PDF view with no console error.
+- For a `manual: true` type, `wrong` is a blank answer. The test then requires `isAnswered(correct)`, `!isAnswered(wrong)` and that `grade` is never `full`.
+- `test/fixtures/v5/<type>.json` files are question arrays only. S02c moves them into this shape and deletes the folder.
+
+### Kill switches
+
+- `CONFIG.KILL_SWITCHES = Object.freeze({ classHub: false, gameModes: false, studentSync: false })` in `js/config.js`. All default `false`. It replaces `CONFIG.FEATURES`, `feature(name)` and the `?features=` URL handling, which are deleted.
+- Override per page with `window.CHEMISTRYWORKS_CONFIG = { KILL_SWITCHES: { classHub: true } }`. Overrides merge over the defaults. There is no URL override.
+- `killed(name, config = CONFIG) -> boolean`: true only when the value is exactly `true`. An unknown name is `false`.
+- What a kill switch does:
+  - `classHub`: hides class pages, assignments, the stream and notifications for students, and the Class Hub nav for teachers. Student home still works.
+  - `gameModes`: the mode switcher is hidden and the runner stays in Study.
+  - `studentSync`: `sync.js` never starts and no `syncProgress` call is made. Progress stays on the device.
+- Wiring points (S08a): hub nav and the student class page, the mode switcher, `sync.js` start. Nothing else reads these.
+
+### CSS loading
+
+- `ensureCss(name) -> Promise<void>` in `js/lib/css-loader.js`. `name` is a file stem under `css/` (`'hub'` loads `css/hub.css`).
+- The URL is built from `import.meta.url`, so it stays relative under the `/ChemistryWorks/` Pages path, and always ends in `?v=` + `SITE_VERSION`.
+- It is idempotent: a stylesheet is added once (tracked with a `data-css` attribute) and later calls return the same promise.
+- It never rejects: it resolves on load, on error, or after 3 seconds. A missing sheet must not block a view.
+- `index.html` links only `css/base.css` and `css/landing.css` (plus fonts and KaTeX). Every other stylesheet is loaded by the view that owns it. Every CSS and JS URL in `index.html` carries `?v=` + `SITE_VERSION`; the boot script in `index.html` reads the version from `js/version.js`.
+- Ownership (a view calls `ensureCss` for its own sheets before it renders):
+
+| Owner | Stylesheets |
+|---|---|
+| Runner, modes, tools | `runner`, `modes`, `game`, `tools`, `references` |
+| Results, submitted, feedback | `results`, `feedback`, `export`, `diagrams` |
+| Student home, profile, status | `home`, `status` |
+| Class page, notifications | `hub` |
+| Appearance panel | `appearance` |
+| Admin shell and every admin view | `admin-shell`, `admin`, `hub-admin`, `admin-student`, `grading` |
+| Admin → Tags (S12a) | `tags` |
+| Google Classroom UI (S12c) | `classroom` |
+| Each question type | `qt-<type>` |
+| Print | `print`, linked once with `media="print"` |
+
+### Backend errors
+
+- Reply shape for every error: `{ result: 'error', error: '<code>', ref?: '<shortId>' }`. `ref` is 6 lowercase base-36 characters, always present on `server_error`.
+- `doGet` and `doPost` catch-alls log the full `String(err)` and stack to the `Errors` sheet (`Page` = `backend:<action>`, `Message` = `[<ref>] <message>`, `Detail` = stack) and reply `{ result: 'error', error: 'server_error', ref }`. The error text never reaches the client.
+- `getTest` keeps its older shape for refusals, `{ error, opensAt?, closesAt?, title? }` with no `result` (the client's `fetchPublishedTestResult` depends on it). Clients check `error` first.
+- Codes:
+
+| Code | Meaning | Client treats as |
+|---|---|---|
+| `server_error` | Unexpected failure; has `ref` | retry (outbox) |
+| `busy` | Lock or `tryLock` timed out; may carry `retryAfter` seconds | retry |
+| `rate_limited` | Per-sender or global limit | retry later |
+| `locked` | Too many bad `ADMIN_KEY` attempts this hour | final until the hour ends |
+| `unknown_action`, `invalid_request`, `invalid_json`, `invalid_id`, `invalid_date`, `invalid_email`, `invalid_test`, `invalid_role`, `missing_*` | Bad input | final |
+| `unauthorized` | No token and not allowed without one | sign in |
+| `invalid_token` | Token invalid, expired or for another audience | refresh the token once, then sign in |
+| `not_authorized` | Valid token, but the row belongs to someone else (feedback) | final |
+| `not_admin`, `owner_only`, `last_owner`, `cannot_remove_self`, `admin_key_not_configured` | Admin rules | final |
+| `not_found` | No such row | final |
+| `not_open`, `closed` | Outside the test's window | final |
+| `not_on_roster` | Roster-only test, student not listed | final |
+| `single_submission` | Reserved: a second submission to a single-submission test. Today the backend stores the extra row as `Extra attempt` and replies success | final |
+| `submission_too_large`, `test_too_large`, `too_large`, `comments_too_large`, `class_too_large`, `item_too_large` | Size limits | final |
+| `leaderboard_off`, `error_reports_off` | Switched off in Settings | final |
+| `unknown_tag` | Publish references a tag id that is neither in `tagDefs` nor on the Sheet; reply adds `ids: string[]` | fix and republish |
+| `not_on_sheet` | `saveTag` or `mergeTags` on an id that is not a Sheet tag | final |
+| `classroom_not_linked` | Class has no `classroomCourseId`, or the assignment has no `classroomCourseWorkId` | link first |
+| `classroom_course_not_found` | The course id is not one of the deploying account's active courses | final |
+| `classroom_not_teacher` | Classroom replied 403: the deploying account is not a teacher of the course | final |
+| `classroom_not_our_coursework` | Classroom replied `ProjectPermissionDenied`: this project did not create the coursework | final |
+| `classroom_rate_limited` | Classroom quota hit; reply may carry a `cursor` to resume | retry |
+| `classroom_error` | Any other Classroom failure; adds `detail` (short text) | show, retry |
+
+### Submit
+
+- The client posts a student submission to `GAS_WEB_APP_URL` with `Content-Type: text/plain;charset=utf-8` (a simple request, so no preflight), a JSON string as the body, normal CORS (no `mode: 'no-cors'`), and reads the reply. The body is the existing payload plus `submission_id` and, at send time only, `idToken`. The token is never stored in the outbox.
+- The backend treats `submission_id` as the idempotency key. A repeat replies `{ result: 'success', duplicate: true }`, so retrying is always safe.
+- Outcome rules (`js/lib/submit.js`, 15 second timeout):
+
+| Reply | Result |
+|---|---|
+| `{ result: 'success' }` (including `duplicate: true`) | Done. Remove from the outbox, keep in `localResults` |
+| A final error: `closed`, `not_open`, `not_on_roster`, `single_submission`, `submission_too_large`, `invalid_request`, `invalid_email`, `missing_*`, `unauthorized` | Show the message. Do not queue |
+| Network error, timeout, non-JSON reply, `server_error`, `busy`, `rate_limited`, `invalid_token` | Keep in the outbox with the same `submission_id`. Show "Not sent yet — we'll retry" with a Retry button |
+
+- `invalid_token` retries after one silent token refresh; if there is still no valid token, the submission waits in the outbox until the student signs in.
+- The outbox (`outbox` storage key, `Payload[]`) is flushed on page load, on `online`, on Retry and on a timer with backoff. The client never drops an outbox item; only a `success` or a final error removes it.
+- There is no Netlify channel and no `NETLIFY_FORMS`.
+
+### Identity
+
+- `verifyStudent_(body)` validates `idToken` (Google `tokeninfo`, cached up to 6 hours) and returns `{ email, name }` from the token. A client-supplied email is never used when a token is present.
+- Submissions: with a valid token, the stored `Student Email` and `Student Name` come from the token (if the token has no `name` claim, the body's name is kept as display text only, through `text_()`). The single-submission check and the roster check use the stored email.
+- Without a token, the submission is accepted only when the script property `ALLOW_UNVERIFIED_EMAIL` is `true` (local and demo only). Otherwise the reply is `unauthorized`.
+- A new `Identity` column on `Submissions` (added by `getSheet_`'s header migration) holds `verified` or `unverified`. Grading and results show an "Unverified" mark for `unverified` rows.
+- `getTest` over GET returns `{ error: 'not_on_roster' }` for a `rosterOnly` test. Roster-only tests are served only through the POST path with a valid token.
+- `getFeedback` requires a valid token, and the token's email must equal the row's email. Otherwise `unauthorized`, `invalid_token` or `not_authorized`.
+- Every user-supplied cell goes through `text_()` (it prefixes `'` before a leading `=`, `+`, `-` or `@`). A backend test writes `=HYPERLINK("x")` to every string field of every action and asserts that no stored cell starts with one of those characters.
+- `reportError` limits per sender (token email, else a client-supplied ID, hashed): 20 per hour, plus a global limit of 500 per hour.
+- Client-trusted values (B1):
+  - `streakDays` is computed on the server from activity dates; the client's value is ignored.
+  - Badges are accepted only if the id is in `BADGE_IDS` in `Code.gs`, which must equal the ids in `BADGES` in `js/lib/xp.js` (a unit test compares the two lists).
+  - `submitGameScore` caps the score at `min(100000, perQuestion[mode] * questionCount + flat[mode])`, where `questionCount` is the number of questions in the test. A score above the cap is clamped, not rejected. The ceilings come from the mode rules, bonuses included, and may be raised only together with a test:
+
+| Mode | `perQuestion` | `flat` |
+|---|---|---|
+| `classic` | 1500 | 0 |
+| `lightning` | 150 | 0 |
+| `survival` | 100 × the test's highest question points + 50 | 0 |
+| `boss` | 100 × the test's highest question points + 50 | 1000 |
+| `tower`, `matchup`, `mistakes` | 100 | 0 |
+| `bingo` | 100 | 2500 |
+| `quizshow` | 500 | 0 |
+| `race` | 150 | 0 |
+| `study`, `flashcards` | 0 | 0 |
+
+### Admin access
+
+- An admin is a Google account whose email is on the `Admins` sheet (seeded from the `ADMIN_EMAILS` script property). Admin POSTs carry `idToken`; the backend checks the token, then the sheet. `whoami` returns `{ email, role, via }`. Roles are `owner` and `admin`.
+- There is no access code. `ADMIN_ACCESS_CODE`, `accessCodeGate()`, the "Use access code instead" button and the `adminUnlocked` storage key are deleted.
+- `ADMIN_KEY` (script property) is only the backend's credential for Sheet access: set-up and recovery, for example before the `Admins` sheet has an owner. It is sent as `adminKey` in the POST body, typed into admin → Settings → "Sheet key", kept in session storage (`adminKey`), and never required to open the admin panel. The backend compares it in constant time and, after 10 failures in an hour (counted in `CacheService`), replies `locked` until the hour ends.
+- Demo admin sign-in exists only when Google is not configured: `demoAdminAllowed(config)` is true only when `config.GOOGLE_CLIENT_ID` is empty. It must be impossible when a client ID is set (unit test). Local dev and e2e set `GOOGLE_CLIENT_ID: ''` through `window.CHEMISTRYWORKS_CONFIG`. The demo admin only ever talks to mock backends.
+
+### Tags (V6-09 B)
+
+**Two homes.** A tag is local (browser storage, like a draft) until a published test uses it. Publishing writes it to the `Tags` sheet; from then on the Sheet is the source of truth. Only the owner edits a Sheet tag; any admin can use it. Local tags never call the backend.
+
+**`Tags` sheet columns:** `id, ownerEmail, name, color, description, firstTestCode, createdAt, updatedAt, deletedAt, mergedInto`. Created lazily by `getSheet_`. Rows exist only for tags a published test has used. Deleting sets `deletedAt` (the row stays so old results keep the name). `name` (max 40 characters) and `description` (max 200) go through `text_()`.
+
+**Fields**
+- `id`: `tg_` + 6 lowercase base-36 characters (`/^tg_[0-9a-z]{6}$/`), made in the browser when the tag is created, and never changed.
+- `color`: one of `blue | violet | teal | green | orange | rose | gray` (the accent names; no raw colour values). Each maps to a token when rendered, and text contrast is checked with `contrast.js`.
+
+**Local store.** Storage key `tags:<email>` through `storage.js`, which adds the `cw:` prefix, so the localStorage key is `cw:tags:<email>`. Value: an array of
+```js
+{ id, name, color, description, onSheet, updatedAt }   // onSheet: false until a publish succeeds, then true
+```
+Same lifetime as drafts. `js/lib/backup.js` includes it. A tag with `onSheet: true` is edited through `saveTag`, not locally; its local record is a cached copy.
+
+**Question field.** `q.tags: string[]` of ids only, never names. At most 10 per question, de-duplicated. `normalize` keeps it. `validate` warns about an id that is neither local nor on the Sheet and errors on more than 10. The importer accepts tag names (`"tags": ["Ions"]`) and maps them to ids: local tags first, then Sheet tags, then it offers to create local tags for the rest.
+
+**`publishTest`** gains a field: `tagDefs: [{ id, name, color, description }]`, the definitions of every tag any question uses.
+- In the same locked write, a new id becomes a Sheet row owned by the publisher (`firstTestCode` = the test code).
+- An id already on the Sheet: the Sheet's name and colour win, unless the publisher owns the row, in which case the publisher's values are applied.
+- If a question references an id that is in neither `tagDefs` nor the Sheet: `{ result: 'error', error: 'unknown_tag', ids: [...] }` and nothing is published.
+- The success reply adds `tags: [{ id, ownerEmail, name, color, description, applied: 'created' | 'updated' | 'unchanged' | 'sheet_wins' }]`. The builder updates its local records from it and sets `onSheet: true`.
+- Unpublishing or deleting a test never deletes a Sheet tag.
+
+**Actions (admin POST, token required):**
+
+| Action | Request | Reply |
+|---|---|---|
+| `listTags` | `{}` | `{ result: 'success', tags: [{ id, ownerEmail, ownerName, name, color, description, firstTestCode, createdAt, updatedAt, mergedInto, usage: { questions, tests } }] }`: non-deleted rows; `usage` is counted over published tests (cached, cleared on a publish or tag write). The picker's Shared list shows other owners' tags with `usage.tests > 0` |
+| `saveTag` | `{ tag: { id, name?, color?, description? } }` | `{ result: 'success', tag }`. Owner only (`owner_only`). Edits an existing Sheet tag; it never creates one (`not_on_sheet`) |
+| `deleteTag` | `{ id }` | `{ result: 'success', id }`. Owner only. Soft delete |
+| `mergeTags` | `{ from, into }` | `{ result: 'success', into: tag, rewrittenTests, rewrittenQuestions }`. Owner of both, `from !== into`. In one locked pass it replaces `from` with `into` in the owner's published tests (de-duplicating) and sets `from.mergedInto = into` and `from.deletedAt`. Other owners' tests keep the old id; it resolves through `mergedInto` (chains are followed) |
+
+**`tagIndex`.** `getTest` (GET and POST), `getTestFor_` and `getFeedback` replies include `tagIndex: { [id]: { name, color } }` for the ids the test's questions use, keyed by the id as stored in the test. A deleted tag keeps its name. A merged id resolves to the target's name and colour. An id that is not found is simply missing, and the client shows "Unknown tag". Students and the PDF export read names from `tagIndex`; admin views read the `tags` store resource (`listTags`). Raw ids are never shown.
+
+**Client API (`js/lib/api.js`, appended):** `listTags`, `saveTag`, `deleteTag`, `mergeTags`. `js/lib/tags.js` offers `resolve(ids)` (local, then Sheet, following `mergedInto`) and `tagDefsFor(test)`.
+
+### Google Classroom (V6-09 A)
+
+**Who it runs as.** The script runs as the deploying account (`executeAs: USER_DEPLOYING`). Classroom calls use the Classroom advanced service (`Classroom`, v1) and work only for courses where that account is a teacher. Every reply below that touches Classroom includes `syncAccount`, the effective user's email, so the UI can say "Syncs as <email>". ChemistryWorks creates the Classroom assignment itself, because the API lets a project change grades only on coursework that project created.
+
+**Scopes (`apps-script/appsscript.json`).** `dependencies.enabledAdvancedServices` lists `Classroom` v1. `oauthScopes` lists every scope the script already uses plus:
+- `https://www.googleapis.com/auth/classroom.courses.readonly`
+- `https://www.googleapis.com/auth/classroom.rosters.readonly`
+- `https://www.googleapis.com/auth/classroom.profile.emails`
+- `https://www.googleapis.com/auth/classroom.coursework.students`
+
+No client-side Google scope changes; students never see a Classroom prompt. Re-running `setup()` asks the deployer to approve the new scopes once.
+
+**Sheets**
+- `ClassroomSync` (new): `assignmentId, email, courseWorkId, submissionId, sentGrade, sentAt, status, error`. One row per (`assignmentId`, `email`), upserted. `sentGrade` is the points last sent. `status` is `draft` (draft grade sent), `assigned` (assigned grade sent) or `failed`. `submissionId` is the Classroom student submission id.
+- `Classes.classroomCourseId` (new column).
+- `Classes.autoSyncClassroom` (new column, `true` or `false`; the class setting for auto-sync on release).
+- `Assignments.classroomCourseWorkId` (new column).
+- `getSheet_` adds missing columns as it does today.
+
+**Actions (admin POST, token required):**
+
+| Action | Request | Reply |
+|---|---|---|
+| `listClassroomCourses` | `{}` | `{ result, courses: [{ id, name, section, room, courseState }], syncAccount }`: `Courses.list({ teacherId: 'me', courseStates: ['ACTIVE'] })`, all pages |
+| `linkClassroomCourse` | `{ classId, courseId }` (`courseId: ''` unlinks) | `{ result, classId, classroomCourseId, courseName, syncAccount }`; `classroom_course_not_found` if the course is not one of the account's courses |
+| `importClassroomRoster` | `{ classId, mode: 'merge' \| 'replace' }` (default `merge`) | `{ result, added, total, skippedNoEmail }`: emails from `Courses.Students.list`, lower-cased, merged into the class roster (`Emails (JSON)`) |
+| `saveAssignment` | the existing `assignment` plus `postToClassroom: boolean` | the existing reply, plus `assignment.classroomCourseWorkId`, `classroomState` (`DRAFT` or `PUBLISHED`), and `classroomError` (a code) when posting failed. The assignment is saved either way; saving again retries |
+| `deleteAssignment` | `{ id, deleteInClassroom?: boolean }` | the existing reply plus `classroomDeleted: boolean`. Coursework is deleted in Classroom only when `deleteInClassroom` is `true` |
+| `previewGradeSync` | `{ assignmentId }` | `{ result, courseWorkId, maxPoints, syncAccount, counts, rows: [{ email, name, points, possible, released, classroomDraft, classroomAssigned, lastSent, action }] }` |
+| `syncGrades` | `{ assignmentId, overwrite?: boolean, emails?: string[], cursor?: string }` | `{ result, done, cursor, synced, failed, skipped, results: [{ email, status, error? }] }` |
+
+`postToClassroom: true` creates coursework with the assignment's title, `description` = instructions + the test link (`?code=<CODE>`), `maxPoints` = the test's total points, the due date and time from `dueAt`, `workType: 'ASSIGNMENT'` and `materials: [{ link }]`. `state` is `DRAFT` when `publishAt` is in the future (the `publishDueClassroomWork_` trigger publishes it once `publishAt` has passed), otherwise `PUBLISHED`. If the assignment already has a `classroomCourseWorkId`, saving updates that coursework instead of creating another.
+
+**Grade rules**
+- The grade is `round(fraction × maxPoints, 2)`, where `fraction` is the student's final score (after teacher grading and regrades) over the test's points, taken from the submission ChemistryWorks counts for that student (an `Extra attempt` never counts).
+- A student with no counted submission, or with teacher-graded questions still ungraded, is `skipped_not_graded`.
+- Released submission (`Released At` set): send `assignedGrade` and `draftGrade`, both set to the grade. Graded but not released: send `draftGrade` only (only the teacher sees it in Classroom). A student already synced as `assigned` is never moved back to draft-only (that row is `same`).
+- Students are matched by lower-cased email against Classroom `userProfiles.emailAddress`, restricted to the linked class's roster. A roster student who is not in the Classroom course is `skipped_not_on_roster`. Classroom students who are not on the class roster are ignored.
+- `action` values: `new` (Classroom has no grade), `update` (our value or release state changed since the last sync and Classroom still holds what we sent), `same` (nothing to do), `skipped_not_on_roster`, `skipped_not_graded`, `skipped_teacher_changed`.
+- **Overwrite guard:** compare Classroom's current value (the assigned grade when the target state is `assigned`, else the draft grade) with the last value we sent (`ClassroomSync.sentGrade`). If Classroom holds a grade we did not send (it differs from `sentGrade`, or there is no `ClassroomSync` row at all), the row is `skipped_teacher_changed`. Only `syncGrades` with `overwrite: true` writes those rows; without it they are reported as skipped and never written.
+- `syncGrades` applies `StudentSubmissions.patch` with an `updateMask` (`draftGrade`, or `draftGrade,assignedGrade`), about 100 ms apart. It stops at about 25 seconds and returns `done: false` with an opaque `cursor`; the client calls again with it until `done`. Each student gets a `ClassroomSync` row and a `Log` row. The tracker shows "Synced <time>" from `sentAt`.
+- Errors per student: `ProjectPermissionDenied` gives `classroom_not_our_coursework`; a 403 gives `classroom_not_teacher`; anything else gives `classroom_error`. A failure marks that student's row `failed` and the sync carries on with the next student.
+- Auto-sync: when `Classes.autoSyncClassroom` is true, `releaseAll` and `saveGrade({ release: true })` sync the affected students on a best-effort basis. A failure never fails the release; it is recorded as `failed` and the tracker offers Retry.
+- Without Classroom, the CSV export stays, reformatted so Classroom's "Import grades" accepts it.
+
+**Client API (`js/lib/api.js`, appended by B4):** `listClassroomCourses`, `linkClassroomCourse`, `importClassroomRoster`, `previewGradeSync`, `syncGrades`. `saveAssignment` and `deleteAssignment` gain the new fields.
+
+### Backend housekeeping
+
+- **`setupTriggers()`** installs the time-driven triggers and is safe to run any number of times (it removes its own earlier triggers by handler name, then installs). It keeps one list of `{ handler, schedule }`. B2 installs `pruneSheets_` daily (around 03:00 script time). B4 appends `publishDueClassroomWork_` to the same list. `setup()` calls `setupTriggers()`.
+- **Retention settings** live in the `Settings` sheet (`Key`, `Value`), read through `readSettings_()` and written through `saveSettings`. Keys, with defaults: `retainLiveDays` 1, `retainLogDays` 180, `retainErrorsDays` 180, `archiveStreamDays` 300. Values are whole numbers from 1 to 3650; anything else is ignored. `Stream` posts older than `archiveStreamDays` move to `Stream_archive`. Pruning works in chunks and rewrites the range in one call; it never deletes row by row.
+- **`diag`** (admin action, request `{}`) replies:
+```js
+{ result: 'success', version, generatedAt,
+  sheets: [{ name, rows }],                                         // every tab
+  timings: { listTests, getResults, getClassHub, syncProgress },    // ms, measured with a fake student
+  lastPrune: { at, removed: { Live, Log, Errors }, archived } | null }
+```
+  Admin → Platform shows it.
+- **`setup()`** returns `{ checklist: [{ key, ok, hint }] }` with keys `adminKey`, `googleClientId`, `adminOwner`, `triggers`, `classroomScopes` (S11). It sets default script properties and retention defaults only where they are missing.
+- **Versions:** `VERSION` in `Code.gs` and `BACKEND_VERSION` stay at their current values until S13b sets 6.0.0.
