@@ -1,0 +1,19 @@
+{
+  "question": {
+    "id": "molarmass-1",
+    "type": "molarmass",
+    "text": "Calculate the molar mass of calcium hydroxide.",
+    "formula": "Ca(OH)2",
+    "points": 2,
+    "tolerance": 0.05,
+    "toleranceType": "absolute",
+    "showWork": true,
+    "explanation": "40.08 + 2 x 16.00 + 2 x 1.01 = 74.10 g/mol."
+  },
+  "correct": {
+    "value": "74.10"
+  },
+  "wrong": {
+    "value": "58.5"
+  }
+}

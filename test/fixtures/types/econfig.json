@@ -1,0 +1,15 @@
+{
+  "question": {
+    "id": "econfig-1",
+    "type": "econfig",
+    "text": "Write the ground-state electron configuration of sodium.",
+    "points": 2,
+    "answers": [
+      "1s2 2s2 2p6 3s1",
+      "[Ne] 3s1"
+    ],
+    "explanation": "Sodium has 11 electrons: the neon core plus one 3s electron."
+  },
+  "correct": "1s2 2s2 2p6 3s1",
+  "wrong": "1s2 2s2 2p6 3s2"
+}

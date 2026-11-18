@@ -1,0 +1,77 @@
+{
+  "question": {
+    "id": "hotspot-1",
+    "type": "hotspot",
+    "text": "Place each label on the lab equipment.",
+    "points": 3,
+    "image": {
+      "url": "data/tests/lab-bench.svg",
+      "alt": "A lab bench with a beaker on the left, a flask in the middle and a burner on the right"
+    },
+    "labels": [
+      {
+        "id": "a",
+        "text": "Beaker",
+        "x": 0.25,
+        "y": 0.58
+      },
+      {
+        "id": "b",
+        "text": "Flask",
+        "x": 0.6,
+        "y": 0.63
+      },
+      {
+        "id": "c",
+        "text": "Burner",
+        "x": 0.86,
+        "y": 0.72
+      }
+    ],
+    "radius": 0.1,
+    "partialCredit": true,
+    "explanation": "The beaker is the straight-sided vessel, the flask has the narrow neck."
+  },
+  "correct": {
+    "a": {
+      "x": 0.25,
+      "y": 0.58
+    },
+    "b": {
+      "x": 0.6,
+      "y": 0.63
+    },
+    "c": {
+      "x": 0.86,
+      "y": 0.72
+    }
+  },
+  "wrong": {
+    "a": {
+      "x": 0.9,
+      "y": 0.1
+    },
+    "b": {
+      "x": 0.1,
+      "y": 0.1
+    },
+    "c": {
+      "x": 0.5,
+      "y": 0.1
+    }
+  },
+  "partial": {
+    "a": {
+      "x": 0.25,
+      "y": 0.58
+    },
+    "b": {
+      "x": 0.6,
+      "y": 0.63
+    },
+    "c": {
+      "x": 0.1,
+      "y": 0.1
+    }
+  }
+}

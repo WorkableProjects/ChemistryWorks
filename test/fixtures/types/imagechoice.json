@@ -1,0 +1,39 @@
+{
+  "question": {
+    "id": "imagechoice-1",
+    "type": "imagechoice",
+    "text": "Which picture shows a sample of one pure substance (all particles the same)?",
+    "points": 1,
+    "multiple": false,
+    "options": [
+      {
+        "id": "a",
+        "text": "A",
+        "image": {
+          "url": "data/tests/demo-particles-a.svg",
+          "alt": "Four identical dark blue particles"
+        }
+      },
+      {
+        "id": "b",
+        "text": "B",
+        "image": {
+          "url": "data/tests/demo-particles-b.svg",
+          "alt": "Two dark blue and two red particles mixed together"
+        }
+      },
+      {
+        "id": "c",
+        "text": "C",
+        "image": {
+          "url": "data/tests/demo-particles-c.svg",
+          "alt": "Four identical red particles"
+        }
+      }
+    ],
+    "correctAnswer": "a",
+    "explanation": "A and C are both pure; this question accepts A. Mixtures like B contain two kinds of particles."
+  },
+  "correct": "a",
+  "wrong": "b"
+}

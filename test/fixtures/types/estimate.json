@@ -1,0 +1,17 @@
+{
+  "question": {
+    "id": "estimate-1",
+    "type": "estimate",
+    "text": "Estimate the pH of 0.010 M hydrochloric acid.",
+    "points": 1,
+    "min": 0,
+    "max": 14,
+    "step": 0.5,
+    "answer": 2,
+    "tolerance": 0.5,
+    "toleranceType": "absolute",
+    "explanation": "HCl is a strong acid: pH = -log(0.010) = 2."
+  },
+  "correct": 2,
+  "wrong": 9
+}

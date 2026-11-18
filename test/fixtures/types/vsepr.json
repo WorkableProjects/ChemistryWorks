@@ -1,0 +1,33 @@
+{
+  "question": {
+    "id": "vsepr-1",
+    "type": "vsepr",
+    "points": 3,
+    "text": "Describe the shape of the ammonia molecule.",
+    "formula": "NH3",
+    "electronGeometry": "tetrahedral",
+    "molecularGeometry": "trigonal pyramidal",
+    "bondAngle": "107",
+    "fields": [
+      "electron",
+      "molecular",
+      "angle"
+    ],
+    "explanation": "Four electron groups (three bonds, one lone pair) give a tetrahedral arrangement and a trigonal pyramidal shape."
+  },
+  "correct": {
+    "electron": "tetrahedral",
+    "molecular": "trigonal pyramidal",
+    "angle": "107"
+  },
+  "wrong": {
+    "electron": "linear",
+    "molecular": "bent",
+    "angle": "180"
+  },
+  "partial": {
+    "electron": "tetrahedral",
+    "molecular": "bent",
+    "angle": "180"
+  }
+}

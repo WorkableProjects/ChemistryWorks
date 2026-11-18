@@ -1,0 +1,53 @@
+{
+  "question": {
+    "type": "ordering",
+    "text": "Arrange these elements from lowest to highest electronegativity.",
+    "points": 4,
+    "partialCredit": true,
+    "topLabel": "Lowest",
+    "bottomLabel": "Highest",
+    "items": [
+      {
+        "id": "na",
+        "text": "Na"
+      },
+      {
+        "id": "c",
+        "text": "C"
+      },
+      {
+        "id": "o",
+        "text": "O"
+      },
+      {
+        "id": "f",
+        "text": "F"
+      }
+    ],
+    "correctAnswer": [
+      "na",
+      "c",
+      "o",
+      "f"
+    ],
+    "id": "ordering-1"
+  },
+  "correct": [
+    "na",
+    "c",
+    "o",
+    "f"
+  ],
+  "wrong": [
+    "f",
+    "o",
+    "c",
+    "na"
+  ],
+  "partial": [
+    "na",
+    "c",
+    "f",
+    "o"
+  ]
+}

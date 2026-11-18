@@ -1,0 +1,15 @@
+{
+  "question": {
+    "id": "numeric-1",
+    "type": "numeric",
+    "text": "What is the molar mass of water, $\\ce{H2O}$, in g/mol? (H = 1.008, O = 16.00)",
+    "points": 2,
+    "correctAnswer": 18.016,
+    "tolerance": 0.05,
+    "toleranceType": "absolute",
+    "unit": "g/mol",
+    "explanation": "2(1.008) + 16.00 = 18.016 g/mol."
+  },
+  "correct": "18.02",
+  "wrong": "20"
+}

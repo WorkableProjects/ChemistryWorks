@@ -1,0 +1,29 @@
+{
+  "question": {
+    "type": "nuclear",
+    "text": "Write the nuclear symbol for this isotope: it has 17 protons and 18 neutrons.",
+    "points": 3,
+    "mode": "isotope",
+    "isotope": {
+      "A": 35,
+      "Z": 17,
+      "symbol": "Cl"
+    },
+    "id": "nuclear-1"
+  },
+  "correct": {
+    "A": 35,
+    "Z": 17,
+    "symbol": "Cl"
+  },
+  "wrong": {
+    "A": 18,
+    "Z": 8,
+    "symbol": "O"
+  },
+  "partial": {
+    "A": 35,
+    "Z": 17,
+    "symbol": "Br"
+  }
+}

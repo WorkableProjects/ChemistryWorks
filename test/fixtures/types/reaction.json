@@ -1,0 +1,20 @@
+{
+  "question": {
+    "id": "reaction-1",
+    "type": "reaction",
+    "points": 2,
+    "text": "Predict the products of this double-displacement reaction.",
+    "reactants": "AgNO3(aq) + NaCl(aq)",
+    "products": [
+      "AgCl(s)",
+      "NaNO3(aq)"
+    ],
+    "requireStates": true,
+    "requireCoefficients": false,
+    "netIonic": false,
+    "explanation": "Silver chloride is insoluble, so it precipitates; sodium nitrate stays dissolved."
+  },
+  "correct": "AgCl(s) + NaNO3(aq)",
+  "wrong": "AgNO3(aq) + NaCl(aq)",
+  "partial": "AgCl(s)"
+}

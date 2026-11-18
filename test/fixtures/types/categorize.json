@@ -1,0 +1,64 @@
+{
+  "question": {
+    "id": "categorize-1",
+    "type": "categorize",
+    "text": "Sort each substance by the type of bonding it has.",
+    "points": 3,
+    "categories": [
+      {
+        "id": "ionic",
+        "label": "Ionic"
+      },
+      {
+        "id": "covalent",
+        "label": "Covalent"
+      },
+      {
+        "id": "metallic",
+        "label": "Metallic"
+      }
+    ],
+    "items": [
+      {
+        "id": "i1",
+        "text": "NaCl",
+        "category": "ionic"
+      },
+      {
+        "id": "i2",
+        "text": "H2O",
+        "category": "covalent"
+      },
+      {
+        "id": "i3",
+        "text": "Cu",
+        "category": "metallic"
+      },
+      {
+        "id": "i4",
+        "text": "MgO",
+        "category": "ionic"
+      }
+    ],
+    "partialCredit": true,
+    "explanation": "Metal + nonmetal gives ionic, two nonmetals give covalent, and a metal on its own is metallic."
+  },
+  "correct": {
+    "i1": "ionic",
+    "i2": "covalent",
+    "i3": "metallic",
+    "i4": "ionic"
+  },
+  "wrong": {
+    "i1": "metallic",
+    "i2": "ionic",
+    "i3": "covalent",
+    "i4": "covalent"
+  },
+  "partial": {
+    "i1": "ionic",
+    "i2": "covalent",
+    "i3": "ionic",
+    "i4": "covalent"
+  }
+}

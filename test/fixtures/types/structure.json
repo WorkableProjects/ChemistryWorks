@@ -1,0 +1,84 @@
+{
+  "question": {
+    "id": "structure-1",
+    "type": "structure",
+    "points": 2,
+    "text": "Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.",
+    "atoms": [
+      {
+        "id": "o1",
+        "symbol": "O",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "id": "c",
+        "symbol": "C",
+        "x": 1,
+        "y": 0
+      },
+      {
+        "id": "o2",
+        "symbol": "O",
+        "x": 2,
+        "y": 0
+      }
+    ],
+    "bonds": [
+      [
+        "o1",
+        "c"
+      ],
+      [
+        "c",
+        "o2"
+      ]
+    ],
+    "correctAnswer": {
+      "bonds": [
+        2,
+        2
+      ],
+      "lonePairs": {
+        "o1": 2,
+        "c": 0,
+        "o2": 2
+      }
+    },
+    "explanation": "CO₂ has 16 valence electrons: two C=O double bonds and two lone pairs on each oxygen give every atom an octet and zero formal charge.",
+    "partialCredit": true
+  },
+  "correct": {
+    "bonds": [
+      2,
+      2
+    ],
+    "lonePairs": {
+      "o1": 2,
+      "c": 0,
+      "o2": 2
+    }
+  },
+  "wrong": {
+    "bonds": [
+      1,
+      1
+    ],
+    "lonePairs": {
+      "o1": 0,
+      "c": 3,
+      "o2": 0
+    }
+  },
+  "partial": {
+    "bonds": [
+      2,
+      2
+    ],
+    "lonePairs": {
+      "o1": 1,
+      "c": 0,
+      "o2": 1
+    }
+  }
+}
