@@ -259,6 +259,11 @@ test('released feedback offers Review my mistakes for game-mode tests only', () 
     }, { email: 'ada@example.org', sub });
     await page.goto(s.url + '/');
     await page.locator(tid('home')).waitFor();
+    // Feedback needs a verified Google account; the backend is mocked, so the token only has to look current.
+    await page.evaluate(async () => {
+      const { getUser } = await import('/js/lib/auth.js');
+      Object.assign(getUser(), { provider: 'google', idToken: 'test-token', idTokenExp: Math.floor(Date.now() / 1000) + 3600 });
+    });
     await page.locator(`${tid('results-list')} li:has-text("${code}") [data-testid^="view-feedback-"]`).first().click();
     await page.locator(tid('feedback-released')).waitFor();
   };
