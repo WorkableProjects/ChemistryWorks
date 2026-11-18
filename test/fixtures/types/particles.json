@@ -1,0 +1,127 @@
+{
+  "question": {
+    "id": "particles-1",
+    "type": "particles",
+    "text": "Water vapour condenses completely while a sample of oxygen stays a gas. Place 4 particles of H2O in the liquid box and 2 particles of O2 in the gas box.",
+    "points": 2,
+    "partialCredit": true,
+    "maxPerZone": 12,
+    "species": [
+      {
+        "id": "h2o",
+        "label": "H2O",
+        "shape": "circle",
+        "tone": 1
+      },
+      {
+        "id": "o2",
+        "label": "O2",
+        "shape": "square",
+        "tone": 3
+      }
+    ],
+    "zones": [
+      {
+        "id": "liquid",
+        "label": "Liquid"
+      },
+      {
+        "id": "gas",
+        "label": "Gas"
+      }
+    ],
+    "targets": {
+      "liquid": {
+        "h2o": 4
+      },
+      "gas": {
+        "o2": 2
+      }
+    },
+    "explanation": "All of the water ends up in the liquid phase."
+  },
+  "correct": [
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.2,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.5,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.8,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.2,
+      "y": 0.6
+    },
+    {
+      "s": "o2",
+      "z": "gas",
+      "x": 0.3,
+      "y": 0.3
+    },
+    {
+      "s": "o2",
+      "z": "gas",
+      "x": 0.7,
+      "y": 0.6
+    }
+  ],
+  "wrong": [
+    {
+      "s": "h2o",
+      "z": "gas",
+      "x": 0.2,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "gas",
+      "x": 0.5,
+      "y": 0.2
+    },
+    {
+      "s": "o2",
+      "z": "liquid",
+      "x": 0.8,
+      "y": 0.2
+    }
+  ],
+  "partial": [
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.2,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.5,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.8,
+      "y": 0.2
+    },
+    {
+      "s": "h2o",
+      "z": "liquid",
+      "x": 0.2,
+      "y": 0.6
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "question": {
+    "id": "multipart-1",
+    "type": "multipart",
+    "text": "Sodium reacts with water.",
+    "stem": "Sodium metal is dropped into water: $\\ce{2Na + 2H2O -> 2NaOH + H2}$.",
+    "points": 3,
+    "parts": [
+      {
+        "id": "a",
+        "type": "mcq",
+        "text": "Which gas is released?",
+        "points": 1,
+        "options": [
+          {
+            "id": "a",
+            "text": "Oxygen"
+          },
+          {
+            "id": "b",
+            "text": "Hydrogen"
+          },
+          {
+            "id": "c",
+            "text": "Chlorine"
+          }
+        ],
+        "correctAnswer": "b"
+      },
+      {
+        "id": "b",
+        "type": "numeric",
+        "text": "How many moles of $\\ce{H2}$ form from 4 mol of Na?",
+        "points": 2,
+        "correctAnswer": 2,
+        "tolerance": 0,
+        "toleranceType": "absolute",
+        "unit": "mol"
+      }
+    ],
+    "explanation": "Hydrogen gas is released, and the 2:1 ratio of Na to H2 gives 2 mol from 4 mol of Na."
+  },
+  "correct": {
+    "a": "b",
+    "b": 2
+  },
+  "wrong": {
+    "a": "a",
+    "b": 9
+  },
+  "partial": {
+    "a": "b",
+    "b": 9
+  }
+}

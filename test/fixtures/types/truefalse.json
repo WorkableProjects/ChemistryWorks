@@ -1,0 +1,12 @@
+{
+  "question": {
+    "id": "truefalse-1",
+    "type": "truefalse",
+    "text": "In the reaction $\\ce{2H2 + O2 -> 2H2O}$, mass is conserved.",
+    "points": 1,
+    "correctAnswer": true,
+    "explanation": "The law of conservation of mass holds for all chemical reactions."
+  },
+  "correct": true,
+  "wrong": false
+}

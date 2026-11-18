@@ -1,0 +1,62 @@
+{
+  "question": {
+    "id": "matching-1",
+    "type": "matching",
+    "text": "Match each element to its most common oxidation state in ionic compounds.",
+    "points": 3,
+    "partialCredit": true,
+    "left": [
+      {
+        "id": "na",
+        "text": "Sodium (Na)"
+      },
+      {
+        "id": "mg",
+        "text": "Magnesium (Mg)"
+      },
+      {
+        "id": "al",
+        "text": "Aluminum (Al)"
+      }
+    ],
+    "right": [
+      {
+        "id": "p1",
+        "text": "+1"
+      },
+      {
+        "id": "p2",
+        "text": "+2"
+      },
+      {
+        "id": "p3",
+        "text": "+3"
+      },
+      {
+        "id": "m1",
+        "text": "−1"
+      }
+    ],
+    "correctAnswer": {
+      "na": "p1",
+      "mg": "p2",
+      "al": "p3"
+    },
+    "explanation": "Group 1 → +1, Group 2 → +2, Al (Group 13) → +3."
+  },
+  "correct": {
+    "na": "p1",
+    "mg": "p2",
+    "al": "p3"
+  },
+  "wrong": {
+    "na": "p3",
+    "mg": "m1",
+    "al": "p2"
+  },
+  "partial": {
+    "na": "p1",
+    "mg": "p3",
+    "al": "p2"
+  }
+}

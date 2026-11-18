@@ -1,0 +1,30 @@
+{
+  "question": {
+    "id": "mcq-1",
+    "type": "mcq",
+    "text": "Which subatomic particle determines the identity of an element?",
+    "points": 1,
+    "options": [
+      {
+        "id": "a",
+        "text": "Neutron"
+      },
+      {
+        "id": "b",
+        "text": "Proton"
+      },
+      {
+        "id": "c",
+        "text": "Electron"
+      },
+      {
+        "id": "d",
+        "text": "Positron"
+      }
+    ],
+    "correctAnswer": "b",
+    "explanation": "The atomic number (number of protons) defines the element."
+  },
+  "correct": "b",
+  "wrong": "a"
+}
