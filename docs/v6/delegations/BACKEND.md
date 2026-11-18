@@ -60,7 +60,7 @@ Backend errors, Admin access
 5. **N+1:** read Accommodations once per request in `buildHub_` and `getAssignmentStatus`.
 6. **Leaderboard:** `clearLeaderboard_` rewrites the range in one call.
 7. **Pruning:**
-   - `setupTriggers()` installs a daily `pruneSheets_` trigger.
+   - `setupTriggers()` installs a daily `pruneSheets` trigger.
    - Retention comes from `Settings` (`retainLiveDays` 1, `retainLogDays` 180, `retainErrorsDays` 180,
      `archiveStreamDays` 300).
    - Stream posts move to `Stream_archive`.
