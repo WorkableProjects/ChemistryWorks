@@ -259,7 +259,7 @@ test('settings: retention keys have defaults, are saved as whole numbers 1 to 36
   assert.equal(frac.retainLogDays, 30);
 });
 
-test('pruneSheets_: keeps the right rows in Live, Log and Errors and moves old Stream posts to Stream_archive', () => {
+test('pruneSheets: keeps the right rows in Live, Log and Errors and moves old Stream posts to Stream_archive', () => {
   g.run('PRUNE_CHUNK = 2');
   const live = (n, d) => addRow('Live', 'LIVE_HEADERS', ['C1', `${n}@x.org`, n, 1, 4, '', ago(d), ago(d), false]);
   live('old1', 3); live('new1', 0); live('old2', 2); live('new2', 0.2); live('new3', 0.5);
@@ -271,7 +271,7 @@ test('pruneSheets_: keeps the right rows in Live, Log and Errors and moves old S
   post('p-new', 5, false); post('p-old', 301, false); post('p-pinned-old', 400, true); post('p-old2', 999, false);
 
   const logs = ['Live', 'Log', 'Errors', 'Stream'].map(watch);
-  const res = plain(g.run('pruneSheets_()'));
+  const res = plain(g.run('pruneSheets()'));
   assert.deepEqual(res.removed, { Live: 2, Log: 2, Errors: 1 });
   assert.equal(res.archived, 2);
   assert.deepEqual(g.rows('Live').map((x) => x[2]), ['new1', 'new2', 'new3']);
@@ -284,30 +284,30 @@ test('pruneSheets_: keeps the right rows in Live, Log and Errors and moves old S
   assert.equal(g.A({ action: 'diag' }).lastPrune.archived, 2);
 });
 
-test('pruneSheets_: honours retention from Settings and leaves everything when nothing is old', () => {
+test('pruneSheets: honours retention from Settings and leaves everything when nothing is old', () => {
   g.A({ action: 'saveSettings', settings: { retainLogDays: 5, retainErrorsDays: 5 } });
   addRow('Log', 'LOG_HEADERS', [ago(6), 'a', 'x', 'old', '']);
   addRow('Log', 'LOG_HEADERS', [ago(4), 'a', 'x', 'recent', '']);
   addRow('Errors', 'ERROR_HEADERS', [ago(4), 'p', 'recent', '', 'b']);
-  const res = plain(g.run('pruneSheets_()'));
+  const res = plain(g.run('pruneSheets()'));
   assert.equal(res.removed.Log, 1);
   assert.equal(res.removed.Errors, 0);
   assert.deepEqual(g.rows('Log').map((x) => x[3]).filter((t) => t === 'old' || t === 'recent'), ['recent']);
-  const again = plain(g.run('pruneSheets_()'));
+  const again = plain(g.run('pruneSheets()'));
   assert.deepEqual(again.removed, { Live: 0, Log: 0, Errors: 0 });
   assert.equal(again.archived, 0);
 });
 
-test('pruneSheets_: an empty database is fine', () => {
-  const res = plain(g.run('pruneSheets_()'));
+test('pruneSheets: an empty database is fine', () => {
+  const res = plain(g.run('pruneSheets()'));
   assert.deepEqual(res.removed, { Live: 0, Log: 0, Errors: 0 });
 });
 
-test('setupTriggers: installs one daily pruneSheets_ trigger and can run twice', () => {
+test('setupTriggers: installs one daily pruneSheets trigger and can run twice', () => {
   g.run('setupTriggers()');
   g.run('setupTriggers()');
   assert.equal(g.triggers.length, 1);
-  assert.equal(g.triggers[0].getHandlerFunction(), 'pruneSheets_');
+  assert.equal(g.triggers[0].getHandlerFunction(), 'pruneSheets');
   assert.deepEqual(plain(g.triggers[0].spec), { everyDays: 1, atHour: 3 });
 });
 
@@ -315,13 +315,13 @@ test('setupTriggers: leaves triggers it does not own alone', () => {
   g.triggers.push({ getHandlerFunction: () => 'somethingElse', spec: {} });
   g.run('setupTriggers()');
   g.run('setupTriggers()');
-  assert.deepEqual(g.triggers.map((t) => t.getHandlerFunction()).sort(), ['pruneSheets_', 'somethingElse']);
+  assert.deepEqual(g.triggers.map((t) => t.getHandlerFunction()).sort(), ['pruneSheets', 'somethingElse']);
 });
 
 test('setup(): installs the trigger, and running it twice still leaves one', () => {
   g.run('setup()');
   g.run('setup()');
-  assert.equal(g.triggers.filter((t) => t.getHandlerFunction() === 'pruneSheets_').length, 1);
+  assert.equal(g.triggers.filter((t) => t.getHandlerFunction() === 'pruneSheets').length, 1);
 });
 
 // ---------- 8. diag ----------
@@ -345,4 +345,36 @@ test('diag: admin only, row counts for every sheet, timings, and no fake student
   assert.equal(g.rows('Attempts').length, 0);
   const again = sync('ada@x.org', { xp: { delta: 1 } });
   assert.equal(again.profile.xp, 2, 'real students are unaffected by the cleanup');
+});
+
+// ---------- Submissions email|code index ----------
+
+const single = (id, who = 'ada@x.org', code = 'S1') => g.post({ submission_id: id, student_name: 'N', test_code: code, test_title: 'T', single_submission: true,
+  score_achieved: 1, score_total: 1, percentage: 100, duration_seconds: 5, responses: [], flags: {}, idToken: g.login(who) });
+
+test('email|code index: a second turn-in to a single-submission test is marked Extra, others are not', () => {
+  for (let i = 0; i < 20; i++) single(`o${i}`, `o${i}@x.org`);
+  single('a1');
+  assert.equal(single('a2').extra_attempt, true);
+  assert.equal(single('b1', 'bob@x.org').extra_attempt, undefined);
+  assert.equal(single('a3', 'ada@x.org', 'S2').extra_attempt, undefined);
+});
+
+test('email|code index: a warm check reads only the rows of that student and test', () => {
+  for (let i = 0; i < 20; i++) single(`o${i}`, `o${i}@x.org`);
+  single('a1');
+  g.run("findRowsByEmailCode_(getSheet_('Submissions', SUBMISSION_HEADERS), 'ada@x.org', 'S1')");
+  const log = watch('Submissions');
+  const rows = plain(g.run("findRowsByEmailCode_(getSheet_('Submissions', SUBMISSION_HEADERS), 'ada@x.org', 'S1')"));
+  assert.equal(rows.length, 1);
+  assert.ok(log.dataRows() <= 1, `read ${log.dataRows()} data rows`);
+});
+
+test('email|code index: rebuilds after rows move or the cache is lost', () => {
+  single('x1', 'x@x.org');
+  single('a1');
+  g.sheets.get('Submissions').deleteRow(2);
+  assert.equal(single('a2').extra_attempt, true);
+  g.cacheStore.clear();
+  assert.equal(single('a3').extra_attempt, true);
 });

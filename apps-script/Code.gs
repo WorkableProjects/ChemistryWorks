@@ -531,6 +531,7 @@ function handleSubmission_(body) {
       ident.verified ? 'verified' : 'unverified'
     ]);
     if (s.submission_id) indexedRowAdd_(sheet, ['Submission ID'], [s.submission_id], sheet.getLastRow());
+    emailCodeIndexAdd_(s.student_email, s.test_code, sheet.getLastRow());
     bust_('tests:list');
     if (gate.status) return { result: 'success', not_counted: gate.status };
     return extra ? { result: 'success', extra_attempt: true } : { result: 'success' };
@@ -1274,30 +1275,70 @@ function testIsSingleSubmission_(code) {
 
 // Counted (non-Extra) rows for one student + test, oldest first. One getValues() pass per column block.
 // -> [{ row, submission_id, submitted_at, status, released_at, retake_allowed_at }]
+var EMAIL_CODE_INDEX_ = 'rowidx:Submissions:email|code';
+function emailCodeKey_(email, code) { return String(email).trim().toLowerCase() + '|' + normalizeCode_(code); }
+// Cached map 'email|code' -> [sheet rows]. Rebuilt from the email and code columns only.
+function rebuildEmailCodeIndex_(sheet) {
+  var last = sheet.getLastRow();
+  var map = {};
+  if (last >= 2) {
+    var ids = sheet.getRange(2, 2, last - 1, 1).getValues();
+    var ec = sheet.getRange(2, 4, last - 1, 2).getValues();
+    for (var i = 0; i < ec.length; i++) {
+      if (ids[i][0] === '' || ids[i][0] === null) continue;
+      var k = emailCodeKey_(ec[i][0], ec[i][1]);
+      (map[k] = map[k] || []).push(i + 2);
+    }
+  }
+  rowIndexStore_(EMAIL_CODE_INDEX_, map);
+  return map;
+}
+function readSubmissionRow_(sheet, row) {
+  var v = sheet.getRange(row, 1, 1, COL.RETAKE).getValues()[0];
+  return { v: v, ok: v[1] !== '' && v[1] !== null };
+}
 function findRowsByEmailCode_(sheet, email, code) {
   var e = String(email || '').trim().toLowerCase();
   var c = normalizeCode_(code);
-  var last = sheet.getLastRow();
   var out = [];
-  if (!e || !c || last < 2) return out;
-  var head = sheet.getRange(2, 1, last - 1, 5).getValues();
-  var tail = sheet.getRange(2, COL.STATUS, last - 1, COL.RETAKE - COL.STATUS + 1).getValues();
-  for (var i = 0; i < head.length; i++) {
-    if (head[i][1] === '' || head[i][1] === null) continue;
-    if (String(head[i][3]).trim().toLowerCase() !== e) continue;
-    if (normalizeCode_(head[i][4]) !== c) continue;
-    var status = String(tail[i][0] || '');
-    if (status === STATUS_EXTRA) continue;
-    out.push({
-      row: i + 2,
-      submission_id: String(head[i][1]),
-      submitted_at: iso_(head[i][0]),
-      status: status,
-      released_at: iso_(tail[i][COL.RELEASED_AT - COL.STATUS]),
-      retake_allowed_at: iso_(tail[i][COL.RETAKE - COL.STATUS])
-    });
+  if (!e || !c || sheet.getLastRow() < 2) return out;
+  var key = emailCodeKey_(e, c);
+  var map = rowIndexLoad_(EMAIL_CODE_INDEX_);
+  var rows = map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null;
+  var read = null;
+  if (rows) {
+    // Trust the cached rows only while every one still holds this student and test.
+    read = rows.map(function (r) { return { row: r, d: readSubmissionRow_(sheet, r) }; });
+    var good = read.every(function (x) { return x.d.ok && emailCodeKey_(x.d.v[3], x.d.v[4]) === key; });
+    if (!good) rows = null;
   }
+  if (!rows) {
+    map = rebuildEmailCodeIndex_(sheet);
+    rows = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : [];
+    read = rows.map(function (r) { return { row: r, d: readSubmissionRow_(sheet, r) }; });
+  }
+  read.forEach(function (x) {
+    var v = x.d.v;
+    var status = String(v[COL.STATUS - 1] || '');
+    if (status === STATUS_EXTRA) return;
+    out.push({
+      row: x.row,
+      submission_id: String(v[1]),
+      submitted_at: iso_(v[0]),
+      status: status,
+      released_at: iso_(v[COL.RELEASED_AT - 1]),
+      retake_allowed_at: iso_(v[COL.RETAKE - 1])
+    });
+  });
   return out;
+}
+// Adds a freshly appended Submissions row to the email|code index.
+function emailCodeIndexAdd_(email, code, row) {
+  var map = rowIndexLoad_(EMAIL_CODE_INDEX_);
+  if (!map) return;
+  var k = emailCodeKey_(email, code);
+  (map[k] = map[k] || []).push(row);
+  rowIndexStore_(EMAIL_CODE_INDEX_, map);
 }
 
 function stripAnswers_(responses) {
@@ -2718,7 +2759,7 @@ function assignmentGate_(email, testCode, acc, now) {
 
 // Every time-driven trigger the backend owns. setupTriggers() replaces them by handler name.
 function triggerList_() {
-  return [{ handler: 'pruneSheets_', schedule: { everyDays: 1, atHour: 3 } }];
+  return [{ handler: 'pruneSheets', schedule: { everyDays: 1, atHour: 3 } }];
 }
 function setupTriggers() {
   var list = triggerList_();
@@ -2763,8 +2804,12 @@ function cellMs_(v) {
 }
 // Daily trigger. Live, Log and Errors rows older than their retention are removed; unpinned Stream posts older than
 // archiveStreamDays move to Stream_archive.
-function pruneSheets_() {
+// Public so a time-driven trigger can call it (Apps Script cannot trigger functions ending in an underscore).
+function pruneSheets() {
   resetRequest_();
+  return pruneSheetsLocked_();
+}
+function pruneSheetsLocked_() {
   return withLock_(function () {
     var cfg = readSettings_();
     var now = new Date().getTime();

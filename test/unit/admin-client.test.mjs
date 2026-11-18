@@ -81,7 +81,7 @@ test('api: admin calls merge adminRequestAuth; explicit adminKey wins', async ()
   assert.equal(f.calls[1].body.adminKey, 'explicit');
   assert.equal(f.calls[1].body.idToken, 'tok-1');
   await api.fetchResults({ gasUrl: GAS, testCode: 'C1', fetchImpl: f });
-  assert.deepEqual(f.calls[2].body, { action: 'getResults', testCode: 'C1', idToken: 'tok-1', adminKey: 'stored' });
+  assert.deepEqual(f.calls[2].body, { action: 'getResults', includeAnswers: true, testCode: 'C1', idToken: 'tok-1', adminKey: 'stored' });
   await api.saveGrade({ gasUrl: GAS, submissionId: 's', grades: {}, fetchImpl: f });
   assert.equal(f.calls[3].body.idToken, 'tok-1');
   store.delete('cw:adminKey');

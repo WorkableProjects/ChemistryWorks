@@ -887,7 +887,7 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 
 ### Backend housekeeping
 
-- **`setupTriggers()`** installs the time-driven triggers and is safe to run any number of times (it removes its own earlier triggers by handler name, then installs). It keeps one list of `{ handler, schedule }`. B2 installs `pruneSheets_` daily (around 03:00 script time). B4 appends `publishDueClassroomWork_` to the same list. `setup()` calls `setupTriggers()`.
+- **`setupTriggers()`** installs the time-driven triggers and is safe to run any number of times (it removes its own earlier triggers by handler name, then installs). It keeps one list of `{ handler, schedule }`. B2 installs `pruneSheets` daily (public, because Apps Script cannot trigger functions whose names end in `_`) (around 03:00 script time). B4 appends `publishDueClassroomWork_` to the same list. `setup()` calls `setupTriggers()`.
 - **Retention settings** live in the `Settings` sheet (`Key`, `Value`), read through `readSettings_()` and written through `saveSettings`. Keys, with defaults: `retainLiveDays` 1, `retainLogDays` 180, `retainErrorsDays` 180, `archiveStreamDays` 300. Values are whole numbers from 1 to 3650; anything else is ignored. `Stream` posts older than `archiveStreamDays` move to `Stream_archive`. Pruning works in chunks and rewrites the range in one call; it never deletes row by row.
 - **`diag`** (admin action, request `{}`) replies:
 ```js

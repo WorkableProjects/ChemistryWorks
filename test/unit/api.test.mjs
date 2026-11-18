@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  pingBackend, fetchPublishedTest, publishTest, listPublishedTests, deletePublishedTest, fetchResults,
+  pingBackend, fetchPublishedTest, publishTest, listPublishedTests, deletePublishedTest, fetchResults, getResultsSince,
 } from '../../js/lib/api.js';
 
 const GAS = 'https://script.google.com/macros/s/ABC/exec';
@@ -91,13 +91,19 @@ test('deletePublishedTest', async () => {
   assert.equal((await deletePublishedTest('C1', { gasUrl: GAS, adminKey: 'k', fetchImpl: fakeFetch(okJson({ result: 'error', error: 'not_found' })) })).error, 'not_found');
 });
 
+test('getResultsSince asks for the answers, so grading and the data view get them', async () => {
+  const f = fakeFetch(okJson({ result: 'success', rows: [], now: 5 }));
+  await getResultsSince({ gasUrl: GAS, adminKey: 'k', since: 3, fetchImpl: f });
+  assert.equal(JSON.parse(f.calls[0].init.body).includeAnswers, true);
+});
+
 test('fetchResults: with and without testCode', async () => {
   const rows = [{ submission_id: 's1', percentage: 50 }];
   const f = fakeFetch(okJson({ result: 'success', rows }));
   assert.deepEqual(await fetchResults({ gasUrl: GAS, adminKey: 'k', testCode: 'C1', fetchImpl: f }), { ok: true, rows });
-  assert.deepEqual(JSON.parse(f.calls[0].init.body), { action: 'getResults', adminKey: 'k', testCode: 'C1' });
+  assert.deepEqual(JSON.parse(f.calls[0].init.body), { action: 'getResults', adminKey: 'k', testCode: 'C1', includeAnswers: true });
   await fetchResults({ gasUrl: GAS, adminKey: 'k', fetchImpl: f });
-  assert.deepEqual(JSON.parse(f.calls[1].init.body), { action: 'getResults', adminKey: 'k' });
+  assert.deepEqual(JSON.parse(f.calls[1].init.body), { action: 'getResults', adminKey: 'k', includeAnswers: true });
   const fail = await fetchResults({ gasUrl: GAS, adminKey: 'k', fetchImpl: fakeFetch(failing) });
   assert.equal(fail.ok, false);
   assert.deepEqual(fail.rows, []);
