@@ -14,7 +14,7 @@ omitting it inherits the orchestrator's model.
 
 | Model | Use for | Agents |
 |---|---|---|
-| `sonnet` | New modules, backend, security, refactors that need judgement, UI, test design | W0, S01a, S01b, B1, B2, B3, B4, S02b, S02c, S02d, S03, S05, S06a, S06b, S07, S08b, S09, S10, S11, S12a, S12b, S12c, S13a |
+| `sonnet` | New modules, backend, security, refactors that need judgement, UI, test design | W0, S01a, S01b, B1, B2, B3, B4, S02b, S02c, S02d, S03, S05, S06a, S06b, S07, S08b, S09, S10, S11, S14, S12a, S12b, S12c, S13a |
 | `haiku` | Mechanical: renames, flag and dead-code removal, comment clean-up, docs and release from a spec | S02a, S08a, S08c, S13b |
 
 Re-running a failed agent: use the **same model**. Upgrade a Haiku brief to Sonnet only if Haiku fails it twice, and
@@ -34,6 +34,7 @@ note that in the progress file. Never upgrade to Opus.
 | `S08.md` | S08a flags and shims · S08b splits and CSS loading · S08c comments and leftovers |
 | `S09-S11.md` | S09 accessibility · S10 PWA · S11 deployment automation |
 | `S12.md` | S12a tags in the builder · S12b tags everywhere else · S12c Google Classroom UI |
+| `S14.md` | S14 full-width student question view |
 | `S13.md` | S13a hardening + ARCHITECTURE rewrite · S13b docs + 6.0.0 release |
 
 ## How to launch one agent
@@ -74,8 +75,9 @@ Agent({
 | S08a | haiku | S03, S06b | Remove flags, dead branches, Netlify, compatibility shims |
 | S08b | sonnet | S08a | Split runner/builder, view CSS loading, versioned URLs, shared helpers, one catalog |
 | S08c | haiku | S08b | Strip session tags from comments; storage path; cleanup contract |
+| S14 | sonnet | S08b | Full-width student view: width token, `layout` per TypeDef, option columns, modes/results/feedback |
 | S10 | sonnet | S08b | Manifest, service worker, update prompt |
-| S09 | sonnet | S07, S08c | Accessibility fixes + axe e2e pass |
+| S09 | sonnet | S07, S08c, S14 | Accessibility fixes + axe e2e pass |
 | S12a | sonnet | B3, S08c | Local tag store, builder tag picker, Admin → Tags, importer |
 | S12c | sonnet | B4, S08c, S02d | Google Classroom: link course, roster import, post to Classroom, preview + sync |
 | S12b | sonnet | S12a, S02d | Tags in grading, tracker, results, profile, modes, library |
@@ -93,7 +95,7 @@ Agent({
 6. S06b, B4
 7. S07, S08a
 8. S08b
-9. S08c, S10
+9. S08c, S10, S14
 10. S09, S12a, S12c
 11. S12b
 12. S13a → S13b
