@@ -81,6 +81,7 @@ export function normalizeRow(raw) {
     submission_id: r.submission_id || '',
     student_name: r.student_name || '',
     student_email: r.student_email || '',
+    identity: r.identity === 'verified' || r.identity === 'unverified' ? r.identity : '',
     test_code: r.test_code || '',
     test_title: r.test_title || '',
     score_achieved: achieved,

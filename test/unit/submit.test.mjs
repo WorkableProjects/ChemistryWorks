@@ -14,7 +14,7 @@ globalThis.localStorage = {
   get length() { return mem.size; },
 };
 
-const { buildPayload, toNetlifyFields, submitResults, flushOutbox, getOutbox, getLocalResults } = await import('../../js/lib/submit.js');
+const { buildPayload, toNetlifyFields, submitResults, flushOutbox, flushOutboxResult, getOutbox, getLocalResults, isFinalError } = await import('../../js/lib/submit.js');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GAS = 'https://script.google.com/macros/s/ABC/exec';
@@ -22,11 +22,15 @@ const PROD = 'myschool.netlify.app';
 
 beforeEach(() => mem.clear());
 
+const jsonReply = (body, ok = true) => ({ ok, status: ok ? 200 : 500, json: async () => body });
+// An ok reply to the Apps Script URL without a body counts as { result: 'success' }.
 function recorder(handler = () => ({ ok: true, status: 200 })) {
   const calls = [];
   const fn = async (url, init) => {
     calls.push({ url: String(url), init });
-    return handler(String(url), init);
+    const res = await handler(String(url), init);
+    if (String(url) !== '/' && res && res.ok && !res.json) return { ...res, json: async () => ({ result: 'success' }) };
+    return res;
   };
   fn.calls = calls;
   return fn;
@@ -91,7 +95,7 @@ test('both channels succeed: correct requests, logged locally, not queued', asyn
   assert.equal(f.calls.length, 2);
   const gas = f.calls.find((c) => c.url === GAS);
   assert.equal(gas.init.method, 'POST');
-  assert.equal(gas.init.mode, 'no-cors');
+  assert.equal(gas.init.mode, undefined, 'normal CORS so the reply can be read');
   assert.equal(gas.init.headers['Content-Type'], 'text/plain;charset=utf-8');
   assert.deepEqual(JSON.parse(gas.init.body), p);
   const nl = f.calls.find((c) => c.url === '/');
@@ -224,4 +228,90 @@ test('payload and Netlify fields flag submissions that need teacher grading', as
   assert.equal(p.needs_grading, true);
   assert.equal(tn(p).needs_grading, 'true');
   assert.equal(bp({ test: { code: 'T' }, grade: { results: [] } }).needs_grading, false);
+});
+
+// ---- reply handling (Apps Script)
+const cfg = { GAS_WEB_APP_URL: GAS };
+const local = { hostname: 'localhost' };
+const replying = (body) => recorder(() => jsonReply(body));
+
+test('success reply: sent, not queued', async () => {
+  const r = await submitResults(base(), { config: cfg, fetchImpl: replying({ result: 'success' }), ...local });
+  assert.deepEqual(r, { gas: 'sent', netlify: 'skipped', queued: false });
+});
+
+test('duplicate success reply counts as sent', async () => {
+  const r = await submitResults(base(), { config: cfg, fetchImpl: replying({ result: 'success', duplicate: true }), ...local });
+  assert.equal(r.gas, 'sent');
+  assert.equal(getOutbox().length, 0);
+});
+
+for (const code of ['closed', 'not_on_roster', 'single_submission', 'submission_too_large']) {
+  test(`final error ${code}: reported, not queued, not logged as submitted`, async () => {
+    const r = await submitResults(base(), { config: cfg, fetchImpl: replying({ result: 'error', error: code }), ...local });
+    assert.equal(r.gas, 'final');
+    assert.equal(r.finalError, code);
+    assert.equal(r.queued, false);
+    assert.equal(getOutbox().length, 0);
+    assert.equal(getLocalResults().length, 0);
+  });
+}
+
+for (const code of ['server_error', 'busy']) {
+  test(`${code}: kept in the outbox with the same submission_id`, async () => {
+    const p = base();
+    const r = await submitResults(p, { config: cfg, fetchImpl: replying({ result: 'error', error: code }), ...local });
+    assert.equal(r.gas, 'failed');
+    assert.equal(r.queued, true);
+    assert.deepEqual(getOutbox().map((x) => x.submission_id), [p.submission_id]);
+  });
+}
+
+test('network error and non-JSON reply are queued', async () => {
+  let r = await submitResults(base(), { config: cfg, fetchImpl: recorder(() => { throw new TypeError('offline'); }), ...local });
+  assert.equal(r.queued, true);
+  r = await submitResults(base(), { config: cfg, fetchImpl: recorder(() => ({ ok: true, json: async () => { throw new SyntaxError('html'); } })), ...local });
+  assert.equal(r.queued, true);
+  r = await submitResults(base(), { config: cfg, fetchImpl: recorder(() => ({ ok: false, status: 502 })), ...local });
+  assert.equal(r.queued, true);
+});
+
+test('a reply that never arrives times out and is queued', async () => {
+  const f = recorder(() => new Promise(() => {}));
+  const t0 = Date.now();
+  const r = await submitResults(base(), { config: cfg, fetchImpl: f, timeoutMs: 40, ...local });
+  assert.ok(Date.now() - t0 < 2000);
+  assert.equal(r.gas, 'failed');
+  assert.equal(r.queued, true);
+});
+
+test('retry after a failure sends the same submission_id and clears the outbox', async () => {
+  const p = base();
+  await submitResults(p, { config: cfg, fetchImpl: replying({ result: 'error', error: 'busy' }), ...local });
+  const f = replying({ result: 'success' });
+  const out = await flushOutboxResult({ config: cfg, fetchImpl: f, ...local });
+  assert.equal(out.sent, 1);
+  assert.equal(JSON.parse(f.calls[0].init.body).submission_id, p.submission_id);
+  assert.equal(getOutbox().length, 0);
+  assert.equal(getLocalResults().length, 1);
+});
+
+test('flush: a final error removes the item and is reported; a retryable one stays', async () => {
+  await submitResults({ ...base(), submission_id: 'A' }, { config: cfg, fetchImpl: replying({ result: 'error', error: 'busy' }), ...local });
+  await submitResults({ ...base(), submission_id: 'B' }, { config: cfg, fetchImpl: replying({ result: 'error', error: 'busy' }), ...local });
+  const f = recorder((url, init) => jsonReply(JSON.parse(init.body).submission_id === 'A' ? { result: 'error', error: 'closed' } : { result: 'error', error: 'server_error' }));
+  const out = await flushOutboxResult({ config: cfg, fetchImpl: f, ...local });
+  assert.deepEqual(out, { sent: 0, final: [{ submission_id: 'A', error: 'closed' }] });
+  assert.deepEqual(getOutbox().map((x) => x.submission_id), ['B']);
+});
+
+test('invalid_token: one resend after a refresh is not possible without a Google user, so it waits in the outbox', async () => {
+  const r = await submitResults(base(), { config: cfg, fetchImpl: replying({ result: 'error', error: 'invalid_token' }), ...local });
+  assert.equal(r.gas, 'failed');
+  assert.equal(r.queued, true);
+});
+
+test('isFinalError covers the contract list and missing_*', () => {
+  for (const c of ['closed', 'not_open', 'not_on_roster', 'single_submission', 'submission_too_large', 'invalid_request', 'invalid_email', 'missing_code', 'unauthorized']) assert.equal(isFinalError(c), true, c);
+  for (const c of ['server_error', 'busy', 'rate_limited', 'invalid_token', 'network']) assert.equal(isFinalError(c), false, c);
 });

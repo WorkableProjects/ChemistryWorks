@@ -3,33 +3,53 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   startEnv, withSession, startTest, tid, poll, waitText, waitAttr, A, answerCHEM101, submit, unlockAdmin, goNext,
-  ADMIN_CODE, STUDENT, addQuestion, signIn,
+  STUDENT, addQuestion, signIn,
 } from './helpers.mjs';
 
 let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-test('admin gate rejects a wrong code and accepts the right one', () => withSession(env, {}, async ({ page, url }) => {
-  await page.goto(`${url}/?admin=true`);
-  await page.locator(tid('admin-gate')).waitFor();
-  await page.waitForTimeout(150); // let the landing view's delayed focus settle (see unlockAdmin)
-  await page.locator(tid('admin-code-input')).fill('wrong-code');
-  await page.locator(tid('admin-unlock')).click();
-  await page.locator('[data-testid="admin-gate"] .field-error').waitFor();
-  await waitText(page.locator('[data-testid="admin-gate"] .field-error'), /Incorrect access code/);
-  assert.equal(await page.locator(tid('admin')).count(), 0);
-  await page.locator(tid('admin-code-input')).fill(ADMIN_CODE);
-  await page.locator(tid('admin-unlock')).click();
-  await page.locator(tid('admin')).waitFor();
-  // unlock persists for the session
+test('admin panel opens without any code when Google is not configured, and Lock returns to the landing page', () => withSession(env, {}, async ({ page, url }) => {
   await page.goto(`${url}/?admin=true`);
   await page.locator(tid('admin')).waitFor();
-  // lock returns to landing and re-gates
+  assert.equal(await page.locator(tid('admin-gate')).count(), 0);
+  assert.equal(await page.locator(tid('admin-code-input')).count(), 0);
   await page.locator(tid('lock-admin')).click();
   await page.locator(tid('signin-card')).waitFor();
+}));
+
+test('with a Google client ID configured there is no code field anywhere', () => withSession(env, { config: { GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', ALLOW_DEMO_SIGNIN: false } }, async ({ page, url }) => {
   await page.goto(`${url}/?admin=true`);
   await page.locator(tid('admin-gate')).waitFor();
+  assert.equal(await page.locator(tid('admin')).count(), 0, 'the demo admin is impossible when a client ID is set');
+  await page.locator(tid('admin-google-button')).waitFor({ state: 'attached' });
+  for (const id of ['admin-code-input', 'admin-unlock', 'admin-use-code']) assert.equal(await page.locator(tid(id)).count(), 0, id);
+  assert.equal(await page.locator('input[type="password"]').count(), 0, 'no password field');
+  assert.doesNotMatch(await page.locator('body').innerText(), /access code/i);
+}));
+
+test('a signed-in Google account that is not on the Admins sheet is refused', () => withSession(env, { config: { GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', ALLOW_DEMO_SIGNIN: false } }, async (s) => {
+  const { page, url } = s;
+  await page.addInitScript(() => {
+    sessionStorage.setItem('cw:user', JSON.stringify({ name: 'Eve', email: 'eve@example.org', provider: 'google', idToken: 'test-token', idTokenExp: Math.floor(Date.now() / 1000) + 3600 }));
+  });
+  s.onGas = (b) => (b.action === 'whoami' ? { result: 'error', error: 'not_admin' } : null);
+  await page.goto(`${url}/?admin=true`);
+  await waitText(page.locator(tid('admin-google-message')), /eve@example\.org is not on the admin list/);
+  assert.equal(await page.locator(tid('admin')).count(), 0);
+  assert.equal(s.gas.find((b) => b.action === 'whoami').idToken, 'test-token');
+}));
+
+test('a signed-in Google admin goes straight in', () => withSession(env, { config: { GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', ALLOW_DEMO_SIGNIN: false } }, async (s) => {
+  const { page, url } = s;
+  await page.addInitScript(() => {
+    sessionStorage.setItem('cw:user', JSON.stringify({ name: 'Ada', email: 'ada@example.org', provider: 'google', idToken: 'test-token', idTokenExp: Math.floor(Date.now() / 1000) + 3600 }));
+  });
+  s.onGas = (b) => (b.action === 'whoami' ? { result: 'success', email: 'ada@example.org', role: 'owner', via: 'sheet' } : null);
+  await page.goto(`${url}/?admin=true`);
+  await page.locator(tid('admin')).waitFor();
+  assert.equal(await page.locator(tid('admin-gate')).count(), 0);
 }));
 
 test('library lists CHEM101 and the new bank tests', () => withSession(env, {}, async ({ page, url }) => {
@@ -210,7 +230,7 @@ test('settings: admin key can be saved; checklist renders; backend status shown'
   assert.ok((await page.locator(`${tid('setup-checklist')} li`).count()) >= 4);
   await page.locator(tid('admin-key-input')).fill('secret-key');
   await page.locator(tid('save-admin-key')).click();
-  await waitText(page.locator(tid('toast')).last(), /Admin key saved/);
+  await waitText(page.locator(tid('toast')).last(), /Sheet key saved/);
   assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem('cw:adminKey'))), 'secret-key');
   await page.locator(tid('ping-backend')).click();
   await page.locator(tid('backend-status')).waitFor();

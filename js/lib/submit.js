@@ -1,13 +1,34 @@
-// Payload building and dual submission (Apps Script + Netlify Forms) with an offline outbox.
+// Payload building and submission (Apps Script, plus Netlify Forms until it is removed) with an offline outbox.
+// The Apps Script reply is read: success is done, a final error is shown and not queued, anything else stays queued.
 // submitResults / flushOutbox never throw.
 import { netlifyFormsEnabled } from '../config.js';
 import { load, save } from './storage.js';
-import { getIdToken } from './auth.js';
+import { getIdToken, getFreshIdToken } from './auth.js';
 
-function withToken(payload) {
-  let t = null;
-  try { t = getIdToken(); } catch { t = null; }
-  return t ? { ...payload, idToken: t } : payload;
+export const SUBMIT_TIMEOUT_MS = 15000;
+
+/** Backend errors that will never succeed on a resend: show them, do not queue. */
+const FINAL_ERRORS = new Set(['closed', 'not_open', 'not_on_roster', 'single_submission', 'submission_too_large', 'invalid_request', 'invalid_email', 'unauthorized']);
+export function isFinalError(code) {
+  const c = String(code || '');
+  return FINAL_ERRORS.has(c) || c.startsWith('missing_');
+}
+
+/** The reply text for a final error. */
+export function finalMessage(code) {
+  const c = String(code || '');
+  if (c === 'closed') return 'This test is closed, so your answers were not accepted.';
+  if (c === 'not_open') return 'This test is not open yet, so your answers were not accepted.';
+  if (c === 'not_on_roster') return 'You are not on the roster for this test, so your answers were not accepted.';
+  if (c === 'single_submission') return 'You have already submitted this test, so this attempt was not accepted.';
+  if (c === 'submission_too_large') return 'This submission is too large to send. Tell your teacher.';
+  if (c === 'unauthorized') return 'Sign in with your Google account to submit this test.';
+  return 'The server did not accept this submission. Tell your teacher.';
+}
+
+// The verified ID token rides along at send time only (never stored in the outbox): roster / identity checks.
+async function currentToken() {
+  try { return getIdToken() || await getFreshIdToken(3000); } catch { return null; }
 }
 
 const OUTBOX_KEY = 'outbox';
@@ -90,19 +111,40 @@ export function toNetlifyFields(payload) {
   };
 }
 
-async function sendGas(payload, config, fetchImpl) {
-  if (!config?.GAS_WEB_APP_URL) return 'skipped';
+function withTimeout(promise, ms, controller) {
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => { try { controller?.abort(); } catch { /* ignore */ } reject(new Error('timeout')); }, ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function postGas(payload, config, fetchImpl, token, timeoutMs) {
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const res = await withTimeout(fetchImpl(config.GAS_WEB_APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(token ? { ...payload, idToken: token } : payload),
+    ...(controller ? { signal: controller.signal } : {}),
+  }), timeoutMs, controller);
+  if (!res || !res.ok) throw new Error(`HTTP ${res ? res.status : 'error'}`);
+  return withTimeout(res.json(), timeoutMs);
+}
+
+/** -> { state: 'sent' | 'final' | 'failed' | 'skipped', error? }. 'failed' is retryable. */
+async function sendGas(payload, config, fetchImpl, timeoutMs = SUBMIT_TIMEOUT_MS) {
+  if (!config?.GAS_WEB_APP_URL) return { state: 'skipped' };
   try {
-    await fetchImpl(config.GAS_WEB_APP_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      // The verified ID token rides along at send time only (never stored in the outbox): roster / extension checks.
-      body: JSON.stringify(withToken(payload)),
-    });
-    return 'sent';
+    let token = await currentToken();
+    let d = await postGas(payload, config, fetchImpl, token, timeoutMs);
+    if (d && d.result === 'error' && d.error === 'invalid_token' && token) {
+      // One silent refresh, then resend; still invalid means it waits in the outbox until the student signs in.
+      const fresh = await getFreshIdToken(4000).catch(() => null);
+      if (fresh && fresh !== token) d = await postGas(payload, config, fetchImpl, fresh, timeoutMs);
+    }
+    if (d && d.result === 'success') return { state: 'sent' };
+    const error = (d && d.error) || 'server_error';
+    return isFinalError(error) ? { state: 'final', error } : { state: 'failed', error };
   } catch {
-    return 'failed';
+    return { state: 'failed', error: 'network' };
   }
 }
 
@@ -126,12 +168,12 @@ async function sendNetlify(payload, config, fetchImpl, hostname) {
   }
 }
 
-async function sendAll(payload, config, fetchImpl, hostname) {
-  const [gas, netlify] = await Promise.all([
-    sendGas(payload, config, fetchImpl),
+async function sendAll(payload, config, fetchImpl, hostname, timeoutMs) {
+  const [g, netlify] = await Promise.all([
+    sendGas(payload, config, fetchImpl, timeoutMs),
     sendNetlify(payload, config, fetchImpl, hostname),
   ]);
-  return { gas, netlify };
+  return { gas: g.state, netlify, ...(g.state === 'final' ? { error: g.error } : {}) };
 }
 
 function anySent(r) {
@@ -155,20 +197,22 @@ function upsert(list, payload) {
   return list;
 }
 
-export async function submitResults(payload, { config, fetchImpl, hostname } = {}) {
+export async function submitResults(payload, { config, fetchImpl, hostname, timeoutMs } = {}) {
   const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
   const host = hostname ?? (typeof location !== 'undefined' ? location.hostname : '');
   let result = { gas: 'failed', netlify: 'failed' };
   try {
     if (!doFetch) throw new Error('fetch unavailable');
-    result = await sendAll(payload, config, doFetch, host);
+    result = await sendAll(payload, config, doFetch, host, timeoutMs);
   } catch {
     result = { gas: config?.GAS_WEB_APP_URL ? 'failed' : 'skipped', netlify: 'failed' };
   }
   let queued = false;
   try {
-    const local = upsert(readList(LOCAL_RESULTS_KEY), payload);
-    save(LOCAL_RESULTS_KEY, local.slice(-LOCAL_RESULTS_CAP));
+    if (result.gas !== 'final') { // a refused submission is not a submission
+      const local = upsert(readList(LOCAL_RESULTS_KEY), payload);
+      save(LOCAL_RESULTS_KEY, local.slice(-LOCAL_RESULTS_CAP));
+    }
     if (allFailed(result)) {
       save(OUTBOX_KEY, upsert(readList(OUTBOX_KEY), payload));
       queued = true;
@@ -176,23 +220,30 @@ export async function submitResults(payload, { config, fetchImpl, hostname } = {
   } catch {
     /* storage problems must not break submission */
   }
-  return { ...result, queued };
+  return { ...result, queued, ...(result.gas === 'final' ? { finalError: result.error } : {}) };
 }
 
-export async function flushOutbox({ config, fetchImpl, hostname } = {}) {
-  let sent = 0;
+/**
+ * Resend everything in the outbox with the same submission_id. A success or a final error removes the item; anything
+ * else stays queued. -> { sent, final: [{ submission_id, error }] }. Never throws.
+ */
+export async function flushOutboxResult({ config, fetchImpl, hostname, timeoutMs } = {}) {
+  const out = { sent: 0, final: [] };
   try {
     const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
-    if (!doFetch) return 0;
+    if (!doFetch) return out;
     const host = hostname ?? (typeof location !== 'undefined' ? location.hostname : '');
     const pending = readList(OUTBOX_KEY);
     const done = new Set();
     for (const payload of pending) {
       try {
-        const r = await sendAll(payload, config, doFetch, host);
+        const r = await sendAll(payload, config, doFetch, host, timeoutMs);
         if (anySent(r)) {
           done.add(payload.submission_id);
-          sent++;
+          out.sent++;
+        } else if (r.gas === 'final') {
+          done.add(payload.submission_id);
+          out.final.push({ submission_id: payload.submission_id, error: r.error });
         }
       } catch {
         /* keep queued */
@@ -205,7 +256,11 @@ export async function flushOutbox({ config, fetchImpl, hostname } = {}) {
   } catch {
     /* never throw */
   }
-  return sent;
+  return out;
+}
+
+export async function flushOutbox(opts = {}) {
+  return (await flushOutboxResult(opts)).sent;
 }
 
 export function getOutbox() {

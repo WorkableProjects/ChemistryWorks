@@ -40,7 +40,7 @@ Requirements: Node.js 20 or later.
 npm start
 ```
 
-Open <http://localhost:3000>. The local demo sign-in is enabled until a Google Client ID is configured. To open the admin panel, visit <http://localhost:3000/?admin=true> and use the demo code `chemadmin`.
+Open <http://localhost:3000>. The local demo sign-in is enabled until a Google Client ID is configured. To open the admin panel, visit <http://localhost:3000/?admin=true>. With no Google Client ID configured the demo admin opens it directly; once a client ID is set, only Google accounts on the Admins sheet get in.
 
 ## Tests and validation
 

@@ -7,7 +7,7 @@ import {
   h, mount, icon, richText, renderMath, toast, formatDurationLong, appHeader, userBadge, prefersReducedMotion,
 } from '../ui.js';
 import { formulaToHTML } from '../lib/formula.js';
-import { flushOutbox } from '../lib/submit.js';
+import { flushOutboxResult, finalMessage } from '../lib/submit.js';
 import { canonicalDots } from '../lib/lewis.js';
 import { lewisDiagram } from './lewis-view.js';
 import { structureDiagram } from './structure-view.js';
@@ -26,13 +26,13 @@ const RADIUS = 68;
 const CIRC = 2 * Math.PI * RADIUS;
 
 function statusChip(label, state) {
-  const cls = { sent: 'pill--success', failed: 'pill--danger', skipped: '', none: '' }[state] ?? '';
-  return h('span', { class: ['pill', cls] }, state === 'sent' ? icon('check', { size: 13 }) : state === 'failed' ? icon('alert', { size: 13 }) : null, label);
+  const cls = { sent: 'pill--success', failed: 'pill--warning', final: 'pill--danger', skipped: '', none: '' }[state] ?? '';
+  return h('span', { class: ['pill', cls] }, state === 'sent' ? icon('check', { size: 13 }) : state === 'failed' || state === 'final' ? icon('alert', { size: 13 }) : null, label);
 }
 
 function chipsFor(submission) {
   if (!submission) return [statusChip('Not submitted (preview)', 'none')];
-  const gas = { sent: 'Saved to Google Sheet ✓', skipped: 'Google Sheet: Not configured', failed: 'Google Sheet: Failed' }[submission.gas] || 'Google Sheet: Not configured';
+  const gas = { sent: 'Saved to Google Sheet ✓', skipped: 'Google Sheet: Not configured', failed: 'Google Sheet: Not sent yet', final: 'Google Sheet: Not accepted' }[submission.gas] || 'Google Sheet: Not configured';
   const net = { sent: 'Netlify backup ✓', skipped: 'Netlify backup: Not configured', failed: 'Netlify backup: Failed' }[submission.netlify] || 'Netlify backup: Not configured';
   return [statusChip(gas, submission.gas), statusChip(net, submission.netlify)];
 }
@@ -228,26 +228,36 @@ export function render(root, ctx, params = {}) {
   if (preview) {
     notices.appendChild(h('div', { class: 'notice notice--info' }, icon('eye'), h('span', {}, 'Preview — nothing was submitted')));
   }
+  if (submission?.gas === 'final') {
+    notices.appendChild(h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'submission-refused', error: submission.finalError || '' } },
+      icon('alert'), h('span', {}, finalMessage(submission.finalError))));
+  }
   if (submission?.queued) {
-    const retryBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'retry-submit' } }, icon('refresh', { size: 14 }), 'Retry now');
-    const queuedNotice = h('div', { class: 'notice notice--warning results-queued' },
+    const retryBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'retry-submit' } }, icon('refresh', { size: 14 }), 'Retry');
+    const queuedNotice = h('div', { class: 'notice notice--warning results-queued', dataset: { testid: 'submission-queued' } },
       icon('alert'),
-      h('span', { class: 'results-queued__text' }, "We couldn't reach the server. Your submission is saved on this device and will retry automatically."),
+      h('span', { class: 'results-queued__text' }, 'Not sent yet — we’ll retry. Your answers are saved on this device.'),
       retryBtn);
     retryBtn.addEventListener('click', async () => {
       retryBtn.disabled = true;
       retryBtn.classList.add('is-loading');
       try {
-        const sent = await flushOutbox({ config: ctx.config });
+        const { sent, final } = await flushOutboxResult({ config: ctx.config });
+        if (final.length) {
+          statusEl.dataset.queued = 'false';
+          queuedNotice.replaceWith(h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'submission-refused', error: final[0].error || '' } }, icon('alert'), h('span', {}, finalMessage(final[0].error))));
+          retryBtn.classList.remove('is-loading');
+          return;
+        }
         if (sent > 0) {
           toast(`Sent ${sent} queued ${sent === 1 ? 'submission' : 'submissions'}`, { type: 'success' });
           statusEl.dataset.queued = 'false';
           queuedNotice.replaceWith(h('div', { class: 'notice notice--success' }, icon('check'), h('span', {}, 'Your submission was sent.')));
         } else {
-          toast("Still couldn't reach the server. We'll keep trying.", { type: 'error' });
+          toast('Not sent yet — we’ll retry.', { type: 'error' });
         }
       } catch {
-        toast("Still couldn't reach the server. We'll keep trying.", { type: 'error' });
+        toast('Not sent yet — we’ll retry.', { type: 'error' });
       }
       retryBtn.disabled = false;
       retryBtn.classList.remove('is-loading');

@@ -26,7 +26,12 @@ test('boot: landing view loads', { timeout: 10000 }, () => bootCase('/', {
   afterBoot: (s) => s.page.locator(tid('demo-signin')).waitFor({ timeout: 5000 }),
 }));
 
-test('boot: admin gate loads', { timeout: 10000 }, () => bootCase('/?admin=true', {
+test('boot: admin panel opens with the demo admin when Google is not configured', { timeout: 10000 }, () => bootCase('/?admin=true', {
+  afterBoot: (s) => s.page.locator(tid('admin')).waitFor({ timeout: 5000 }),
+}));
+
+test('boot: admin gate loads when Google is configured', { timeout: 10000 }, () => bootCase('/?admin=true', {
+  config: { GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', ALLOW_DEMO_SIGNIN: false },
   afterBoot: (s) => s.page.locator(tid('admin-gate')).waitFor({ timeout: 5000 }),
 }));
 

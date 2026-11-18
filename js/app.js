@@ -17,7 +17,7 @@ import { CONFIG, feature } from './config.js';
 import { clearStore } from './lib/store.js';
 import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
 import { whoAmI } from './lib/api.js';
-import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './lib/admin-session.js';
+import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed, demoAdminAllowed } from './lib/admin-session.js';
 import { checkBackendVersion, versionBanner } from './lib/version-check.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { instantiateTest } from './lib/instantiate.js';
@@ -189,12 +189,11 @@ async function runVersionCheck() {
 
 let adminGateBusy = false; // true while the Google admin sign-in modal is open (the landing sign-in toast stays quiet)
 
-// V4-07: the signed-in Google user is the admin. Falls back to the access-code flow when the flag is off,
-// Google or the backend is not configured, the user is not signed in (offered a Google button + a code link),
-// or the account is not on the Admins list.
+// Admin = a Google account on the Admins sheet (confirmed by `whoami`). With no GOOGLE_CLIENT_ID (local dev, e2e)
+// the demo admin opens the panel directly; demoAdminAllowed() is false as soon as a client ID is set.
 async function adminGate() {
-  if (load('adminUnlocked', false, 'session')) return openAdmin();
-  if (!feature('adminAccounts') || !googleConfigured(CONFIG) || !CONFIG.GAS_WEB_APP_URL) return accessCodeGate();
+  if (demoAdminAllowed(CONFIG)) return openAdmin();
+  if (!CONFIG.GAS_WEB_APP_URL) return googleGateModal({ notice: 'Admin sign-in needs the Apps Script backend. Set GAS_WEB_APP_URL in js/config.js.' });
   if (confirmedAdminEmail()) return openAdmin();
 
   const u = getUser();
@@ -207,12 +206,16 @@ async function adminGate() {
         return openAdmin();
       }
       clearAdminConfirmed();
-      return googleGateModal({ notice: res.error === 'not_admin'
-        ? `${u.email} is not on the admin list. Ask an owner to add you, or use the access code.`
-        : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.` });
+      return googleGateModal({ notice: gateNotice(res, u.email) });
     }
   }
   return googleGateModal({});
+}
+
+function gateNotice(res, email) {
+  return res.error === 'not_admin'
+    ? `${email} is not on the admin list. Ask an owner to add you.`
+    : `Could not confirm admin access (${res.error || 'no response'}). Try signing in again.`;
 }
 
 function googleGateModal({ notice = '' }) {
@@ -224,12 +227,11 @@ function googleGateModal({ notice = '' }) {
   const done = () => { adminGateBusy = false; off(); };
   const m = openModal({
     title: 'Admin access', testid: 'admin-gate', onClose: done,
-    body: h('div', { class: 'stack' }, msgEl, buttonHost,
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'admin-use-code' }, on: { click: () => { m.close(); accessCodeGate(); } } }, 'Use access code instead')),
+    body: h('div', { class: 'stack' }, msgEl, buttonHost),
     actions: [{ label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } }],
   });
   const confirm = async (user) => {
-    if (!user || user.provider !== 'google') return;
+    if (!user || user.provider !== 'google' || !CONFIG.GAS_WEB_APP_URL) return;
     msgEl.className = 'muted';
     msgEl.textContent = 'Checking your admin access…';
     const token = user.idToken || await getFreshIdToken();
@@ -240,41 +242,10 @@ function googleGateModal({ notice = '' }) {
       return openAdmin();
     }
     msgEl.className = 'field-error';
-    msgEl.textContent = res.error === 'not_admin'
-      ? `${user.email} is not on the admin list. Ask an owner to add you, or use the access code.`
-      : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.`;
+    msgEl.textContent = gateNotice(res, user.email);
   };
   off = onAuthChange(confirm);
   renderGoogleButton(buttonHost, CONFIG, { onError: (e) => { msgEl.className = 'field-error'; msgEl.textContent = e; } });
-}
-
-function accessCodeGate() {
-  if (load('adminUnlocked', false, 'session')) return openAdmin();
-  const input = h('input', { class: 'input', type: 'password', placeholder: 'Admin access code', autocomplete: 'off', dataset: { testid: 'admin-code-input' } });
-  const err = h('p', { class: 'field-error', role: 'alert' });
-  const tryUnlock = (close) => {
-    if (input.value === CONFIG.ADMIN_ACCESS_CODE) {
-      save('adminUnlocked', true, 'session');
-      close();
-      openAdmin();
-    } else {
-      err.textContent = 'Incorrect access code.';
-      input.classList.add('shake');
-      setTimeout(() => input.classList.remove('shake'), 400);
-    }
-  };
-  navigate('landing');
-  const m = openModal({
-    title: 'Admin access',
-    testid: 'admin-gate',
-    body: h('form', { class: 'stack', on: { submit: (e) => { e.preventDefault(); tryUnlock(m.close); } } },
-      h('p', { class: 'muted' }, 'Enter the admin access code to build tests and grade submissions.'), input, err),
-    actions: [
-      { label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } },
-      { label: 'Unlock', variant: 'primary', testid: 'admin-unlock', onClick: (close) => tryUnlock(close) },
-    ],
-  });
-  setTimeout(() => input.focus(), 50);
 }
 
 function start() {

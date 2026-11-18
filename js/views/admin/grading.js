@@ -19,6 +19,7 @@ import { regradeRow } from '../../lib/regrade.js';
 import { adminCall } from '../../lib/api.js';
 import { openAccommodationEditor } from './accommodations.js';
 import { studentHref } from './hub/data.js';
+import { unverifiedMark } from './identity-mark.js';
 
 // Module state: remembered while switching tabs in the session.
 const BATCH = 50;
@@ -290,7 +291,7 @@ export function renderGrading(root, ctx, { goSettings }) {
           on: { click: open, keydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } } },
         h('td', { class: 'adm-td-check', on: { click: stop, keydown: stop } }, pick),
         h('td', {}, r.student_email && feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
-        h('td', { class: 'adm-td-email' }, r.student_email || '—'),
+        h('td', { class: 'adm-td-email' }, r.student_email || '—', unverifiedMark(r)),
         h('td', {}, h('span', { class: 'adm-item__code adm-item__code--sm' }, r.test_code)),
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
         h('td', {}, r.status === STATUS.NEEDS_GRADING ? h('span', { class: 'faint' }, 'Pending') : `${round2(r.score_achieved)} / ${round2(r.score_total)} (${formatPercent(r.percentage)})`),
@@ -619,7 +620,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       h('section', { class: 'card stack', 'aria-label': 'Submission details' },
         h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
           h('h3', { class: 'adm-h3' }, row.student_name || row.student_email || 'Student'),
-          statusPill(row.status), h('span', { class: 'spacer' }), retakeBtn,
+          statusPill(row.status), unverifiedMark(row), h('span', { class: 'spacer' }), retakeBtn,
           h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'extend-window' }, on: { click: () => openAccommodationEditor(ctx, { email: row.student_email, testCode: row.test_code }) } }, icon('clock', { size: 16 }), 'Extend / accommodations')),
         row.flags && row.flags.questions && Object.keys(row.flags.questions).length ? h('div', { class: 'notice notice--warning', dataset: { testid: 'student-flags' } }, icon('flag'),
           h('span', {}, 'Flagged by the student: ', Object.entries(row.flags.questions).map(([qid, note]) => `${qid}${note ? ` — “${note}”` : ''}`).join('; '))) : null,
