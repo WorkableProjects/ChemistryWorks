@@ -88,15 +88,6 @@
 .opt.is-selected .opt__check { transform: scale(1); opacity: 1; }
 .opt[role="checkbox"] .opt__badge { border-radius: 6px; }
 
-/* ---------- True / false ---------- */
-.q-tf { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.q-tf__btn { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 76px; border-radius: var(--radius-lg); border: 1.5px solid var(--border); background: var(--bg-elev); font-size: 18px; font-weight: 600; cursor: pointer; color: var(--text); transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), transform var(--dur-base) var(--ease-out), box-shadow var(--dur-fast) var(--ease); }
-.q-tf__icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--bg-sunken); color: var(--text-muted); transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-slow) var(--ease-out); }
-.q-tf__btn:hover { border-color: var(--border-strong); transform: translateY(-1px); }
-.q-tf__btn:focus-visible { box-shadow: 0 0 0 4px var(--primary-ring); border-color: var(--primary); }
-.q-tf__btn.is-selected, .q-tf__btn.is-selected:hover { border-color: var(--primary); background: var(--selected-bg); transform: scale(1.02); box-shadow: 0 0 0 4px var(--primary-ring); }
-.q-tf__btn.is-selected .q-tf__icon { background: var(--primary); color: var(--on-primary); transform: scale(1.1); }
-
 /* ---------- Numeric / formula ---------- */
 .q-field { display: flex; align-items: center; gap: 10px; }
 .q-input { height: 54px; font-size: 20px; font-weight: 600; }
@@ -104,7 +95,6 @@
 .q-unit { display: inline-flex; align-items: center; height: 54px; padding: 0 16px; border-radius: var(--radius); background: var(--bg-sunken); border: 1.5px solid var(--border); font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 .q-preview { margin-top: 10px; min-height: 22px; font-size: 14px; color: var(--text-muted); }
 .q-preview.is-error { color: var(--danger); opacity: 0.8; }
-.q-formula .q-hint { margin: 8px 0 0; }
 
 /* ---------- Short answer ---------- */
 .q-short { min-height: 160px; font-size: 17px; }
@@ -227,8 +217,6 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 @media (max-width: 600px) {
   .q-card { padding: 24px 18px 20px; border-radius: var(--radius-lg); }
   .q-text { font-size: 17px; }
-  .q-tf { gap: 10px; }
-  .q-tf__btn { min-height: 64px; font-size: 16px; }
 }
 
 

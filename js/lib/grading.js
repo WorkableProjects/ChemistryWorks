@@ -1,6 +1,5 @@
 // Auto-grading engine. Pure functions, no DOM. Never throws on malformed answers.
 
-import { formulasEqual } from './formula.js';
 import { isDotArray, dotTotal, followsPlacementRule, canonicalDots, describeDots } from './lewis.js';
 import { isStructureAnswered, scoreStructure, describeStructure, acceptedStructures } from './structure.js';
 import { blankCorrect, blankedText } from './blanks.js';
@@ -14,12 +13,13 @@ import { isCategorizeAnswered, scoreCategorize, categorizeText, categorizeKeyTex
 import { isHotspotAnswered, scoreHotspot, hotspotText, hotspotKeyText } from './qtypes/hotspot.js';
 import { isPlotAnswered, scorePlot, pointsText } from './qtypes/graph.js';
 import { typeDef } from './qtypes/registry.js';
+import { optionText } from './qtypes/shared.js';
+import './qtypes/index.js'; // registers every question type definition
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
 const DASH = '—';
 
 const round2 = (x) => Math.round(x * 100) / 100;
-const squash = (s) => String(s).replace(/\s+/g, '').toLowerCase();
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /** Parse a student-entered number. Returns NaN when unparseable. */
@@ -60,13 +60,6 @@ export function isAnswered(question, answer) {
   if (answer === undefined || answer === null) return false;
   const type = question && question.type;
   switch (type) {
-    case 'mcq':
-      return (typeof answer === 'string' && answer.trim() !== '') || typeof answer === 'number';
-    case 'multi':
-      return Array.isArray(answer) && answer.length > 0;
-    case 'numeric':
-      return (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
-    case 'formula':
     case 'short':
     case 'open':
       return typeof answer === 'string' && answer.trim() !== '';
@@ -78,8 +71,6 @@ export function isAnswered(question, answer) {
       return isStructureAnswered(answer);
     case 'orbital':
       return isOrbitalAnswered(question, answer);
-    case 'truefalse':
-      return typeof answer === 'boolean';
     case 'lewis':
       return isDotArray(answer) && dotTotal(answer) > 0;
     case 'matching':
@@ -110,43 +101,6 @@ export function isAnswered(question, answer) {
 /** Returns { fraction, full } for an answered question. */
 function score(q, answer) {
   switch (q.type) {
-    case 'mcq': {
-      const ok = String(answer) === String(q.correctAnswer);
-      return { fraction: ok ? 1 : 0, full: ok };
-    }
-    case 'truefalse': {
-      const ok = typeof answer === 'boolean' && answer === q.correctAnswer;
-      return { fraction: ok ? 1 : 0, full: ok };
-    }
-    case 'multi': {
-      if (!Array.isArray(answer) || !Array.isArray(q.correctAnswer)) return { fraction: 0, full: false };
-      const correct = new Set(q.correctAnswer.map(String));
-      const picked = new Set(answer.map(String));
-      let right = 0;
-      let wrong = 0;
-      for (const id of picked) (correct.has(id) ? right++ : wrong++);
-      if (right === correct.size && wrong === 0) return { fraction: 1, full: true };
-      if (q.partialCredit && correct.size > 0) return { fraction: Math.max(0, (right - wrong) / correct.size), full: false };
-      return { fraction: 0, full: false };
-    }
-    case 'numeric': {
-      const x = parseNumber(answer, { unit: q.unit });
-      const key = Number(q.correctAnswer);
-      if (Number.isNaN(x) || !Number.isFinite(key) || q.correctAnswer === null || q.correctAnswer === '' || typeof q.correctAnswer === 'boolean') {
-        return { fraction: 0, full: false };
-      }
-      const tol = Number(q.tolerance) > 0 ? Number(q.tolerance) : 0;
-      const allowed = (q.toleranceType === 'percent' ? Math.abs(key) * tol / 100 : tol) + 1e-9 * Math.abs(key);
-      const ok = Math.abs(x - key) <= allowed;
-      return { fraction: ok ? 1 : 0, full: ok };
-    }
-    case 'formula': {
-      if (typeof answer !== 'string') return { fraction: 0, full: false };
-      const accepted = Array.isArray(q.correctAnswer) ? q.correctAnswer : [q.correctAnswer];
-      const opts = { caseSensitive: q.caseSensitive !== false };
-      const ok = accepted.some((a) => typeof a === 'string' && a.trim() !== '' && formulasEqual(answer, a, opts));
-      return { fraction: ok ? 1 : 0, full: ok };
-    }
     case 'lewis': {
       if (!isDotArray(answer)) return { fraction: 0, full: false };
       const ok = dotTotal(answer) === Number(q.correctAnswer)
@@ -220,7 +174,7 @@ function score(q, answer) {
       // read mode reuses the numeric grading above
       return q.mode === 'plot' ? scorePlot(q, answer) : score({ type: 'numeric', correctAnswer: q.answer, tolerance: q.tolerance, toleranceType: 'absolute', unit: q.unit }, answer);
     default:
-      if (typeDef(q.type)?.score) return typeDef(q.type).score(q, answer, GRADING_HELPERS);
+      if (typeDef(q.type)?.grade) return typeDef(q.type).grade(q, answer, GRADING_HELPERS);
       return { fraction: 0, full: false };
   }
 }
@@ -267,40 +221,12 @@ export function gradeQuestion(question, answer, opts = {}) {
   };
 }
 
-function optionText(list, id) {
-  const o = Array.isArray(list) ? list.find((x) => x && String(x.id) === String(id)) : null;
-  if (!o) return String(id);
-  // Image-only choices have no text: fall back to the picture's description so results/exports are never blank.
-  const text = String(o.text ?? '');
-  if (text.trim() === '' && o.image && typeof o.image === 'object') return `[image: ${String(o.image.alt || 'picture')}]`;
-  return text;
-}
-
 export function formatAnswer(question, answer) {
   const q = question || {};
   try {
     if (q.type === 'formula' && Array.isArray(answer)) return answer.length ? answer.map(String).join(' / ') : DASH;
     if (!isAnswered(q, answer)) return DASH;
     switch (q.type) {
-      case 'mcq':
-        return optionText(q.options, answer);
-      case 'multi': {
-        const picked = new Set(answer.map(String));
-        const known = (q.options || []).filter((o) => picked.has(String(o.id))).map((o) => String(o.text));
-        const knownIds = new Set((q.options || []).map((o) => String(o.id)));
-        const unknown = [...picked].filter((id) => !knownIds.has(id));
-        return [...known, ...unknown].join('; ');
-      }
-      case 'truefalse':
-        return answer ? 'True' : 'False';
-      case 'numeric': {
-        const raw = String(answer).trim();
-        const unit = q.unit ? String(q.unit) : '';
-        if (unit && !squash(raw).endsWith(squash(unit))) return `${raw} ${unit}`;
-        return raw;
-      }
-      case 'formula':
-        return Array.isArray(answer) ? answer.map(String).join(' / ') : String(answer);
       case 'short':
       case 'open':
         return String(answer).trim();
@@ -344,12 +270,22 @@ export function formatAnswer(question, answer) {
           })
           .join('; ');
       default:
-        if (typeDef(q.type)?.answerText) return typeDef(q.type).answerText(q, answer, GRADING_HELPERS);
+        if (typeDef(q.type)?.format) return typeDef(q.type).format(q, answer, GRADING_HELPERS);
         return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
     }
   } catch {
     return DASH;
   }
+}
+
+/** Lines of text the PDF / print export prints for one response: the type's own `toPdf`, else the formatted answer. */
+export function pdfLines(question, answer) {
+  const q = question || {};
+  const def = typeDef(q.type);
+  if (def?.toPdf) {
+    try { return def.toPdf(q, answer, GRADING_HELPERS).map(String); } catch { /* fall through to the plain answer */ }
+  }
+  return [formatAnswer(q, answer)];
 }
 
 /** Rubric as text: "• Uses ions (2 pts)\n• ..." */
@@ -404,8 +340,6 @@ function formatCorrect(q) {
   }
   if (q.type === 'ordering') return Array.isArray(q.correctAnswer) ? q.correctAnswer.map((id) => optionText(q.items, id)).join(' → ') : DASH;
   const a = q.correctAnswer;
-  if (q.type === 'formula' && Array.isArray(a)) return a.join(' / ');
-  if (q.type === 'formula') return typeof a === 'string' ? a : DASH;
   if (q.type === 'lewis') {
     const n = Number(a);
     if (!Number.isInteger(n) || n < 1) return DASH;

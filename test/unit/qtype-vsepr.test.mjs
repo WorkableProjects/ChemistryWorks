@@ -30,14 +30,14 @@ test('validate: vocabulary and fields', () => {
 
 test('score: equal share per enabled field', () => {
   const q = mk();
-  assert.deepEqual(def.score(q, ALL), { fraction: 1, full: true });
-  assert.ok(Math.abs(def.score(q, { ...ALL, angle: '109.5' }).fraction - 2 / 3) < 1e-9);
-  assert.ok(Math.abs(def.score(q, { electron: 'tetrahedral' }).fraction - 1 / 3) < 1e-9);
-  assert.equal(def.score(q, { electron: 'Tetrahedral ', molecular: 'Trigonal  Pyramidal', angle: '107°' }).full, true, 'spelling normalised');
-  assert.equal(def.score(mk({ fields: ['molecular'] }), { molecular: 'trigonal pyramidal' }).full, true);
-  assert.equal(def.score(mk({ fields: ['molecular', 'angle'] }), { molecular: 'bent', angle: '107' }).fraction, 0.5);
-  for (const bad of [undefined, null, 'x', 4, [], {}, { electron: 5, angle: null }]) assert.doesNotThrow(() => def.score(q, bad));
-  assert.equal(def.score(q, {}).fraction, 0);
+  assert.deepEqual(def.grade(q, ALL), { fraction: 1, full: true });
+  assert.ok(Math.abs(def.grade(q, { ...ALL, angle: '109.5' }).fraction - 2 / 3) < 1e-9);
+  assert.ok(Math.abs(def.grade(q, { electron: 'tetrahedral' }).fraction - 1 / 3) < 1e-9);
+  assert.equal(def.grade(q, { electron: 'Tetrahedral ', molecular: 'Trigonal  Pyramidal', angle: '107°' }).full, true, 'spelling normalised');
+  assert.equal(def.grade(mk({ fields: ['molecular'] }), { molecular: 'trigonal pyramidal' }).full, true);
+  assert.equal(def.grade(mk({ fields: ['molecular', 'angle'] }), { molecular: 'bent', angle: '107' }).fraction, 0.5);
+  for (const bad of [undefined, null, 'x', 4, [], {}, { electron: 5, angle: null }]) assert.doesNotThrow(() => def.grade(q, bad));
+  assert.equal(def.grade(q, {}).fraction, 0);
 });
 
 test('isAnswered / texts / helpers', () => {
@@ -45,7 +45,7 @@ test('isAnswered / texts / helpers', () => {
   assert.equal(def.isAnswered(q, {}), false);
   assert.equal(def.isAnswered(q, { angle: '90' }), true);
   assert.equal(def.keyText(q), 'Electron geometry: tetrahedral; Molecular geometry: trigonal pyramidal; Bond angle: 107°');
-  assert.equal(def.answerText(q, { molecular: 'bent' }), 'Electron geometry: —; Molecular geometry: bent; Bond angle: —');
+  assert.equal(def.format(q, { molecular: 'bent' }), 'Electron geometry: —; Molecular geometry: bent; Bond angle: —');
   assert.deepEqual(def.correctAnswer(mk({ fields: ['angle'] })), { angle: '107' });
   assert.deepEqual(fieldsOf(mk({ fields: ['angle', 'electron'] })), ['electron', 'angle']);
   assert.equal(angleLabel('90 & 120'), '90° & 120°');

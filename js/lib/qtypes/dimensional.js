@@ -206,8 +206,8 @@ const def = {
     };
   },
   isAnswered,
-  score,
-  answerText(q, answer) {
+  grade: score,
+  format(q, answer) {
     if (!isObj(answer)) return '';
     return chainText(q.given, answer.factors, answer.value, answer.unit);
   },

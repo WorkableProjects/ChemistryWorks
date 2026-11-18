@@ -1,24 +1,24 @@
-// V4-03 question-type registry. A v4 type is described in one definition module (js/lib/qtypes/<type>.js, pure, no
-// DOM) plus one UI module (js/views/qtypes/<type>.js). Shared code — schema.js, grading.js, the runner, the builder,
-// results, grading and export — asks the registry before its built-in switch, so adding a type never touches them.
+// Question-type registry. A type is a definition module (js/lib/qtypes/<type>.js: pure, no DOM, loaded statically by
+// js/lib/qtypes/index.js), a UI module (js/views/qtypes/<type>.js) and an editor module
+// (js/views/admin/editors/<type>.js), the last two loaded lazily with loadTypeUI / loadTypeEditor. See "TypeDef" in
+// docs/ARCHITECTURE.md for the full contract.
 //
-// Definition (lib side), every function optional except score:
+// Definition, every function required unless marked optional:
 //   {
-//     type: 'naming', label: 'Name ↔ formula', shortLabel: 'Naming', group: 'Basics'|'Match & sort'|'Chemistry'|'Diagrams & graphs',
-//     manual: false,                                   // teacher graded (like short/open)
-//     normalize(q, H),                                 // mutate q in place (defaults, coercion); q.type/id/points/text already done
-//     validate(q, where, errors, H),                   // push human-readable strings: `${where}: …`
-//     blank(base) -> question,                         // builder "Add question" template; base = { id, type, text, points, … }
+//     type: 'mcq', label, shortLabel, group: 'Basics'|'Match & sort'|'Chemistry'|'Diagrams & graphs',
+//     manual: false,                                   // teacher graded
+//     normalize(q, H),                                 // mutate q in place; q.type/id/points/text already done
+//     validate(q, where, errors, H),                   // push `${where}: ...`; never throw
+//     blank(base) -> question,                         // builder "Add question" template
 //     isAnswered(q, answer) -> boolean,
-//     score(q, answer, H) -> { fraction: 0..1, full: boolean },
-//     answerText(q, answer) -> string,                 // student's answer as text (results, CSV, PDF)
-//     keyText(q) -> string,                            // correct answer as text
-//     correctAnswer(q) -> any,                         // value stored as `correctAnswer` in graded results
+//     grade(q, answer, H) -> { fraction: 0..1, full },
+//     format(q, answer) -> string,                     // the student's answer as text
+//     keyText(q) -> string,                            // the correct answer as text
+//     correctAnswer(q) -> any,                         // stored as `correctAnswer` in graded results
+//     toPdf(q, answer, H) -> string[],                 // optional; lines for the PDF / print export. Default [format(q, answer)]
 //   }
-// H (helpers passed in by the callers, so type modules never import schema.js / grading.js and no import cycle forms):
-//   { normalizeQuestion(raw) -> q, validateQuestion(q, where, errors), gradeQuestion(q, answer) -> { answered, isCorrect,
-//     pointsEarned, pointsPossible, partial }, isAnswered(q, answer), formatAnswer(q, answer), correctAnswerText(q), parseNumber }
-//   (validate/normalize receive the schema helpers; score receives the grading helpers.)
+// H is the helper bag the callers pass in, so type modules never import schema.js / grading.js:
+//   { normalizeQuestion, validateQuestion, gradeQuestion, isAnswered, formatAnswer, correctAnswerText, parseNumber }
 
 const DEFS = new Map();
 
@@ -27,11 +27,135 @@ export function registerType(def) {
   DEFS.set(def.type, def);
 }
 
-/** The definition for a registered (v4) type, or null for built-in / unknown types. */
+/** The definition for a registered type, or null for an unknown type. */
 export function typeDef(type) {
   return DEFS.get(type) || null;
 }
 
 export function registeredTypes() {
   return [...DEFS.keys()];
+}
+
+/* ------------------------------------------------------------------ UI and editor modules (lazy) */
+
+const UI = new Map();       // type -> UI module, once loaded
+const EDITORS = new Map();  // type -> editor module, once loaded
+const UI_PROMISES = new Map();
+const EDITOR_PROMISES = new Map();
+
+/** Older UI modules register themselves with { type, widget, editor, review }; newer ones export { type, render, review }. */
+export function registerTypeUI(def) {
+  if (def && def.type) UI.set(def.type, def);
+}
+
+// Each entry is a static import() so the paths stay relative and analysable.
+const UI_LOADERS = {
+  mcq: () => import('../../views/qtypes/mcq.js'),
+  multi: () => import('../../views/qtypes/multi.js'),
+  truefalse: () => import('../../views/qtypes/truefalse.js'),
+  numeric: () => import('../../views/qtypes/numeric.js'),
+  formula: () => import('../../views/qtypes/formula.js'),
+  multipart: () => import('../../views/qtypes/multipart.js'),
+  naming: () => import('../../views/qtypes/naming.js'),
+  dropdown: () => import('../../views/qtypes/dropdown.js'),
+  dimensional: () => import('../../views/qtypes/dimensional.js'),
+  nuclear: () => import('../../views/qtypes/nuclear.js'),
+  reaction: () => import('../../views/qtypes/reaction.js'),
+  vsepr: () => import('../../views/qtypes/vsepr.js'),
+  datatable: () => import('../../views/qtypes/datatable.js'),
+  molarmass: () => import('../../views/qtypes/molarmass.js'),
+  imagechoice: () => import('../../views/qtypes/imagechoice.js'),
+  particles: () => import('../../views/qtypes/particles.js'),
+  titration: () => import('../../views/qtypes/titration.js'),
+  estimate: () => import('../../views/qtypes/estimate.js'),
+  ionicformula: () => import('../../views/qtypes/ionicformula.js'),
+  isotopemass: () => import('../../views/qtypes/isotopemass.js'),
+  ionbuilder: () => import('../../views/qtypes/ionbuilder.js'),
+  heatcurve: () => import('../../views/qtypes/heatcurve.js'),
+  oxidation: () => import('../../views/qtypes/oxidation.js'),
+  solubility: () => import('../../views/qtypes/solubility.js'),
+  bohr: () => import('../../views/qtypes/bohr.js'),
+  molbuild: () => import('../../views/qtypes/molbuild.js'),
+  gaslaw: () => import('../../views/qtypes/gaslaw.js'),
+};
+
+const EDITOR_LOADERS = {
+  mcq: () => import('../../views/admin/editors/mcq.js'),
+  multi: () => import('../../views/admin/editors/multi.js'),
+  truefalse: () => import('../../views/admin/editors/truefalse.js'),
+  numeric: () => import('../../views/admin/editors/numeric.js'),
+  formula: () => import('../../views/admin/editors/formula.js'),
+};
+
+/** True when a UI module exists for this type (loaded or loadable). */
+export function hasTypeUI(type) {
+  return UI.has(type) || Object.hasOwn(UI_LOADERS, type);
+}
+
+/** The UI module, synchronously, once loadTypeUI(type) has resolved; null before that. */
+export function typeUI(type) {
+  return UI.get(type) || null;
+}
+
+/** The editor module `{ type, edit(editorCtx) }`, synchronously, once loaded; null before that. */
+export function typeEditorModule(type) {
+  if (EDITORS.has(type)) return EDITORS.get(type);
+  // Older UI modules carry their editor as `editor(q, redraw, changed, uid)`.
+  const ui = UI.get(type);
+  if (ui && typeof ui.editor === 'function') {
+    const mod = { type, edit: ({ q, redraw, changed, uid }) => ui.editor(q, redraw, changed, uid) };
+    EDITORS.set(type, mod);
+    return mod;
+  }
+  return null;
+}
+
+/** Loads (once) the UI module for a type. Rejects with `unknown_type:<type>` for a type nothing is registered for. */
+export function loadTypeUI(type) {
+  if (UI_PROMISES.has(type)) return UI_PROMISES.get(type);
+  const load = Object.hasOwn(UI_LOADERS, type) ? UI_LOADERS[type] : null;
+  if (!load) return Promise.reject(new Error(`unknown_type:${type}`));
+  const p = load().then((m) => {
+    if (m && m.default && typeof m.default === 'object') UI.set(type, m.default);
+    return UI.get(type);
+  });
+  UI_PROMISES.set(type, p);
+  p.catch(() => UI_PROMISES.delete(type));
+  return p;
+}
+
+/** Loads (once) the editor module for a type. Rejects with `unknown_type:<type>` for an unknown type. */
+export function loadTypeEditor(type) {
+  if (EDITOR_PROMISES.has(type)) return EDITOR_PROMISES.get(type);
+  let p;
+  if (Object.hasOwn(EDITOR_LOADERS, type)) {
+    p = EDITOR_LOADERS[type]().then((m) => { EDITORS.set(type, m.default); return m.default; });
+  } else if (Object.hasOwn(UI_LOADERS, type)) {
+    p = loadTypeUI(type).then(() => typeEditorModule(type));
+  } else {
+    return Promise.reject(new Error(`unknown_type:${type}`));
+  }
+  EDITOR_PROMISES.set(type, p);
+  p.catch(() => EDITOR_PROMISES.delete(type));
+  return p;
+}
+
+/** Every type used by these questions, including the parts of multipart questions. */
+function typesIn(questions, out = new Set()) {
+  for (const q of Array.isArray(questions) ? questions : []) {
+    if (!q || typeof q.type !== 'string') continue;
+    out.add(q.type);
+    if (Array.isArray(q.parts)) typesIn(q.parts, out);
+  }
+  return out;
+}
+
+/**
+ * Loads the UI module of every type these questions use. Returns null when they are all loaded already (so a caller can
+ * carry on synchronously), else a promise that never rejects.
+ */
+export function preloadQuestionTypes(questions) {
+  const wanted = [...typesIn(questions)].filter((t) => hasTypeUI(t) && !UI.has(t));
+  if (!wanted.length) return null;
+  return Promise.all(wanted.map((t) => loadTypeUI(t).catch(() => null))).then(() => undefined);
 }

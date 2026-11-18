@@ -61,6 +61,7 @@ export const def = {
   label: 'Solubility rules',
   shortLabel: 'Solubility',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -110,7 +111,7 @@ export const def = {
     return Object.values(a).some((v) => STATES.includes(v));
   },
 
-  score(q, a) {
+  grade(q, a) {
     const key = keyOf(q);
     if (!key || !key.length) return { fraction: 0, full: false };
     const x = isObj(a) ? a : {};
@@ -124,7 +125,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / key.length, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     const x = isObj(a) ? a : {};
     const items = Array.isArray(q.items) ? q.items : [];
     if (q.mode === 'precipitate') {

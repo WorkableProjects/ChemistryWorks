@@ -120,7 +120,7 @@ function editor(q, redraw, changed) {
 function review(q, answer, { key } = {}) {
   if (key) return h('span', { class: 'sol-review', dataset: { testid: 'solubility-review' } }, h('span', { class: 'sol-review__text' }, def.keyText(q)));
   if (!def.isAnswered(q, answer)) return null;
-  return h('span', { class: 'sol-review', dataset: { testid: 'solubility-review' } }, h('span', { class: 'sol-review__text' }, def.answerText(q, answer)));
+  return h('span', { class: 'sol-review', dataset: { testid: 'solubility-review' } }, h('span', { class: 'sol-review__text' }, def.format(q, answer)));
 }
 
 registerTypeUI({ type: 'solubility', widget, editor, review });

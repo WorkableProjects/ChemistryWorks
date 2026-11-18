@@ -31,18 +31,18 @@ test('normalize and validate', () => {
 
 test('score: order-free, states and coefficients only when required, partial credit, extras', () => {
   const q = mk();
-  assert.deepEqual(def.score(q, 'NaNO3(aq) + AgCl(s)'), { fraction: 1, full: true });
-  assert.deepEqual(def.score(q, 'AgNO3 + NaCl -> AgCl(s) + NaNO3(aq)'), { fraction: 1, full: true }, 'text before the arrow is ignored');
-  assert.equal(def.score(q, 'AgCl + NaNO3(aq)').fraction, 0.5, 'missing state loses that product');
-  assert.equal(def.score(mk({ requireStates: false }), 'AgCl + NaNO3').full, true);
-  assert.equal(def.score(q, 'AgCl(s)').fraction, 0.5);
-  assert.equal(def.score(q, 'AgCl(s) + NaNO3(aq) + H2O(l)').full, false, 'an extra species is not full');
-  assert.equal(def.score(q, 'AgCl(s) + NaNO3(aq) + H2O(l)').fraction, 1 - 0.5, 'each extra cancels one right product');
-  assert.equal(def.score(q, 'KCl(s) + NaOH(aq)').fraction, 0);
+  assert.deepEqual(def.grade(q, 'NaNO3(aq) + AgCl(s)'), { fraction: 1, full: true });
+  assert.deepEqual(def.grade(q, 'AgNO3 + NaCl -> AgCl(s) + NaNO3(aq)'), { fraction: 1, full: true }, 'text before the arrow is ignored');
+  assert.equal(def.grade(q, 'AgCl + NaNO3(aq)').fraction, 0.5, 'missing state loses that product');
+  assert.equal(def.grade(mk({ requireStates: false }), 'AgCl + NaNO3').full, true);
+  assert.equal(def.grade(q, 'AgCl(s)').fraction, 0.5);
+  assert.equal(def.grade(q, 'AgCl(s) + NaNO3(aq) + H2O(l)').full, false, 'an extra species is not full');
+  assert.equal(def.grade(q, 'AgCl(s) + NaNO3(aq) + H2O(l)').fraction, 1 - 0.5, 'each extra cancels one right product');
+  assert.equal(def.grade(q, 'KCl(s) + NaOH(aq)').fraction, 0);
   const co = mk({ products: ['2H2O(l)', 'NaCl(aq)'], requireCoefficients: true });
-  assert.equal(def.score(co, '2 H2O(l) + NaCl(aq)').full, true);
-  assert.equal(def.score(co, 'H2O(l) + NaCl(aq)').fraction, 0.5);
-  for (const bad of [undefined, null, 5, {}, [], '   ', '+', '->']) assert.doesNotThrow(() => def.score(q, bad));
+  assert.equal(def.grade(co, '2 H2O(l) + NaCl(aq)').full, true);
+  assert.equal(def.grade(co, 'H2O(l) + NaCl(aq)').fraction, 0.5);
+  for (const bad of [undefined, null, 5, {}, [], '   ', '+', '->']) assert.doesNotThrow(() => def.grade(q, bad));
 });
 
 test('isAnswered / texts', () => {
@@ -51,8 +51,8 @@ test('isAnswered / texts', () => {
   assert.equal(def.isAnswered(q, 'x'), true);
   assert.equal(def.keyText(q), 'AgCl(s) + NaNO3(aq)');
   assert.equal(def.correctAnswer(q), 'AgCl(s) + NaNO3(aq)');
-  assert.equal(def.answerText(q, ' AgCl(s) '), 'AgCl(s)');
-  assert.equal(def.answerText(q, 7), '');
+  assert.equal(def.format(q, ' AgCl(s) '), 'AgCl(s)');
+  assert.equal(def.format(q, 7), '');
   const b = def.blank({ id: 'q9', type: 'reaction', text: '', points: 1 }); def.normalize(b);
   assert.deepEqual(errs(b), []);
 });

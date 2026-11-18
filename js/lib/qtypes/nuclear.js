@@ -171,8 +171,8 @@ const def = {
     };
   },
   isAnswered,
-  score,
-  answerText(q, answer) {
+  grade: score,
+  format(q, answer) {
     if (!isObj(answer)) return '';
     if (q.mode === 'equation') return equationText(q, (k) => typedNotation(answer[k]));
     return typedNotation(answer);

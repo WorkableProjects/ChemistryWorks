@@ -15,7 +15,7 @@ import { hasAdminAuth } from '../../lib/admin-session.js';
 import { testLink } from './library.js';
 import { typeEditor } from './editors/core.js';
 import { gameOptionsPanel } from './game-options.js';
-import { typeDef, registeredTypes } from '../../lib/qtypes/registry.js';
+import { typeDef, registeredTypes, preloadQuestionTypes } from '../../lib/qtypes/registry.js';
 import { testExtrasPanel } from './test-extras.js';
 import { field, switchEl, copyText, downloadFile, debounce, iconButton } from './common.js';
 
@@ -1057,6 +1057,7 @@ export function renderBuilder(root, ctx) {
       let inst = t;
       try { inst = (await import('../../lib/instantiate.js')).instantiateTest(t, { email: email.value }); } catch (err) { console.error(err); }
       const { buildWidget } = await import('../runner/widgets.js');
+      await preloadQuestionTypes(inst.questions);
       const answers = {};
       const api = { get: (id) => answers[id], set: (id, val) => { answers[id] = val; } };
       seedNote.textContent = inst.instance && inst.instance.seed ? `Seed: ${inst.instance.seed}` : '';

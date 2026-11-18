@@ -43,11 +43,11 @@ test('cell comparison: numbers with tolerance, text case-insensitive, formulas',
 test('score: per-cell credit and malformed answers', () => {
   const q = mk();
   assert.equal(blankCells(q).length, 4);
-  assert.deepEqual(def.score(q, full), { fraction: 1, full: true });
-  assert.equal(def.score(q, { r1: { n: '12', f: 'NaCl' }, r2: { n: '99', f: 'HCl' } }).fraction, 0.75);
-  assert.equal(def.score(q, { r1: { n: '12' } }).fraction, 0.25);
-  assert.equal(def.score(q, {}).fraction, 0);
-  for (const bad of [undefined, null, 'x', 3, [], { r1: 'no' }, { r1: null }, { r1: { n: null } }]) assert.doesNotThrow(() => def.score(q, bad));
+  assert.deepEqual(def.grade(q, full), { fraction: 1, full: true });
+  assert.equal(def.grade(q, { r1: { n: '12', f: 'NaCl' }, r2: { n: '99', f: 'HCl' } }).fraction, 0.75);
+  assert.equal(def.grade(q, { r1: { n: '12' } }).fraction, 0.25);
+  assert.equal(def.grade(q, {}).fraction, 0);
+  for (const bad of [undefined, null, 'x', 3, [], { r1: 'no' }, { r1: null }, { r1: { n: null } }]) assert.doesNotThrow(() => def.grade(q, bad));
 });
 
 test('isAnswered / texts / labels / correctAnswer', () => {
@@ -59,7 +59,7 @@ test('isAnswered / texts / labels / correctAnswer', () => {
   assert.equal(rowLabel(q, { id: 'x', cells: {} }), 'Row 0', 'a row outside the table falls back to its (absent) index');
   assert.equal(rowLabel(q, { id: 'y', label: 'Mine', cells: {} }), 'Mine');
   assert.match(def.keyText(q), /Na \/ Neutrons: 12/);
-  assert.match(def.answerText(q, { r1: { n: '9' } }), /Na \/ Neutrons: 9; Na \/ Formula: —/);
+  assert.match(def.format(q, { r1: { n: '9' } }), /Na \/ Neutrons: 9; Na \/ Formula: —/);
   assert.deepEqual(def.correctAnswer(q), { r1: { n: 12, f: 'NaCl' }, r2: { n: 18, f: 'HCl' } });
   const b = def.blank({ id: 'q9', type: 'datatable', text: '', points: 1 }); def.normalize(b);
   assert.deepEqual(errs(b), []);

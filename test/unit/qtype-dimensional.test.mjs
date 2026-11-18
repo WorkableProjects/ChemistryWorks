@@ -45,16 +45,16 @@ test('units: spellings, case sensitivity, cancellation', () => {
 
 test('score: full, tolerance, wrong unit, chain credit, malformed', () => {
   const q = mk();
-  assert.deepEqual(def.score(q, { factors: chain, value: '2', unit: 'mol' }), { fraction: 1, full: true });
-  assert.equal(def.score(q, { factors: [], value: '2.01', unit: 'mol' }).full, true, 'within 1 %');
-  assert.equal(def.score(q, { factors: [], value: '2.5', unit: 'mol' }).fraction, 0);
-  assert.equal(def.score(q, { factors: [], value: '2', unit: 'Mol' }).fraction, 0, 'unit symbols are case-sensitive');
-  assert.deepEqual(def.score(q, { factors: chain, value: '9', unit: 'mol' }), { fraction: 0.5, full: false }, 'good chain, wrong entry');
-  assert.equal(def.score(mk({ chainCredit: 0, factors: [] }), { factors: chain, value: '9', unit: 'mol' }).fraction, 0);
+  assert.deepEqual(def.grade(q, { factors: chain, value: '2', unit: 'mol' }), { fraction: 1, full: true });
+  assert.equal(def.grade(q, { factors: [], value: '2.01', unit: 'mol' }).full, true, 'within 1 %');
+  assert.equal(def.grade(q, { factors: [], value: '2.5', unit: 'mol' }).fraction, 0);
+  assert.equal(def.grade(q, { factors: [], value: '2', unit: 'Mol' }).fraction, 0, 'unit symbols are case-sensitive');
+  assert.deepEqual(def.grade(q, { factors: chain, value: '9', unit: 'mol' }), { fraction: 0.5, full: false }, 'good chain, wrong entry');
+  assert.equal(def.grade(mk({ chainCredit: 0, factors: [] }), { factors: chain, value: '9', unit: 'mol' }).fraction, 0);
   const wrongChain = [{ top: { value: '58.5', unit: 'g' }, bottom: { value: '1', unit: 'mol' } }];
-  assert.equal(def.score(q, { factors: wrongChain, value: '9', unit: 'mol' }).fraction, 0, 'units do not cancel');
-  for (const bad of [undefined, null, 'x', 5, [], {}, { factors: 'no' }, { factors: [null, 3] }]) assert.doesNotThrow(() => def.score(q, bad));
-  assert.equal(def.score(q, 'x').fraction, 0);
+  assert.equal(def.grade(q, { factors: wrongChain, value: '9', unit: 'mol' }).fraction, 0, 'units do not cancel');
+  for (const bad of [undefined, null, 'x', 5, [], {}, { factors: 'no' }, { factors: [null, 3] }]) assert.doesNotThrow(() => def.grade(q, bad));
+  assert.equal(def.grade(q, 'x').fraction, 0);
 });
 
 test('isAnswered / texts / correctAnswer / blank', () => {
@@ -63,7 +63,7 @@ test('isAnswered / texts / correctAnswer / blank', () => {
   assert.equal(def.isAnswered(q, { factors: [], value: '', unit: '' }), false);
   assert.equal(def.isAnswered(q, { factors: [], value: '3', unit: '' }), true);
   assert.equal(def.isAnswered(q, { factors: [{ top: { value: '1', unit: '' }, bottom: { value: '', unit: '' } }], value: '', unit: '' }), true);
-  assert.equal(def.answerText(q, { factors: chain, value: '2', unit: 'mol' }), '117 g × (1 mol / 58.5 g) = 2 mol');
+  assert.equal(def.format(q, { factors: chain, value: '2', unit: 'mol' }), '117 g × (1 mol / 58.5 g) = 2 mol');
   assert.equal(def.keyText(q), '117 g × (1 mol / 58.5 g) = 2 mol');
   assert.equal(def.keyText(mk({ factors: [], chainCredit: 0 })), '2 mol');
   assert.deepEqual(def.correctAnswer(q).value, 2);

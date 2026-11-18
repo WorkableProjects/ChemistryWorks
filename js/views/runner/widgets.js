@@ -3,9 +3,6 @@
 // Each widget returns { el, refresh() }.
 
 import { h, icon, richText, renderMath, seededShuffle } from '../../ui.js';
-import { parseNumber } from '../../lib/grading.js';
-import { formulaToHTML } from '../../lib/formula.js';
-import { safeImageUrl } from '../../lib/sections.js';
 import { lewisWidget } from '../lewis-view.js';
 import { structureWidget } from '../structure-view.js';
 import { orbitalWidget } from '../orbital-view.js';
@@ -16,34 +13,16 @@ import { sigfigsWidget } from '../widgets/sigfigs.js';
 import { categorizeWidget } from '../widgets/categorize.js';
 import { hotspotWidget } from '../widgets/hotspot.js';
 import { graphWidget } from '../widgets/graph.js';
-import { formatHelpFor, CHARGE_EXAMPLES, EXPONENT_EXAMPLES } from '../../lib/hints.js';
+import { formatHelpFor } from '../../lib/hints.js';
 import { splitBlanks, wordBankChoices } from '../../lib/blanks.js';
-import { typeUI } from '../qtypes/registry.js';
-import '../qtypes/index.js'; // V4-03: registers the v4 question-type widgets/editors
+import { typeUI, hasTypeUI, loadTypeUI } from '../qtypes/registry.js';
+import { optionImageEl, helpBox } from '../qtypes/shared.js';
+import '../qtypes/index.js'; // registers the older question-type widgets, which still carry their own editors
 
-const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻', '+': '⁺' };
-
-/** 1.204e24 -> "1.204 × 10²⁴"; plain numbers are shown without float noise. */
-export function formatInterpreted(x) {
-  if (!Number.isFinite(x)) return String(x);
-  const abs = Math.abs(x);
-  if (abs !== 0 && (abs >= 1e5 || abs < 1e-3)) {
-    const [mant, exp] = x.toExponential().split('e');
-    const e = String(parseInt(exp, 10));
-    return `${mant} × 10${[...e].map((c) => SUP[c] ?? c).join('')}`;
-  }
-  return String(Number(x.toPrecision(12)));
-}
+export { formatInterpreted, optionImageEl } from '../qtypes/shared.js';
 
 export const pointsLabel = (p) => `${p} ${Number(p) === 1 ? 'pt' : 'pts'}`;
-const letter = (i) => String.fromCharCode(65 + i);
 
-/** Optional picture on a choice / item (option.image = { url, alt }); null when there is none or the url is unsafe. */
-export function optionImageEl(o, className = '') {
-  const url = o && o.image && safeImageUrl(o.image.url);
-  if (!url) return null;
-  return h('img', { class: ['opt-img', className].filter(Boolean).join(' '), src: url, alt: String(o.image.alt || ''), loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', dataset: { testid: 'opt-img' } });
-}
 /**
  * Pictures of the choices named by `answer` (an option id, a list of ids, or an ordering), for results and exports.
  * Returns a row element, or null when none of the chosen options has an image.
@@ -62,205 +41,6 @@ const optLabel = (o) => (o && String(o.text || '').trim()) || (o && o.image && o
 /* ------------------------------------------------------------------ widgets */
 // Every widget returns { el, refresh(answer), focus?(), shortcut?(key) }. Widgets never own state: they call
 // api.set(questionId, value, { debounce }) and the runner calls refresh() with the stored answer.
-
-function choiceBody(o) {
-  const img = optionImageEl(o);
-  if (!img) return richText(o.text, 'span', 'opt__text');
-  return h('span', { class: 'opt__body' }, img, String(o.text).trim() ? richText(o.text, 'span', 'opt__text') : null);
-}
-
-function choiceWidget(q, api, multi) {
-  const n = q.options.length;
-  const btns = q.options.map((o, idx) => {
-    const b = h('button', {
-      type: 'button',
-      class: 'opt',
-      role: multi ? 'checkbox' : 'radio',
-      'aria-checked': 'false',
-      tabindex: multi || idx === 0 ? '0' : '-1',
-      dataset: { testid: `option-${o.id}`, optionId: o.id },
-      on: {
-        click: () => choose(o.id),
-        keydown: (e) => {
-          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-          e.preventDefault();
-          const j = (idx + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
-          btns[j].focus();
-          if (!multi) api.set(q.id, q.options[j].id);
-        },
-      },
-    },
-      h('span', { class: 'opt__badge', 'aria-hidden': 'true' }, letter(idx)),
-      choiceBody(o),
-      h('span', { class: 'opt__check' }, icon('check', { size: 15 })),
-    );
-    return b;
-  });
-
-  function choose(id) {
-    if (!multi) return api.set(q.id, id);
-    const cur = new Set(Array.isArray(api.get(q.id)) ? api.get(q.id) : []);
-    if (cur.has(id)) cur.delete(id); else cur.add(id);
-    api.set(q.id, q.options.map((o) => o.id).filter((x) => cur.has(x)));
-  }
-
-  return {
-    el: h('div', { class: 'q-choices' },
-      multi ? h('p', { class: 'q-hint', id: `hint-${q.id}` }, 'Select all that apply') : null,
-      h('div', { class: 'q-choices__list', role: multi ? 'group' : 'radiogroup', 'aria-labelledby': `qt-${q.id}` }, btns),
-    ),
-    refresh(answer) {
-      const sel = multi ? new Set(Array.isArray(answer) ? answer : []) : new Set(answer == null ? [] : [answer]);
-      const firstSel = q.options.findIndex((o) => sel.has(o.id));
-      btns.forEach((b, i) => {
-        const on = sel.has(q.options[i].id);
-        b.classList.toggle('is-selected', on);
-        b.setAttribute('aria-checked', String(on));
-        if (!multi) b.tabIndex = i === (firstSel >= 0 ? firstSel : 0) ? 0 : -1;
-      });
-    },
-    shortcut(key) {
-      let idx = -1;
-      if (/^[1-9]$/.test(key)) idx = Number(key) - 1;
-      else if (/^[a-z]$/.test(key) && key !== 'g' && key !== 'n') idx = key.charCodeAt(0) - 97;
-      if (idx < 0 || idx >= n) return false;
-      btns[idx].focus({ preventScroll: true });
-      choose(q.options[idx].id);
-      return true;
-    },
-  };
-}
-
-/* ---- "how to type it" help for charges and exponents */
-
-/** Insert text at the caret of an input and fire its input handler. */
-function insertAtCaret(input, text, caretBack = 0) {
-  const start = input.selectionStart ?? input.value.length;
-  const end = input.selectionEnd ?? input.value.length;
-  input.value = input.value.slice(0, start) + text + input.value.slice(end);
-  const pos = start + text.length - caretBack;
-  input.focus();
-  input.setSelectionRange(pos, pos);
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function helpBox(kind, testid) {
-  const charges = kind === 'charges';
-  const rows = (charges ? CHARGE_EXAMPLES : EXPONENT_EXAMPLES).map(([typed, means]) => h('li', {},
-    h('kbd', { class: 'q-help__kbd' }, typed), h('span', { class: 'q-help__arrow', 'aria-hidden': 'true' }, '→'), h('span', {}, means)));
-  return h('div', { class: ['q-help', charges ? 'q-help--charges' : 'q-help--exp'], role: 'note', dataset: { testid } },
-    h('p', { class: 'q-help__title' }, icon('info', { size: 16 }), charges ? 'How to type charges' : 'How to type powers of ten'),
-    h('p', { class: 'q-help__lead' }, charges
-      ? 'Type the formula with normal numbers for subscripts (H2O). For a charge, type ^ then the number, then the sign. Leave out the number for a charge of 1.'
-      : 'Type e (or x10^) before the exponent. The preview under the box shows how your number was read, so check it before moving on.'),
-    h('ul', { class: 'q-help__list' }, rows));
-}
-
-/** Small buttons that type ^, +, −, etc. into an input (helpful on phones and tablets). */
-function insertBar(input, keys) {
-  return h('div', { class: 'q-insert', role: 'group', 'aria-label': 'Insert symbol' },
-    keys.map(([label, text, back = 0, title]) => h('button', {
-      type: 'button', class: 'q-insert__btn', title: title || `Insert ${text}`, 'aria-label': title || `Insert ${text}`,
-      dataset: { testid: `insert-${label}` },
-      on: { mousedown: (e) => e.preventDefault(), click: () => insertAtCaret(input, text, back) },
-    }, label)));
-}
-
-const CHARGE_KEYS = [['^', '^', 0, 'Insert ^ (start a charge)'], ['+', '+', 0, 'Insert + sign'], ['−', '-', 0, 'Insert − sign'], ['( )', '()', 1, 'Insert parentheses'], ['·', '.', 0, 'Insert hydrate dot']];
-const EXP_KEYS = [['×10^', 'x10^', 0, 'Insert ×10^'], ['e', 'e', 0, 'Insert e (exponent)'], ['−', '-', 0, 'Insert minus sign']];
-
-function numericWidget(q, api) {
-  const previewId = `np-${q.id}`;
-  const preview = h('p', { class: 'q-preview', id: previewId, 'aria-live': 'polite', dataset: { testid: 'numeric-preview' } });
-  const updatePreview = () => {
-    const v = input.value.trim();
-    preview.classList.remove('is-error');
-    if (!v) { preview.textContent = 'Scientific notation works: 6.02e23 or 6.02 × 10^23'; return; }
-    const x = parseNumber(v, { unit: q.unit || '' });
-    if (Number.isNaN(x)) { preview.textContent = 'Not a number yet'; preview.classList.add('is-error'); return; }
-    preview.textContent = `Interpreted as ${formatInterpreted(x)}`;
-  };
-  const input = h('input', {
-    class: 'input q-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false',
-    autocapitalize: 'off', placeholder: 'Enter a number', 'aria-label': 'Your answer', 'aria-describedby': previewId,
-    dataset: { testid: 'numeric-input' },
-    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updatePreview(); } },
-  });
-  updatePreview();
-  const help = formatHelpFor(q);
-  return {
-    el: h('div', { class: 'q-numeric' },
-      help.exponents ? helpBox('exponents', 'exponent-help') : null,
-      h('div', { class: 'q-field' }, input, q.unit ? h('span', { class: 'q-unit' }, q.unit) : null),
-      help.exponents ? insertBar(input, EXP_KEYS) : null,
-      preview),
-    refresh(answer) {
-      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : answer == null ? '' : String(answer);
-      updatePreview();
-    },
-    focus: () => input.focus(),
-  };
-}
-
-function formulaWidget(q, api) {
-  const preview = h('div', { class: 'q-formula-preview', 'aria-live': 'polite', dataset: { testid: 'formula-preview' } });
-  const updatePreview = () => {
-    const v = input.value.trim();
-    if (!v) {
-      preview.classList.add('is-empty');
-      preview.textContent = 'Formatted preview appears here';
-    } else {
-      preview.classList.remove('is-empty');
-      // formulaToHTML escapes its input; this is the only HTML string rendered from student input.
-      preview.innerHTML = `<span class="formula">${formulaToHTML(input.value)}</span>`;
-    }
-  };
-  const input = h('input', {
-    class: 'input q-input q-input--formula', type: 'text', autocomplete: 'off', spellcheck: 'false',
-    autocapitalize: 'off', autocorrect: 'off', placeholder: 'e.g. H2SO4', 'aria-label': 'Your answer (chemical formula)',
-    dataset: { testid: 'formula-input' },
-    on: { input: () => { api.set(q.id, input.value, { debounce: true }); updatePreview(); } },
-  });
-  updatePreview();
-  const help = formatHelpFor(q);
-  return {
-    el: h('div', { class: 'q-formula' },
-      help.charges ? helpBox('charges', 'charge-help') : null,
-      input,
-      help.charges ? insertBar(input, CHARGE_KEYS)
-        : h('p', { class: 'q-hint' }, 'Subscripts are plain numbers: H2O, Ca(OH)2, CuSO4.5H2O. Charges: SO4^2-, Na^+'),
-      preview),
-    refresh(answer) {
-      if (document.activeElement !== input) input.value = typeof answer === 'string' ? answer : '';
-      updatePreview();
-    },
-    focus: () => input.focus(),
-  };
-}
-
-function trueFalseWidget(q, api) {
-  const mk = (val, label, ic) => h('button', {
-    type: 'button', class: 'q-tf__btn', role: 'radio', 'aria-checked': 'false', tabindex: '0',
-    dataset: { testid: val ? 'tf-true' : 'tf-false' },
-    on: { click: () => api.set(q.id, val) },
-  }, h('span', { class: 'q-tf__icon' }, icon(ic, { size: 22 })), h('span', {}, label));
-  const t = mk(true, 'True', 'check');
-  const f = mk(false, 'False', 'x');
-  return {
-    el: h('div', { class: 'q-tf', role: 'radiogroup', 'aria-labelledby': `qt-${q.id}` }, t, f),
-    refresh(answer) {
-      t.classList.toggle('is-selected', answer === true);
-      f.classList.toggle('is-selected', answer === false);
-      t.setAttribute('aria-checked', String(answer === true));
-      f.setAttribute('aria-checked', String(answer === false));
-    },
-    shortcut(key) {
-      if (key === 't') { api.set(q.id, true); return true; }
-      if (key === 'f') { api.set(q.id, false); return true; }
-      return false;
-    },
-  };
-}
 
 function matchingWidget(q, api) {
   const inputs = {}; // `${l}|${r}` -> input
@@ -487,11 +267,6 @@ function openWidget(q, api) {
 
 export function buildWidget(q, api) {
   switch (q.type) {
-    case 'mcq': return choiceWidget(q, api, false);
-    case 'multi': return choiceWidget(q, api, true);
-    case 'numeric': return numericWidget(q, api);
-    case 'formula': return formulaWidget(q, api);
-    case 'truefalse': return trueFalseWidget(q, api);
     case 'matching': return matchingWidget(q, api);
     case 'lewis': return lewisWidget(q, api);
     case 'short': return shortWidget(q, api);
@@ -507,10 +282,39 @@ export function buildWidget(q, api) {
     case 'categorize': return categorizeWidget(q, api);
     case 'hotspot': return hotspotWidget(q, api);
     case 'graph': return graphWidget(q, api);
-    default:
-      if (typeUI(q.type)?.widget) return typeUI(q.type).widget(q, api);
+    default: {
+      const ui = typeUI(q.type);
+      if (ui?.render) return ui.render({ q, api, readOnly: false, uid: q.id });
+      if (ui?.widget) return ui.widget(q, api);
+      if (hasTypeUI(q.type)) return deferredWidget(q, api);
       return { el: h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`), refresh() {} };
+    }
   }
+}
+
+/**
+ * Stand-in for a widget whose module is still loading (the runner normally preloads them, see preloadQuestionTypes).
+ * It forwards refresh, focus and shortcut to the real widget once that arrives.
+ */
+function deferredWidget(q, api) {
+  const el = h('div', { class: 'q-loading', 'aria-busy': 'true' });
+  let real = null;
+  let latest;
+  loadTypeUI(q.type).then(() => {
+    const ui = typeUI(q.type);
+    real = ui?.render ? ui.render({ q, api, readOnly: false, uid: q.id }) : ui?.widget ? ui.widget(q, api) : null;
+    if (!real) { el.replaceChildren(h('p', { class: 'muted' }, `Unsupported question type: ${q.type}`)); return; }
+    el.removeAttribute('aria-busy');
+    el.replaceChildren(real.el);
+    real.refresh(latest);
+    renderMath(el);
+  }).catch(() => el.replaceChildren(h('p', { class: 'muted' }, 'Could not load this question.')));
+  return {
+    el,
+    refresh(answer) { latest = answer; real?.refresh(answer); },
+    focus() { real?.focus?.(); },
+    shortcut(key) { return real?.shortcut ? real.shortcut(key) : false; },
+  };
 }
 
 /* ------------------------------------------------------------------ view */

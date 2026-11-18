@@ -37,6 +37,7 @@ export const def = {
   label: 'Molar mass',
   shortLabel: 'Molar mass',
   group: 'Chemistry',
+  manual: false,
 
   normalize(q) {
     q.formula = str(q.formula).trim();
@@ -61,14 +62,14 @@ export const def = {
 
   isAnswered: (q, answer) => isObj(answer) && (str(answer.value).trim() !== '' || workText(answer) !== ''),
 
-  score(q, answer) {
+  grade(q, answer) {
     if (!isObj(answer)) return { fraction: 0, full: false };
     const x = parseMolarMass(answer.value);
     const ok = withinTolerance(x, molarMassKey(q), q.tolerance, q.toleranceType);
     return { fraction: ok ? 1 : 0, full: ok };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     const a = isObj(answer) ? answer : {};
     const value = str(a.value).trim();
     const work = workText(a);

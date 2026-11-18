@@ -581,7 +581,7 @@ Student calls add the signed-in user's `idToken` (`getFreshIdToken()`).
   `syncProgress` is throttled to one per 30 s, plus on mode switch and `pagehide`.
 
 ### New question types (S11/S12)
-Each = `js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js` (+ editor), styles `css/qt-<type>.css`, import added to `v4-types.js` / `views/qtypes/index.js`, label in `TYPE_LABELS`.
+Each = `js/lib/qtypes/<type>.js` + `js/views/qtypes/<type>.js` (+ editor), styles `css/qt-<type>.css`, import added to `js/lib/qtypes/index.js` / `views/qtypes/index.js`, label in `TYPE_LABELS`.
 `v5Types` hides them from the builder menu only; existing tests always render. Answer value and key:
 
 | Type | Answer value | `correctAnswer` / key |
@@ -926,3 +926,13 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `demoAdminAllowed(config)` (`js/lib/admin-session.js`) is true only when `GOOGLE_CLIENT_ID` is empty; `app.js` opens the admin panel directly in that case and otherwise runs the Google + `whoami` flow.
 - `reportError` bodies carry `clientId` (random id in the `clientId` storage key) and, when signed in, `idToken`.
 - Admin grading views show an "Unverified" pill (`js/views/admin/identity-mark.js`) for rows with `identity: unverified`; `normalizeRow` keeps `identity`.
+
+### S05 Type registry I
+
+- `js/lib/qtypes/registry.js` now also holds the UI and editor maps: `loadTypeUI(type)`, `loadTypeEditor(type)`, `typeUI(type)`, `typeEditorModule(type)`, `hasTypeUI(type)`, `registerTypeUI(def)` (older UI modules) and `preloadQuestionTypes(questions)`. `js/views/qtypes/registry.js` re-exports them.
+- `preloadQuestionTypes(questions)` returns `null` when every type the questions use (multipart parts included) is loaded, else a promise that never rejects. `navigate()` in `js/app.js` waits for it before it renders a view that has `params.test`, and the Builder preview calls it. `buildWidget` and `typeEditor` still work if a module has not arrived: they return a placeholder that fills itself in.
+- Types not yet moved (the 22 registry types, and the built-ins S06a and S06b move) keep the old UI shape `{ type, widget, editor, review }`, registered by `views/qtypes/index.js`. `loadTypeUI` and `loadTypeEditor` cover them too; `typeEditorModule` wraps their `editor` as `edit(editorCtx)`.
+- Moved so far: mcq, multi, truefalse, numeric, formula. `mcq` and `multi` share `js/views/qtypes/choice.js` and `js/views/admin/editors/choice.js`. Shared pieces: `js/lib/qtypes/shared.js` (`normOptions`, `validateList`, `optionText`, `DASH`, small type guards), `js/views/qtypes/shared.js` (option pictures, typing-help box, insert bar, `formatInterpreted`) and `js/views/admin/editors/shared.js` (ids, `parseSci`, `withVariables`, `optionImageControl`, `formatHelpField`).
+- `pdfLines(q, answer)` in `js/lib/grading.js` returns the type's `toPdf` lines, else `[formatAnswer(q, answer)]`.
+- `manual: false` is now set on every definition, as the contract says.
+- `ensureCss` does not exist yet (S08). Until it does, `css/qt-truefalse.css` and `css/qt-formula.css` are linked from `index.html`. Other rules for moved types (`.opt`, `.q-preview`, `.q-unit`, `.q-formula-preview`) are shared with imagechoice, sigfigs, graph, naming and reaction, so they stay in `runner.css`.

@@ -1,14 +1,12 @@
-// Per-type question editors for the admin Builder (everything except the self-contained modules in this folder):
-// choice (mcq / multi), numeric, formula, lewis, short, true/false, matching, ordering, fill-in-the-blank, structure,
-// orbital and open. `typeEditor` picks the editor for a question's type and is what the Builder view mounts.
+// Per-type question editors for the admin Builder that have not moved to their own module yet: lewis, short, matching,
+// ordering, fill-in-the-blank, structure, orbital and open. `typeEditor` picks the editor for a question's type and is
+// what the Builder view mounts; moved types load lazily from js/views/admin/editors/<type>.js.
 // Each editor mutates the question in place, calls `changed()` for light refreshes and `redraw()` when its shape changes.
 import { h, mount, icon } from '../../../ui.js';
-import { formulaToHTML } from '../../../lib/formula.js';
 import { normalizeSymbol, valenceOf, canonicalDots } from '../../../lib/lewis.js';
 import { lewisDiagram } from '../../lewis-view.js';
 import { structureDiagram } from '../../structure-view.js';
 import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds, MAX_CHARGE } from '../../../lib/structure.js';
-import { safeImageUrl } from '../../../lib/sections.js';
 import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../../lib/orbital.js';
 import { ELEMENTS } from '../../../lib/elements.js';
 import { orbitalWidget } from '../../orbital-view.js';
@@ -16,51 +14,18 @@ import { balanceEditor } from './balance.js';
 import { econfigEditor } from './econfig.js';
 import { ptableEditor } from './ptable.js';
 import { sigfigsEditor } from './sigfigs.js';
-import { variablesEditor } from '../variables-editor.js';
 import { categorizeEditor } from './categorize.js';
 import { hotspotEditor } from './hotspot.js';
 import { graphEditor } from './graph.js';
-import { formatHelpFor } from '../../../lib/hints.js';
 import { BLANK_KINDS, markerIds } from '../../../lib/blanks.js';
 import { field, switchEl, debounce, iconButton } from '../common.js';
-import { typeUI } from '../../qtypes/registry.js';
-import '../../qtypes/index.js'; // V4-03: registers the v4 question-type widgets/editors
-
-// ---------- helpers ----------
-function uniqueId(prefix, items) {
-  const used = new Set(items.map((i) => i.id));
-  let n = 1;
-  while (used.has(`${prefix}${n}`)) n++;
-  return `${prefix}${n}`;
-}
-function letterId(options) {
-  const used = new Set(options.map((o) => o.id));
-  for (const c of 'abcdefghijklmnopqrstuvwxyz') if (!used.has(c)) return c;
-  return uniqueId('o', options);
-}
-/** Parse "6.022e23", "6.02x10^23", "6.02 × 10^23", "-3". NaN when unparseable. */
-function parseSci(raw) {
-  const s = String(raw).trim().replace(/−/g, '-').replace(/,/g, '');
-  if (!s) return NaN;
-  const m = s.match(/^(-?\d*\.?\d+)\s*[x×*]\s*10\s*\^?\s*([+-]?\d+)$/i);
-  if (m) return Number(`${m[1]}e${m[2]}`);
-  return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s) ? Number(s) : NaN;
-}
+import { typeEditorModule, hasTypeUI, loadTypeEditor } from '../../qtypes/registry.js';
+import { uniqueId, optionImageControl, withVariables, formatHelpField } from './shared.js';
+import '../../qtypes/index.js'; // registers the older question-type editors
 
 // ---------- per-type editors ----------
-/** V4-09: numeric / sigfigs editors get the "Randomize with variables" panel underneath. */
-function withVariables(q, editor, redraw, changed) {
-  const panel = variablesEditor(q, redraw, changed);
-  return panel ? h('div', { class: 'stack' }, editor, panel) : editor;
-}
-
 export function typeEditor(q, redraw, changed, uid) {
   switch (q.type) {
-    case 'mcq':
-    case 'multi': return choiceEditor(q, redraw, changed, uid);
-    case 'numeric': return withVariables(q, numericEditor(q, changed), redraw, changed);
-    case 'formula': return formulaEditor(q, changed);
-    case 'truefalse': return tfEditor(q, changed);
     case 'matching': return matchingEditor(q, redraw, changed);
     case 'lewis': return lewisEditor(q, changed);
     case 'short': return shortEditor(q, changed);
@@ -76,126 +41,23 @@ export function typeEditor(q, redraw, changed, uid) {
     case 'categorize': return categorizeEditor(q, redraw, changed);
     case 'hotspot': return hotspotEditor(q, redraw, changed);
     case 'graph': return graphEditor(q, redraw, changed);
-    default:
-      if (typeUI(q.type)?.editor) return typeUI(q.type).editor(q, redraw, changed, uid);
+    default: {
+      const mod = typeEditorModule(q.type);
+      if (mod) return mod.edit({ q, redraw, changed, uid });
+      if (hasTypeUI(q.type)) return deferredEditor(q, redraw, changed, uid);
       return h('p', { class: 'muted' }, `Unknown question type “${q.type}”.`);
+    }
   }
 }
 
-/**
- * Optional picture for one choice / item: a small "Add image" toggle revealing URL + alt text inputs.
- * Writes o.image = { url, alt } (removed again when the URL is cleared). `tag` names the test ids, e.g. "option-0".
- */
-function optionImageControl(o, changed, tag) {
-  const url = h('input', { class: 'input', value: o.image?.url || '', placeholder: 'https://… or images/pic.png', 'aria-label': `${tag} image URL`, autocomplete: 'off', spellcheck: 'false', dataset: { testid: `${tag}-image-url` } });
-  const alt = h('input', { class: 'input', value: o.image?.alt || '', placeholder: 'Describe the image for screen readers', 'aria-label': `${tag} image description`, dataset: { testid: `${tag}-image-alt` } });
-  const prev = h('div', { class: 'adm-optimg__prev' });
-  const sync = () => {
-    const u = url.value.trim();
-    if (u) o.image = { url: u, alt: alt.value }; else delete o.image;
-    const safe = safeImageUrl(u);
-    mount(prev, safe ? h('img', { src: safe, alt: alt.value, class: 'adm-optimg__img', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null);
-    changed();
-  };
-  url.addEventListener('input', sync);
-  alt.addEventListener('input', sync);
-  const body = h('div', { class: 'adm-optimg__body' }, url, alt, prev);
-  const toggle = h('button', { type: 'button', class: 'btn btn--ghost btn--sm adm-optimg__toggle', 'aria-expanded': 'false', dataset: { testid: `${tag}-image-toggle` } });
-  const setOpen = (open) => {
-    body.hidden = !open;
-    toggle.setAttribute('aria-expanded', String(open));
-    mount(toggle, icon('plus', { size: 14 }), o.image?.url ? 'Image' : 'Add image');
-  };
-  toggle.addEventListener('click', () => setOpen(body.hidden));
-  setOpen(!!o.image?.url);
-  if (o.image?.url) { const safe = safeImageUrl(o.image.url); if (safe) mount(prev, h('img', { src: safe, alt: o.image.alt || '', class: 'adm-optimg__img', loading: 'lazy', referrerpolicy: 'no-referrer' })); }
-  return h('div', { class: 'adm-optimg' }, toggle, body);
-}
-
-function choiceEditor(q, redraw, changed, uid) {
-  const multi = q.type === 'multi';
-  q.options = Array.isArray(q.options) ? q.options : [];
-  if (multi && !Array.isArray(q.correctAnswer)) q.correctAnswer = q.correctAnswer ? [q.correctAnswer] : [];
-  const rows = q.options.map((o, i) => {
-    const checked = multi ? q.correctAnswer.includes(o.id) : q.correctAnswer === o.id;
-    const mark = h('input', { type: multi ? 'checkbox' : 'radio', name: `correct-${uid}`, checked, 'aria-label': `Option ${i + 1} is correct`, dataset: { testid: `option-correct-${i}` },
-      on: { change: () => {
-        if (multi) {
-          const set = new Set(q.correctAnswer);
-          if (mark.checked) set.add(o.id); else set.delete(o.id);
-          q.correctAnswer = q.options.map((x) => x.id).filter((id) => set.has(id));
-        } else {
-          q.correctAnswer = o.id;
-        }
-        changed();
-      } } });
-    const txt = h('input', { class: 'input', value: o.text || '', placeholder: `Option ${i + 1}`, 'aria-label': `Option ${i + 1} text`, dataset: { testid: `option-text-${i}` },
-      on: { input: () => { o.text = txt.value; changed(); } } });
-    const rm = iconButton('x', 'Remove option', () => {
-      q.options.splice(i, 1);
-      if (multi) q.correctAnswer = q.correctAnswer.filter((id) => id !== o.id);
-      else if (q.correctAnswer === o.id) q.correctAnswer = q.options[0]?.id ?? '';
-      redraw();
-      changed();
-    }, { testid: `option-remove-${i}` });
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt' }, mark, txt, rm), optionImageControl(o, changed, `option-${i}`));
-  });
-  return h('div', { class: 'stack' },
-    h('div', { class: 'field__label' }, multi ? 'Options (tick every correct one)' : 'Options (select the correct one)'),
-    h('div', { class: 'adm-opts' }, rows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-option' }, on: { click: (e) => {
-        const sec = e.currentTarget.closest('.adm-typesec');
-        q.options.push({ id: letterId(q.options), text: '' });
-        redraw();
-        changed();
-        sec?.querySelector(`[data-testid="option-text-${q.options.length - 1}"]`)?.focus();
-      } } }, icon('plus', { size: 16 }), 'Add option'),
-      multi ? switchEl({ label: 'Partial credit', checked: !!q.partialCredit, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }) : null));
-}
-
-function numericEditor(q, changed) {
-  const parsedEl = h('span', { class: 'field__hint' });
-  const showParsed = () => {
-    const n = q.correctAnswer;
-    parsedEl.textContent = typeof n === 'number' && Number.isFinite(n) ? `Parsed value: ${n}` : ans.value.trim() ? 'Not a valid number yet' : '';
-  };
-  const ans = h('input', { class: 'input', value: q.correctAnswer ?? '', placeholder: 'e.g. 18.02 or 6.022e23', inputmode: 'text', autocomplete: 'off', dataset: { testid: 'numeric-answer' },
-    on: { input: () => { const n = parseSci(ans.value); q.correctAnswer = Number.isNaN(n) ? '' : n; showParsed(); changed(); } } });
-  const tol = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: q.tolerance ?? 0, dataset: { testid: 'numeric-tolerance' },
-    on: { input: () => { q.tolerance = tol.value.trim() === '' ? 0 : Number(tol.value); changed(); } } });
-  const type = h('select', { class: 'select', dataset: { testid: 'numeric-tolerance-type' }, on: { change: () => { q.toleranceType = type.value; changed(); } } },
-    h('option', { value: 'absolute' }, 'Absolute (±)'), h('option', { value: 'percent' }, 'Percent (±%)'));
-  type.value = q.toleranceType || 'absolute';
-  const unit = h('input', { class: 'input', value: q.unit || '', placeholder: 'e.g. g/mol', dataset: { testid: 'numeric-unit' }, on: { input: () => { q.unit = unit.value; changed(); } } });
-  showParsed();
-  return h('div', { class: 'stack' },
-    h('div', { class: 'adm-grid adm-grid--4' },
-      field('Correct answer', ans, null), field('Tolerance', tol), field('Tolerance type', type), field('Unit', unit, 'Optional, shown to students'),
-      h('div', { class: 'adm-span-all' }, parsedEl)),
-    formatHelpField(q, changed));
-}
-
-function formulaEditor(q, changed) {
-  const accepted = Array.isArray(q.correctAnswer) ? q.correctAnswer : q.correctAnswer ? [q.correctAnswer] : [];
-  const chips = h('div', { class: 'adm-chips', 'aria-label': 'Accepted answers preview' });
-  const drawChips = () => {
-    const list = Array.isArray(q.correctAnswer) ? q.correctAnswer : q.correctAnswer ? [q.correctAnswer] : [];
-    mount(chips, list.length ? list.map((f) => h('span', { class: 'adm-chip formula', html: formulaToHTML(f) })) : h('span', { class: 'faint' }, 'Accepted formulas preview here'));
-  };
-  const inp = h('input', { class: 'input', value: accepted.join(', '), placeholder: 'e.g. H2SO4, H₂SO₄', autocomplete: 'off', spellcheck: 'false', dataset: { testid: 'formula-answers' },
-    on: { input: () => {
-      const parts = inp.value.split(',').map((s) => s.trim()).filter(Boolean);
-      q.correctAnswer = parts.length > 1 ? parts : parts[0] || '';
-      drawChips();
-      changed();
-    } } });
-  drawChips();
-  return h('div', { class: 'stack' },
-    field('Accepted answers (comma-separated)', inp, 'Subscripts and charges are normalized when grading: SO4^2- = SO₄²⁻'),
-    chips,
-    switchEl({ label: 'Case sensitive', hint: 'Off lets "nacl" match "NaCl"', checked: q.caseSensitive !== false, testid: 'case-sensitive', onChange: (v) => { q.caseSensitive = v; changed(); } }),
-    formatHelpField(q, changed));
+/** Placeholder for an editor whose module is still loading; it fills itself in when the module arrives. */
+function deferredEditor(q, redraw, changed, uid) {
+  const el = h('div', { class: 'stack', 'aria-busy': 'true' });
+  loadTypeEditor(q.type).then((mod) => {
+    el.removeAttribute('aria-busy');
+    el.replaceChildren(mod.edit({ q, redraw, changed, uid }));
+  }).catch(() => el.replaceChildren(h('p', { class: 'muted' }, 'Could not load this editor.')));
+  return el;
 }
 
 function lewisEditor(q, changed) {
@@ -240,14 +102,6 @@ function shortEditor(q, changed) {
   return h('div', { class: 'stack' },
     h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Not auto-graded. Students’ answers appear in the Grading tab, where you assign points.')),
     field('Sample answer', ta, 'Shown to you while grading. Students see it in the review only if “Show correct answers” is on.'));
-}
-
-function tfEditor(q, changed) {
-  const sel = h('select', { class: 'select', dataset: { testid: 'tf-answer' }, on: { change: () => { q.correctAnswer = sel.value === 'true'; changed(); } } },
-    h('option', { value: 'true' }, 'True'), h('option', { value: 'false' }, 'False'));
-  sel.value = q.correctAnswer === false ? 'false' : 'true';
-  if (typeof q.correctAnswer !== 'boolean') q.correctAnswer = true;
-  return field('Correct answer', sel, null, { className: 'adm-narrow' });
 }
 
 function matchingEditor(q, redraw, changed) {
@@ -301,32 +155,6 @@ function matchingEditor(q, redraw, changed) {
         changed();
       } } }, icon('plus', { size: 16 }), 'Add right item'),
       switchEl({ label: 'Partial credit', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })));
-}
-
-/**
- * "Typing help" setting for formula / numeric / fill-in questions plus a live note of what students will see.
- * Auto shows charge help when an answer has a charge (or the text mentions ions) and exponent help when the
- * answer needs scientific notation.
- */
-function formatHelpField(q, changed) {
-  const note = h('p', { class: 'adm-helpnote', dataset: { testid: 'format-help-note' } });
-  const update = () => {
-    const help = formatHelpFor(q);
-    const parts = [help.charges && 'how to type charges (^2-, ^+)', help.exponents && 'how to type powers of ten (6.02e23)'].filter(Boolean);
-    note.hidden = !parts.length;
-    mount(note, icon('info', { size: 14 }), h('span', {}, `Students will see a help box on ${parts.join(' and ')}, with insert buttons.`));
-  };
-  const sel = h('select', { class: 'select', dataset: { testid: 'format-help' }, on: { change: () => { q.formatHelp = sel.value; update(); changed(); } } },
-    h('option', { value: 'auto' }, 'Auto (when the answer has a charge or exponent)'),
-    h('option', { value: 'always' }, 'Always show'),
-    h('option', { value: 'never' }, 'Never show'));
-  sel.value = ['auto', 'always', 'never'].includes(q.formatHelp) ? q.formatHelp : 'auto';
-  const wrap = h('div', { class: 'stack' }, field('Typing help for students', sel, 'Explains how to type charges / exponents'), note);
-  update();
-  // Re-check whenever anything in this question changes (answer, text, blank kinds).
-  requestAnimationFrame(() => wrap.closest('.adm-q')?.addEventListener('input', update));
-  requestAnimationFrame(() => wrap.closest('.adm-q')?.addEventListener('change', update));
-  return wrap;
 }
 
 function orderingEditor(q, redraw, changed) {
