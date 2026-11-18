@@ -13,12 +13,13 @@ export const plain = (v) => JSON.parse(JSON.stringify(v)); // vm-realm values ->
 export function makeSheet(name) {
   const rows = [];
   const sheet = {
-    name, rows,
+    name, rows, getName: () => name,
     getLastRow: () => rows.length,
     getLastColumn: () => Math.max(0, ...rows.map((r) => r.length)),
     appendRow(arr) { rows.push(arr.slice()); return sheet; },
     setFrozenRows() {},
     deleteRow(n) { rows.splice(n - 1, 1); },
+    deleteRows(n, count) { rows.splice(n - 1, count); },
     getRange: (r, c, nr = 1, nc = 1) => makeRange(r, c, nr, nc),
   };
   function makeRange(r, c, nr, nc) {
@@ -60,9 +61,9 @@ function zoneOffsetMs(ms, tz) {
 }
 
 export function makeGas(initialProps = {}, { clock: startClock = Date.UTC(2026, 10, 18, 9, 30), tz = 'UTC' } = {}) {
-  const g = { sheets: new Map(), tokens: {}, cacheStore: new Map(), clock: startClock, tz };
+  const g = { sheets: new Map(), triggers: [], tokens: {}, cacheStore: new Map(), clock: startClock, tz };
   g.props = { ADMIN_KEY: 'secret', GOOGLE_CLIENT_ID: 'client-1', ...initialProps };
-  const spreadsheet = { getSheetByName: (n) => g.sheets.get(n) || null, insertSheet(n) { const s = makeSheet(n); g.sheets.set(n, s); return s; } };
+  const spreadsheet = { getSheets: () => [...g.sheets.values()], getSheetByName: (n) => g.sheets.get(n) || null, insertSheet(n) { const s = makeSheet(n); g.sheets.set(n, s); return s; } };
   class FakeDate extends Date {
     constructor(...a) { super(...(a.length ? a : [g.clock])); }
     static now() { return g.clock; }
@@ -71,8 +72,13 @@ export function makeGas(initialProps = {}, { clock: startClock = Date.UTC(2026, 
     Date: FakeDate,
     SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet, openById: () => spreadsheet },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ t, setMimeType() { return this; }, getContent() { return this.t; } }) },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in g.props && g.props[k] !== undefined ? g.props[k] : null) }) },
-    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in g.props && g.props[k] !== undefined ? g.props[k] : null), setProperty: (k, v) => { g.props[k] = v; } }) },
+    ScriptApp: {
+      getProjectTriggers: () => g.triggers.slice(),
+      deleteTrigger: (t) => { g.triggers = g.triggers.filter((x) => x !== t); },
+      newTrigger: (h) => { const t = { getHandlerFunction: () => h, spec: {} }; const b = { timeBased: () => b, everyDays: (n) => { t.spec.everyDays = n; return b; }, atHour: (n) => { t.spec.atHour = n; return b; }, create: () => { g.triggers.push(t); return t; } }; return b; },
+    },
+    LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
     Utilities: {
       DigestAlgorithm: { SHA_256: 1 },
       computeDigest: (_a, s) => Array.from(Buffer.from(String(s))).slice(0, 16),
@@ -91,6 +97,7 @@ export function makeGas(initialProps = {}, { clock: startClock = Date.UTC(2026, 
       get: (k) => (g.cacheStore.has(k) ? g.cacheStore.get(k) : null),
       put: (k, v) => { g.cacheStore.set(k, String(v)); },
       removeAll: (ks) => ks.forEach((k) => g.cacheStore.delete(k)),
+      remove: (k) => { g.cacheStore.delete(k); },
     }) },
     UrlFetchApp: { fetch(url) {
       const info = g.tokens[decodeURIComponent(url.split('id_token=')[1])];

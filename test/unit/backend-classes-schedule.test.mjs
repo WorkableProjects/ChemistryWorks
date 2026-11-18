@@ -12,11 +12,13 @@ const source = fs.readFileSync(path.join(here, '../../apps-script/Code.gs'), 'ut
 function makeSheet(name) {
   const rows = [];
   const sheet = {
-    name, rows,
+    name, rows, getName: () => name,
     getLastRow: () => rows.length,
+    getLastColumn: () => Math.max(0, ...rows.map((r) => r.length)),
     appendRow(arr) { rows.push(arr.slice()); return sheet; },
     setFrozenRows() {},
     deleteRow(n) { rows.splice(n - 1, 1); },
+    deleteRows(n, count) { rows.splice(n - 1, count); },
     getRange: (r, c, nr = 1, nc = 1) => makeRange(r, c, nr, nc),
   };
   function makeRange(r, c, nr, nc) {
@@ -55,7 +57,7 @@ function loadScript(initialProps = {}) {
     SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ t, setMimeType() { return this; }, getContent() { return this.t; } }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in props ? props[k] : null) }) },
-    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
     Utilities: { DigestAlgorithm: { SHA_256: 1 }, computeDigest: (_a, s) => Array.from(Buffer.from(String(s))).slice(0, 8) },
     CacheService: { getScriptCache: () => ({ get: () => null, put() {} }) },
     UrlFetchApp: { fetch(url) {

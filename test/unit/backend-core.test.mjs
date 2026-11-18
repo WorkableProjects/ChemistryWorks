@@ -13,12 +13,15 @@ function makeSheet(name) {
   const rows = []; // array of arrays
   const sheet = {
     name,
+    getName: () => name,
+    getLastColumn: () => Math.max(0, ...rows.map((r) => r.length)),
     frozenRows: 0,
     formats: [],
     getLastRow: () => rows.length,
     appendRow(arr) { rows.push(arr.slice()); return sheet; },
     setFrozenRows(n) { sheet.frozenRows = n; },
     deleteRow(n) { rows.splice(n - 1, 1); },
+    deleteRows(n, count) { rows.splice(n - 1, count); },
     getDataRange: () => makeRange(1, 1, rows.length, Math.max(0, ...rows.map((r) => r.length))),
     getRange: (r, c, nr = 1, nc = 1) => makeRange(r, c, nr, nc),
     rows,
@@ -75,7 +78,7 @@ function loadScript(initialProps = {}) {
       createTextOutput: (text) => ({ text, mime: null, setMimeType(m) { this.mime = m; return this; }, getContent() { return this.text; } }),
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in props ? props[k] : null) }) },
-    LockService: { getScriptLock: () => ({ waitLock: () => { lockCalls.wait++; }, releaseLock: () => { lockCalls.release++; } }) },
+    LockService: { getScriptLock: () => ({ waitLock: () => { lockCalls.wait++; }, tryLock: () => { lockCalls.wait++; return true; }, releaseLock: () => { lockCalls.release++; } }) },
     UrlFetchApp: { fetch(url) {
       const info = tokens[decodeURIComponent(url.split('id_token=')[1])];
       return { getResponseCode: () => (info ? 200 : 400), getContentText: () => JSON.stringify(info || {}) };
@@ -150,10 +153,11 @@ test('duplicate submission_id is not appended twice', () => {
   assert.equal(sheets.get('Submissions').getLastRow(), 3);
 });
 
-test('submission uses the script lock and always releases it', () => {
+test('submission is a plain append and takes no script lock', () => {
   post(sample());
-  assert.equal(lockCalls.wait, 1);
-  assert.equal(lockCalls.release, 1);
+  assert.equal(sheets.get('Submissions').getLastRow(), 2);
+  assert.equal(lockCalls.wait, 0);
+  assert.equal(lockCalls.release, 0);
 });
 
 test('Netlify webhook shape is parsed (strings coerced, JSON columns decoded)', () => {
@@ -256,7 +260,7 @@ test('publishTest validates code, title and questions', () => {
 test('getResults returns parsed ResultRow objects and filters by test code', () => {
   post(sample());
   post(sample({ submission_id: 'sub-2', test_code: 'OTHER', percentage: '100.00', score_achieved: 7 }));
-  const all = post({ action: 'getResults', adminKey: 'secret' });
+  const all = post({ action: 'getResults', adminKey: 'secret', includeAnswers: true });
   assert.equal(all.rows.length, 2);
   const r = all.rows[0];
   assert.equal(r.submission_id, 'sub-1');

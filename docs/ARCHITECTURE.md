@@ -911,6 +911,14 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `submitGameScore` for a mode not in the cap table uses 100 per question.
 - `syncProgress` counts a streak day only when the sync carries XP above zero.
 
+### B2 Performance and housekeeping (Code.gs)
+
+- `getResults` leaves `responses` as `[]` unless the request has `includeAnswers: true`; the reply carries `answersIncluded`. Any client that grades or shows answers must ask for them.
+- `getClassHub` takes identity from the verified token only. The hub inside `getStudentProfile` / `syncProgress` bundles is built by `buildHub_(email, now)`, which is never reachable from a request.
+- `syncProgress` replies `{ result: 'error', error: 'busy', retryAfter: 30 }` when it cannot get the script lock within 1.5 s.
+- Settings: `retainLiveDays`, `retainLogDays`, `retainErrorsDays`, `archiveStreamDays` are returned by `getSettings` and accepted by `saveSettings`. Pinned Stream posts are never archived.
+- Submissions, live pings, error reports and log lines take no script lock. `withLock_` is re-entrant within one request.
+
 ### S03 Client security
 
 - `submitResults` / `flushOutboxResult` (`js/lib/submit.js`) read the reply. `result.gas` is `sent`, `final` (adds `finalError`, never queued, not logged as submitted), `failed` (queued) or `skipped`. `flushOutboxResult` returns `{ sent, final: [{ submission_id, error }] }`; `flushOutbox` still returns the sent count.
