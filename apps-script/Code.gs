@@ -2005,9 +2005,8 @@ function assignedTests_(email, classIds) {
 function studentBundle_(email, row, admin) {
   var profile = profileOf_(row);
   var out = { result: 'success', profile: profile, results: submissionsOf_(email, admin), attempts: attemptsOf_(email), assigned: assignedTests_(email, profile.classIds) };
-  // B3 supplies getClassHub_({ _email }) (already-verified email); until then hub is absent.
-  if (!admin && typeof getClassHub_ === 'function') {
-    try { out.hub = getClassHub_({ _email: email }); } catch (e) { out.hub = null; }
+  if (!admin) {
+    try { out.hub = buildHub_(email, new Date()); } catch (e) { out.hub = null; }
   }
   return out;
 }
@@ -2458,18 +2457,13 @@ function remindMissing_(body, auth) {
 }
 
 // ---------- student ----------
-// getClassHub { idToken } or, internally, { _email } (already verified). Never trusts an email from a client body.
+// getClassHub { idToken }. Identity comes only from the verified token; any client-supplied email is ignored.
 // -> { classes, assignments, stream, notifications, reminders } (see docs/ARCHITECTURE.md Backend 5.0).
 function getClassHub_(body) {
-  var email = body && body._email ? normEmail_(body._email) : '';
-  var internal = !!email;
-  if (!email) {
-    var who = studentFromToken_(body);
-    if (who.error) return { result: 'error', error: who.error };
-    email = who.email;
-  }
-  var res = buildHub_(email, new Date());
-  if (!internal) res.result = 'success';
+  var who = studentFromToken_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var res = buildHub_(who.email, new Date());
+  res.result = 'success';
   return res;
 }
 function buildHub_(email, nowDate) {
