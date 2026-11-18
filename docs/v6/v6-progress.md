@@ -34,7 +34,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | B1 | sonnet | done | 9d79f32 | unit 816, smoke 3 | client follow-ups for S03: getFeedback/submit need idToken; reportError needs clientId |
 | S02b | sonnet | done | 7220c37 | unit 869 +1 todo | FOUND SECURITY: getClassHub_ trusts body._email (no token) — B2 must fix and un-todo the test in backend-student.test.mjs |
 | S02c | sonnet | done | 0dd2de0 | unit 1097 | Found: game_mode flag dropped by buildPayload (submit.js); sync.js stale 0ms timer; profile synced flag per session |
-| S02d | sonnet | todo | | | |
+| S02d | sonnet | done | 112ff10 | unit 1173, e2e 174 | merge conflict in admin/helpers resolved to S03 side. Found: stream posts make no bell notification; overdue shows Missing not Late; Boss may skip last question |
 | S03 | sonnet | done | 389ccc6 | unit 1173, smoke 4 | full e2e verified at end of wave 3. Found: chemadmin/access-code still in DEPLOYMENT.md, guide.md, spec (S13b) |
 | B2 | sonnet | todo | | | |
 | S05 | sonnet | todo | | | |
