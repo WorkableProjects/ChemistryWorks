@@ -65,11 +65,11 @@ test('fetchSubmissionCounts: error shapes', async () => {
   assert.equal((await fetchSubmissionCounts({ gasUrl: '' })).ok, false);
 });
 
-test('fetchFeedback: passes submissionId + studentEmail, no adminKey', async () => {
+test('fetchFeedback: passes submissionId + idToken, no email, no adminKey', async () => {
   const f = fakeFetch(okJson({ result: 'success', released: false }));
-  const r = await fetchFeedback({ gasUrl: GAS, submissionId: 's1', studentEmail: 'a@b.co', adminKey: 'secret', fetchImpl: f });
+  const r = await fetchFeedback({ gasUrl: GAS, submissionId: 's1', idToken: 'tok', studentEmail: 'a@b.co', adminKey: 'secret', fetchImpl: f });
   assert.deepEqual(r, { ok: true, released: false });
-  assert.deepEqual(body(f), { action: 'getFeedback', submissionId: 's1', studentEmail: 'a@b.co' });
+  assert.deepEqual(body(f), { action: 'getFeedback', submissionId: 's1', idToken: 'tok' });
   assert.ok(!JSON.stringify(f.calls[0]).includes('secret'));
   assert.equal('adminKey' in body(f), false);
 });
@@ -79,7 +79,7 @@ test('fetchFeedback: released true maps fields; result key dropped', async () =>
     result: 'success', released: true, released_at: '2026-01-01T00:00:00Z', status: 'graded', final_score: 5, score_total: 6,
     final_percentage: '83.33', grades: { q1: 2 }, comments: { q1: 'good' },
   };
-  const r = await fetchFeedback({ gasUrl: GAS, submissionId: 's', studentEmail: 'e', fetchImpl: fakeFetch(okJson(data)) });
+  const r = await fetchFeedback({ gasUrl: GAS, submissionId: 's', idToken: 't', fetchImpl: fakeFetch(okJson(data)) });
   assert.equal(r.ok, true);
   assert.equal(r.released, true);
   assert.equal(r.released_at, '2026-01-01T00:00:00Z');
@@ -97,9 +97,16 @@ test('fetchFeedback: released must be exactly true; falsy/absent -> false', asyn
   }
 });
 
+test('fetchFeedback: backend sign-in errors are passed through', async () => {
+  for (const error of ['unauthorized', 'invalid_token', 'not_authorized']) {
+    const r = await fetchFeedback({ gasUrl: GAS, submissionId: 's', idToken: 't', fetchImpl: fakeFetch(okJson({ result: 'error', error })) });
+    assert.deepEqual(r, { ok: false, error });
+  }
+});
+
 test('fetchFeedback: errors and network failure never throw', async () => {
   assert.deepEqual(await fetchFeedback({ gasUrl: GAS, fetchImpl: fakeFetch(okJson({ result: 'error', error: 'not_found' })) }), { ok: false, error: 'not_found' });
-  const net = await fetchFeedback({ gasUrl: GAS, submissionId: 's', studentEmail: 'e', fetchImpl: fakeFetch(failing) });
+  const net = await fetchFeedback({ gasUrl: GAS, submissionId: 's', idToken: 't', fetchImpl: fakeFetch(failing) });
   assert.equal(net.ok, false);
   assert.match(net.error, /Failed to fetch/);
   assert.equal((await fetchFeedback({ gasUrl: GAS, fetchImpl: fakeFetch(async () => ({ ok: false, status: 500 })) })).ok, false);

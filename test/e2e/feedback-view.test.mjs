@@ -8,10 +8,19 @@ after(async () => { await env.close(); });
 
 // A demo sign-in never talks to the server, so the home lists a result as "Waiting for grading". The "View feedback"
 // button appears once the cached server snapshot marks the result released: seed that snapshot, as a synced student would have.
-async function backToLanding(page, sub) {
+async function backToLanding(page, sub, { google = true } = {}) {
   await page.locator(tid('home-btn')).first().click();
   await page.locator(tid('home')).waitFor();
   if (sub) await releaseOnHome(page, sub);
+  if (google) await asGoogleUser(page);
+}
+
+// Feedback needs a verified Google account. The backend is mocked, so the token only has to look current.
+async function asGoogleUser(page) {
+  await page.evaluate(async () => {
+    const { getUser } = await import('/js/lib/auth.js');
+    Object.assign(getUser(), { provider: 'google', idToken: 'test-token', idTokenExp: Math.floor(Date.now() / 1000) + 3600 });
+  });
 }
 
 async function releaseOnHome(page, sub) {
@@ -45,7 +54,8 @@ test('student opens feedback from the landing list: pending, then released with 
   await waitText(page.locator(tid('feedback-pending')), /hasn’t released grades and comments/);
   assert.equal(await page.locator(tid('feedback-released')).count(), 0);
   const req = s.gas.find((b) => b.action === 'getFeedback');
-  assert.equal(req.studentEmail, STUDENT.email);
+  assert.equal(req.idToken, 'test-token', 'the ID token is sent');
+  assert.ok(!('studentEmail' in req), 'no client-supplied email');
   assert.equal(req.submissionId, sub.submission_id);
   assert.ok(!('adminKey' in req), 'no admin key in the student request');
 
@@ -58,6 +68,8 @@ test('student opens feedback from the landing list: pending, then released with 
   } : null);
   await page.locator(tid('feedback-back')).click();
   await page.locator(tid('home')).waitFor();
+  await releaseOnHome(page, sub); // a Google home re-syncs and drops the seeded snapshot
+  await asGoogleUser(page);
   await page.locator('[data-testid^="view-feedback-"]').first().click();
   await page.locator(tid('feedback-released')).waitFor();
   // v3: the released review is the PDF export model (export-* testids).
@@ -111,6 +123,26 @@ test('feedback errors offer a retry; no backend shows unavailable', () => withSe
   s.onGas = (b) => (b.action === 'getFeedback' ? { result: 'success', released: false } : null);
   await page.locator(tid('feedback-retry')).click();
   await page.locator(tid('feedback-pending')).waitFor();
+}));
+
+test('feedback asks a student without a Google token to sign in, and handles not_authorized', () => withSession(env, {}, async (s) => {
+  const { page } = s;
+  await startTest(s, 'CHEM101');
+  await answerCHEM101(page);
+  await submit(page);
+  const sub = s.gas.find((b) => b.submission_id);
+  const before = s.gas.filter((b) => b.action === 'getFeedback').length;
+  await backToLanding(page, sub, { google: false });
+  await page.locator('[data-testid^="view-feedback-"]').first().click();
+  await waitText(page.locator(tid('feedback-signin')), /Sign in with Google/);
+  assert.equal(s.gas.filter((b) => b.action === 'getFeedback').length, before, 'no request without a token');
+
+  await page.locator(tid('feedback-back')).click();
+  await page.locator(tid('home')).waitFor();
+  await asGoogleUser(page);
+  s.onGas = (b) => (b.action === 'getFeedback' ? { result: 'error', error: 'not_authorized' } : null);
+  await page.locator('[data-testid^="view-feedback-"]').first().click();
+  await waitText(page.locator(tid('feedback-not-authorized')), /different account/);
 }));
 
 test('past results only list the signed-in student and feedback is unavailable without a backend', () => withSession(env, { config: { GAS_WEB_APP_URL: '' } }, async (s) => {

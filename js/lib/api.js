@@ -155,12 +155,18 @@ export async function fetchSubmissionCounts({ gasUrl, adminKey, fetchImpl } = {}
   }
 }
 
-// Student feedback for one of their own submissions (no admin key; needs the submission id + email).
+// Student feedback for one of their own submissions. The backend identifies the student from the Google ID token
+// (`idToken`, or a fresh one when none is passed); without one it replies `unauthorized`.
 // -> { ok: true, released: false } | { ok: true, released: true, released_at, status, final_score, score_total,
 //      final_percentage, grades: { qid: points }, comments: { qid: text } } | { ok: false, error }
-export async function fetchFeedback({ gasUrl, submissionId, studentEmail, fetchImpl } = {}) {
+//    error is 'unauthorized' / 'invalid_token' (sign in again), 'not_authorized' (another student's submission) or other.
+export async function fetchFeedback({ gasUrl, submissionId, idToken, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'getFeedback', submissionId, studentEmail }, fetchImpl);
+    let token = idToken;
+    if (!token) {
+      try { token = await getFreshIdToken(); } catch { token = ''; }
+    }
+    const d = await post(gasUrl, { action: 'getFeedback', submissionId, ...(token ? { idToken: token } : {}) }, fetchImpl);
     if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
     const { result, ...rest } = d;
     return { ok: true, ...rest, released: d.released === true };

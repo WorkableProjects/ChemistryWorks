@@ -1,4 +1,4 @@
-// Admin "Settings" tab: admin key, backend ping, setup checklist, current config.
+// Admin "Settings" tab: sheet key, backend ping, setup checklist, current config.
 import { h, mount, icon, toast } from '../../ui.js';
 import { CONFIG, netlifyFormsEnabled, feature } from '../../config.js';
 import { load, save, remove } from '../../lib/storage.js';
@@ -24,7 +24,7 @@ export function setupChecks(config = CONFIG) {
 
 export function renderSettings(root, ctx, { onKeyChange, go } = {}) {
   let alive = true;
-  const keyInput = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'ADMIN_KEY script property', value: load('adminKey', '', 'session'), dataset: { testid: 'admin-key-input' } });
+  const keyInput = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'ADMIN_KEY script property (optional)', value: load('adminKey', '', 'session'), dataset: { testid: 'admin-key-input' } });
   const status = h('p', { class: 'adm-status', role: 'status', dataset: { testid: 'backend-status' } }, CONFIG.GAS_WEB_APP_URL ? 'Not checked yet' : 'No Apps Script URL configured');
   const ping = h('button', { class: 'btn btn--ghost', type: 'button', disabled: !CONFIG.GAS_WEB_APP_URL, title: CONFIG.GAS_WEB_APP_URL ? 'Check the Apps Script backend' : 'Set GAS_WEB_APP_URL in js/config.js first', dataset: { testid: 'ping-backend' },
     on: { click: async () => {
@@ -50,15 +50,15 @@ export function renderSettings(root, ctx, { onKeyChange, go } = {}) {
 
   mount(root, h('div', { class: 'adm-settings-tab' },
     h('div', { class: 'adm-two-col' },
-      h('section', { class: 'card stack', 'aria-label': 'Admin key' },
-        h('h3', { class: 'adm-h3' }, icon('key', { size: 18 }), ' Admin key'),
-        h('p', { class: 'muted' }, 'Required to publish tests and read results from the Google Sheet. It is kept for this browser session only.'),
-        field('Admin key', keyInput),
+      h('section', { class: 'card stack', 'aria-label': 'Sheet key' },
+        h('h3', { class: 'adm-h3' }, icon('key', { size: 18 }), ' Sheet key'),
+        h('p', { class: 'muted' }, 'The backend credential for your Google Sheet (the ADMIN_KEY script property). You never need it to open the admin panel. Use it only for set-up, for example before the Admins sheet has an owner. It is kept for this browser session only.'),
+        field('Sheet key', keyInput),
         h('div', { class: 'row row--wrap' },
           h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'save-admin-key' }, on: { click: () => {
             const v = keyInput.value.trim();
             if (v) save('adminKey', v, 'session'); else remove('adminKey', 'session');
-            toast(v ? 'Admin key saved for this session' : 'Admin key cleared', { type: 'success' });
+            toast(v ? 'Sheet key saved for this session' : 'Sheet key cleared', { type: 'success' });
             onKeyChange?.();
           } } }, icon('check', { size: 16 }), 'Save key'), ping),
         status),

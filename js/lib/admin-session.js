@@ -16,6 +16,11 @@ import { getUser, getIdToken } from './auth.js';
 
 const CONFIRMED_KEY = 'adminConfirmed';
 
+/** Demo admin sign-in (local dev and e2e): allowed only while Google sign-in is not configured. */
+export function demoAdminAllowed(config) {
+  return !(config && config.GOOGLE_CLIENT_ID);
+}
+
 export function adminKey() {
   return load('adminKey', '', 'session') || '';
 }

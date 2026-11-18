@@ -6,7 +6,6 @@ import { listen } from '../../scripts/serve.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 export const GAS_URL = 'https://gas.example.test/exec';
-export const ADMIN_CODE = 'chemadmin';
 /** Default action/locator timeout: a broken suite fails fast instead of waiting 30 s per locator. */
 export const ACTION_TIMEOUT = 5000;
 export const STUDENT = { name: 'Ada Lovelace', email: 'ada@example.org' };
@@ -231,13 +230,8 @@ export async function noHorizontalScroll(page) {
 }
 
 export async function unlockAdmin(page, baseUrl, { path = '/?admin=true', dashboard = false } = {}) {
+  // No Google client ID in tests, so the demo admin opens the panel directly.
   await page.goto(baseUrl + path);
-  await page.locator(tid('admin-gate')).waitFor();
-  // The landing view (rendered under the gate) moves focus 60ms after render; let that settle before typing.
-  await page.waitForFunction(() => ['demo-name', 'code-input', 'admin-code-input'].includes(document.activeElement?.dataset?.testid));
-  await page.waitForTimeout(150);
-  await page.locator(tid('admin-code-input')).fill(ADMIN_CODE);
-  await page.locator(tid('admin-unlock')).click();
   await page.locator(tid('admin')).waitFor();
   // V4-01: the admin shell opens on the Dashboard; tests written for the classic panel start on the Library.
   if (!/features=/.test(path) && !dashboard && await page.locator(tid('dashboard')).count()) {

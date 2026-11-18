@@ -910,3 +910,11 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `reportError` accepts `idToken` or `clientId` to identify the sender. Without either, all reports share one sender bucket.
 - `submitGameScore` for a mode not in the cap table uses 100 per question.
 - `syncProgress` counts a streak day only when the sync carries XP above zero.
+
+### S03 Client security
+
+- `submitResults` / `flushOutboxResult` (`js/lib/submit.js`) read the reply. `result.gas` is `sent`, `final` (adds `finalError`, never queued, not logged as submitted), `failed` (queued) or `skipped`. `flushOutboxResult` returns `{ sent, final: [{ submission_id, error }] }`; `flushOutbox` still returns the sent count.
+- `fetchFeedback({ gasUrl, submissionId, idToken })` sends the ID token (a fresh one when none is passed) and no email. The feedback view shows a sign-in prompt without a token, and a separate message for `not_authorized`.
+- `demoAdminAllowed(config)` (`js/lib/admin-session.js`) is true only when `GOOGLE_CLIENT_ID` is empty; `app.js` opens the admin panel directly in that case and otherwise runs the Google + `whoami` flow.
+- `reportError` bodies carry `clientId` (random id in the `clientId` storage key) and, when signed in, `idToken`.
+- Admin grading views show an "Unverified" pill (`js/views/admin/identity-mark.js`) for rows with `identity: unverified`; `normalizeRow` keeps `identity`.

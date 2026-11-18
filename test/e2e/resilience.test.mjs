@@ -20,6 +20,7 @@ test('failed submission is queued; Retry resends the same submission_id', () => 
   await waitAttr(status, 'data-gas', 'failed');
   await waitAttr(status, 'data-netlify', 'failed');
   await page.locator(tid('retry-submit')).waitFor();
+  await waitText(page.locator(tid('submission-queued')), /Not sent yet — we’ll retry/);
   await waitText(page.locator(tid('score-percentage')), '100.00%'); // score still shown
   assert.equal(s.gas.length, 1);
   const firstId = s.gas[0].submission_id;
@@ -28,7 +29,7 @@ test('failed submission is queued; Retry resends the same submission_id', () => 
   // Retry while still offline: stays queued
   await page.locator(tid('retry-submit')).click();
   await poll(() => s.gas.length >= 2, { message: 'second attempt while offline' });
-  await waitText(page.locator(tid('toast')).last(), /Still couldn't reach the server/);
+  await waitText(page.locator(tid('toast')).last(), /Not sent yet/);
   await waitAttr(status, 'data-queued', 'true');
 
   // Backend recovers
@@ -43,6 +44,41 @@ test('failed submission is queued; Retry resends the same submission_id', () => 
   await waitAttr(status, 'data-queued', 'false');
   assert.equal(await page.locator(tid('retry-submit')).count(), 0);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 0);
+}));
+
+test('a server_error reply stays in the outbox; Retry sends the same submission_id and clears it', () => withSession(env, { config: { NETLIFY_FORMS: false } }, async (s) => {
+  const { page } = s;
+  s.onGas = (b) => (b.submission_id ? { result: 'error', error: 'server_error' } : null);
+  await startTest(s);
+  await answerCHEM101(page);
+  await submit(page);
+  const status = page.locator(tid('submission-status'));
+  await waitAttr(status, 'data-queued', 'true');
+  await waitText(page.locator(tid('submission-queued')), /Not sent yet — we’ll retry/);
+  const firstId = s.gas.find((b) => b.submission_id).submission_id;
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 1);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox'))[0].idToken), undefined, 'no token in the outbox');
+
+  s.onGas = null; // backend recovers
+  const before = s.gas.length;
+  await page.locator(tid('retry-submit')).click();
+  await poll(() => s.gas.length > before, { message: 'retry sent' });
+  assert.equal(s.gas.at(-1).submission_id, firstId, 'same submission_id');
+  await waitAttr(status, 'data-queued', 'false');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 0);
+}));
+
+test('a final error (closed) is shown and not queued', () => withSession(env, { config: { NETLIFY_FORMS: false } }, async (s) => {
+  const { page } = s;
+  s.onGas = (b) => (b.submission_id ? { result: 'error', error: 'closed' } : null);
+  await startTest(s);
+  await answerCHEM101(page);
+  await submit(page);
+  await waitText(page.locator(tid('submission-refused')), /This test is closed/);
+  await waitAttr(page.locator(tid('submission-status')), 'data-queued', 'false');
+  assert.equal(await page.locator(tid('retry-submit')).count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem('cw:outbox')), null);
+  assert.equal(s.gas.filter((b) => b.submission_id).length, 1, 'sent once, not retried');
 }));
 
 // NETLIFY-ONLY: covers the Netlify Forms channel, which is off on GitHub Pages. Kept passing against current code; S08a removes it with the channel.

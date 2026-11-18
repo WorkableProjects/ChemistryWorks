@@ -15,6 +15,7 @@ import { typeUI } from '../qtypes/registry.js';
 import { commentBankPicker } from '../comment-view.js';
 import { emptyState, fmtDate, round2 } from './common.js';
 import { sortRows, validatePoints, mergeGrade, mergeComment, pendingAfter, stepIndex, STATUS } from './stats.js';
+import { unverifiedMark } from './identity-mark.js';
 
 /** Diagram of a student's drawing-type answer (orbital / Lewis structure / Lewis dots / hotspot), or null. */
 export function answerDiagram(q, res, size = 'sm') {
@@ -195,7 +196,7 @@ export function renderGradeByQuestion(root, { gasUrl, adminKey, getRows, getTest
       const manual = isManual(res0);
       const el = h('li', { class: ['adm-resp', 'adm-gbq__row', res0.needsGrading && 'is-pending'], tabindex: i === 0 ? '0' : '-1', 'aria-label': `${r0.student_name || r0.student_email}, student ${i + 1}`, dataset: { testid: 'gbq-row', submission: r0.submission_id } },
         h('div', { class: 'adm-resp__head' },
-          h('strong', {}, r0.student_name || r0.student_email || 'Student'), h('span', { class: 'faint' }, r0.student_name ? r0.student_email : ''),
+          h('strong', {}, r0.student_name || r0.student_email || 'Student'), h('span', { class: 'faint' }, r0.student_name ? r0.student_email : ''), unverifiedMark(r0),
           h('span', { class: 'faint' }, fmtDate(r0.timestamp)), status),
         res0.answered
           ? [diagram ? h('div', { class: 'adm-grade__diagram' }, diagram) : null, h('div', { class: manual ? 'adm-pre' : '', dataset: { testid: 'gbq-answer' } }, res0.givenAnswerText || '—')]

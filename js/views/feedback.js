@@ -11,6 +11,7 @@
 
 import { h, mount, icon, renderMath, appHeader, userBadge, toast } from '../ui.js';
 import { fetchFeedback } from '../lib/api.js';
+import { getFreshIdToken, onAuthChange, renderGoogleButton, googleConfigured } from '../lib/auth.js';
 import { loadTest } from '../lib/tests.js';
 import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
@@ -175,6 +176,16 @@ export function render(root, ctx, params = {}) {
     mount(content, h('div', { class: 'notice notice--info', dataset: { testid: 'feedback-pending' } }, icon('info'), h('span', {}, text)));
   }
 
+  // Feedback is only shown to a verified Google account: ask for sign-in, then try again when a token arrives.
+  let offAuth = () => {};
+  function signInPrompt(text) {
+    const host = h('div', { dataset: { testid: 'feedback-google-button' } });
+    mount(content, h('div', { class: 'notice notice--info stack', dataset: { testid: 'feedback-signin' } },
+      h('span', {}, text), host));
+    offAuth();
+    offAuth = onAuthChange((u) => { if (u && u.provider === 'google' && u.idToken) { offAuth(); load(); } });
+    if (googleConfigured(ctx.config)) renderGoogleButton(host, ctx.config);
+  }
   async function load() {
     if (!ctx.config.GAS_WEB_APP_URL) {
       mount(content, h('div', { class: 'notice notice--info', dataset: { testid: 'feedback-unavailable' } }, icon('info'), h('span', {}, 'Feedback isn’t available on this site.')));
@@ -196,8 +207,17 @@ export function render(root, ctx, params = {}) {
 
     // 2) Fallback (v2.5): local payload + getFeedback (needs the submission id from this device).
     if (!payload) { pending('Your teacher hasn’t released grades and comments for this test yet.'); return; }
-    const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, studentEmail: user?.email });
+    const token = await getFreshIdToken().catch(() => null);
     if (!alive) return;
+    if (!token) { signInPrompt('Sign in with Google to see your feedback. Your teacher’s comments are only shown to the account that submitted.'); return; }
+    const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, idToken: token });
+    if (!alive) return;
+    if (!res.ok && (res.error === 'unauthorized' || res.error === 'invalid_token')) { signInPrompt('Your sign-in has expired. Sign in with Google again to see your feedback.'); return; }
+    if (!res.ok && res.error === 'not_authorized') {
+      mount(content, h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'feedback-not-authorized' } }, icon('alert'),
+        h('span', {}, 'This submission belongs to a different account. Sign in with the Google account you used to take the test.')));
+      return;
+    }
     if (!res.ok) {
       mount(content, h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'feedback-error' } }, icon('alert'),
         h('span', {}, `Could not load feedback: ${res.error || 'unknown error'}`),
@@ -209,5 +229,5 @@ export function render(root, ctx, params = {}) {
   }
   load();
   const t = setTimeout(() => title.focus({ preventScroll: true }), 50);
-  return () => { alive = false; clearTimeout(t); };
+  return () => { alive = false; offAuth(); clearTimeout(t); };
 }

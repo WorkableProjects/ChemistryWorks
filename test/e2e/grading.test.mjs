@@ -129,3 +129,29 @@ test('grading tab: rubric checkboxes fill in points for an open response', () =>
   await waitText(page.locator(tid('grade-total')), '5 / 5 (100.0%)');
   assert.equal(await page.locator(tid('points-q1')).inputValue(), '5');
 }));
+
+test('grading shows an Unverified mark only for unverified submissions', () => withSession(env, {}, async (s) => {
+  const { page, url } = s;
+  s.serveTest('OPEN3', { code: 'OPEN3', title: 'Open three', questions: [{ id: 'q1', type: 'open', text: 'Explain.', points: 2 }] });
+  await startTest(s, 'OPEN3');
+  await page.locator(`[data-testid="question-card"].is-active ${tid('open-input')}`).fill('An answer.');
+  await submit(page);
+  await poll(() => s.gas.length === 1, { message: 'GAS submission' });
+  const sub = s.gas[0];
+  const base = { ...sub, timestamp: sub.submitted_at, status: 'Needs grading', final_score: null, final_percentage: null, grades: null };
+  const rows = [
+    { ...base, submission_id: 'u1', student_name: 'Una Typed', student_email: 'una@example.org', identity: 'unverified' },
+    { ...base, submission_id: 'v1', student_name: 'Vera Google', student_email: 'vera@example.org', identity: 'verified' },
+    { ...base, submission_id: 'o1', student_name: 'Old Row', student_email: 'old@example.org' },
+  ];
+  s.onGas = (body) => (body.action === 'getResults' ? { result: 'success', rows } : null);
+  await unlockAdmin(page, url);
+  await page.evaluate(() => sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')));
+  await page.locator(tid('tab-grading')).click();
+  await page.locator(tid('grading-row')).nth(2).waitFor();
+  assert.equal(await page.locator(tid('unverified-mark')).count(), 1);
+  const una = page.locator(tid('grading-row')).filter({ hasText: 'una@example.org' });
+  await waitText(una.locator(tid('unverified-mark')), /Unverified/);
+  await una.click();
+  await waitText(page.locator('.adm-toolbar--wrap').locator(tid('unverified-mark')), /Unverified/);
+}));
