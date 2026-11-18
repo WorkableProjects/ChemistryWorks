@@ -37,7 +37,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S02d | sonnet | done | 112ff10 | unit 1173, e2e 174 | merge conflict in admin/helpers resolved to S03 side. Found: stream posts make no bell notification; overdue shows Missing not Late; Boss may skip last question |
 | S03 | sonnet | done | 389ccc6 | unit 1173, smoke 4 | full e2e verified at end of wave 3. Found: chemadmin/access-code still in DEPLOYMENT.md, guide.md, spec (S13b) |
 | B2 | sonnet | done | 8d3eb20 | unit 1202, grading e2e 12, smoke 4 | also closed getClassHub _email hole; one follow-up (public trigger name, includeAnswers clients, email|code index). Found: index cache write unlocked (race could miss Extra-attempt mark) |
-| S05 | sonnet | todo | | | |
+| S05 | sonnet | done | f041994 | unit 1287, e2e 181 | 5 types moved. Deferred: CSS split to S08b (ensureCss); admin export + grade-by-question must preload types with `review` (S06) |
 | S06a | sonnet | todo | | | |
 | S06b | sonnet | todo | | | |
 | S11 | sonnet | todo | | | |
