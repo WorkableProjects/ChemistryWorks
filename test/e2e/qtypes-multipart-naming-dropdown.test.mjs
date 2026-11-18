@@ -61,7 +61,7 @@ test('every type answered correctly; hint costs a point; confidence is stored an
   assert.match(await page.locator(tid('review-item-q1')).textContent(), /Hydrogen gas is released/);
   assert.match(await page.locator(tid('review-item-q1')).textContent(), /\(a\) .*\(b\)/s);
   // payload carries hint + confidence on the response rows
-  await s.page.waitForTimeout(200);
+  await poll(() => s.netlify.length > 0 || s.gas.some((g) => g && g.responses_json), { message: 'submission payload' });
   const body = s.netlify[0] || s.gas.find((g) => g && g.responses_json) || {};
   const rows = JSON.parse(body.responses_json || (body.payload && body.payload.responses_json) || '[]');
   const r5 = rows.find((r) => r.questionId === 'q5');

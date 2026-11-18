@@ -2,7 +2,7 @@
 // student tap-to-zoom on small screens.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startEnv, withSession, tid, startTest, activeCard, submit, unlockAdmin, noHorizontalScroll } from './helpers.mjs';
+import { startEnv, withSession, tid, startTest, activeCard, submit, unlockAdmin, noHorizontalScroll, nextFrames } from './helpers.mjs';
 
 let env;
 before(async () => { env = await startEnv(); });
@@ -101,7 +101,7 @@ test('student places labels; results pins align with the picture at 360 / 768 / 
 
   for (const width of [360, 768, 1366]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.waitForTimeout(100);
+    await nextFrames(page);
     await assertPinsAligned(page, mine, answer);
     await assertPinsAligned(page, key, { a: { x: 0.3, y: 0.33 }, b: { x: 0.72, y: 0.7 } });
     // circle centred on its key position, diameter = 2 * radius * frame width
@@ -116,7 +116,7 @@ test('student places labels; results pins align with the picture at 360 / 768 / 
   }
   for (const width of [360, 1366]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.waitForTimeout(100);
+    await nextFrames(page);
     await item.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/t03-results-${width}.png` });
   }

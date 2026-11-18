@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startEnv, withSession, tid, poll, waitText, unlockAdmin, noHorizontalScroll, addQuestion } from './helpers.mjs';
+import { startEnv, withSession, tid, poll, waitText, unlockAdmin, noHorizontalScroll, addQuestion, nextFrames } from './helpers.mjs';
 
 let env;
 before(async () => { env = await startEnv(); });
@@ -216,7 +216,8 @@ test('no horizontal scroll at 360, 768 and 1366 px', () => withSession(env, {}, 
       await page.locator(`${tid('admin')}`).waitFor();
       if (width < 768) { await page.locator(tid('admin-nav-toggle')).click(); }
       await page.locator(tid(`tab-${tab}`)).click();
-      await page.waitForTimeout(120);
+      await page.locator('#ash-main').waitFor();
+      await nextFrames(page);
       assert.ok(await noHorizontalScroll(page), `${tab} at ${width}px`);
     }
   }
