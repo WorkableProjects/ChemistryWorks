@@ -32,7 +32,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S01b | sonnet | done | a29b647 | unit 791, e2e 140 | stale tests updated; outbox banner restored. Found: bundled library counts 0; demo users never see View feedback |
 | S02a | haiku | done | 843471b | unit 816, e2e 140 | 55 renames; first run blocked (worktree cut from main), retried same model |
 | B1 | sonnet | done | 9d79f32 | unit 816, smoke 3 | client follow-ups for S03: getFeedback/submit need idToken; reportError needs clientId |
-| S02b | sonnet | todo | | | |
+| S02b | sonnet | done | 7220c37 | unit 869 +1 todo | FOUND SECURITY: getClassHub_ trusts body._email (no token) — B2 must fix and un-todo the test in backend-student.test.mjs |
 | S02c | sonnet | todo | | | |
 | S02d | sonnet | todo | | | |
 | S03 | sonnet | todo | | | |
