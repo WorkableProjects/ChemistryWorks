@@ -27,9 +27,9 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 
 | ID | Model | Status | Sha | Tests | Notes |
 |---|---|---|---|---|---|
-| W0 | sonnet | todo | | | |
-| S01a | sonnet | todo | | | |
-| S01b | sonnet | todo | | | |
+| W0 | sonnet | done | 4a4d13a | unit 791 | contracts + progress |
+| S01a | sonnet | done | 7fb403e | unit 791, smoke 3 | CI, Playwright 1.63.0 |
+| S01b | sonnet | done | a29b647 | unit 791, e2e 140 | stale tests updated; outbox banner restored. Found: bundled library counts 0; demo users never see View feedback |
 | S02a | haiku | todo | | | |
 | B1 | sonnet | todo | | | |
 | S02b | sonnet | todo | | | |
