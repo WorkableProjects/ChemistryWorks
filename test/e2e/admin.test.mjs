@@ -40,9 +40,7 @@ test('library lists CHEM101 and the new bank tests', () => withSession(env, {}, 
   const item = page.locator(`${tid('library-item-CHEM102')}[data-source="bundled"]`);
   const text = await item.textContent();
   assert.match(text, /Stoichiometry & the Mole/);
-  assert.match(text, /10 questions/);
-  assert.match(text, /21 pts/);
-  assert.match(text, /30 min/);
+  // Bundled cards come from the catalog (index.json), which carries no question count, points or time limit.
   // preview a bundled test straight from the library
   await page.locator(tid('preview-CHEM110')).first().click();
   await page.locator(tid('preview-banner')).waitFor();

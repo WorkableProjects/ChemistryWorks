@@ -6,9 +6,26 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-async function backToLanding(page) {
+// A demo sign-in never talks to the server, so the home lists a result as "Waiting for grading". The "View feedback"
+// button appears once the cached server snapshot marks the result released: seed that snapshot, as a synced student would have.
+async function backToLanding(page, sub) {
   await page.locator(tid('home-btn')).first().click();
-  await page.locator(tid('code-card')).waitFor();
+  await page.locator(tid('home')).waitFor();
+  if (sub) await releaseOnHome(page, sub);
+}
+
+async function releaseOnHome(page, sub) {
+  await page.evaluate((x) => {
+    const key = `cw:profile:${x.email}`;
+    const rec = JSON.parse(localStorage.getItem(key) || '{}');
+    rec.server = { profile: {}, attempts: [], assigned: [], hub: null, results: [{
+      testCode: x.sub.test_code, title: x.sub.test_title, submittedAt: x.sub.submitted_at, released: true, status: 'released',
+      percentage: 12.5, scoreAchieved: 1.5, scoreTotal: x.sub.score_total }] };
+    localStorage.setItem(key, JSON.stringify(rec));
+  }, { email: STUDENT.email.toLowerCase(), sub });
+  await page.reload();
+  await page.locator(tid('home')).waitFor();
+  await page.locator('[data-testid^="view-feedback-"]').first().waitFor();
 }
 
 test('student opens feedback from the landing list: pending, then released with comments', () => withSession(env, {}, async (s) => {
@@ -22,9 +39,8 @@ test('student opens feedback from the landing list: pending, then released with 
   const [qa, qb] = qids;
 
   s.onGas = (b) => (b.action === 'getFeedback' ? { result: 'success', released: false } : null);
-  await backToLanding(page);
-  await page.locator(tid('past-results')).waitFor();
-  await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
+  await backToLanding(page, sub);
+  await page.locator('[data-testid^="view-feedback-"]').first().click();
   await page.locator(tid('feedback')).waitFor();
   await waitText(page.locator(tid('feedback-pending')), /hasn’t released grades and comments/);
   assert.equal(await page.locator(tid('feedback-released')).count(), 0);
@@ -41,8 +57,8 @@ test('student opens feedback from the landing list: pending, then released with 
     comments: { [qa]: '**Well done** see [the notes](https://example.org/notes) <b>raw</b>', [qb]: '- first\n- second' },
   } : null);
   await page.locator(tid('feedback-back')).click();
-  await page.locator(tid('code-card')).waitFor();
-  await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
+  await page.locator(tid('home')).waitFor();
+  await page.locator('[data-testid^="view-feedback-"]').first().click();
   await page.locator(tid('feedback-released')).waitFor();
   // v3: the released review is the PDF export model (export-* testids).
   await waitText(page.locator(tid('export-score')), new RegExp(`^1\\.5 / ${sub.score_total} · 12\\.5%$`));
@@ -75,8 +91,8 @@ test('feedback groups questions under section headings', () => withSession(env, 
   s.onGas = (b) => (b.action === 'getFeedback' ? {
     result: 'success', released: true, released_at: '2026-03-01T10:00:00Z', final_score: 2, score_total: 2, final_percentage: 100, grades: {}, comments: { q2: 'Nice' },
   } : null);
-  await backToLanding(page);
-  await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
+  await backToLanding(page, sub);
+  await page.locator('[data-testid^="view-feedback-"]').first().click();
   await page.locator(tid('feedback-released')).waitFor();
   await poll(async () => (await page.locator(tid('export-section')).count()) === 2, { message: 'two section headings' });
   assert.equal(await page.locator(tid('export-item-q2')).locator('.export-comment').count(), 1);
@@ -89,8 +105,8 @@ test('feedback errors offer a retry; no backend shows unavailable', () => withSe
   await submit(page);
   const sub = s.gas.find((b) => b.submission_id);
   s.onGas = (b) => (b.action === 'getFeedback' ? { result: 'error', error: 'not_found' } : null);
-  await backToLanding(page);
-  await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
+  await backToLanding(page, sub);
+  await page.locator('[data-testid^="view-feedback-"]').first().click();
   await waitText(page.locator(tid('feedback-error')), /not_found/);
   s.onGas = (b) => (b.action === 'getFeedback' ? { result: 'success', released: false } : null);
   await page.locator(tid('feedback-retry')).click();
@@ -107,10 +123,11 @@ test('past results only list the signed-in student and feedback is unavailable w
     list.push({ ...list[0], submission_id: 'other-1', student_email: 'someone@else.org' });
     localStorage.setItem('cw:localResults', JSON.stringify(list));
   });
-  await backToLanding(page);
+  const sub = (await page.evaluate(() => JSON.parse(localStorage.getItem('cw:localResults'))))[0];
+  await backToLanding(page, sub);
   const mine = await page.locator('[data-testid^="view-feedback-"]').count();
   assert.equal(mine, 1);
-  assert.equal(await page.locator(tid('view-feedback-other-1')).count(), 0);
+  assert.equal(await page.locator(`${tid('results-list')} > li`).count(), 1, "someone else's result is not listed");
   await page.locator('[data-testid^="view-feedback-"]').first().click();
   await waitText(page.locator(tid('feedback-unavailable')), /Feedback isn’t available on this site\./);
 }));
@@ -119,6 +136,6 @@ test('landing hides the past-results card when there is nothing submitted', () =
   const { page } = s;
   await page.goto(s.url + '/');
   await signIn(page);
-  await page.locator(tid('code-card')).waitFor();
-  assert.equal(await page.locator(tid('past-results')).count(), 0);
+  await page.locator(tid('home')).waitFor();
+  assert.equal(await page.locator(tid('results-list')).count(), 0);
 }));

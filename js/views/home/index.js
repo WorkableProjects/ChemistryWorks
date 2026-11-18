@@ -15,6 +15,7 @@ import { paintHubUpNext, reminderBanner } from './upnext.js';
 import { calendarStrip } from './calendar.js';
 import { bell } from '../notifications.js';
 import { feature } from '../../config.js';
+import { networkBanner } from '../tools/banner.js';
 import { elementTile, symbolOf, levelRing, trendLine, badgeShelf, syncChip, resultRow, modeLabel } from './parts.js';
 
 const section = (title, testid, ...body) => h('section', { class: 'home-section', 'aria-label': title, dataset: { testid } },
@@ -89,7 +90,10 @@ export function render(root, ctx, params = {}) {
     h('a', { href: '?admin=true', class: 'btn btn--subtle btn--sm', dataset: { testid: 'admin-link' } }, icon('home', { size: 16 }), 'Teacher'),
     hubOn ? bellEl : null, themeControl());
 
-  const main = h('main', { class: 'home', dataset: { testid: 'home' } }, topbar, header,
+  // Offline / "a submission is waiting to be sent" banner, with Send now.
+  const banner = feature('studentTools') ? networkBanner({ config: ctx.config }) : null;
+
+  const main = h('main', { class: 'home', dataset: { testid: 'home' } }, topbar, banner ? banner.el : null, header,
     h('div', { class: 'home-grid' },
       h('div', { class: 'home-main' }, upnext, inprog, results),
       h('aside', { class: 'home-side' }, practice)));
@@ -181,5 +185,5 @@ export function render(root, ctx, params = {}) {
     const idle = !document.activeElement || document.activeElement === document.body;
     if (idle && !document.querySelector('#modal-root .modal-overlay')) input.focus();
   }, 60);
-  return () => { offSync(); offProfile(); };
+  return () => { offSync(); offProfile(); banner?.destroy(); };
 }

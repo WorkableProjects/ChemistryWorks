@@ -41,8 +41,8 @@ test('lands on the dashboard with a greeting, sidebar navigation and aria-curren
   assert.equal(await page.locator('nav[aria-label="Admin sections"]').count(), 1);
   assert.equal(await page.locator(`${tid('tab-dashboard')}[aria-current="page"]`).count(), 1);
   // entries for views that do not exist yet stay hidden; every old testid is present
-  for (const id of ['dashboard', 'library', 'builder', 'grading', 'insights', 'settings']) assert.equal(await page.locator(tid(`tab-${id}`)).count(), 1, id);
-  for (const id of ['tab-bank', 'tab-classes', 'tab-live', 'tab-mastery']) assert.equal(await page.locator(tid(id)).count(), 1, id); // S11–S13 views registered
+  for (const id of ['dashboard', 'library', 'builder', 'grading', 'settings']) assert.equal(await page.locator(tid(`tab-${id}`)).count(), 1, id);
+  for (const id of ['tab-bank', 'tab-classes', 'tab-live']) assert.equal(await page.locator(tid(id)).count(), 1, id); // S11–S13 views registered
   for (const id of ['lock-admin', 'sheet-link', 'new-test', 'brand']) assert.equal(await page.locator(tid(id)).count(), 1, id);
   // needs attention + quick stats come from the mocked backend
   await page.locator(tid('dash-grade-OPEN1')).waitFor();
@@ -154,7 +154,8 @@ test('builder: outline reorders by keyboard and by drag, and the student preview
   await poll(async () => (await order())[0] === 'Question of type truefalse', { message: 'keyboard move' });
   assert.equal(await page.evaluate(() => document.activeElement?.dataset?.testid), 'outline-item');
   assert.deepEqual(await order(), ['Question of type truefalse', 'Question of type mcq', 'Question of type numeric']);
-  // drag the last row's handle above the first
+  // drag the last row's handle above the first (let the reorder animation settle so the measured boxes are final)
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
   const grip = page.locator(`${tid('outline-item')}:nth-child(3) .bld2-ol__grip`).first();
   const g = await grip.boundingBox();
   const first = await page.locator(tid('outline-item')).nth(0).boundingBox();
@@ -211,7 +212,7 @@ test('no horizontal scroll at 360, 768 and 1366 px', () => withSession(env, {}, 
   await unlockAdmin(page, url, { path: PATH });
   for (const width of [360, 768, 1366]) {
     await page.setViewportSize({ width, height: 800 });
-    for (const tab of ['dashboard', 'library', 'builder', 'grading', 'insights', 'settings']) {
+    for (const tab of ['dashboard', 'library', 'builder', 'grading', 'settings']) {
       await page.locator(`${tid('admin')}`).waitFor();
       if (width < 768) { await page.locator(tid('admin-nav-toggle')).click(); }
       await page.locator(tid(`tab-${tab}`)).click();

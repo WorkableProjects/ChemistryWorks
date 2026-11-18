@@ -191,7 +191,7 @@ test('a submission waiting in the outbox shows a banner on the landing page', ()
   await submit(page);
   await poll(async () => !!(await page.evaluate(() => localStorage.getItem('cw:outbox'))), { message: 'queued' });
   await page.goto(s.url + '/');
-  await page.locator(tid('code-card')).waitFor();
+  await page.locator(tid('home')).waitFor();
   await waitText(page.locator(tid('net-banner')), /waiting to be sent/);
   await page.locator(tid('net-send-now')).waitFor();
 }));
@@ -214,24 +214,23 @@ test('text size and dyslexia spacing in the settings popover persist', () => wit
   assert.deepEqual(await attrs(), ['', '']);
 }));
 
-test('landing dashboard lists in-progress and submitted tests', () => withSession(env, { config: ON }, async (s) => {
+test('student home lists in-progress and submitted tests', () => withSession(env, { config: ON }, async (s) => {
   const { page } = s;
   s.serveTest('TL8', toolTest('TL8'));
-  s.serveTest('TL9', toolTest('TL9'));
   await startTest(s, 'TL8');
   await activeCard(page).locator(tid('option-a')).click();
   await page.locator(tid('brand')).first().click(); // the logo goes home from the runner
-  await page.locator(tid('my-dashboard')).waitFor();
-  await waitText(page.locator(tid('dash-row-TL8')).locator(tid('dash-status')), 'In progress');
-  await page.locator(tid('dash-resume-TL8')).click();
+  await page.locator(tid('in-progress-TL8')).waitFor();
+  await page.locator(tid('open-TL8')).click();
   await page.locator(tid('runner')).waitFor();
   await page.locator(tid('submit-btn')).click();
   await page.locator(tid('confirm-submit')).click();
   await page.locator(tid('results')).waitFor();
   await page.goto(s.url + '/');
-  await page.locator(tid('my-dashboard')).waitFor();
-  await waitText(page.locator(tid('dash-row-TL8')).locator(tid('dash-status')), 'Submitted');
-  await page.locator(tid('dash-row-TL8')).locator(tid('dash-score')).waitFor();
+  await page.locator(tid('home')).waitFor();
+  await page.locator(`${tid('results-list')} ${tid('result-waiting')}`).waitFor(); // demo sign-in: no server, so not released yet
+  assert.equal(await page.locator(tid('in-progress-TL8')).count(), 0, 'a submitted test leaves In progress');
+  assert.match(await page.locator(`${tid('results-list')} li`).first().textContent(), /TL8/);
 }));
 
 test('released feedback offers Review my mistakes for game-mode tests only', () => withSession(env, { config: ON }, async (s) => {
@@ -242,18 +241,25 @@ test('released feedback offers Review my mistakes for game-mode tests only', () 
   const sit = async (code) => {
     await page.goto(s.url + '/');
     if (await page.locator(tid('demo-name')).count()) await signIn(page);
-    await page.locator(tid('code-input')).fill(code);
-    await page.locator(tid('code-submit')).click();
-    if (code === 'TLA') await page.locator(tid('mode-study')).click(); // game-mode tests open the Study / Game chooser
+    await page.locator(tid('home-code-input')).fill(code);
+    await page.locator(tid('home-code-submit')).click();
     await page.locator(tid('runner')).waitFor();
     await activeCard(page).locator(tid('option-b')).click();
     await page.locator(tid('submit-btn')).click();
     await page.locator(tid('confirm-submit')).click();
     await page.locator(tid('results')).waitFor();
     const sub = [...s.gas].reverse().find((b) => b.submission_id && b.test_code === code);
+    // A demo sign-in never reaches the server, so seed the cached server snapshot that marks the result released.
+    await page.evaluate((x) => {
+      const key = `cw:profile:${x.email}`;
+      const rec = JSON.parse(localStorage.getItem(key) || '{}');
+      rec.server = { profile: {}, attempts: [], assigned: [], hub: null, results: [...((rec.server && rec.server.results) || []),
+        { testCode: x.sub.test_code, title: x.sub.test_title, submittedAt: x.sub.submitted_at, released: true, status: 'released', percentage: 50, scoreAchieved: 1, scoreTotal: 2 }] };
+      localStorage.setItem(key, JSON.stringify(rec));
+    }, { email: 'ada@example.org', sub });
     await page.goto(s.url + '/');
-    await page.locator(tid('code-card')).waitFor();
-    await page.locator(tid(`view-feedback-${sub.submission_id}`)).click();
+    await page.locator(tid('home')).waitFor();
+    await page.locator(`${tid('results-list')} li:has-text("${code}") [data-testid^="view-feedback-"]`).first().click();
     await page.locator(tid('feedback-released')).waitFor();
   };
   await sit('TLB');
