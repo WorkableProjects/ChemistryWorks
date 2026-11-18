@@ -31,7 +31,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S01a | sonnet | done | 7fb403e | unit 791, smoke 3 | CI, Playwright 1.63.0 |
 | S01b | sonnet | done | a29b647 | unit 791, e2e 140 | stale tests updated; outbox banner restored. Found: bundled library counts 0; demo users never see View feedback |
 | S02a | haiku | todo | | | |
-| B1 | sonnet | todo | | | |
+| B1 | sonnet | done | 9d79f32 | unit 816, smoke 3 | client follow-ups for S03: getFeedback/submit need idToken; reportError needs clientId |
 | S02b | sonnet | todo | | | |
 | S02c | sonnet | todo | | | |
 | S02d | sonnet | todo | | | |
