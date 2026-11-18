@@ -47,7 +47,7 @@ See `README.md` → Decisions.
 ## Backend lane (`apps-script/Code.gs`)
 - Only one agent edits `Code.gs` at a time. The order is fixed in README (B1 → B2 → B3 → B4, then S11's small `setup()` edits).
 - Every new user-supplied cell goes through `text_()`.
-- Every new action gets tests in the `vm` harness (`test/unit/apps-script.test.mjs` pattern; after S02a the backend
+- Every new action gets tests in the `vm` harness (`test/unit/backend-core.test.mjs` pattern; after S02a the backend
   tests live in `test/unit/backend-*.test.mjs`).
 - Don't change `VERSION`; S13b does.
 
