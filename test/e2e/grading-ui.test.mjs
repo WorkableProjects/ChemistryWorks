@@ -135,7 +135,7 @@ test('Save & next with "Graded by" filled saves once (no repeat loop) on the las
   await page.locator(tid('save-grade-next')).click();
   await poll(() => saves(s).length >= 1, { message: 'saveGrade POST' });
   await page.locator(tid('grading-table')).waitFor();
-  await page.waitForTimeout(1500);
+  await page.waitForLoadState('networkidle');
   assert.equal(saves(s).length, 1, 'grade saved exactly once');
   assert.equal(await page.evaluate(() => localStorage.getItem('cw:gradedBy')), JSON.stringify('Ms. Rivera'));
 }));

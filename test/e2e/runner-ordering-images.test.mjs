@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startTest, withSession, startEnv, tid, poll, activeCard, noHorizontalScroll, newSession } from './helpers.mjs';
+import { startTest, withSession, startEnv, tid, poll, activeCard, noHorizontalScroll, newSession, settled } from './helpers.mjs';
 
 let env;
 before(async () => { env = await startEnv(); });
@@ -33,7 +33,7 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 800 }], ['mob
       await page.locator(tid('navigator-toggle')).click();
       const drawer = page.locator(tid('navigator'));
       await poll(async () => (await drawer.getAttribute('class')).includes('is-open'), { message: 'drawer open' });
-      await page.waitForTimeout(400);
+      await settled(page, tid('navigator'));
       const r = await drawer.evaluate((el) => { const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, vw: innerWidth, vh: innerHeight }; });
       assert.ok(r.top >= -1 && r.bottom <= r.vh + 1, `drawer within viewport vertically: ${JSON.stringify(r)}`);
       assert.ok(r.left >= 0 && r.right <= r.vw + 1, `drawer within viewport horizontally: ${JSON.stringify(r)}`);

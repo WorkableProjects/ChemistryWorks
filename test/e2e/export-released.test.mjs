@@ -29,8 +29,8 @@ async function openGrader(s, r) {
   await page.addInitScript(() => {
     window.__printed = 0; window.__titles = [];
     window.print = () => { window.__printed++; window.__titles.push(document.title); };
-    // KaTeX stand-in (the CDN is blocked in tests) that arrives late, so export must wait for it.
-    setTimeout(() => {
+    // KaTeX stand-in (the CDN is blocked in tests). It arrives only when the test calls __loadKatex(), after export started.
+    window.__loadKatex = () => {
       window.katex = {};
       window.renderMathInElement = (el) => {
         const walk = (n) => {
@@ -45,7 +45,7 @@ async function openGrader(s, r) {
         };
         walk(el);
       };
-    }, 1500);
+    };
   });
   s.onGas = (body) => (body.action === 'getResults' ? { result: 'success', rows: [r] } : null);
   await unlockAdmin(page, url);
@@ -58,6 +58,7 @@ async function openGrader(s, r) {
 
 const exportNow = async (page) => {
   await page.locator(tid('export-pdf')).click();
+  await page.evaluate(() => window.__loadKatex());
   await page.waitForFunction(() => window.__printed === 1);
 };
 
