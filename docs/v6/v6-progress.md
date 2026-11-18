@@ -33,7 +33,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S02a | haiku | done | 843471b | unit 816, e2e 140 | 55 renames; first run blocked (worktree cut from main), retried same model |
 | B1 | sonnet | done | 9d79f32 | unit 816, smoke 3 | client follow-ups for S03: getFeedback/submit need idToken; reportError needs clientId |
 | S02b | sonnet | done | 7220c37 | unit 869 +1 todo | FOUND SECURITY: getClassHub_ trusts body._email (no token) — B2 must fix and un-todo the test in backend-student.test.mjs |
-| S02c | sonnet | todo | | | |
+| S02c | sonnet | done | 0dd2de0 | unit 1097 | Found: game_mode flag dropped by buildPayload (submit.js); sync.js stale 0ms timer; profile synced flag per session |
 | S02d | sonnet | todo | | | |
 | S03 | sonnet | todo | | | |
 | B2 | sonnet | todo | | | |
