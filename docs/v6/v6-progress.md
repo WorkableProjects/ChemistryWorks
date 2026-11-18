@@ -35,7 +35,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S02b | sonnet | done | 7220c37 | unit 869 +1 todo | FOUND SECURITY: getClassHub_ trusts body._email (no token) — B2 must fix and un-todo the test in backend-student.test.mjs |
 | S02c | sonnet | done | 0dd2de0 | unit 1097 | Found: game_mode flag dropped by buildPayload (submit.js); sync.js stale 0ms timer; profile synced flag per session |
 | S02d | sonnet | todo | | | |
-| S03 | sonnet | todo | | | |
+| S03 | sonnet | done | 389ccc6 | unit 1173, smoke 4 | full e2e verified at end of wave 3. Found: chemadmin/access-code still in DEPLOYMENT.md, guide.md, spec (S13b) |
 | B2 | sonnet | todo | | | |
 | S05 | sonnet | todo | | | |
 | S06a | sonnet | todo | | | |
