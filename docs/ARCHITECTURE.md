@@ -899,3 +899,14 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
   Admin → Platform shows it.
 - **`setup()`** returns `{ checklist: [{ key, ok, hint }] }` with keys `adminKey`, `googleClientId`, `adminOwner`, `triggers`, `classroomScopes` (S11). It sets default script properties and retention defaults only where they are missing.
 - **Versions:** `VERSION` in `Code.gs` and `BACKEND_VERSION` stay at their current values until S13b sets 6.0.0.
+
+### B1 Security and integrity (Code.gs)
+
+- `verifyIdToken_` and `verifyStudent_` return `{ email, name }` (`name` is `''` when the token has none).
+- `getFeedback` takes `idToken` (a body `studentEmail` is no longer read). The client (`api.js` `getFeedback`) must send the token.
+- A repeat `submission_id` still replies `duplicate: true` before any identity check, so retries are safe.
+- `submissionRow_` adds `identity`: `verified`, `unverified`, or `''` for rows written before 6.0.
+- Server errors are logged with `Page` = `backend:<action>`, `Message` = `[<ref>] <text>`, `Detail` = stack.
+- `reportError` accepts `idToken` or `clientId` to identify the sender. Without either, all reports share one sender bucket.
+- `submitGameScore` for a mode not in the cap table uses 100 per question.
+- `syncProgress` counts a streak day only when the sync carries XP above zero.

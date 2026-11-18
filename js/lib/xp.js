@@ -44,6 +44,9 @@ export const BADGES = [
   { id: 'level_5', title: 'Level 5', text: 'Reach level 5.', test: (s) => levelInfo(s.xp).level >= 5 },
 ];
 
+/** Badge ids the backend accepts (BADGE_IDS in apps-script/Code.gs must list the same ids). */
+export const BADGE_IDS = BADGES.map((b) => b.id);
+
 export const badgeInfo = (id) => BADGES.find((b) => b.id === id) || null;
 
 // ---------- cosmetics (the art is CSS / SVG in css/game.css; these are only the ids and unlock rules) ----------

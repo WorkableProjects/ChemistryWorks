@@ -78,7 +78,7 @@ function seedAdmins(...rows) {
 }
 function login(email, name = email) { tokens[`tok-${name}`] = goodToken(email); return `tok-${name}`; }
 
-beforeEach(() => loadScript());
+beforeEach(() => loadScript({ ALLOW_UNVERIFIED_EMAIL: 'true' }));
 
 const A = (b) => post({ adminKey: 'secret', ...b });
 const publish = (test) => A({ action: 'publishTest', test: { title: 'T', questions: [{ id: 'q1', type: 'truefalse', text: 'x', correctAnswer: true }], ...test } });
@@ -196,7 +196,7 @@ test('leaderboard: only for game-mode tests with the option on; best score kept 
   post({ action: 'submitGameScore', testCode: 'G1', gameId: 'classic', score: 300, studentEmail: 'ada@x.org' });
   post({ action: 'submitGameScore', testCode: 'G1', gameId: 'classic', score: 9e9, name: 'Bo B.', studentEmail: 'bo@x.org' });
   const b = post({ action: 'getLeaderboard', testCode: 'G1', gameId: 'classic', studentEmail: 'ada@x.org' });
-  assert.deepEqual(plain(b.top.map((x) => x.score)), [100000, 500]);
+  assert.deepEqual(plain(b.top.map((x) => x.score)), [1500, 500]); // classic, one question: capped at 1500
   assert.equal(b.me.rank, 2);
   A({ action: 'hideLeaderboardEntry', testCode: 'G1', email: 'bo@x.org' });
   assert.equal(post({ action: 'getLeaderboard', testCode: 'G1', gameId: 'classic', studentEmail: 'ada@x.org' }).me.rank, 1);
