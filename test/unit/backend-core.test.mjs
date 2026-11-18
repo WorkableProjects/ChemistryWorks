@@ -130,7 +130,7 @@ test('first submission creates both sheets with formatted headers', () => {
 
 test('setup creates Submissions and Tests sheets', () => {
   ctx.setup();
-  assert.deepEqual([...sheets.get('Tests').rows[0]], ['Code', 'Title', 'Updated At', 'Test JSON']);
+  assert.deepEqual([...sheets.get('Tests').rows[0]], ['Code', 'Title', 'Updated At', 'Test JSON', 'Owner']);
   assert.equal(sheets.get('Tests').frozenRows, 1);
   assert.ok(sheets.has('Submissions'));
 });
@@ -403,7 +403,7 @@ test('getFeedback: needs a token for the row owner, hides everything until relea
   assert.equal(post({ action: 'getFeedback', idToken: ada }).error, 'not_found');
   post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, comments: { q2: 'Good' } });
   const hidden = post({ action: 'getFeedback', submissionId: 'sub-1', idToken: login('ADA@x.org') });
-  assert.deepEqual(hidden, { result: 'success', released: false });
+  assert.deepEqual(hidden, { result: 'success', released: false, tagIndex: {} });
   post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, release: true });
   const fb = post({ action: 'getFeedback', submissionId: 'sub-1', idToken: ada });
   assert.equal(fb.released, true);

@@ -936,3 +936,12 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `pdfLines(q, answer)` in `js/lib/grading.js` returns the type's `toPdf` lines, else `[formatAnswer(q, answer)]`.
 - `manual: false` is now set on every definition, as the contract says.
 - `ensureCss` does not exist yet (S08). Until it does, `css/qt-truefalse.css` and `css/qt-formula.css` are linked from `index.html`. Other rules for moved types (`.opt`, `.q-preview`, `.q-unit`, `.q-formula-preview`) are shared with imagechoice, sigfigs, graph, naming and reaction, so they stay in `runner.css`.
+
+### B3 Tags backend (Code.gs)
+
+- The `Tests` sheet gains a fifth column, `Owner` (lower-cased email of the first admin to publish the test; empty for tests published with the admin key and for older tests). `mergeTags` rewrites only tests whose `Owner` equals the caller's email.
+- An `ADMIN_KEY` caller has no email, so it owns Tag rows and tests whose owner is empty.
+- `listTags` sets `ownerName` to the part of `ownerEmail` before the `@`. `usage` is counted against the live end of any `mergedInto` chain.
+- `publishTest` upserts only the tags that questions use. Unknown ids are checked before anything is written. Tag actions are not in the `batch` allow-list.
+- `getFeedback` replies (released or not) carry `tagIndex` for the test the submission belongs to.
+- `api.js` `publishTest` still sends no `tagDefs` and drops the reply's `tags` and `ids`; the builder wiring (S12a) must extend it.
