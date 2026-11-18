@@ -110,7 +110,7 @@ export async function deletePublishedTest(code, { gasUrl, adminKey, fetchImpl } 
 
 export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
   try {
-    const body = { action: 'getResults' };
+    const body = { action: 'getResults', includeAnswers: true };
     if (testCode) body.testCode = testCode;
     const d = await adminPost(gasUrl, body, adminKey, fetchImpl);
     return d && d.result === 'success'
@@ -311,7 +311,7 @@ export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adm
 // -> { ok, data: { tests: [{ code, title, updatedAt, status, questionCount, points, needsGrading, submissionCount }] } }
 export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
 // since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
-export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since }, { gasUrl, adminKey, fetchImpl });
+export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since, includeAnswers: true }, { gasUrl, adminKey, fetchImpl });
 
 // ---------- v5 (B3): Class Hub ----------
 // Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }

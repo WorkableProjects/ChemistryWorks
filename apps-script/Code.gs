@@ -61,6 +61,7 @@ var MAX_CELL_CHARS = 49000; // Sheets cells hold at most 50,000 characters.
 
 function doGet(e) {
   var action = '';
+  resetRequest_();
   try {
     var p = (e && e.parameter) || {};
     action = String(p.action || '');
@@ -87,6 +88,7 @@ function serverError_(action, err) {
 
 function doPost(e) {
   var action = '';
+  resetRequest_();
   try {
     var raw = e && e.postData && e.postData.contents;
     var body;
@@ -130,6 +132,7 @@ function doPost(e) {
       case 'getSettings':
       case 'saveSettings':
       case 'getStudentProfileAdmin':
+      case 'diag':
       case 'saveAssignment':
       case 'deleteAssignment':
       case 'listAssignments':
@@ -190,6 +193,7 @@ function setup() {
   getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS);
   getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS);
   getSheet_(STREAM_SHEET, STREAM_HEADERS);
+  try { setupTriggers(); } catch (e) { Logger.log('Could not install the daily cleanup trigger: ' + e); }
   var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
   Logger.log('Sheets "' + SUBMISSIONS_SHEET + '", "' + TESTS_SHEET + '", "' + ADMINS_SHEET + '" and "' + LOG_SHEET + '" are ready.');
   if (admins.length) {
@@ -222,6 +226,7 @@ function getSpreadsheet_() {
 }
 
 function getSheet_(name, headers) {
+  if (REQ_['sheet:' + name]) return REQ_['sheet:' + name];
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(name);
   if (!sheet) sheet = ss.insertSheet(name);
@@ -238,6 +243,7 @@ function getSheet_(name, headers) {
       }
     }
   }
+  REQ_['sheet:' + name] = sheet;
   return sheet;
 }
 
@@ -277,14 +283,96 @@ function normalizeCode_(code) {
   return String(code === undefined || code === null ? '' : code).trim().toUpperCase();
 }
 
+// Per-execution memo (sheet handles, header rows, accommodations, row indexes). Reset at the start of every request.
+var REQ_ = {};
+var LOCK_DEPTH_ = 0;
+function resetRequest_() { REQ_ = {}; LOCK_DEPTH_ = 0; }
+
+// The script lock is taken once per execution: a nested call just runs.
 function withLock_(fn) {
+  if (LOCK_DEPTH_ > 0) return fn();
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
+  LOCK_DEPTH_ = 1;
   try {
     return fn();
   } finally {
+    LOCK_DEPTH_ = 0;
     lock.releaseLock();
   }
+}
+// Like withLock_ but gives up after `ms` and returns { busy: true } without running fn.
+function tryLockRun_(ms, fn) {
+  if (LOCK_DEPTH_ > 0) return fn();
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(ms)) return { busy: true };
+  LOCK_DEPTH_ = 1;
+  try {
+    return fn();
+  } finally {
+    LOCK_DEPTH_ = 0;
+    lock.releaseLock();
+  }
+}
+
+// ---------- row-index cache and header cache ----------
+var ROW_INDEX_TTL = 21600;
+function sheetName_(sheet) { return String(sheet.getName()); }
+function headerOf_(sheet) {
+  var k = 'head:' + sheetName_(sheet);
+  if (!REQ_[k]) REQ_[k] = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+  return REQ_[k];
+}
+function rowKeyOf_(vals) { return vals.map(function (v) { return String(v === undefined || v === null ? '' : v).trim().toLowerCase(); }).join('|'); }
+function rowIndexLoad_(ck) {
+  if (REQ_[ck]) return REQ_[ck];
+  try {
+    var hit = CacheService.getScriptCache().get(ck);
+    if (hit) return (REQ_[ck] = JSON.parse(hit));
+  } catch (e) { /* miss */ }
+  return null;
+}
+function rowIndexStore_(ck, map) {
+  REQ_[ck] = map;
+  try {
+    var raw = JSON.stringify(map);
+    if (raw.length < 90000) CacheService.getScriptCache().put(ck, raw, ROW_INDEX_TTL);
+    else CacheService.getScriptCache().remove(ck);
+  } catch (e) { /* no cache */ }
+}
+// Finds a row by key columns (header names) through a cached key -> row map. Reads one row when the cached row still holds
+// the key; otherwise rebuilds the map from the key columns only. -> { row, vals } (row 0 when not found).
+function indexedRow_(sheet, keyCols, keyVals) {
+  var head = headerOf_(sheet);
+  var key = rowKeyOf_(keyVals);
+  var kidx = keyCols.map(function (c) { return head.indexOf(c); });
+  var ck = 'rowidx:' + sheetName_(sheet) + ':' + keyCols.join('+');
+  var has = function (m) { return Object.prototype.hasOwnProperty.call(m, key); };
+  var map = rowIndexLoad_(ck);
+  if (map && has(map)) {
+    var v = sheet.getRange(map[key], 1, 1, head.length).getValues()[0];
+    if (rowKeyOf_(kidx.map(function (i) { return v[i]; })) === key) return { row: map[key], vals: v };
+  }
+  var last = sheet.getLastRow();
+  map = {};
+  if (last >= 2) {
+    var cols = kidx.map(function (i) { return sheet.getRange(2, i + 1, last - 1, 1).getValues(); });
+    for (var r = 0; r < last - 1; r++) {
+      var k = rowKeyOf_(cols.map(function (c) { return c[r][0]; }));
+      if (!Object.prototype.hasOwnProperty.call(map, k)) map[k] = r + 2;
+    }
+  }
+  rowIndexStore_(ck, map);
+  if (!has(map)) return { row: 0, vals: null };
+  return { row: map[key], vals: sheet.getRange(map[key], 1, 1, head.length).getValues()[0] };
+}
+// Records a row appended through indexedRow_'s sheet so the next lookup is a hit.
+function indexedRowAdd_(sheet, keyCols, keyVals, row) {
+  var ck = 'rowidx:' + sheetName_(sheet) + ':' + keyCols.join('+');
+  var map = rowIndexLoad_(ck);
+  if (!map) return;
+  map[rowKeyOf_(keyVals)] = row;
+  rowIndexStore_(ck, map);
 }
 
 // ---------------------------------------------------------------------------
@@ -396,9 +484,10 @@ function handleSubmission_(body) {
   s.student_email = ident.email;
   if (ident.name) s.student_name = ident.name;
 
-  return withLock_(function () {
+  // appendRow is atomic, so this path takes no script lock.
+  return (function () {
     var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
-    if (findRow_(sheet, 2, s.submission_id)) return { result: 'success', duplicate: true };
+    if (s.submission_id && indexedRow_(sheet, ['Submission ID'], [s.submission_id]).row) return { result: 'success', duplicate: true };
     // v3 backstop: a second submission to a single-submission test is stored (never lost) but marked Extra attempt.
     var extra = false;
     // v4 S11/S12: roster-only tests and the open/close window are enforced here too (the row is kept, never counted).
@@ -441,10 +530,12 @@ function handleSubmission_(body) {
       text_(gate.dueAt || ''),
       ident.verified ? 'verified' : 'unverified'
     ]);
+    if (s.submission_id) indexedRowAdd_(sheet, ['Submission ID'], [s.submission_id], sheet.getLastRow());
+    emailCodeIndexAdd_(s.student_email, s.test_code, sheet.getLastRow());
     bust_('tests:list');
     if (gate.status) return { result: 'success', not_counted: gate.status };
     return extra ? { result: 'success', extra_attempt: true } : { result: 'success' };
-  });
+  })();
 }
 
 // ---------------------------------------------------------------------------
@@ -578,9 +669,7 @@ function isOwner_(auth, rows) {
 function appendLog_(auth, action, target, details) {
   try {
     var who = auth.via === 'google' ? auth.email : 'ADMIN_KEY';
-    withLock_(function () {
-      getSheet_(LOG_SHEET, LOG_HEADERS).appendRow([new Date(), text_(who), text_(action), text_(target || ''), text_(details || '').slice(0, 500)]);
-    });
+    getSheet_(LOG_SHEET, LOG_HEADERS).appendRow([new Date(), text_(who), text_(action), text_(target || ''), text_(details || '').slice(0, 500)]);
   } catch (err) { /* logging never blocks the action */ }
 }
 
@@ -682,6 +771,7 @@ function dispatchAdminRaw_(body, auth) {
     case 'getSettings': return { result: 'success', settings: readSettings_() };
     case 'saveSettings': return saveSettings_(body);
     case 'getStudentProfileAdmin': return getStudentProfileAdmin_(body);
+    case 'diag': return diag_();
     case 'batch': return batch_(body, auth);
     case 'saveAssignment': return saveAssignment_(body, auth);
     case 'deleteAssignment': return deleteAssignment_(body);
@@ -799,6 +889,7 @@ function publishTest_(test) {
     var values = [code, text_(String(test.title)), new Date(), testJson];
     if (row) sheet.getRange(row, 1, 1, 4).setValues([values]);
     else sheet.appendRow(values);
+    bust_(testShapeKey_(code, iso_(values[2])));
     return { result: 'success', code: code, updated: !!row };
   });
 }
@@ -809,7 +900,7 @@ function listTests_(body) {
   var last = sheet.getLastRow();
   var tests = [];
   if (last >= 2) {
-    var values = sheet.getRange(2, 1, last - 1, 4).getValues();
+    var values = sheet.getRange(2, 1, last - 1, 3).getValues();
     for (var i = 0; i < values.length; i++) {
       tests.push({ code: String(values[i][0]), title: String(values[i][1]), updatedAt: iso_(values[i][2]) });
     }
@@ -819,6 +910,7 @@ function listTests_(body) {
 
 // v5 B2: one pass over Tests + Submissions (only the needed columns). onlyCode limits it to one test.
 // status: scheduled (before opensAt) | open | closed (after closesAt, late window ignored).
+function testShapeKey_(code, updatedAt) { return 'tshape:' + normalizeCode_(code) + ':' + updatedAt; }
 function testSummaries_(onlyCode) {
   var only = normalizeCode_(onlyCode);
   var counts = {};
@@ -834,18 +926,25 @@ function testSummaries_(onlyCode) {
   });
   var now = new Date().getTime();
   var out = [];
-  readCols_(getSheet_(TESTS_SHEET, TEST_HEADERS), ['Code', 'Title', 'Updated At', 'Test JSON']).forEach(function (r) {
+  var testsSheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
+  readCols_(testsSheet, ['Code', 'Title', 'Updated At']).forEach(function (r, n) {
     var code = String(r.Code);
     if (!code || (only && normalizeCode_(code) !== only)) return;
-    var t = parseJson_(r['Test JSON'], null) || {};
-    var qs = Array.isArray(t.questions) ? t.questions : [];
-    var points = 0;
-    qs.forEach(function (q) { var p = q && q.points !== undefined && q.points !== null ? parseFloat(q.points) : 1; points += isFinite(p) ? p : 0; });
-    var opens = t.opensAt ? Date.parse(t.opensAt) : NaN;
-    var closes = t.closesAt ? Date.parse(t.closesAt) : NaN;
+    var updatedAt = iso_(r['Updated At']);
+    // The parsed shape of a test only changes when its Updated At does, so it is cached under that key and the
+    // Test JSON cell is read (and parsed) only on a miss.
+    var shape = cached_(testShapeKey_(code, updatedAt), ROW_INDEX_TTL, function () {
+      var t = parseJson_(testsSheet.getRange(n + 2, 4).getValue(), null) || {};
+      var qs = Array.isArray(t.questions) ? t.questions : [];
+      var points = 0;
+      qs.forEach(function (q) { var p = q && q.points !== undefined && q.points !== null ? parseFloat(q.points) : 1; points += isFinite(p) ? p : 0; });
+      return { questionCount: qs.length, points: round2_(points), opensAt: t.opensAt || '', closesAt: t.closesAt || '' };
+    });
+    var opens = shape.opensAt ? Date.parse(shape.opensAt) : NaN;
+    var closes = shape.closesAt ? Date.parse(shape.closesAt) : NaN;
     var status = isFinite(opens) && now < opens ? 'scheduled' : (isFinite(closes) && now > closes ? 'closed' : 'open');
-    out.push({ code: code, title: String(r.Title), updatedAt: iso_(r['Updated At']), status: status, questionCount: qs.length,
-      points: round2_(points), needsGrading: needs[normalizeCode_(code)] || 0, submissionCount: counts[normalizeCode_(code)] || 0 });
+    out.push({ code: code, title: String(r.Title), updatedAt: updatedAt, status: status, questionCount: shape.questionCount,
+      points: shape.points, needsGrading: needs[normalizeCode_(code)] || 0, submissionCount: counts[normalizeCode_(code)] || 0 });
   });
   return out;
 }
@@ -871,7 +970,16 @@ function getResults_(testCode, opts) {
   var since = sinceMs_(opts.since);
   var now = new Date().getTime();
   if (last >= 2) {
-    var values = sheet.getRange(2, 1, last - 1, SUBMISSION_HEADERS.length).getValues();
+    var width = SUBMISSION_HEADERS.length;
+    var values;
+    if (opts.includeAnswers === true) {
+      values = sheet.getRange(2, 1, last - 1, width).getValues();
+    } else {
+      // The answers JSON is the widest column: read the columns on either side of it and leave it blank.
+      var before = sheet.getRange(2, 1, last - 1, COL.RESPONSES - 1).getValues();
+      var after = sheet.getRange(2, COL.RESPONSES + 1, last - 1, width - COL.RESPONSES).getValues();
+      values = before.map(function (b, n) { return b.concat([''], after[n]); });
+    }
     for (var i = 0; i < values.length; i++) {
       var v = values[i];
       if (filter && normalizeCode_(v[4]) !== filter) continue;
@@ -880,7 +988,7 @@ function getResults_(testCode, opts) {
       rows.push(submissionRow_(v));
     }
   }
-  return { result: 'success', rows: rows, now: now };
+  return { result: 'success', rows: rows, now: now, answersIncluded: opts.includeAnswers === true };
 }
 
 // Latest time a submission row changed: submitted, graded, released or retake-allowed.
@@ -1167,30 +1275,70 @@ function testIsSingleSubmission_(code) {
 
 // Counted (non-Extra) rows for one student + test, oldest first. One getValues() pass per column block.
 // -> [{ row, submission_id, submitted_at, status, released_at, retake_allowed_at }]
+var EMAIL_CODE_INDEX_ = 'rowidx:Submissions:email|code';
+function emailCodeKey_(email, code) { return String(email).trim().toLowerCase() + '|' + normalizeCode_(code); }
+// Cached map 'email|code' -> [sheet rows]. Rebuilt from the email and code columns only.
+function rebuildEmailCodeIndex_(sheet) {
+  var last = sheet.getLastRow();
+  var map = {};
+  if (last >= 2) {
+    var ids = sheet.getRange(2, 2, last - 1, 1).getValues();
+    var ec = sheet.getRange(2, 4, last - 1, 2).getValues();
+    for (var i = 0; i < ec.length; i++) {
+      if (ids[i][0] === '' || ids[i][0] === null) continue;
+      var k = emailCodeKey_(ec[i][0], ec[i][1]);
+      (map[k] = map[k] || []).push(i + 2);
+    }
+  }
+  rowIndexStore_(EMAIL_CODE_INDEX_, map);
+  return map;
+}
+function readSubmissionRow_(sheet, row) {
+  var v = sheet.getRange(row, 1, 1, COL.RETAKE).getValues()[0];
+  return { v: v, ok: v[1] !== '' && v[1] !== null };
+}
 function findRowsByEmailCode_(sheet, email, code) {
   var e = String(email || '').trim().toLowerCase();
   var c = normalizeCode_(code);
-  var last = sheet.getLastRow();
   var out = [];
-  if (!e || !c || last < 2) return out;
-  var head = sheet.getRange(2, 1, last - 1, 5).getValues();
-  var tail = sheet.getRange(2, COL.STATUS, last - 1, COL.RETAKE - COL.STATUS + 1).getValues();
-  for (var i = 0; i < head.length; i++) {
-    if (head[i][1] === '' || head[i][1] === null) continue;
-    if (String(head[i][3]).trim().toLowerCase() !== e) continue;
-    if (normalizeCode_(head[i][4]) !== c) continue;
-    var status = String(tail[i][0] || '');
-    if (status === STATUS_EXTRA) continue;
-    out.push({
-      row: i + 2,
-      submission_id: String(head[i][1]),
-      submitted_at: iso_(head[i][0]),
-      status: status,
-      released_at: iso_(tail[i][COL.RELEASED_AT - COL.STATUS]),
-      retake_allowed_at: iso_(tail[i][COL.RETAKE - COL.STATUS])
-    });
+  if (!e || !c || sheet.getLastRow() < 2) return out;
+  var key = emailCodeKey_(e, c);
+  var map = rowIndexLoad_(EMAIL_CODE_INDEX_);
+  var rows = map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null;
+  var read = null;
+  if (rows) {
+    // Trust the cached rows only while every one still holds this student and test.
+    read = rows.map(function (r) { return { row: r, d: readSubmissionRow_(sheet, r) }; });
+    var good = read.every(function (x) { return x.d.ok && emailCodeKey_(x.d.v[3], x.d.v[4]) === key; });
+    if (!good) rows = null;
   }
+  if (!rows) {
+    map = rebuildEmailCodeIndex_(sheet);
+    rows = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : [];
+    read = rows.map(function (r) { return { row: r, d: readSubmissionRow_(sheet, r) }; });
+  }
+  read.forEach(function (x) {
+    var v = x.d.v;
+    var status = String(v[COL.STATUS - 1] || '');
+    if (status === STATUS_EXTRA) return;
+    out.push({
+      row: x.row,
+      submission_id: String(v[1]),
+      submitted_at: iso_(v[0]),
+      status: status,
+      released_at: iso_(v[COL.RELEASED_AT - 1]),
+      retake_allowed_at: iso_(v[COL.RETAKE - 1])
+    });
+  });
   return out;
+}
+// Adds a freshly appended Submissions row to the email|code index.
+function emailCodeIndexAdd_(email, code, row) {
+  var map = rowIndexLoad_(EMAIL_CODE_INDEX_);
+  if (!map) return;
+  var k = emailCodeKey_(email, code);
+  (map[k] = map[k] || []).push(row);
+  rowIndexStore_(EMAIL_CODE_INDEX_, map);
 }
 
 function stripAnswers_(responses) {
@@ -1470,11 +1618,13 @@ function getAccommodations_(body) {
   if (code) list = list.filter(function (a) { return a.testCode === '*' || a.testCode === code; });
   return { result: 'success', accommodations: list };
 }
+// All accommodations, read once per request.
+function accommodationsAll_() { return REQ_.acc || (REQ_.acc = getAccommodations_({}).accommodations); }
 // Merged accommodation for a student on a test: test-specific values win over the '*' (all tests) row.
 function accommodationFor_(email, code) {
   var e = normEmail_(email);
   if (!e) return null;
-  var list = getAccommodations_({}).accommodations.filter(function (a) { return a.email === e && (a.testCode === '*' || a.testCode === normalizeCode_(code)); });
+  var list = accommodationsAll_().filter(function (a) { return a.email === e && (a.testCode === '*' || a.testCode === normalizeCode_(code)); });
   if (!list.length) return null;
   list.sort(function (a, b) { return a.testCode === '*' ? -1 : b.testCode === '*' ? 1 : 0; });
   var out = { extraTime: 1, extraAttempts: 0, reducedChoices: false, readAloud: false, extensionUntil: '', notes: '' };
@@ -1507,6 +1657,7 @@ function saveAccommodation_(body, auth) {
     var rowVals = [email, text_(code), extraTime, Math.max(0, Math.floor(num_(pick('extraAttempts', 0), 0))), pick('reducedChoices', false) === true,
       pick('readAloud', false) === true, untilDate, text_(String(pick('notes', '') || '').slice(0, 500)), text_(actorOf_(auth)), new Date()];
     if (row) sheet.getRange(row, 1, 1, rowVals.length).setValues([rowVals]); else sheet.appendRow(rowVals);
+    REQ_.acc = null;
     return { result: 'success', accommodation: accRow_(rowVals) };
   });
 }
@@ -1517,7 +1668,7 @@ function deleteAccommodation_(body) {
     var sheet = getSheet_(ACC_SHEET, ACC_HEADERS);
     var last = sheet.getLastRow();
     var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, 2).getValues();
-    for (var i = 0; i < vals.length; i++) if (normEmail_(vals[i][0]) === email && (normalizeCode_(vals[i][1]) || '*') === code) { sheet.deleteRow(i + 2); return { result: 'success' }; }
+    for (var i = 0; i < vals.length; i++) if (normEmail_(vals[i][0]) === email && (normalizeCode_(vals[i][1]) || '*') === code) { sheet.deleteRow(i + 2); REQ_.acc = null; return { result: 'success' }; }
     return { result: 'error', error: 'not_found' };
   });
 }
@@ -1622,11 +1773,22 @@ function applyRegrade_(body) {
 }
 
 // ---------- settings (error reports, release emails) ----------
+var RETENTION_DEFAULTS_ = { retainLiveDays: 1, retainLogDays: 180, retainErrorsDays: 180, archiveStreamDays: 300 };
+// A whole number from 1 to 3650, or null.
+function retentionValue_(v) {
+  var n = typeof v === 'number' ? v : (typeof v === 'string' && /^\d+$/.test(v.trim()) ? parseInt(v, 10) : NaN);
+  return isFinite(n) && n === Math.floor(n) && n >= 1 && n <= 3650 ? n : null;
+}
 function readSettings_() {
   return cached_('settings', CACHE_TTL, function () {
     var r = sheetRows_(SETTINGS_SHEET, SETTINGS_HEADERS);
     var out = { errorReports: false, releaseEmails: false };
-    r.values.forEach(function (v) { var k = String(v[0]); if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true'; });
+    for (var d in RETENTION_DEFAULTS_) out[d] = RETENTION_DEFAULTS_[d];
+    r.values.forEach(function (v) {
+      var k = String(v[0]);
+      if (k === 'errorReports' || k === 'releaseEmails') out[k] = v[1] === true || v[1] === 'true';
+      else if (RETENTION_DEFAULTS_.hasOwnProperty(k) && retentionValue_(v[1]) !== null) out[k] = retentionValue_(v[1]);
+    });
     return out;
   });
 }
@@ -1634,10 +1796,12 @@ function saveSettings_(body) {
   var incoming = body.settings && typeof body.settings === 'object' ? body.settings : {};
   return withLock_(function () {
     var sheet = getSheet_(SETTINGS_SHEET, SETTINGS_HEADERS);
-    ['errorReports', 'releaseEmails'].forEach(function (k) {
+    ['errorReports', 'releaseEmails'].concat(Object.keys(RETENTION_DEFAULTS_)).forEach(function (k) {
       if (incoming[k] === undefined) return;
+      var isRetention = RETENTION_DEFAULTS_.hasOwnProperty(k);
+      if (isRetention && retentionValue_(incoming[k]) === null) return;
       var row = findRow_(sheet, 1, k);
-      var vals = [k, incoming[k] === true];
+      var vals = [k, isRetention ? retentionValue_(incoming[k]) : incoming[k] === true];
       if (row) sheet.getRange(row, 1, 1, 2).setValues([vals]); else sheet.appendRow(vals);
     });
     bust_('settings');
@@ -1668,7 +1832,7 @@ function progressPing_(body) {
   if (who.error) return { result: 'error', error: who.error };
   var code = normalizeCode_(body.testCode);
   if (!code) return { result: 'error', error: 'missing_test_code' };
-  return withLock_(function () {
+  return (function () {
     var sheet = getSheet_(LIVE_SHEET, LIVE_HEADERS);
     var last = sheet.getLastRow();
     var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, 2).getValues();
@@ -1680,7 +1844,7 @@ function progressPing_(body) {
       body.timeLeft === null || body.timeLeft === undefined ? '' : Math.max(0, Math.floor(num_(body.timeLeft, 0))), started || now, now, body.submitted === true];
     if (row) sheet.getRange(row, 1, 1, rowVals.length).setValues([rowVals]); else sheet.appendRow(rowVals);
     return { result: 'success' };
-  });
+  })();
 }
 function getLive_(body) {
   var code = normalizeCode_(body.testCode);
@@ -1753,15 +1917,22 @@ function getLeaderboard_(body) {
   return { result: 'success', top: rows.slice(0, BOARD_TOP).map(function (x, k) { return { rank: k + 1, name: x.name, score: x.score, me: x.email === who.email, you: x.email === who.email }; }),
     me: own, own: own, total: rows.length };
 }
+// Writes `kept` rows from `firstRow` in one call and drops the leftover rows below them in one call.
+function compactRows_(sheet, firstRow, kept, width, last) {
+  if (kept.length) sheet.getRange(firstRow, 1, kept.length, width).setValues(kept);
+  var left = last - (firstRow + kept.length) + 1;
+  if (left > 0) sheet.deleteRows(firstRow + kept.length, left);
+}
 function clearLeaderboard_(body) {
   var code = normalizeCode_(body.testCode);
   return withLock_(function () {
     var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
-    var removed = 0;
-    for (var row = sheet.getLastRow(); row >= 2; row--) {
-      var v = sheet.getRange(row, 1, 1, 2).getValues()[0];
-      if (normalizeCode_(v[0]) === code && (!body.gameId || String(v[1]) === String(body.gameId))) { sheet.deleteRow(row); removed++; }
-    }
+    var last = sheet.getLastRow();
+    if (last < 2) return { result: 'success', removed: 0 };
+    var vals = sheet.getRange(2, 1, last - 1, BOARD_HEADERS.length).getValues();
+    var kept = vals.filter(function (v) { return !(normalizeCode_(v[0]) === code && (!body.gameId || String(v[1]) === String(body.gameId))); });
+    var removed = vals.length - kept.length;
+    if (removed) compactRows_(sheet, 2, kept, BOARD_HEADERS.length, last);
     return { result: 'success', removed: removed };
   });
 }
@@ -1800,11 +1971,9 @@ function reportError_(body) {
   if (senderN >= ERRORS_PER_SENDER_HOUR || globalN >= ERRORS_GLOBAL_HOUR) return { result: 'error', error: 'rate_limited' };
   cacheBump_(senderKey, senderN);
   cacheBump_(globalKey, globalN);
-  return withLock_(function () {
-    getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), text_(String(body.page || '').slice(0, 200)), text_(String(body.message || '').slice(0, 500)),
-      text_(String(body.detail || '').slice(0, 2000)), text_(String(body.browser || '').slice(0, 200))]);
-    return { result: 'success' };
-  });
+  getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), text_(String(body.page || '').slice(0, 200)), text_(String(body.message || '').slice(0, 500)),
+    text_(String(body.detail || '').slice(0, 2000)), text_(String(body.browser || '').slice(0, 200))]);
+  return { result: 'success' };
 }
 function getErrors_(body) {
   var r = sheetRows_(ERRORS_SHEET, ERROR_HEADERS);
@@ -1874,33 +2043,39 @@ function bust_() {
 }
 
 // Insert or merge one row by key columns (header names). `row` is { header: value }; only given fields change.
-// -> { row: sheetRowNumber, created: bool, values: { header: value } (the stored row) }
-function upsertByKey_(sheet, keyCols, row) {
+// The row is found through the cached row index (one row read). `mutate(existing | null)` may return more fields to merge,
+// computed from the stored row. -> { row: sheetRowNumber, created: bool, values: { header: value } (the stored row) }
+function upsertByKey_(sheet, keyCols, row, mutate) {
   return withLock_(function () {
-    var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var last = sheet.getLastRow();
-    var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, head.length).getValues();
+    var head = headerOf_(sheet);
+    var hit = indexedRow_(sheet, keyCols, keyCols.map(function (k) { return row[k]; }));
+    var found = hit.row;
+    var cur = found ? hit.vals.slice() : head.map(function () { return ''; });
+    if (typeof mutate === 'function') {
+      var existing = null;
+      if (found) { existing = {}; for (var e = 0; e < head.length; e++) existing[head[e]] = hit.vals[e]; }
+      var more = mutate(existing) || {};
+      var merged = {};
+      for (var mk in row) if (Object.prototype.hasOwnProperty.call(row, mk)) merged[mk] = row[mk];
+      for (var nk in more) if (Object.prototype.hasOwnProperty.call(more, nk)) merged[nk] = more[nk];
+      row = merged;
+    }
     var safe = {};
     for (var rk in row) if (Object.prototype.hasOwnProperty.call(row, rk)) safe[rk] = typeof row[rk] === 'string' ? text_(row[rk]) : row[rk];
     row = safe;
-    var kidx = keyCols.map(function (k) { return head.indexOf(k); });
-    var found = -1;
-    for (var i = 0; i < vals.length && found < 0; i++) {
-      var ok = true;
-      for (var k = 0; k < kidx.length; k++) {
-        var a = String(vals[i][kidx[k]]).trim().toLowerCase();
-        var b = String(row[keyCols[k]]).trim().toLowerCase();
-        if (a !== b) { ok = false; break; }
-      }
-      if (ok) found = i;
-    }
-    var cur = found >= 0 ? vals[found].slice() : head.map(function () { return ''; });
     for (var h = 0; h < head.length; h++) if (Object.prototype.hasOwnProperty.call(row, head[h])) cur[h] = row[head[h]];
-    if (found >= 0) sheet.getRange(found + 2, 1, 1, head.length).setValues([cur]);
-    else sheet.appendRow(cur);
+    var rowNo;
+    if (found) {
+      sheet.getRange(found, 1, 1, head.length).setValues([cur]);
+      rowNo = found;
+    } else {
+      sheet.appendRow(cur);
+      rowNo = sheet.getLastRow();
+      indexedRowAdd_(sheet, keyCols, keyCols.map(function (k) { return row[k]; }), rowNo);
+    }
     var stored = {};
-    for (var s = 0; s < head.length; s++) stored[head[s]] = cur[s];
-    return { row: found >= 0 ? found + 2 : sheet.getLastRow(), created: found < 0, values: stored };
+    for (var s2 = 0; s2 < head.length; s2++) stored[head[s2]] = cur[s2];
+    return { row: rowNo, created: !found, values: stored };
   });
 }
 
@@ -1917,9 +2092,9 @@ function today_() { return Utilities.formatDate(new Date(), Session.getScriptTim
 
 function studentRow_(email) {
   var sheet = getSheet_(STUDENTS_SHEET, STUDENT_HEADERS);
-  var row = findRow_(sheet, 1, email);
-  if (!row) return null;
-  var v = sheet.getRange(row, 1, 1, STUDENT_HEADERS.length).getValues()[0];
+  var hit = indexedRow_(sheet, ['email'], [email]);
+  if (!hit.row) return null;
+  var v = hit.vals;
   var o = {};
   for (var i = 0; i < STUDENT_HEADERS.length; i++) o[STUDENT_HEADERS[i]] = v[i];
   return o;
@@ -1942,9 +2117,8 @@ function classesOfEmail_(email) {
   return list.filter(function (c) { return c.emails.indexOf(email) >= 0; }).map(function (c) { return { id: c.id, name: c.name, period: c.period }; });
 }
 
-// Creates the row on first sight. Returns the stored row object.
-function ensureStudent_(email, claims) {
-  var existing = studentRow_(email);
+// The fields a sign-in sets on a student row: lastSeen and classIds always, the starting values on first sight.
+function studentBase_(existing, email, claims) {
   var now = new Date();
   var classes = classesOfEmail_(email).map(function (c) { return c.id; }).join(',');
   var patch = { email: email, lastSeen: now, classIds: classes };
@@ -1953,7 +2127,13 @@ function ensureStudent_(email, claims) {
     patch.firstSeen = now; patch.xp = 0; patch.level = 1; patch.streakDays = 0; patch.lastActiveDate = '';
     patch.badgesJson = '[]'; patch.prefsJson = '{}'; patch.statsJson = '{}'; patch.updatedAt = now;
   } else if (!existing.name && claims && claims.name) patch.name = String(claims.name).slice(0, 120);
-  return upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
+  return patch;
+}
+// Creates the row on first sight. Returns the stored row object.
+function ensureStudent_(email, claims) {
+  return upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], { email: email }, function (existing) {
+    return studentBase_(existing, email, claims);
+  }).values;
 }
 
 function attemptsOf_(email) {
@@ -2005,9 +2185,8 @@ function assignedTests_(email, classIds) {
 function studentBundle_(email, row, admin) {
   var profile = profileOf_(row);
   var out = { result: 'success', profile: profile, results: submissionsOf_(email, admin), attempts: attemptsOf_(email), assigned: assignedTests_(email, profile.classIds) };
-  // B3 supplies getClassHub_({ _email }) (already-verified email); until then hub is absent.
-  if (!admin && typeof getClassHub_ === 'function') {
-    try { out.hub = getClassHub_({ _email: email }); } catch (e) { out.hub = null; }
+  if (!admin) {
+    try { out.hub = buildHub_(email, new Date()); } catch (e) { out.hub = null; }
   }
   return out;
 }
@@ -2066,6 +2245,12 @@ function dayBefore_(ymd) {
 function syncProgress_(body) {
   var who = studentFromToken_(body);
   if (who.error) return { result: 'error', error: who.error };
+  var res = tryLockRun_(1500, function () { return syncProgressFor_(who.email, body); });
+  if (res && res.busy === true) return { result: 'error', error: 'busy', retryAfter: 30 };
+  return res;
+}
+// The work of syncProgress for an already verified email: at most one attempt row and one student row are read and written.
+function syncProgressFor_(email, body) {
   var att = body && body.attempt && typeof body.attempt === 'object' ? body.attempt : null;
   var xpIn = body && body.xp && typeof body.xp === 'object' ? body.xp : null;
   var out = { result: 'success' };
@@ -2075,7 +2260,7 @@ function syncProgress_(body) {
     var total = Math.max(0, Math.floor(num_(att.total, 0)));
     var answered = Math.max(0, Math.floor(num_(att.answeredCount, 0)));
     if (total) answered = Math.min(total, answered);
-    var row = { email: who.email, code: code, mode: text_(String(att.mode || '').slice(0, 32)), answeredCount: answered, total: total,
+    var row = { email: email, code: code, mode: text_(String(att.mode || '').slice(0, 32)), answeredCount: answered, total: total,
       percentDone: total ? Math.round(1000 * answered / total) / 10 : 0, updatedAt: Date.now() };
     if (att.answers !== undefined && att.answers !== null) {
       var aj = JSON.stringify(att.answers);
@@ -2084,9 +2269,11 @@ function syncProgress_(body) {
     upsertByKey_(getSheet_(ATTEMPTS_SHEET, ATTEMPT_HEADERS), ['email', 'code'], row);
     out.attempt = { code: code, mode: row.mode, answeredCount: answered, total: total, percentDone: row.percentDone, updatedAt: row.updatedAt };
   }
-  var cur = ensureStudent_(who.email, null);
-  var patch = { email: who.email, updatedAt: new Date() };
-  if (xpIn) {
+  var stored = upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], { email: email }, function (existing) {
+    var patch = studentBase_(existing, email, null);
+    patch.updatedAt = new Date();
+    if (!xpIn) return patch;
+    var cur = existing || patch;
     var stats = parseJson_(cur.statsJson, {}) || {};
     var day = today_();
     var gained = stats.xpDay === day ? num_(stats.xpToday, 0) : 0;
@@ -2111,8 +2298,8 @@ function syncProgress_(body) {
         patch.lastActiveDate = day;
       }
     }
-  }
-  var stored = upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
+    return patch;
+  }).values;
   out.profile = profileOf_(stored);
   return out;
 }
@@ -2159,6 +2346,7 @@ function batch_(body, auth) {
 var ASSIGNMENTS_SHEET = 'Assignments';
 var ASSIGNMENT_HEADERS = ['id', 'classId', 'testCode', 'title', 'instructions', 'opensAt', 'dueAt', 'lateAllowed', 'required', 'modesJson', 'publishAt', 'createdBy', 'createdAt'];
 var STREAM_SHEET = 'Stream';
+var STREAM_ARCHIVE_SHEET = 'Stream_archive';
 var STREAM_HEADERS = ['id', 'classId', 'type', 'body', 'pinned', 'createdBy', 'createdAt'];
 var STREAM_BODY_MAX = 2000;
 var HUB_STREAM_MAX = 100;
@@ -2432,7 +2620,7 @@ function assignmentRows_(a) {
   var atts = attemptMap_(a.testCode, '');
   var names = {};
   readCols_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email', 'name']).forEach(function (r) { names[normEmail_(r.email)] = String(r.name || ''); });
-  var accs = getAccommodations_({}).accommodations;
+  var accs = accommodationsAll_();
   return rosterOf_(a.classId).map(function (email) {
     var key = email + '|' + a.testCode;
     var sub = subs[key] || null;
@@ -2458,18 +2646,13 @@ function remindMissing_(body, auth) {
 }
 
 // ---------- student ----------
-// getClassHub { idToken } or, internally, { _email } (already verified). Never trusts an email from a client body.
+// getClassHub { idToken }. Identity comes only from the verified token; any client-supplied email is ignored.
 // -> { classes, assignments, stream, notifications, reminders } (see docs/ARCHITECTURE.md Backend 5.0).
 function getClassHub_(body) {
-  var email = body && body._email ? normEmail_(body._email) : '';
-  var internal = !!email;
-  if (!email) {
-    var who = studentFromToken_(body);
-    if (who.error) return { result: 'error', error: who.error };
-    email = who.email;
-  }
-  var res = buildHub_(email, new Date());
-  if (!internal) res.result = 'success';
+  var who = studentFromToken_(body);
+  if (who.error) return { result: 'error', error: who.error };
+  var res = buildHub_(who.email, new Date());
+  res.result = 'success';
   return res;
 }
 function buildHub_(email, nowDate) {
@@ -2568,4 +2751,122 @@ function assignmentGate_(email, testCode, acc, now) {
   });
   if (!best) return null;
   return { id: best.a.id, dueAt: new Date(best.due).toISOString(), pastDue: nowMs > best.due, lateAllowed: best.a.lateAllowed !== false };
+}
+
+// ---------------------------------------------------------------------------
+// Housekeeping: triggers, pruning, diagnostics
+// ---------------------------------------------------------------------------
+
+// Every time-driven trigger the backend owns. setupTriggers() replaces them by handler name.
+function triggerList_() {
+  return [{ handler: 'pruneSheets', schedule: { everyDays: 1, atHour: 3 } }];
+}
+function setupTriggers() {
+  var list = triggerList_();
+  var names = {};
+  list.forEach(function (t) { names[t.handler] = true; });
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (names[t.getHandlerFunction()]) ScriptApp.deleteTrigger(t);
+  });
+  list.forEach(function (t) {
+    ScriptApp.newTrigger(t.handler).timeBased().everyDays(t.schedule.everyDays).atHour(t.schedule.atHour).create();
+  });
+  return list.map(function (t) { return t.handler; });
+}
+
+var PRUNE_CHUNK = 1000;
+// Drops the rows of a sheet for which keep(rowValues) is false, reading in chunks and rewriting the range in place (one
+// write per chunk, one delete at the end). `sink(rows)` receives the dropped rows. -> number dropped.
+function pruneRows_(sheet, width, keep, sink) {
+  var last = sheet.getLastRow();
+  if (last < 2) return 0;
+  var write = 2;
+  var dropped = 0;
+  for (var start = 2; start <= last; start += PRUNE_CHUNK) {
+    var n = Math.min(PRUNE_CHUNK, last - start + 1);
+    var vals = sheet.getRange(start, 1, n, width).getValues();
+    var kept = [];
+    var gone = [];
+    vals.forEach(function (v) { (keep(v) ? kept : gone).push(v); });
+    if (gone.length) {
+      dropped += gone.length;
+      if (sink) sink(gone);
+    }
+    if (kept.length && (gone.length || write !== start)) sheet.getRange(write, 1, kept.length, width).setValues(kept);
+    write += kept.length;
+  }
+  if (dropped) sheet.deleteRows(write, last - write + 1);
+  return dropped;
+}
+function cellMs_(v) {
+  var t = v instanceof Date ? v.getTime() : Date.parse(String(v));
+  return isFinite(t) ? t : null;
+}
+// Daily trigger. Live, Log and Errors rows older than their retention are removed; unpinned Stream posts older than
+// archiveStreamDays move to Stream_archive.
+// Public so a time-driven trigger can call it (Apps Script cannot trigger functions ending in an underscore).
+function pruneSheets() {
+  resetRequest_();
+  return pruneSheetsLocked_();
+}
+function pruneSheetsLocked_() {
+  return withLock_(function () {
+    var cfg = readSettings_();
+    var now = new Date().getTime();
+    var DAY = 86400000;
+    var fresh = function (col, days) {
+      var cutoff = now - days * DAY;
+      return function (v) { var t = cellMs_(v[col]); return t === null || t >= cutoff; };
+    };
+    var removed = {};
+    removed.Live = pruneRows_(getSheet_(LIVE_SHEET, LIVE_HEADERS), LIVE_HEADERS.length, fresh(7, cfg.retainLiveDays));
+    removed.Log = pruneRows_(getSheet_(LOG_SHEET, LOG_HEADERS), LOG_HEADERS.length, fresh(0, cfg.retainLogDays));
+    removed.Errors = pruneRows_(getSheet_(ERRORS_SHEET, ERROR_HEADERS), ERROR_HEADERS.length, fresh(0, cfg.retainErrorsDays));
+    var archived = 0;
+    var streamFresh = fresh(6, cfg.archiveStreamDays);
+    pruneRows_(getSheet_(STREAM_SHEET, STREAM_HEADERS), STREAM_HEADERS.length, function (v) {
+      return boolCell_(v[4]) || streamFresh(v);
+    }, function (rows) {
+      var arch = getSheet_(STREAM_ARCHIVE_SHEET, STREAM_HEADERS);
+      arch.getRange(arch.getLastRow() + 1, 1, rows.length, STREAM_HEADERS.length).setValues(rows);
+      archived += rows.length;
+    });
+    var result = { at: new Date().toISOString(), removed: removed, archived: archived };
+    try { PropertiesService.getScriptProperties().setProperty('LAST_PRUNE', JSON.stringify(result)); } catch (e) { /* not recorded */ }
+    return result;
+  });
+}
+
+// Admin: row counts, timings with a throw-away student, and the last prune.
+function diag_() {
+  var sheets = getSpreadsheet_().getSheets().map(function (sh) { return { name: sh.getName(), rows: Math.max(0, sh.getLastRow() - 1) }; });
+  var timings = {};
+  var time = function (name, fn) {
+    var t0 = Date.now();
+    try { fn(); timings[name] = Date.now() - t0; } catch (e) { timings[name] = -1; }
+  };
+  var fake = 'diag@chemworks.invalid';
+  time('listTests', function () { listTests_({}); });
+  time('getResults', function () { getResults_('', {}); });
+  time('getClassHub', function () { buildHub_(fake, new Date()); });
+  try {
+    time('syncProgress', function () {
+      syncProgressFor_(fake, { attempt: { code: 'DIAG', mode: 'diag', answeredCount: 1, total: 2 }, xp: { delta: 1 } });
+    });
+  } finally {
+    removeDiagRows_(fake);
+  }
+  var last = null;
+  try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('LAST_PRUNE') || 'null'); } catch (e) { last = null; }
+  return { result: 'success', version: VERSION, generatedAt: new Date().toISOString(), sheets: sheets, timings: timings, lastPrune: last };
+}
+function removeDiagRows_(email) {
+  withLock_(function () {
+    [[STUDENTS_SHEET, STUDENT_HEADERS, 'email'], [ATTEMPTS_SHEET, ATTEMPT_HEADERS, 'email+code']].forEach(function (p) {
+      var sheet = getSheet_(p[0], p[1]);
+      var emails = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+      for (var i = emails.length - 1; i >= 0; i--) if (normEmail_(emails[i][0]) === email) sheet.deleteRow(i + 2);
+      rowIndexStore_('rowidx:' + p[0] + ':' + p[2], {});
+    });
+  });
 }

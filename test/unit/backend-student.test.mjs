@@ -169,7 +169,7 @@ test('getClassHub: a student sees only their own classes, assignments and stream
   assert.deepEqual(plain(none.stream), []);
 });
 
-test('getClassHub: an _email in the request body is not trusted (internal-only field)', { todo: 'B1/B2' }, () => {
+test('getClassHub: an _email in the request body is not trusted (internal-only field)', () => {
   hubSetup();
   const noToken = g.post({ action: 'getClassHub', _email: 'ada@x.org' });
   assert.equal(noToken.result, 'error', 'a client must not read a hub by sending _email without a token');
