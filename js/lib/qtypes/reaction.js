@@ -93,8 +93,8 @@ const def = {
     };
   },
   isAnswered: (q, answer) => typeof answer === 'string' && answer.trim() !== '',
-  score,
-  answerText: (q, answer) => (typeof answer === 'string' ? answer.trim() : ''),
+  grade: score,
+  format: (q, answer) => (typeof answer === 'string' ? answer.trim() : ''),
   keyText: (q) => (q.products || []).join(' + '),
   correctAnswer: (q) => (q.products || []).join(' + '),
 };

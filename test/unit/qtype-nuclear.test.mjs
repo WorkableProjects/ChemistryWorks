@@ -44,14 +44,14 @@ test('particleMatches: symbols case-normalised, named aliases', () => {
 test('score: per blank, partial, isotope thirds, malformed never throws', () => {
   const q = eq();
   assert.deepEqual(blankKeys(q), ['R0']);
-  assert.deepEqual(def.score(q, { R0: { A: '234', Z: '90', symbol: 'Th' } }), { fraction: 1, full: true });
-  assert.equal(def.score(q, { R0: { A: '234', Z: '91', symbol: 'Th' } }).fraction, 0);
+  assert.deepEqual(def.grade(q, { R0: { A: '234', Z: '90', symbol: 'Th' } }), { fraction: 1, full: true });
+  assert.equal(def.grade(q, { R0: { A: '234', Z: '91', symbol: 'Th' } }).fraction, 0);
   const two = eq({ left: [{ A: 238, Z: 92, symbol: 'U', missing: true }], right: [{ A: 234, Z: 90, symbol: 'Th', missing: true }, { name: 'alpha' }] });
-  assert.equal(def.score(two, { L0: { A: '238', Z: '92', symbol: 'U' }, R0: { A: '1', Z: '1', symbol: 'H' } }).fraction, 0.5);
+  assert.equal(def.grade(two, { L0: { A: '238', Z: '92', symbol: 'U' }, R0: { A: '1', Z: '1', symbol: 'H' } }).fraction, 0.5);
   const i = iso();
-  assert.equal(def.score(i, { A: '14', Z: '6', symbol: 'C' }).full, true);
-  assert.ok(Math.abs(def.score(i, { A: '14', Z: '7', symbol: 'C' }).fraction - 2 / 3) < 1e-9);
-  for (const bad of [undefined, null, 'x', 7, [], {}, { R0: 'no' }, { R0: null }]) { assert.doesNotThrow(() => def.score(q, bad)); assert.doesNotThrow(() => def.score(i, bad)); }
+  assert.equal(def.grade(i, { A: '14', Z: '6', symbol: 'C' }).full, true);
+  assert.ok(Math.abs(def.grade(i, { A: '14', Z: '7', symbol: 'C' }).fraction - 2 / 3) < 1e-9);
+  for (const bad of [undefined, null, 'x', 7, [], {}, { R0: 'no' }, { R0: null }]) { assert.doesNotThrow(() => def.grade(q, bad)); assert.doesNotThrow(() => def.grade(i, bad)); }
 });
 
 test('isConserved reflects what the student typed', () => {
@@ -67,7 +67,7 @@ test('isAnswered / texts / correctAnswer', () => {
   assert.equal(def.isAnswered(q, { R0: { A: '', Z: '', symbol: '' } }), false);
   assert.equal(def.isAnswered(q, { R0: { A: '2', Z: '', symbol: '' } }), true);
   assert.equal(def.keyText(q), '238/92 U → 234/90 Th + 4/2 He');
-  assert.equal(def.answerText(q, { R0: { A: '234', Z: '90', symbol: 'Th' } }), '238/92 U → 234/90 Th + 4/2 He');
+  assert.equal(def.format(q, { R0: { A: '234', Z: '90', symbol: 'Th' } }), '238/92 U → 234/90 Th + 4/2 He');
   assert.deepEqual(def.correctAnswer(q), { R0: { A: 234, Z: 90, symbol: 'Th' } });
   assert.equal(def.keyText(iso()), '14/6 C');
   assert.deepEqual(def.correctAnswer(iso()), { A: 14, Z: 6, symbol: 'C' });

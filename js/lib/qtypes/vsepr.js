@@ -76,8 +76,8 @@ const def = {
     return { ...base, text: 'Describe the shape of the molecule.', formula: 'H2O', electronGeometry: 'tetrahedral', molecularGeometry: 'bent', bondAngle: '104.5', fields: FIELDS.slice() };
   },
   isAnswered: (q, answer) => answer !== null && typeof answer === 'object' && FIELDS.some((f) => str(answer[f]).trim() !== ''),
-  score,
-  answerText(q, answer) {
+  grade: score,
+  format(q, answer) {
     const a = answer && typeof answer === 'object' ? answer : {};
     return enabledFields(q).map((f) => `${FIELD_LABELS[f]}: ${text(q, a, f)}`).join('; ');
   },

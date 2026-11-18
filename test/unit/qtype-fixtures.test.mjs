@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 
 const { QUESTION_TYPES, MANUAL_TYPES, normalizeTest, validateTest } = await import('../../js/lib/schema.js');
 const { gradeQuestion, isAnswered, formatAnswer, correctAnswerText } = await import('../../js/lib/grading.js');
-await import('../../js/lib/qtypes/v4-types.js');
+await import('../../js/lib/qtypes/index.js');
 
 const DIR = new URL('../fixtures/types/', import.meta.url);
 const files = readdirSync(DIR).filter((f) => f.endsWith('.json')).sort();

@@ -1,4 +1,5 @@
-// Loads every v4 question-type UI module so it registers itself (js/views/qtypes/registry.js).
+// Older question-type UI modules, loaded up front so they register themselves (js/views/qtypes/registry.js). Types
+// that have moved to the TypeDef contract are not listed here: they load lazily through loadTypeUI(type).
 import './multipart.js';
 import './naming.js';
 import './dropdown.js';

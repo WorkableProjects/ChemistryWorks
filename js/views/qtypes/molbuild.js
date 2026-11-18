@@ -113,7 +113,7 @@ function editor(q, redraw, changed) {
 }
 
 function review(q, answer, { key } = {}) {
-  const text = key ? def.keyText(q) : (toBuild(answer).atoms.length ? def.answerText(q, answer) : null);
+  const text = key ? def.keyText(q) : (toBuild(answer).atoms.length ? def.format(q, answer) : null);
   if (!text) return null;
   return h('span', { class: 'qm-review', dataset: { testid: 'molbuild-review' } }, h('span', { class: 'qm-review__text' }, text));
 }

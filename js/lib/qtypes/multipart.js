@@ -36,6 +36,7 @@ export const def = {
   label: 'Multi-part question',
   shortLabel: 'Multi-part',
   group: 'Basics',
+  manual: false,
 
   normalize(q, H) {
     q.stem = q.stem === undefined || q.stem === null ? '' : String(q.stem);
@@ -98,7 +99,7 @@ export const def = {
     return partsOf(q).some((p) => (H ? H.isAnswered(p, answer[p.id]) : answer[p.id] !== undefined && answer[p.id] !== null));
   },
 
-  score(q, answer, H) {
+  grade(q, answer, H) {
     const parts = partsOf(q);
     if (!parts.length || !isObj(answer)) return { fraction: 0, full: false };
     let earned = 0;
@@ -114,7 +115,7 @@ export const def = {
     return { fraction: possible > 0 ? Math.min(1, earned / possible) : 0, full: false };
   },
 
-  answerText(q, answer, H) {
+  format(q, answer, H) {
     const a = isObj(answer) ? answer : {};
     return partsOf(q).map((p, i) => `(${partLabel(p, i)}) ${H.formatAnswer(p, a[p.id])}`).join('; ');
   },

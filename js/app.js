@@ -26,6 +26,7 @@ import { installErrorReporting } from './lib/errors.js';
 import { load, save } from './lib/storage.js';
 import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
+import { preloadQuestionTypes } from './lib/qtypes/registry.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
 import * as runner from './views/runner.js';
@@ -99,7 +100,10 @@ function navigate(view, params = {}) {
   };
   const start = () => {
     if (seq !== navSeq) return;
-    transition();
+    // A view that draws questions needs the UI module of each question type first (null when they are all loaded).
+    const pending = preloadQuestionTypes(params.test?.questions);
+    if (pending) pending.then(() => { if (seq === navSeq) transition(); });
+    else transition();
   };
   const transition = () => {
   root.classList.remove('view-enter');

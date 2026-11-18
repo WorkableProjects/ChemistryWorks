@@ -123,6 +123,7 @@ export const def = {
   label: 'Gas-law setup',
   shortLabel: 'Gas law',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -172,7 +173,7 @@ export const def = {
     return str(a.law) !== '' || str(a.value).trim() !== '' || (isObj(a.setup) && Object.values(a.setup).some((v) => str(v) !== ''));
   },
 
-  score(q, a) {
+  grade(q, a) {
     if (!LAWS[q.law] || solve(q) === null) return { fraction: 0, full: false };
     const x = isObj(a) ? a : {};
     const lawOk = x.law === q.law;
@@ -184,7 +185,7 @@ export const def = {
     return { fraction: Math.min(f, 0.99), full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     const x = isObj(a) ? a : {};
     const value = str(x.value).trim();
     return `${lawLabel(x.law)}; ${value ? `${value} ${q.unit}`.trim() : DASH}`;

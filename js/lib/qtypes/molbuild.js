@@ -121,6 +121,7 @@ export const def = {
   label: 'Molecule builder',
   shortLabel: 'Molecule builder',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -141,7 +142,7 @@ export const def = {
 
   isAnswered(q, a) { return toBuild(a).atoms.length > 0; },
 
-  score(q, a) {
+  grade(q, a) {
     const key = keyOf(q);
     if (!key) return { fraction: 0, full: false };
     const got = toBuild(a);
@@ -151,7 +152,7 @@ export const def = {
     return { fraction, full: fraction === 1 };
   },
 
-  answerText(q, a) { const g = toBuild(a); return g.atoms.length ? describe(g) : DASH; },
+  format(q, a) { const g = toBuild(a); return g.atoms.length ? describe(g) : DASH; },
   keyText(q) { const k = keyOf(q); return k ? describe(k) : DASH; },
   correctAnswer: (q) => keyOf(q) || {},
 };

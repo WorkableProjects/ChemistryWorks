@@ -118,8 +118,8 @@ const def = {
   isAnswered(q, answer) {
     return isObj(answer) && Object.values(answer).some((r) => isObj(r) && Object.values(r).some((v) => str(v).trim() !== ''));
   },
-  score,
-  answerText: (q, answer) => (isObj(answer) ? listText(q, (c) => typedOf(answer, c.row.id, c.col.id)) : ''),
+  grade: score,
+  format: (q, answer) => (isObj(answer) ? listText(q, (c) => typedOf(answer, c.row.id, c.col.id)) : ''),
   keyText: (q) => listText(q, (c) => c.expected),
   correctAnswer(q) {
     const out = {};

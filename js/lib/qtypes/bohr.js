@@ -74,6 +74,7 @@ export const def = {
   label: 'Bohr model (electron shells)',
   shortLabel: 'Electron shells',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -103,7 +104,7 @@ export const def = {
     return isObj(a) && Array.isArray(a.shells) && a.shells.some((v) => v !== undefined && v !== '' && v !== 0);
   },
 
-  score(q, a) {
+  grade(q, a) {
     const key = keyOf(q);
     if (!key) return { fraction: 0, full: false };
     const { right, total } = slotScore(key, a);
@@ -111,7 +112,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / total, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     if (!isObj(a) || !Array.isArray(a.shells)) return DASH;
     const occupied = a.shells.slice(0, SHELL_SLOTS).map(toInt).filter((v) => v > 0);
     return occupied.length ? occupied.join(', ') : DASH;

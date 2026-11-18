@@ -40,6 +40,7 @@ export const def = {
   label: 'Dropdown cloze',
   shortLabel: 'Dropdown cloze',
   group: 'Match & sort',
+  manual: false,
 
   normalize(q) {
     q.partialCredit = q.partialCredit === undefined || q.partialCredit === null ? true : Boolean(q.partialCredit);
@@ -97,7 +98,7 @@ export const def = {
 
   isAnswered: (q, answer) => isObj(answer) && Object.values(answer).some(given),
 
-  score(q, answer) {
+  grade(q, answer) {
     const blanks = blanksOf(q);
     if (!blanks.length || !isObj(answer)) return { fraction: 0, full: false };
     const right = blanks.filter((b) => given(answer[b.id]) && String(answer[b.id]) === String(b.answer)).length;
@@ -105,7 +106,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / blanks.length, full: false };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     const a = isObj(answer) ? answer : {};
     return blanksOf(q).map((b, i) => `(${i + 1}) ${given(a[b.id]) ? String(a[b.id]).trim() : DASH}`).join('; ');
   },

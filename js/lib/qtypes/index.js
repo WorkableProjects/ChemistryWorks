@@ -1,5 +1,10 @@
-// Loads every v4 question-type definition so it registers itself (js/lib/qtypes/registry.js).
-// S08: multipart, naming, dropdown. S09: dimensional, nuclear, reaction, vsepr, datatable.
+// Loads every question-type definition so it registers itself (js/lib/qtypes/registry.js). Definitions are small and
+// pure, so they load statically and grading and validation stay synchronous.
+import './mcq.js';
+import './multi.js';
+import './truefalse.js';
+import './numeric.js';
+import './formula.js';
 import './multipart.js';
 import './naming.js';
 import './dropdown.js';

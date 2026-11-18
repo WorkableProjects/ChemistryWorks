@@ -106,6 +106,7 @@ export const def = {
   label: 'Ionic compound builder',
   shortLabel: 'Ionic compound',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -153,7 +154,7 @@ export const def = {
 
   isAnswered: (q, answer) => isObj(answer) && (Boolean(answer.cation || answer.anion) || str(answer.name).trim() !== ''),
 
-  score(q, answer) {
+  grade(q, answer) {
     if (!isObj(answer)) return { fraction: 0, full: false };
     const f = formulaRight(q, answer);
     if (!q.askName) return { fraction: f ? 1 : 0, full: f };
@@ -161,7 +162,7 @@ export const def = {
     return { fraction, full: fraction === 1 };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     if (!isObj(answer)) return DASH;
     return [answerFormula(q, answer), str(answer.name).trim()].filter(Boolean).join(' — ') || DASH;
   },

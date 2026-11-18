@@ -11,7 +11,8 @@ import { parseConfig } from './qtypes/econfig.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
 import { cleanGameOptions, validateGameOptions } from './games/options.js';
 import { feature } from '../config.js';
-import './qtypes/v4-types.js'; // V4-03: registers the v4 question types
+import { normOptions, validateList } from './qtypes/shared.js';
+import './qtypes/index.js'; // registers every question type definition
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
 // Types a teacher always grades by hand in the admin Grading tab.
@@ -82,18 +83,6 @@ function clone(v) {
   }
 }
 
-function normOptions(list) {
-  if (!Array.isArray(list)) return [];
-  return list.map((o) => {
-    const src = isObj(o) ? o : { id: o, text: o };
-    const out = { ...src, id: str(src.id).trim(), text: str(src.text) };
-    // Optional picture for this choice / item (V2.5): kept only with a url, so existing tests normalize unchanged.
-    if (isObj(src.image) && str(src.image.url).trim()) out.image = { url: str(src.image.url).trim(), alt: str(src.image.alt) };
-    else delete out.image;
-    return out;
-  });
-}
-
 function normalizeQuestion(raw) {
   const q = isObj(raw) ? raw : {};
   q.id = str(q.id).trim();
@@ -119,24 +108,6 @@ function normalizeQuestion(raw) {
     } else delete q.hint;
   }
   switch (q.type) {
-    case 'mcq':
-      q.options = normOptions(q.options);
-      break;
-    case 'multi':
-      q.options = normOptions(q.options);
-      q.partialCredit = bool(q.partialCredit, false);
-      break;
-    case 'numeric':
-      q.tolerance = q.tolerance === undefined || q.tolerance === null || q.tolerance === '' ? 0 : Number(q.tolerance);
-      q.toleranceType = q.toleranceType === undefined || q.toleranceType === null ? 'absolute' : q.toleranceType;
-      q.unit = str(q.unit);
-      if (typeof q.correctAnswer === 'string' && q.correctAnswer.trim() !== '' && Number.isFinite(Number(q.correctAnswer))) {
-        q.correctAnswer = Number(q.correctAnswer);
-      }
-      break;
-    case 'formula':
-      q.caseSensitive = bool(q.caseSensitive, true);
-      break;
     case 'ordering':
       q.items = normOptions(q.items);
       q.partialCredit = bool(q.partialCredit, true);
@@ -341,28 +312,6 @@ export function normalizeTest(raw) {
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
 
-function validateList(list, label, where, errors) {
-  if (!Array.isArray(list) || list.length < 2) {
-    errors.push(`${where}: ${label} needs at least 2 entries.`);
-    return new Set();
-  }
-  const ids = new Set();
-  list.forEach((o, i) => {
-    const n = i + 1;
-    if (!isObj(o)) { errors.push(`${where}: ${label} ${n} must be an object with id and text.`); return; }
-    if (!nonEmptyStr(o.id) || !ID_RE.test(o.id)) errors.push(`${where}: ${label} ${n} has an invalid id (use letters, digits, "_" or "-").`);
-    else if (ids.has(o.id)) errors.push(`${where}: duplicate ${label} id "${o.id}".`);
-    else ids.add(o.id);
-    const hasImage = isObj(o.image);
-    if (hasImage) {
-      if (!safeImageUrl(o.image.url)) errors.push(`${where}: ${label} ${n} image url must start with https:// or be a path on this site.`);
-      if (!nonEmptyStr(o.image.alt)) errors.push(`${where}: ${label} ${n} image needs alt text describing the image.`);
-    }
-    if (!nonEmptyStr(o.text) && !(hasImage && safeImageUrl(o.image.url))) errors.push(`${where}: ${label} ${n} has empty text.`);
-  });
-  return ids;
-}
-
 function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   const idLabel = isObj(q) && q.id !== undefined && q.id !== '' ? String(q.id) : '?';
   const where = `Question ${index + 1} (${idLabel})`;
@@ -399,32 +348,6 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   }
   const a = q.correctAnswer;
   switch (q.type) {
-    case 'mcq': {
-      const ids = validateList(q.options, 'option', where, errors);
-      if (typeof a !== 'string' || !ids.has(a)) errors.push(`${where}: correctAnswer must be the id of one of the options.`);
-      break;
-    }
-    case 'multi': {
-      const ids = validateList(q.options, 'option', where, errors);
-      if (!Array.isArray(a) || a.length === 0) errors.push(`${where}: correctAnswer must be a non-empty array of option ids.`);
-      else if (a.some((id) => typeof id !== 'string' || !ids.has(id))) errors.push(`${where}: correctAnswer contains an unknown option id.`);
-      break;
-    }
-    case 'numeric':
-      if (!isNum(a)) errors.push(`${where}: correctAnswer must be a number.`);
-      if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
-      if (q.toleranceType !== undefined && q.toleranceType !== 'absolute' && q.toleranceType !== 'percent') {
-        errors.push(`${where}: toleranceType must be "absolute" or "percent".`);
-      }
-      break;
-    case 'formula':
-      if (Array.isArray(a)) {
-        if (a.length === 0 || a.some((x) => !nonEmptyStr(x))) errors.push(`${where}: correctAnswer must list at least one non-empty formula.`);
-      } else if (!nonEmptyStr(a)) errors.push(`${where}: correctAnswer must be a non-empty formula.`);
-      break;
-    case 'truefalse':
-      if (typeof a !== 'boolean') errors.push(`${where}: correctAnswer must be true or false.`);
-      break;
     case 'matching': {
       const leftIds = validateList(q.left, 'left item', where, errors);
       const rightIds = validateList(q.right, 'right item', where, errors);
@@ -687,17 +610,9 @@ export function validateTest(test) {
   return { valid: errors.length === 0, errors };
 }
 
-const LETTERS = ['A', 'B', 'C', 'D'];
-
 export function blankQuestion(type, id = 'q1') {
   const base = { id, type, text: 'New question', points: 1, explanation: '' };
-  const opts = () => LETTERS.map((L) => ({ id: L.toLowerCase(), text: `Option ${L}` }));
   switch (type) {
-    case 'mcq': return { ...base, options: opts(), correctAnswer: 'a' };
-    case 'multi': return { ...base, options: opts(), partialCredit: false, correctAnswer: ['a', 'b'] };
-    case 'numeric': return { ...base, correctAnswer: 0, tolerance: 0, toleranceType: 'absolute', unit: '', formatHelp: 'auto' };
-    case 'formula': return { ...base, caseSensitive: true, correctAnswer: 'H2O', formatHelp: 'auto' };
-    case 'truefalse': return { ...base, correctAnswer: true };
     case 'matching':
       return {
         ...base,

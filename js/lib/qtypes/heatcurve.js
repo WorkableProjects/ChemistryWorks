@@ -35,6 +35,7 @@ export const def = {
   label: 'Heating or cooling curve',
   shortLabel: 'Heating curve',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -68,7 +69,7 @@ export const def = {
     return answerSegments(q, a).some((s) => s.phase || s.process);
   },
 
-  score(q, a) {
+  grade(q, a) {
     const key = Array.isArray(q.segments) ? q.segments : [];
     const given = answerSegments(q, a);
     const total = key.length * 2;
@@ -79,7 +80,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / total, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     return answerSegments(q, a).map((s, i) => `${i + 1}: ${segText(s)}`).join('; ') || DASH;
   },
 
