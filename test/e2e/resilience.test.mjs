@@ -6,6 +6,7 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
+// Mixes the GAS and Netlify channels; the Netlify lines (`netlify` mode and `data-netlify` checks) go in S08a.
 test('failed submission is queued; Retry resends the same submission_id', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.modes.gas = 'fail';
@@ -44,6 +45,7 @@ test('failed submission is queued; Retry resends the same submission_id', () => 
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 0);
 }));
 
+// NETLIFY-ONLY: covers the Netlify Forms channel, which is off on GitHub Pages. Kept passing against current code; S08a removes it with the channel.
 test('one channel failing is not queued (Netlify down, GAS up)', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.modes.netlify = 500;
@@ -73,6 +75,7 @@ test('no backends configured: submission is skipped, not queued', () => withSess
   assert.equal(s.gas.length + s.netlify.length, 0);
 }));
 
+// NETLIFY-ONLY: covers the Netlify Forms channel, which is off on GitHub Pages. Kept passing against current code; S08a removes it with the channel.
 test('Netlify payload mirrors the GAS payload', () => withSession(env, {}, async (s) => {
   const { page } = s;
   await startTest(s);

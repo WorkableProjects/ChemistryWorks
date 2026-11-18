@@ -7,6 +7,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 
 export const GAS_URL = 'https://gas.example.test/exec';
 export const ADMIN_CODE = 'chemadmin';
+/** Default action/locator timeout: a broken suite fails fast instead of waiting 30 s per locator. */
+export const ACTION_TIMEOUT = 5000;
 export const STUDENT = { name: 'Ada Lovelace', email: 'ada@example.org' };
 
 /** Start the static server and one chromium for the whole test file. */
@@ -84,6 +86,7 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
     return route.abort('blockedbyclient');
   });
 
+  context.setDefaultTimeout(ACTION_TIMEOUT);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
@@ -119,7 +122,7 @@ export const tid = (id) => `[data-testid="${id}"]`;
 
 /** The landing view moves focus to its first field ~60ms after render; wait for that so typing is not hijacked. */
 export async function landingReady(page) {
-  await page.waitForFunction(() => ['demo-name', 'code-input'].includes(document.activeElement?.dataset?.testid));
+  await page.waitForFunction(() => ['demo-name', 'home-code-input'].includes(document.activeElement?.dataset?.testid));
 }
 
 export async function signIn(page, name = STUDENT.name, email = STUDENT.email) {
@@ -134,8 +137,8 @@ export async function startTest(s, code = 'CHEM101', user = STUDENT) {
   const { page } = s;
   await page.goto(s.url + '/');
   await signIn(page, user.name, user.email);
-  await page.locator(tid('code-input')).fill(code);
-  await page.locator(tid('code-submit')).click();
+  await page.locator(tid('home-code-input')).fill(code);
+  await page.locator(tid('home-code-submit')).click();
   await page.locator(tid('runner')).waitFor();
   await activeId(page); // wait for first card
 }
@@ -195,7 +198,12 @@ export const A = {
   formula: (page, text) => activeCard(page).locator(tid('formula-input')).fill(text),
   tf: (page, v) => activeCard(page).locator(tid(v ? 'tf-true' : 'tf-false')).click(),
   match: async (page, pairs) => {
-    for (const [l, r] of Object.entries(pairs)) await activeCard(page).locator(tid(`match-${l}-${r}`)).check({ force: true });
+    for (const [l, r] of Object.entries(pairs)) {
+      // The radio is visually hidden and a toast can sit over it on a phone, so click the element itself.
+      const input = activeCard(page).locator(tid(`match-${l}-${r}`));
+      await input.evaluate((el) => el.click());
+      await poll(() => input.isChecked(), { message: `match ${l}-${r} checked` });
+    }
   },
 };
 

@@ -25,13 +25,18 @@ test('landing: v4 brand, version label, settings popover, dark theme, no horizon
   await page.locator(tid('theme-menu')).waitFor();
   await page.locator(tid('theme-dark')).click();
   await poll(async () => (await page.locator('html').getAttribute('data-theme')) === 'dark', { message: 'dark theme' });
-  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(11, 20, 36)');
+  // The body colour eases to the dark token, so wait for it to settle.
+  await poll(async () => (await page.evaluate(() => getComputedStyle(document.body).backgroundColor)) === 'rgb(11, 20, 36)', { message: 'dark body background' });
   await page.keyboard.press('Escape');
   await page.locator(tid('demo-name')).fill('Ada Lovelace');
   await page.locator(tid('demo-email')).fill('ada@example.org');
   await page.locator(tid('demo-signin')).click();
-  await page.locator(tid('site-version')).waitFor();
-  assert.match(await page.locator(tid('site-version')).innerText(), new RegExp(pkg.version.replace(/\./g, '\\.')));
+  // The signed-in home shows the version in the theme menu (next to "What's new").
+  await page.locator(tid('home')).waitFor();
+  await page.locator(tid('theme-toggle')).click();
+  await page.locator(tid('theme-menu')).waitFor();
+  assert.match(await page.locator(`${tid('theme-menu')} .theme-ctl__ver`).innerText(), new RegExp(pkg.version.replace(/\./g, '\\.')));
+  await page.keyboard.press('Escape');
   assert.ok(await noHorizontalScroll(page), 'no horizontal scroll at 360 px');
 }));
 
@@ -59,14 +64,14 @@ test('student flow on a phone: bottom-sheet navigator and results without horizo
   assert.ok(await noHorizontalScroll(page), 'results fit at 390 px');
 }));
 
-test('admin: tabs incl. Insights, every v4 question type in the builder picker, version-check never blocks', () => withSession(env, {}, async (s) => {
+test('admin: tabs, every v4 question type in the builder picker, version-check never blocks', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
   s.onGas = (b) => (b.action === 'getResults' ? { result: 'success', rows: [] } : null);
   await s.context.addInitScript(() => { try { sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')); } catch { /* ignore */ } });
   await unlockAdmin(page, url);
-  for (const t of ['library', 'builder', 'grading', 'insights', 'settings']) assert.equal(await page.locator(tid(`tab-${t}`)).count(), 1, `tab ${t}`);
-  await page.locator(tid('tab-insights')).click();
-  await page.locator(tid('insights')).waitFor();
+  // Insights now lives inside Grading (the old `insights` tab redirects there).
+  for (const t of ['library', 'builder', 'grading', 'settings']) assert.equal(await page.locator(tid(`tab-${t}`)).count(), 1, `tab ${t}`);
+  assert.equal(await page.locator(tid('tab-insights')).count(), 0);
   await page.locator(tid('tab-builder')).click();
   await page.locator(tid('add-question')).click();
   for (const t of V4_TYPES) assert.equal(await page.locator(tid(`add-question-${t}`)).count(), 1, `picker offers ${t}`);

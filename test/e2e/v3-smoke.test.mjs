@@ -27,8 +27,8 @@ test('single submission blocks', async () => {
   try {
     await s.page.goto(s.url + '/');
     await signIn(s.page);
-    await s.page.locator(tid('code-input')).fill('SINGLE1');
-    await s.page.locator(tid('code-submit')).click();
+    await s.page.locator(tid('home-code-input')).fill('SINGLE1');
+    await s.page.locator(tid('home-code-submit')).click();
     await s.page.locator(tid('already-submitted')).waitFor();
     assert.equal(await s.page.locator(tid('take-again')).count(), 0);
     assert.deepEqual(s.errors, []);
@@ -43,8 +43,8 @@ test('released feedback on a fresh device', async () => {
   try {
     await s.page.goto(s.url + '/');
     await signIn(s.page);
-    await s.page.locator(tid('code-input')).fill('CHEM101');
-    await s.page.locator(tid('code-submit')).click();
+    await s.page.locator(tid('home-code-input')).fill('CHEM101');
+    await s.page.locator(tid('home-code-submit')).click();
     await s.page.locator(tid('feedback-released')).waitFor();
     assert.equal(await s.page.locator(tid('feedback-download-pdf')).count(), 1);
     assert.equal(await s.page.locator(tid('take-again')).count(), 1); // CHEM101 is not single-submission
@@ -106,8 +106,8 @@ test('single submission: device record blocks even when the server has no row ye
     await s.page.locator(tid('confirm-submit')).click();
     await s.page.locator(tid('results')).waitFor();
     await s.page.locator(tid('home-btn')).click();
-    await s.page.locator(tid('code-input')).fill('SINGLE3');
-    await s.page.locator(tid('code-submit')).click();
+    await s.page.locator(tid('home-code-input')).fill('SINGLE3');
+    await s.page.locator(tid('home-code-submit')).click();
     await s.page.locator(tid('already-submitted')).waitFor();
     assert.equal(await s.page.locator(tid('take-again')).count(), 0);
     assert.deepEqual(s.errors, []);
@@ -123,8 +123,8 @@ test('single submission: Take again appears when the teacher allowed a retake', 
   try {
     await s.page.goto(s.url + '/');
     await signIn(s.page);
-    await s.page.locator(tid('code-input')).fill('SINGLE2');
-    await s.page.locator(tid('code-submit')).click();
+    await s.page.locator(tid('home-code-input')).fill('SINGLE2');
+    await s.page.locator(tid('home-code-submit')).click();
     await s.page.locator(tid('feedback-released')).waitFor();
     await s.page.locator(tid('take-again')).click();
     await s.page.locator(tid('submit-btn')).first().waitFor();
