@@ -27,12 +27,12 @@ var SUBMISSION_HEADERS = [
   'Detailed Responses (JSON)', 'Flags (JSON)',
   'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
   'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed',
-  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At'
+  'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At', 'Identity'
 ];
 // 1-based columns of the grading fields (appended after the original 14 columns; v2 adds 21-22).
 // Older sheets get the missing headers appended automatically by getSheet_ (empty cells = safe defaults:
 // no comments, not released).
-var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29, ASSIGNMENT: 30, DUE: 31 };
+var COL = { EMAIL: 4, RESPONSES: 13, STATUS: 15, FINAL_SCORE: 16, FINAL_PCT: 17, GRADES: 18, GRADED_AT: 19, NOTE: 20, COMMENTS: 21, RELEASED_AT: 22, GRADED_BY: 23, RETAKE: 24, SEED: 25, DRAWN: 26, TIME_LIMIT: 27, LATE: 28, CLASS: 29, ASSIGNMENT: 30, DUE: 31, IDENTITY: 32 };
 var MAX_COMMENT_CHARS = 2000;
 var STATUS_NEEDS_GRADING = 'Needs grading';
 var STATUS_AUTO = 'Auto-graded';
@@ -50,6 +50,7 @@ var ROLE_ADMIN = 'admin';
 var EMAIL_RE = /^[A-Za-z0-9_][^\s@,;'"<>=]*@[^\s@,;'"<>=]+\.[^\s@,;'"<>=]+$/;
 var LOG_DEFAULT_LIMIT = 100;
 var LOG_MAX_LIMIT = 500;
+var ADMIN_KEY_MAX_FAILS = 10;
 
 var HEADER_BACKGROUND = '#E2E8F0';
 var MAX_CELL_CHARS = 49000; // Sheets cells hold at most 50,000 characters.
@@ -59,17 +60,33 @@ var MAX_CELL_CHARS = 49000; // Sheets cells hold at most 50,000 characters.
 // ---------------------------------------------------------------------------
 
 function doGet(e) {
+  var action = '';
   try {
     var p = (e && e.parameter) || {};
+    action = String(p.action || '');
     if (p.action === 'ping') return json_({ result: 'success', version: VERSION });
     if (p.action === 'getTest') return json_(getTest_(p.code));
     return json_({ result: 'error', error: 'unknown_action' });
   } catch (err) {
-    return json_({ result: 'error', error: String(err) });
+    return serverError_(action, err);
   }
 }
 
+// Logs the full error to the Errors sheet and replies with a code plus a short reference. The error text never reaches the client.
+function serverError_(action, err) {
+  var ref = '';
+  for (var i = 0; i < 6; i++) ref += Math.floor(Math.random() * 36).toString(36);
+  try {
+    var msg = String(err);
+    var stack = err && err.stack ? String(err.stack) : '';
+    getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), text_('backend:' + String(action || '').slice(0, 60)), text_('[' + ref + '] ' + msg.slice(0, 480)),
+      text_(stack.slice(0, 2000)), text_('apps-script')]);
+  } catch (logErr) { /* logging must never throw */ }
+  return json_({ result: 'error', error: 'server_error', ref: ref });
+}
+
 function doPost(e) {
+  var action = '';
   try {
     var raw = e && e.postData && e.postData.contents;
     var body;
@@ -79,6 +96,7 @@ function doPost(e) {
       return json_({ result: 'error', error: 'invalid_json' });
     }
     if (!body || typeof body !== 'object') return json_({ result: 'error', error: 'invalid_json' });
+    action = String(body.action || '');
 
     switch (body.action) {
       case 'publishTest':
@@ -155,7 +173,7 @@ function doPost(e) {
         return json_({ result: 'error', error: 'unknown_action' });
     }
   } catch (err) {
-    return json_({ result: 'error', error: String(err) });
+    return serverError_(action, err);
   }
 }
 
@@ -344,14 +362,39 @@ function text_(v) {
   return /^[=+\-@]/.test(str) ? "'" + str : str;
 }
 
+// Who a submission belongs to -> { email, name?, verified } | { error }.
+// With a valid ID token the email and name come from the token; any email in the body is ignored. Without a token the
+// claimed email is accepted only when ALLOW_UNVERIFIED_EMAIL is 'true' (the row is then marked unverified).
+function submissionIdentity_(s) {
+  var props = PropertiesService.getScriptProperties();
+  var clientId = props.getProperty('GOOGLE_CLIENT_ID');
+  if (s.id_token && clientId) {
+    var who = verifyIdToken_(String(s.id_token), clientId);
+    if (who.error || !who.email) return { error: 'invalid_token' };
+    return { email: who.email, name: who.name || '', verified: true };
+  }
+  var claimed = normEmail_(s.student_email);
+  if (props.getProperty('ALLOW_UNVERIFIED_EMAIL') === 'true' && /^[^\s@]+@[^\s@]+$/.test(claimed) && domainAllowed_(claimed, '')) {
+    return { email: claimed, verified: false };
+  }
+  return { error: 'unauthorized' };
+}
+
 function handleSubmission_(body) {
   var s = normalizeSubmission_(body);
   if (!s.submission_id) return { result: 'error', error: 'missing_submission_id' };
+  s.submission_id = text_(s.submission_id);
   if (!s.test_code) return { result: 'error', error: 'missing_test_code' };
   var responsesJson = JSON.stringify(s.responses);
   var flagsJson = JSON.stringify(s.flags);
   if (responsesJson.length > MAX_CELL_CHARS) return { result: 'error', error: 'submission_too_large' };
   var pending = needsGrading_(s);
+  // A repeat of a stored submission is answered before the identity check, so retrying is always safe.
+  if (findRow_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS), 2, s.submission_id)) return { result: 'success', duplicate: true };
+  var ident = submissionIdentity_(s);
+  if (ident.error) return { result: 'error', error: ident.error };
+  s.student_email = ident.email;
+  if (ident.name) s.student_name = ident.name;
 
   return withLock_(function () {
     var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
@@ -395,7 +438,8 @@ function handleSubmission_(body) {
       gate.late ? true : '',
       text_(gate.classId || ''),
       text_(gate.assignmentId || ''),
-      text_(gate.dueAt || '')
+      text_(gate.dueAt || ''),
+      ident.verified ? 'verified' : 'unverified'
     ]);
     bust_('tests:list');
     if (gate.status) return { result: 'success', not_counted: gate.status };
@@ -423,6 +467,8 @@ function getTest_(code) {
   var w = windowState_(test, null, new Date());
   if (w.state === 'before') return { result: 'error', error: 'not_open', opensAt: test.opensAt, title: test.title || '' };
   if (w.state === 'closed') return { result: 'error', error: 'closed', closesAt: test.closesAt, title: test.title || '' };
+  // Roster-only tests are served only through the POST path with a token (getTestFor_).
+  if (test.rosterOnly === true) return { result: 'error', error: 'not_on_roster', title: test.title || '' };
   return { result: 'success', test: test };
 }
 
@@ -452,8 +498,31 @@ function requireAdmin_(body) {
   }
   var key = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
   if (!key) return { ok: false, error: 'admin_key_not_configured' };
-  if (!body || !body.adminKey || String(body.adminKey) !== key) return { ok: false, error: 'unauthorized' };
+  var failKey = 'adminkey:fail:' + Math.floor(new Date().getTime() / 3600000);
+  var fails = cacheCount_(failKey);
+  if (fails >= ADMIN_KEY_MAX_FAILS) return { ok: false, error: 'locked' };
+  if (!body || !body.adminKey || !safeEqual_(String(body.adminKey), key)) {
+    cacheBump_(failKey, fails);
+    return { ok: false, error: 'unauthorized' };
+  }
   return { ok: true, email: '', role: ROLE_ADMIN, via: 'key' };
+}
+
+// Compares two strings without stopping at the first difference.
+function safeEqual_(a, b) {
+  a = String(a); b = String(b);
+  var diff = a.length ^ b.length;
+  var n = Math.max(a.length, b.length);
+  for (var i = 0; i < n; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+// Hourly counters in CacheService (no cache available -> 0, so callers fail open).
+function cacheCount_(key) {
+  try { return Number(CacheService.getScriptCache().get(key) || 0); } catch (e) { return 0; }
+}
+function cacheBump_(key, current) {
+  try { CacheService.getScriptCache().put(key, String(current + 1), 3700); } catch (e) { /* no cache */ }
 }
 
 // Admins sheet rows: [{ row, email, role, added_by, added_at }]. Emails trimmed + lower-cased, blank and duplicate
@@ -727,7 +796,7 @@ function publishTest_(test) {
   return withLock_(function () {
     var sheet = getSheet_(TESTS_SHEET, TEST_HEADERS);
     var row = findRow_(sheet, 1, code);
-    var values = [code, String(test.title), new Date(), testJson];
+    var values = [code, text_(String(test.title)), new Date(), testJson];
     if (row) sheet.getRange(row, 1, 1, 4).setValues([values]);
     else sheet.appendRow(values);
     return { result: 'success', code: code, updated: !!row };
@@ -861,7 +930,8 @@ function submissionRow_(v) {
         retake_allowed_at: iso_(v[COL.RETAKE - 1]),
         late: v[COL.LATE - 1] === true || v[COL.LATE - 1] === 'true',
         assignmentId: String(v[COL.ASSIGNMENT - 1] || ''),
-        dueAt: iso_(v[COL.DUE - 1])
+        dueAt: iso_(v[COL.DUE - 1]),
+        identity: String(v[COL.IDENTITY - 1] || '')
       });
 }
 
@@ -925,18 +995,23 @@ function getSubmissionCounts_() {
   return { result: 'success', counts: counts };
 }
 
-// Student-facing (no admin key). The caller must know the submission id (a random UUID that only the
-// student's device received) AND the email it was submitted with. Returns grades and comments only after
-// the teacher released them; otherwise { released: false }. Unknown id / wrong email -> not_found.
+// Student-facing (no admin key). Needs a valid ID token whose email equals the row's email, and the submission id.
+// Returns grades and comments only after the teacher released them; otherwise { released: false }.
+// Errors: unauthorized (no token), invalid_token, not_found (unknown id), not_authorized (row belongs to someone else).
 function getFeedback_(body) {
   var id = body && body.submissionId ? String(body.submissionId) : '';
-  var email = body && body.studentEmail ? String(body.studentEmail).trim().toLowerCase() : '';
-  if (!id || !email) return { result: 'error', error: 'not_found' };
+  var token = body && body.idToken ? String(body.idToken) : '';
+  if (!token) return { result: 'error', error: 'unauthorized' };
+  var clientId = PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID');
+  if (!clientId) return { result: 'error', error: 'identity_not_configured' };
+  var who = verifyIdToken_(token, clientId);
+  if (who.error || !who.email) return { result: 'error', error: 'invalid_token' };
+  if (!id) return { result: 'error', error: 'not_found' };
   var sheet = getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   var row = findRow_(sheet, 2, id);
   if (!row) return { result: 'error', error: 'not_found' };
   var v = sheet.getRange(row, 1, 1, SUBMISSION_HEADERS.length).getValues()[0];
-  if (String(v[COL.EMAIL - 1]).trim().toLowerCase() !== email) return { result: 'error', error: 'not_found' };
+  if (String(v[COL.EMAIL - 1]).trim().toLowerCase() !== who.email) return { result: 'error', error: 'not_authorized' };
   var releasedAt = iso_(v[COL.RELEASED_AT - 1]);
   if (!releasedAt) return { result: 'success', released: false };
   var finalScore = v[COL.FINAL_SCORE - 1];
@@ -1021,7 +1096,7 @@ function domainAllowed_(email, hd) {
   return list.indexOf(domain.toLowerCase()) >= 0 || (h && list.indexOf(h) >= 0);
 }
 
-// -> { email } (lowercased, verified) | { error: 'unauthorized' | 'identity_not_configured' }
+// -> { email, name } (lowercased, verified; name is '' when the token has none) | { error: 'unauthorized' | 'identity_not_configured' }
 // Accepts a Google ID token only if aud = GOOGLE_CLIENT_ID, email_verified, not expired, issuer is Google.
 // Dev fallback: ALLOW_UNVERIFIED_EMAIL=true accepts body.studentEmail without a token (off by default).
 function verifyStudent_(body) {
@@ -1032,7 +1107,7 @@ function verifyStudent_(body) {
   var claimed = body && body.studentEmail ? String(body.studentEmail).trim().toLowerCase() : '';
   if (!token || !clientId) {
     if (allowUnverified && claimed && /^[^\s@]+@[^\s@]+$/.test(claimed)) {
-      return domainAllowed_(claimed, '') ? { email: claimed } : { error: 'unauthorized' };
+      return domainAllowed_(claimed, '') ? { email: claimed, name: '' } : { error: 'unauthorized' };
     }
     return { error: clientId ? 'unauthorized' : 'identity_not_configured' };
   }
@@ -1048,7 +1123,10 @@ function verifyIdToken_(token, clientId) {
     cache = CacheService.getScriptCache();
     key = 'tok:' + hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token));
     var hit = cache.get(key);
-    if (hit) return { email: hit };
+    if (hit) {
+      if (hit.charAt(0) === '{') { var cachedWho = JSON.parse(hit); return { email: cachedWho.email, name: cachedWho.name || '' }; }
+      return { email: hit, name: '' };
+    }
   } catch (cacheErr) {
     cache = null;
   }
@@ -1063,6 +1141,7 @@ function verifyIdToken_(token, clientId) {
   var nowSec = Math.floor(Date.now() / 1000);
   var exp = num_(info && info.exp, 0);
   var email = String((info && info.email) || '').trim().toLowerCase();
+  var name = String((info && info.name) || '').trim().slice(0, 120);
   if (!info || info.aud !== clientId) return { error: 'unauthorized' };
   if (!(info.email_verified === true || info.email_verified === 'true')) return { error: 'unauthorized' };
   if (!(exp > nowSec)) return { error: 'unauthorized' };
@@ -1071,9 +1150,9 @@ function verifyIdToken_(token, clientId) {
   if (!domainAllowed_(email, info.hd)) return { error: 'unauthorized' };
   if (cache && key) {
     var ttl = Math.min(21600, exp - nowSec);
-    try { if (ttl > 0) cache.put(key, email, ttl); } catch (putErr) { /* quota: ignore */ }
+    try { if (ttl > 0) cache.put(key, JSON.stringify({ email: email, name: name }), ttl); } catch (putErr) { /* quota: ignore */ }
   }
-  return { email: email };
+  return { email: email, name: name };
 }
 
 // Published test settings (bundled tests are not in the sheet -> null).
@@ -1253,7 +1332,8 @@ var ERRORS_SHEET = 'Errors';
 var ERROR_HEADERS = ['Time', 'Page', 'Message', 'Detail', 'Browser'];
 var BOARD_MAX_SCORE = 100000;
 var BOARD_TOP = 10;
-var ERRORS_PER_HOUR = 60;
+var ERRORS_PER_SENDER_HOUR = 20;
+var ERRORS_GLOBAL_HOUR = 500;
 var ID_SAFE_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 function actorOf_(auth) { return auth && auth.via === 'google' ? auth.email : 'ADMIN_KEY'; }
@@ -1424,7 +1504,7 @@ function saveAccommodation_(body, auth) {
     var until = pick('extensionUntil', '');
     var untilDate = until ? new Date(until) : '';
     if (untilDate && isNaN(untilDate.getTime())) return { result: 'error', error: 'invalid_date' };
-    var rowVals = [email, code, extraTime, Math.max(0, Math.floor(num_(pick('extraAttempts', 0), 0))), pick('reducedChoices', false) === true,
+    var rowVals = [email, text_(code), extraTime, Math.max(0, Math.floor(num_(pick('extraAttempts', 0), 0))), pick('reducedChoices', false) === true,
       pick('readAloud', false) === true, untilDate, text_(String(pick('notes', '') || '').slice(0, 500)), text_(actorOf_(auth)), new Date()];
     if (row) sheet.getRange(row, 1, 1, rowVals.length).setValues([rowVals]); else sheet.appendRow(rowVals);
     return { result: 'success', accommodation: accRow_(rowVals) };
@@ -1473,11 +1553,6 @@ function submissionGate_(s, body) {
   var test = publishedTest_(s.test_code);
   if (!test) return {};
   var email = normEmail_(s.student_email);
-  if (s.id_token) {
-    var props = PropertiesService.getScriptProperties();
-    var clientId = props.getProperty('GOOGLE_CLIENT_ID');
-    if (clientId) { var who = verifyIdToken_(s.id_token, clientId); if (who.email) email = who.email; }
-  }
   var out = {};
   var r = rosterOk_(test, email);
   out.classId = r.classId;
@@ -1601,7 +1676,7 @@ function progressPing_(body) {
     for (var i = 0; i < vals.length; i++) if (normalizeCode_(vals[i][0]) === code && normEmail_(vals[i][1]) === who.email) { row = i + 2; break; }
     var now = new Date();
     var started = row ? sheet.getRange(row, 7).getValue() : now;
-    var rowVals = [code, who.email, text_(String(body.name || '').slice(0, 120)), Math.max(0, Math.floor(num_(body.answered, 0))), Math.max(0, Math.floor(num_(body.total, 0))),
+    var rowVals = [text_(code), who.email, text_(String(body.name || '').slice(0, 120)), Math.max(0, Math.floor(num_(body.answered, 0))), Math.max(0, Math.floor(num_(body.total, 0))),
       body.timeLeft === null || body.timeLeft === undefined ? '' : Math.max(0, Math.floor(num_(body.timeLeft, 0))), started || now, now, body.submitted === true];
     if (row) sheet.getRange(row, 1, 1, rowVals.length).setValues([rowVals]); else sheet.appendRow(rowVals);
     return { result: 'success' };
@@ -1623,6 +1698,21 @@ function boardAllowed_(code) {
   var test = publishedTest_(code);
   return !!(test && test.gameMode === true && test.gameOptions && test.gameOptions.leaderboard === true);
 }
+// Highest score a mode can reach for a test: min(100000, perQuestion * questions + flat). Higher scores are clamped.
+// `perQuestion` is a number or 'points' (100 x the test's highest question points + 50). Unknown modes get the lowest per-question rate.
+var GAME_CAPS_ = {
+  classic: [1500, 0], lightning: [150, 0], survival: ['points', 0], boss: ['points', 1000],
+  tower: [100, 0], matchup: [100, 0], mistakes: [100, 0], bingo: [100, 2500], quizshow: [500, 0], race: [150, 0],
+  study: [0, 0], flashcards: [0, 0]
+};
+function gameScoreCap_(test, mode) {
+  var questions = test && Array.isArray(test.questions) ? test.questions : [];
+  var maxPoints = 1;
+  for (var i = 0; i < questions.length; i++) maxPoints = Math.max(maxPoints, num_(questions[i] && questions[i].points, 1));
+  var rule = Object.prototype.hasOwnProperty.call(GAME_CAPS_, mode) ? GAME_CAPS_[mode] : [100, 0];
+  var per = rule[0] === 'points' ? 100 * maxPoints + 50 : rule[0];
+  return Math.min(BOARD_MAX_SCORE, per * questions.length + rule[1]);
+}
 function submitGameScore_(body) {
   var who = verifyStudent_(body);
   if (who.error) return { result: 'error', error: who.error };
@@ -1630,7 +1720,7 @@ function submitGameScore_(body) {
   var game = String(body.gameId || body.game || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
   if (!code || !game) return { result: 'error', error: 'missing_fields' };
   if (!boardAllowed_(code)) return { result: 'error', error: 'leaderboard_off' };
-  var score = Math.max(0, Math.min(BOARD_MAX_SCORE, Math.floor(num_(body.score, 0))));
+  var score = Math.max(0, Math.min(gameScoreCap_(publishedTest_(code), game), Math.floor(num_(body.score, 0))));
   var name = String(body.name || body.displayName || '').trim().slice(0, 60);
   return withLock_(function () {
     var sheet = getSheet_(BOARD_SHEET, BOARD_HEADERS);
@@ -1687,15 +1777,29 @@ function hideLeaderboardEntry_(body) {
 }
 
 // ---------- error reports (S17): off unless Settings > errorReports; rate-limited; never stores answers ----------
+// Who an error report counts against: the verified token's email, else the client-supplied ID; always hashed.
+function errorSender_(body) {
+  var raw = '';
+  var token = body && body.idToken ? String(body.idToken) : '';
+  var clientId = PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID');
+  if (token && clientId) {
+    var who = verifyIdToken_(token, clientId);
+    if (who.email) raw = 'e:' + who.email;
+  }
+  if (!raw && body && body.clientId) raw = 'c:' + String(body.clientId).slice(0, 100);
+  if (!raw) raw = 'anon';
+  try { return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw)).slice(0, 32); } catch (e) { return raw.replace(/[^A-Za-z0-9:@._-]/g, '').slice(0, 60); }
+}
 function reportError_(body) {
   if (!readSettings_().errorReports) return { result: 'error', error: 'error_reports_off' };
-  try {
-    var cache = CacheService.getScriptCache();
-    var key = 'errors:' + Math.floor(new Date().getTime() / 3600000);
-    var n = Number(cache.get(key) || 0);
-    if (n >= ERRORS_PER_HOUR) return { result: 'error', error: 'rate_limited' };
-    cache.put(key, String(n + 1), 3700);
-  } catch (e) { /* no cache: still accept */ }
+  var hour = Math.floor(new Date().getTime() / 3600000);
+  var senderKey = 'errors:s:' + errorSender_(body) + ':' + hour;
+  var globalKey = 'errors:g:' + hour;
+  var senderN = cacheCount_(senderKey);
+  var globalN = cacheCount_(globalKey);
+  if (senderN >= ERRORS_PER_SENDER_HOUR || globalN >= ERRORS_GLOBAL_HOUR) return { result: 'error', error: 'rate_limited' };
+  cacheBump_(senderKey, senderN);
+  cacheBump_(globalKey, globalN);
   return withLock_(function () {
     getSheet_(ERRORS_SHEET, ERROR_HEADERS).appendRow([new Date(), text_(String(body.page || '').slice(0, 200)), text_(String(body.message || '').slice(0, 500)),
       text_(String(body.detail || '').slice(0, 2000)), text_(String(body.browser || '').slice(0, 200))]);
@@ -1776,6 +1880,9 @@ function upsertByKey_(sheet, keyCols, row) {
     var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var last = sheet.getLastRow();
     var vals = last < 2 ? [] : sheet.getRange(2, 1, last - 1, head.length).getValues();
+    var safe = {};
+    for (var rk in row) if (Object.prototype.hasOwnProperty.call(row, rk)) safe[rk] = typeof row[rk] === 'string' ? text_(row[rk]) : row[rk];
+    row = safe;
     var kidx = keyCols.map(function (k) { return head.indexOf(k); });
     var found = -1;
     for (var i = 0; i < vals.length && found < 0; i++) {
@@ -1801,7 +1908,7 @@ function upsertByKey_(sheet, keyCols, row) {
 function studentFromToken_(body) {
   var who = verifyStudent_(body);
   if (who.error || !who.email) return { error: who.error || 'unauthorized' };
-  return { email: String(who.email).trim().toLowerCase() };
+  return { email: String(who.email).trim().toLowerCase(), name: who.name || '' };
 }
 
 function xpForLevel_(level) { return 25 * Math.max(0, Math.floor(level) - 1) * Math.max(1, Math.floor(level)); }
@@ -1824,7 +1931,7 @@ function profileOf_(o) {
   return {
     email: String(o.email), name: String(o.name || ''), picture: String(o.picture || ''), firstSeen: iso_(o.firstSeen), lastSeen: iso_(o.lastSeen),
     classIds: String(o.classIds || '').split(',').filter(function (c) { return c; }), xp: xp, level: Math.max(level, levelForXp_(xp)),
-    streakDays: Math.max(0, Math.floor(num_(o.streakDays, 0))), lastActiveDate: String(o.lastActiveDate || ''),
+    streakDays: Math.max(0, Math.floor(num_(o.streakDays, 0))), lastActiveDate: dayOf_(o.lastActiveDate),
     badges: parseJson_(o.badgesJson, []) || [], prefs: parseJson_(o.prefsJson, {}) || {}, stats: parseJson_(o.statsJson, {}) || {}
   };
 }
@@ -1908,7 +2015,7 @@ function studentBundle_(email, row, admin) {
 function getStudentProfile_(body) {
   var who = studentFromToken_(body);
   if (who.error) return { result: 'error', error: who.error };
-  var row = ensureStudent_(who.email, { name: body && body.name });
+  var row = ensureStudent_(who.email, { name: who.name || (body && body.name) });
   return studentBundle_(who.email, row, false);
 }
 
@@ -1942,6 +2049,20 @@ function saveStudentProfile_(body) {
   return { result: 'success', profile: profileOf_(stored) };
 }
 
+// Badge ids a student can earn; kept equal to BADGES in js/lib/xp.js (a unit test compares the two).
+var BADGE_IDS = ['first_round', 'ten_in_row', 'noble_gas_master', 'perfect_round', 'high_scorer', 'all_rounder', 'balance_pro',
+  'boss_slayer', 'puzzle_solver', 'daily_3', 'daily_7', 'level_5'];
+
+// 'yyyy-MM-dd' of a stored date cell (a Date or text), or ''.
+function dayOf_(v) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? '' : Utilities.formatDate(v, scriptTz_(), 'yyyy-MM-dd');
+  var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v == null ? '' : v));
+  return m ? m[1] : '';
+}
+function dayBefore_(ymd) {
+  var p = ymd.split('-');
+  return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]) - 86400000).toISOString().slice(0, 10);
+}
 function syncProgress_(body) {
   var who = studentFromToken_(body);
   if (who.error) return { result: 'error', error: who.error };
@@ -1954,7 +2075,7 @@ function syncProgress_(body) {
     var total = Math.max(0, Math.floor(num_(att.total, 0)));
     var answered = Math.max(0, Math.floor(num_(att.answeredCount, 0)));
     if (total) answered = Math.min(total, answered);
-    var row = { email: who.email, code: code, mode: String(att.mode || '').slice(0, 32), answeredCount: answered, total: total,
+    var row = { email: who.email, code: code, mode: text_(String(att.mode || '').slice(0, 32)), answeredCount: answered, total: total,
       percentDone: total ? Math.round(1000 * answered / total) / 10 : 0, updatedAt: Date.now() };
     if (att.answers !== undefined && att.answers !== null) {
       var aj = JSON.stringify(att.answers);
@@ -1976,14 +2097,20 @@ function syncProgress_(body) {
     var badges = parseJson_(cur.badgesJson, []) || [];
     (Array.isArray(xpIn.badges) ? xpIn.badges : []).forEach(function (b) {
       b = String(b).slice(0, 64);
-      if (b && badges.indexOf(b) < 0 && badges.length < 200) badges.push(b);
+      if (BADGE_IDS.indexOf(b) >= 0 && badges.indexOf(b) < 0) badges.push(b);
     });
     patch.xp = xp;
     patch.level = Math.max(num_(cur.level, 1), levelForXp_(xp));
     patch.badgesJson = JSON.stringify(badges);
     patch.statsJson = JSON.stringify(stats);
-    if (xpIn.streakDays !== undefined) patch.streakDays = Math.max(num_(cur.streakDays, 0), Math.min(3650, Math.floor(num_(xpIn.streakDays, 0))));
-    if (xpIn.lastActiveDate) patch.lastActiveDate = String(xpIn.lastActiveDate).slice(0, 10);
+    // The streak comes from the server's own activity dates; streakDays / lastActiveDate in the body are ignored.
+    if (delta > 0) {
+      var last = dayOf_(cur.lastActiveDate);
+      if (last !== day) {
+        patch.streakDays = last && last === dayBefore_(day) ? Math.max(0, Math.floor(num_(cur.streakDays, 0))) + 1 : 1;
+        patch.lastActiveDate = day;
+      }
+    }
   }
   var stored = upsertByKey_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email'], patch).values;
   out.profile = profileOf_(stored);
@@ -2146,7 +2273,7 @@ function appendStream_(classId, type, bodyText, pinned, by, meta) {
   var id = newId_('post');
   var body = type === 'post' ? bodyText : JSON.stringify({ text: bodyText, assignmentId: meta && meta.assignmentId || '', testCode: meta && meta.testCode || '', emails: meta && meta.emails || [] });
   var createdAt = new Date();
-  withLock_(function () { getSheet_(STREAM_SHEET, STREAM_HEADERS).appendRow([id, classId, type, text_(body), !!pinned, by, createdAt]); });
+  withLock_(function () { getSheet_(STREAM_SHEET, STREAM_HEADERS).appendRow([id, text_(classId), text_(type), text_(body), !!pinned, text_(by), createdAt]); });
   return { id: id, classId: classId, type: type, body: bodyText, pinned: !!pinned, createdBy: by, createdAt: createdAt.toISOString() };
 }
 function publicPost_(p) { return { id: p.id, classId: p.classId, type: p.type, body: p.body, pinned: p.pinned, createdAt: p.createdAt, createdBy: p.createdBy }; }
@@ -2181,9 +2308,9 @@ function saveAssignment_(body, auth) {
   var id = existing ? existing.id : newId_('asg');
   var by = actorOf_(auth);
   var stored = upsertByKey_(getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS), ['id'], {
-    id: id, classId: classId, testCode: code, title: text_(title), instructions: text_(instructions), opensAt: opens.value, dueAt: due.value,
+    id: text_(id), classId: text_(classId), testCode: code, title: text_(title), instructions: text_(instructions), opensAt: opens.value, dueAt: due.value,
     lateAllowed: a.lateAllowed !== false, required: a.required === true, modesJson: JSON.stringify(modes), publishAt: pub.value,
-    createdBy: existing ? existing.createdBy : by, createdAt: existing ? existing.createdAt : new Date()
+    createdBy: text_(existing ? existing.createdBy : by), createdAt: existing ? existing.createdAt : new Date()
   }).values;
   var row = assignmentRow_(ASSIGNMENT_HEADERS.map(function (h) { return stored[h]; }));
   var out = { result: 'success', assignment: row };

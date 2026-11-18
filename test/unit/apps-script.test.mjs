@@ -57,12 +57,13 @@ function makeSheet(name) {
   return sheet;
 }
 
-let sheets, props, ctx, lockCalls;
+let sheets, props, ctx, lockCalls, tokens;
 
 function loadScript(initialProps = {}) {
   sheets = new Map();
   props = { ...initialProps };
   lockCalls = { wait: 0, release: 0 };
+  tokens = {};
   const spreadsheet = {
     getSheetByName: (n) => sheets.get(n) || null,
     insertSheet(n) { const s = makeSheet(n); sheets.set(n, s); return s; },
@@ -75,6 +76,10 @@ function loadScript(initialProps = {}) {
     },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in props ? props[k] : null) }) },
     LockService: { getScriptLock: () => ({ waitLock: () => { lockCalls.wait++; }, releaseLock: () => { lockCalls.release++; } }) },
+    UrlFetchApp: { fetch(url) {
+      const info = tokens[decodeURIComponent(url.split('id_token=')[1])];
+      return { getResponseCode: () => (info ? 200 : 400), getContentText: () => JSON.stringify(info || {}) };
+    } },
     Logger: { log: () => {} },
     console,
   });
@@ -93,7 +98,7 @@ const sample = (over = {}) => ({
 });
 const sampleTest = (over = {}) => ({ code: 'chem101', title: 'Foundations', questions: [{ id: 'q1', type: 'truefalse', text: 'x', correctAnswer: true }], ...over });
 
-beforeEach(() => loadScript({ ADMIN_KEY: 'secret' }));
+beforeEach(() => loadScript({ ADMIN_KEY: 'secret', ALLOW_UNVERIFIED_EMAIL: 'true' }));
 
 test('ping returns version', () => {
   const r = get({ action: 'ping' });
@@ -114,9 +119,9 @@ test('first submission creates both sheets with formatted headers', () => {
     'Timestamp', 'Submission ID', 'Student Name', 'Student Email', 'Test Code', 'Test Title', 'Score Achieved', 'Total Score',
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)',
     'Status', 'Final Score', 'Final Percentage (%)', 'Grades (JSON)', 'Graded At', 'Teacher Note',
-    'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed', 'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At',
+    'Comments (JSON)', 'Released At', 'Graded By', 'Retake Allowed At', 'Seed', 'Drawn Questions', 'Time Limit Applied', 'Late', 'Class', 'Assignment ID', 'Due At', 'Identity',
   ]);
-  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 31));
+  assert.ok(s.formats.some((f) => f.weight === 'bold' && f.r === 1 && f.nc === 32));
   assert.ok(s.formats.some((f) => f.bg === '#E2E8F0'));
 });
 
@@ -349,7 +354,7 @@ test('older 14-column sheets get the new grading headers added', () => {
     'Percentage (%)', 'Duration (s)', 'Tab Switches', 'Auto Submitted', 'Detailed Responses (JSON)', 'Flags (JSON)']);
   sheets.set('Submissions', s);
   post(sample());
-  assert.equal(s.rows[0].length, 31);
+  assert.equal(s.rows[0].length, 32);
   assert.equal(s.rows[0][14], 'Status');
   assert.equal(s.rows[0][19], 'Teacher Note');
   assert.equal(s.rows[0][21], 'Released At');
@@ -382,16 +387,21 @@ test('release sets Released At once; release:false clears it', () => {
   assert.equal(c.grade.released_at, '');
 });
 
-test('getFeedback: needs matching id + email, hides everything until released', () => {
+test('getFeedback: needs a token for the row owner, hides everything until released', () => {
+  props.GOOGLE_CLIENT_ID = 'client-1';
+  const login = (email) => { tokens[`t-${email}`] = { aud: 'client-1', iss: 'accounts.google.com', email, email_verified: 'true', exp: Math.floor(Date.now() / 1000) + 3600 }; return `t-${email}`; };
   post(sample({ responses: shortResponses, score_achieved: 1, score_total: 5 }));
-  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'eve@x.org' }).error, 'not_found');
-  assert.equal(post({ action: 'getFeedback', submissionId: 'nope', studentEmail: 'ada@x.org' }).error, 'not_found');
-  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1' }).error, 'not_found');
+  const ada = login('ada@x.org');
+  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'ada@x.org' }).error, 'unauthorized', 'a claimed email is not enough');
+  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1', idToken: 'bogus' }).error, 'invalid_token');
+  assert.equal(post({ action: 'getFeedback', submissionId: 'sub-1', idToken: login('eve@x.org') }).error, 'not_authorized');
+  assert.equal(post({ action: 'getFeedback', submissionId: 'nope', idToken: ada }).error, 'not_found');
+  assert.equal(post({ action: 'getFeedback', idToken: ada }).error, 'not_found');
   post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, comments: { q2: 'Good' } });
-  const hidden = post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'ADA@x.org' });
+  const hidden = post({ action: 'getFeedback', submissionId: 'sub-1', idToken: login('ADA@x.org') });
   assert.deepEqual(hidden, { result: 'success', released: false });
   post({ action: 'saveGrade', adminKey: 'secret', submissionId: 'sub-1', grades: { q2: 3 }, release: true });
-  const fb = post({ action: 'getFeedback', submissionId: 'sub-1', studentEmail: 'ada@x.org' });
+  const fb = post({ action: 'getFeedback', submissionId: 'sub-1', idToken: ada });
   assert.equal(fb.released, true);
   assert.equal(fb.final_score, 4);
   assert.deepEqual(fb.comments, { q2: 'Good' });

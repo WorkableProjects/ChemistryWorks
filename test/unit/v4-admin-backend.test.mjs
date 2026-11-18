@@ -246,6 +246,7 @@ test('getLog: newest first, limit honoured, rejected for non-admins', () => {
 test('saveGrade by a Google admin records their email as graded-by when the client sent none', () => {
   seedAdmins(['o@school.org', 'owner', '', '']);
   const idToken = login('o@school.org');
+  props.ALLOW_UNVERIFIED_EMAIL = 'true';
   post({ action: 'submit', submission_id: 's1', student_email: 'a@x.org', test_code: 'C1', responses: [{ questionId: 'q1', pointsPossible: 2, pointsEarned: 0, needsGrading: true }] });
   const r = post({ action: 'saveGrade', idToken, submissionId: 's1', grades: { q1: 2 } });
   assert.equal(r.grade.graded_by, 'o@school.org');
