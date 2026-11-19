@@ -72,7 +72,7 @@ export async function fetchPublishedTest(code, { gasUrl, fetchImpl } = {}) {
 export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToken } = {}) {
   try {
     const d = idToken ? await post(gasUrl, { action: 'getTest', code, idToken }, fetchImpl) : await get(gasUrl, { action: 'getTest', code }, fetchImpl);
-    if (d && d.result === 'success' && d.test) return { test: d.test };
+    if (d && d.result === 'success' && d.test) return { test: d.test, tagIndex: d.tagIndex && typeof d.tagIndex === 'object' ? d.tagIndex : {} };
     return { error: (d && d.error) || 'not_found', opensAt: d?.opensAt, closesAt: d?.closesAt, title: d?.title || '' };
   } catch (e) {
     return { error: 'network' };

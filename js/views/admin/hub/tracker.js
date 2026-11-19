@@ -6,6 +6,13 @@ import { statusRes, assignmentsRes, creds, STATUS, STATUS_ORDER, studentHref } f
 import { openAssignDialog } from './assign.js';
 import { openSyncDialog, runSync, classroomErrorText, getSynced, getFailure } from '../classroom-sync.js';
 import { formatDate } from '../../../lib/dates.js';
+import { resultsResource } from '../data.js';
+import { normalizeRow, STATUS as RESULT_STATUS } from '../stats.js';
+import { loadTest } from '../../../lib/tests.js';
+import { CONFIG } from '../../../config.js';
+import { adminTagStats } from '../../../lib/tag-stats.js';
+import { sheetTagsResource } from '../../../lib/tags.js';
+import { tagSummary } from '../../tag-summary.js';
 
 const detail = (r) => {
   if (r.status === 'in_progress') return `${Math.round(r.percentDone || 0)}%${r.lastMode ? ` · ${r.lastMode}` : ''}`;
@@ -29,6 +36,31 @@ export function renderTracker(host, ctx, { assignment, classes, onBack, onChange
     sentBefore = new Set((r.data.rows || []).filter((x) => x.lastSent !== null && x.lastSent !== undefined).map((x) => x.email));
     paint();
   };
+  // Tag results: this assignment's submissions plus the test, so each tag gets a class average and each student a breakdown.
+  let tagRows = []; // normalized submissions of this assignment, one per student (the latest)
+  let tagTest = null;
+  const loadTagData = async () => {
+    try {
+      const [d, t] = await Promise.all([resultsResource().get(), loadTest(assignment.testCode, { config: CONFIG, includeDrafts: true }).then((x) => x.test).catch(() => null)]);
+      if (!alive || !t) return;
+      const mine = (d?.rows || []).filter((raw) => raw && raw.assignmentId === assignment.id).map(normalizeRow).filter((r) => r.status !== RESULT_STATUS.EXTRA);
+      const latest = new Map();
+      for (const r of mine) { const k = String(r.student_email || '').toLowerCase(); if (!latest.has(k) || String(r.timestamp) > String(latest.get(k).timestamp)) latest.set(k, r); }
+      tagRows = [...latest.values()];
+      tagTest = t;
+      paint();
+    } catch { /* the tracker works without tag results */ }
+  };
+  const tagsRes = sheetTagsResource(CONFIG.GAS_WEB_APP_URL);
+  const offTags = tagsRes.subscribe(() => paint());
+  tagsRes.get().catch(() => { /* local tag names still show */ });
+  const rowTags = (email) => {
+    const mine = tagRows.filter((r) => String(r.student_email || '').toLowerCase() === String(email).toLowerCase());
+    return tagTest ? adminTagStats(mine, () => tagTest) : [];
+  };
+  const showStudentTags = (r) => openModal({ title: `${r.name || r.email}: by tag`, testid: 'tracker-student-tags-modal',
+    body: tagSummary(rowTags(r.email), { title: 'By tag', testid: 'tracker-student-tags', tag: 'h4', hint: 'Points earned per tag on this assignment, graded answers only.' }) || h('p', { class: 'faint' }, 'No tagged questions answered yet.'),
+    actions: [{ label: 'Close', variant: 'primary' }] });
   const syncCell = (r) => {
     const failed = getFailure(assignment.id, r.email);
     if (failed) {
@@ -56,15 +88,18 @@ export function renderTracker(host, ctx, { assignment, classes, onBack, onChange
       .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || String(a.name || a.email).localeCompare(String(b.name || b.email)));
     const chip = (id, label, n) => h('button', { class: `hub-chip${filter === id ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(filter === id), dataset: { testid: `tracker-filter-${id}` }, on: { click: () => { filter = id; paint(); } } },
       label, h('span', { class: 'hub-chip__n' }, String(n)));
+    const classTags = tagTest ? adminTagStats(tagRows, () => tagTest) : [];
     mount(body,
+      tagSummary(classTags, { title: 'Class average by tag', testid: 'tracker-tags', tag: 'h4', hint: 'Average points per tag across the students who have submitted, graded answers only.' }),
       h('div', { class: 'hub-chips', role: 'group', 'aria-label': 'Filter by status' }, chip('all', 'All', rows.length), ...STATUS_ORDER.filter((s) => counts[s]).map((s) => chip(s, STATUS[s].label, counts[s]))),
       !rows.length ? h('p', { class: 'hub-empty' }, 'This class has no students yet')
         : h('div', { class: 'adm-table-wrap' }, h('table', { class: 'adm-table hub-table' },
-          h('thead', {}, h('tr', {}, ['Student', 'Status', 'Detail', ...(isPosted() ? ['Classroom'] : [])].map((t) => h('th', { scope: 'col' }, t)))),
+          h('thead', {}, h('tr', {}, ['Student', 'Status', 'Detail', ...(classTags.length ? ['By tag'] : []), ...(isPosted() ? ['Classroom'] : [])].map((t) => h('th', { scope: 'col' }, t)))),
           h('tbody', {}, shown.map((r) => h('tr', { dataset: { testid: `tracker-row-${r.email}` } },
             h('td', {}, h('a', { class: 'hub-link', href: studentHref(r.email), dataset: { testid: `tracker-student-${r.email}` } }, r.name || r.email), r.name ? h('div', { class: 'faint hub-mono' }, r.email) : null),
             h('td', {}, h('span', { class: `pill ${STATUS[r.status] ? STATUS[r.status].cls : ''}`.trim(), dataset: { status: r.status } }, STATUS[r.status] ? STATUS[r.status].label : r.status)),
             h('td', { class: 'hub-mono' }, detail(r)),
+            classTags.length ? h('td', {}, rowTags(r.email).length ? h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: `tracker-tags-${r.email}` }, on: { click: () => showStudentTags(r) } }, 'By tag') : h('span', { class: 'faint' }, '—')) : null,
             isPosted() ? h('td', {}, syncCell(r)) : null))))));
   }
   const unsub = res.subscribe(() => { showSync(); paint(); });
@@ -107,7 +142,7 @@ export function renderTracker(host, ctx, { assignment, classes, onBack, onChange
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-label': 'Delete assignment', on: { click: del } }, icon('trash', { size: 14 })),
       syncBtn, remind),
     body));
-  res.get().then(() => { showSync(); paint(); loadSent(); }).catch((e) => { if (alive && !res.peek()) mount(body, emptyState('alert', 'Could not load the tracker', e.message, 'tracker-error')); });
+  res.get().then(() => { showSync(); paint(); loadSent(); loadTagData(); }).catch((e) => { if (alive && !res.peek()) mount(body, emptyState('alert', 'Could not load the tracker', e.message, 'tracker-error')); });
   res.refresh();
-  return () => { alive = false; unsub(); };
+  return () => { alive = false; unsub(); offTags(); };
 }

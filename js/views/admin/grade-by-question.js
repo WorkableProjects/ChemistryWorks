@@ -16,6 +16,8 @@ import { commentBankPicker } from '../comment-view.js';
 import { emptyState, fmtDate, round2 } from './common.js';
 import { sortRows, validatePoints, mergeGrade, mergeComment, pendingAfter, stepIndex, STATUS } from './stats.js';
 import { unverifiedMark } from './identity-mark.js';
+import { adminTagOptions, adminTagStats, tagIds } from '../../lib/tag-stats.js';
+import { tagSummary } from '../tag-summary.js';
 
 /** Diagram of a student's drawing-type answer (orbital / Lewis structure / Lewis dots / hotspot), or null. */
 export function answerDiagram(q, res, size = 'sm') {
@@ -43,7 +45,7 @@ export function questionsOf(rows) {
   return [...out.values()];
 }
 
-const state = { testCode: '', questionId: '', onlyPending: true };
+const state = { testCode: '', questionId: '', onlyPending: true, tag: '' };
 
 /**
  * ctx: { gasUrl, adminKey(), getRows() -> normalized rows, getTest(code) -> Promise<test|null>, onSaved(id, patch),
@@ -67,7 +69,10 @@ export function renderGradeByQuestion(root, { gasUrl, adminKey, getRows, getTest
     const test = state.testCode ? await getTest(state.testCode) : null;
     if (!alive || mine !== seq) return;
     const rows = rowsFor(state.testCode);
-    const questions = questionsOf(rows);
+    const tagOptions = adminTagOptions(test ? [test] : []);
+    if (state.tag && !tagOptions.some((o) => o.id === state.tag)) state.tag = '';
+    const tagMap = tagIds(test);
+    const questions = questionsOf(rows).filter((x) => !state.tag || (tagMap.get(x.id) || []).includes(state.tag));
     if (!questions.some((q) => q.id === state.questionId)) state.questionId = (questions.find((q) => q.manual) || questions[0] || {}).id || '';
     const q = questions.find((x) => x.id === state.questionId) || null;
     const qDef = test && q ? (test.questions || []).find((x) => String(x.id) === q.id) || null : null;
@@ -78,18 +83,23 @@ export function renderGradeByQuestion(root, { gasUrl, adminKey, getRows, getTest
     const qSel = h('select', { class: 'select adm-select-sm adm-gbq__qsel', 'aria-label': 'Question', dataset: { testid: 'gbq-question' }, on: { change: () => { state.questionId = qSel.value; draw(); } } },
       questions.map((x) => h('option', { value: x.id }, `Q${x.number} · ${TYPE_LABELS[x.type] || x.type}${x.manual ? ' · by hand' : ''} · ${x.text.replace(/\s+/g, ' ').slice(0, 50)}`)));
     qSel.value = state.questionId;
+    const tagSel = tagOptions.length ? h('select', { class: 'select adm-select-sm', 'aria-label': 'Filter questions by tag', dataset: { testid: 'gbq-tag-filter' }, on: { change: () => { state.tag = tagSel.value; state.questionId = ''; draw(); } } },
+      h('option', { value: '' }, 'All tags'), tagOptions.map((o) => h('option', { value: o.id }, o.name))) : null;
+    if (tagSel) tagSel.value = state.tag;
+    const tagStatsEl = tagSummary(adminTagStats(rows, () => test), { title: 'By tag', testid: 'gbq-tag-stats', tag: 'h4', hint: 'Average points per tag for this test, graded answers only.' });
     const pendingBox = h('input', { type: 'checkbox', checked: state.onlyPending, dataset: { testid: 'gbq-only-pending' }, on: { change: () => { state.onlyPending = pendingBox.checked; draw(); } } });
 
     const toolbar = h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
       modeToggle,
       h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
+      tagSel ? h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Tag'), tagSel) : null,
       h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Question'), qSel),
       h('label', { class: 'adm-inline' }, pendingBox, h('span', {}, 'Only answers that need grading')),
       h('span', { class: 'spacer' }),
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'gbq-refresh' }, on: { click: () => onRefresh?.() } }, icon('refresh', { size: 16 }), 'Refresh'));
 
     if (!q) {
-      mount(host, toolbar, h('div', { class: 'card' }, emptyState('pen', 'Nothing to grade here', 'No submissions with per-question answers were found.', 'gbq-empty')));
+      mount(host, toolbar, tagStatsEl, h('div', { class: 'card' }, emptyState('pen', 'Nothing to grade here', 'No submissions with per-question answers were found.', 'gbq-empty')));
       return;
     }
 
@@ -120,7 +130,7 @@ export function renderGradeByQuestion(root, { gasUrl, adminKey, getRows, getTest
 
     const legend = h('p', { class: 'field__hint', dataset: { testid: 'gbq-hint' } },
       'Keys: J / K or arrow keys move between students, 0-9 set points, Enter saves and moves on. Points can never exceed the question maximum.');
-    mount(host, toolbar,
+    mount(host, toolbar, tagStatsEl,
       h('section', { class: 'card stack', 'aria-label': `Question ${q.number}` },
         h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
           h('h3', { class: 'adm-h3' }, `Q${q.number}`),

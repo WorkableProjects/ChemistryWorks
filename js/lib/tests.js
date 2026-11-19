@@ -7,6 +7,7 @@
 import { normalizeTest, validateTest } from './schema.js';
 import { fetchPublishedTestResult } from './api.js';
 import { load, save } from './storage.js';
+import { rememberTagIndex } from './tag-stats.js';
 
 export function normalizeCode(code) {
   return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
@@ -65,7 +66,7 @@ export async function loadTest(code, { config, includeDrafts = false, fetchImpl 
     let r = await fetchPublishedTestResult(c, { gasUrl: config.GAS_WEB_APP_URL, fetchImpl });
     // Closed for everyone? A signed-in Google student may still have an extension: ask again with the verified token.
     if ((r.error === 'closed' || r.error === 'not_on_roster') && idToken) r = await fetchPublishedTestResult(c, { gasUrl: config.GAS_WEB_APP_URL, fetchImpl, idToken });
-    if (r.test) { raw = r.test; source = 'published'; }
+    if (r.test) { raw = r.test; source = 'published'; rememberTagIndex(c, r.tagIndex); }
     else if (['not_open', 'closed', 'not_on_roster'].includes(r.error)) {
       const err = new Error(r.error === 'not_open' ? 'This test is not open yet.' : r.error === 'closed' ? 'This test is closed.' : 'This test is only for students on the class roster.');
       Object.assign(err, { code: r.error, opensAt: r.opensAt, closesAt: r.closesAt, title: r.title, testCode: c });
