@@ -1,4 +1,4 @@
-// Scratchpad data model (V4-05). Per question: { text, strokes }. Strokes are arrays of [x, y] integer points on a
+// Scratchpad data model. Per question: { text, strokes }. Strokes are arrays of [x, y] integer points on a
 // fixed logical canvas (SCRATCH_W x SCRATCH_H) so they redraw at any size. Saved with progress, never submitted.
 
 export const SCRATCH_W = 400;

@@ -84,7 +84,7 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
       tab_switches: Number(f.tab_switches ?? f.tabSwitches) || 0,
       auto_submitted: Boolean(f.auto_submitted ?? f.autoSubmitted),
       mode: f.mode === 'scroll' ? 'scroll' : 'focus',
-      // V4-05: { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
+      // { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
       ...(cleanFlagNotes(f.questions) ? { questions: cleanFlagNotes(f.questions) } : {}),
     },
   };
@@ -221,7 +221,7 @@ export function getLocalResults() {
   return readList(LOCAL_RESULTS_KEY);
 }
 
-/** V3-02: true when this device already holds a submission (sent or queued) for this email + test code. */
+/** True when this device already holds a submission (sent or queued) for this email + test code. */
 export function hasLocalSubmission(email, code) {
   const e = String(email || '').trim().toLowerCase();
   const c = String(code || '').trim().toUpperCase();

@@ -1,4 +1,4 @@
-// `ionicformula` question type (V5-07, S11a): build an ionic compound from a bank of ions. Pure definition, no DOM.
+// `ionicformula` question type: build an ionic compound from a bank of ions. Pure definition, no DOM.
 //   { type: 'ionicformula', ions: [{ id: 'Ca2+', symbol: 'Ca', charge: 2, name: 'calcium' }, ...],
 //     cation: 'Ca2+', anion: 'Cl-'         // the target pair (ion ids); the key is their lowest-ratio formula
 //     askName: false, targetName?: 'calcium chloride' (default: "<cation name> <anion name>"),

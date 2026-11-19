@@ -1,5 +1,5 @@
 // Student profile (?view=profile): stats from released results only, badges, history,
-// an `#profile-appearance` slot (S10 fills it) and sign out. Paints local data first, updates when the server answers.
+// an `#profile-appearance` slot (filled by the appearance panel) and sign out. Paints local data first, updates when the server answers.
 
 import { h, mount, icon } from '../ui.js';
 import { getUser } from '../lib/auth.js';

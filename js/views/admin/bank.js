@@ -1,4 +1,4 @@
-// Admin › Question bank (V4-02, S11): questions shared by all admins on this deployment, with tags (topic, unit,
+// Admin › Question bank: questions shared by all admins on this deployment, with tags (topic, unit,
 // difficulty, NGSS). Search, filter, preview, insert a copy into the builder test, import every question of a test,
 // edit tags, delete. Edits record who and when (Bank sheet).
 import { h, mount, icon, toast, openModal, richText, renderMath } from '../../ui.js';

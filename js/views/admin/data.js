@@ -1,4 +1,4 @@
-// Admin data on the store (V5-11): submissions, published tests and the activity log are cached resources shared by
+// Admin data on the store: submissions, published tests and the activity log are cached resources shared by
 // Dashboard and Grading, so switching sections and back makes no request. Results refresh with `since`.
 import { resource } from '../../lib/store.js';
 import { getResultsSince, listPublishedTests, getLog } from '../../lib/api.js';

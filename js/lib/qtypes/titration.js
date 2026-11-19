@@ -1,4 +1,4 @@
-// `titration` question type (V4-03, S10): a simulated strong-acid / weak-acid / strong-base / weak-base titration with a
+// `titration` question type: a simulated strong-acid / weak-acid / strong-base / weak-base titration with a
 // strong titrant. The student adds titrant ("Add 1.00 mL", "Add 0.10 mL" or a slider), watches the pH, and records the
 // equivalence-point volume and / or the pH. Pure definition and simulation, no DOM.
 //   { type: 'titration',

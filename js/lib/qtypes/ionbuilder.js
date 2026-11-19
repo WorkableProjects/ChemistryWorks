@@ -1,4 +1,4 @@
-// `ionbuilder` question type (V5-07, S11b): atom and ion builder. Pure definition, no DOM.
+// `ionbuilder` question type: atom and ion builder. Pure definition, no DOM.
 //   mode 'particles': given symbol, mass number and charge; student sets protons, neutrons, electrons (steppers).
 //   mode 'symbol':    given protons, neutrons, electrons; student writes the symbol, mass number and charge.
 //   { type: 'ionbuilder', mode: 'particles'|'symbol',

@@ -1,4 +1,4 @@
-// Client error reporting (V4-08, S17). Off unless the backend's Settings say errorReports = on (the backend refuses
+// Client error reporting. Off unless the backend's Settings say errorReports = on (the backend refuses
 // otherwise). Never sends answers or test content: only the message, a short stack, the page (no query string) and the
 // browser. Rate-limited: at most 5 reports per page load and one per 10 seconds.
 import { publicCall } from './api.js';

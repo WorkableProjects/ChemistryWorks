@@ -31,5 +31,5 @@
 .practice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .practice-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elev); }
 .practice-item__main { flex: 1; min-width: 180px; }
-/* ---------- V4-04 games II boards ---------- */
+/* games II boards ---------- */
 .lab-bench { display: flex; flex-direction: column; align-items: center; gap: 16px; }

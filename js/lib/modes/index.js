@@ -1,4 +1,4 @@
-// V5-01 game mode registry. `modesForTest(test, attempt?)` -> [{ mode, available, reason }] in `order`.
+// Game mode registry. `modesForTest(test, attempt?)` -> [{ mode, available, reason }] in `order`.
 // Pure, no DOM. DOM renderers live in js/views/modes/index.js. Contract: docs/ARCHITECTURE.md -> Game mode definition.
 
 import { normalizeGameOptions } from '../games/options.js';

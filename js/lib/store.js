@@ -1,4 +1,4 @@
-// Client data store (V5-11): cached resources with background refresh, optimistic updates and rollback.
+// Client data store: cached resources with background refresh, optimistic updates and rollback.
 //   const tests = resource('tests', { fetch: (signal) => Promise<data>, key?, ttl? });
 //   tests.get()  tests.refresh()  tests.patch(fn)  tests.optimistic(change, request)  tests.subscribe(fn)  tests.peek()
 // fetch must return the data or throw. Same name+key always gives the same resource object.

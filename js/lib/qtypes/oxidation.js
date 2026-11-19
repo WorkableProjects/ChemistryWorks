@@ -1,4 +1,4 @@
-// `oxidation` question type (V5-07, S12b): oxidation numbers. Pure definition, no DOM.
+// `oxidation` question type: oxidation numbers. Pure definition, no DOM.
 //   A formula or equation is shown. Each element symbol in it is one atom position; the student enters a signed
 //   integer above each one (+2, -1, 0).
 //   { type: 'oxidation', formula: 'H2SO4', key: [1, 6, -2] }   (key: one integer per atom position, in order)

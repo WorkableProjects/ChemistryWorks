@@ -1,4 +1,4 @@
-// Student class page (?view=class&id=): stream (pinned first), upcoming and past assignments (V5-10).
+// Student class page (?view=class&id=): stream (pinned first), upcoming and past assignments.
 import { h, mount, icon, themeControl } from '../ui.js';
 import { getUser } from '../lib/auth.js';
 import { loadProfile, subscribeProfile } from '../lib/profile.js';

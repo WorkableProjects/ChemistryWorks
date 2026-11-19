@@ -1,4 +1,4 @@
-// "Opens on …" / "This test is closed" / "Only for students on the class roster" (V4-02 S11/S12).
+// "Opens on …" / "This test is closed" / "Only for students on the class roster".
 // render(root, ctx, { reason: 'not_open'|'closed'|'not_on_roster', title, opensAt, closesAt, code })
 import { mount, h, icon, appHeader, userBadge } from '../ui.js';
 import { statusPage } from './status-page.js';

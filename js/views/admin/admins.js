@@ -1,4 +1,4 @@
-// Settings -> Admins (owner only) and Settings -> Activity log (V4-07). Both talk to the Apps Script backend:
+// Settings -> Admins (owner only) and Settings -> Activity log. Both talk to the Apps Script backend:
 // the Admins sheet is the single source of truth, so edits here and edits made directly in the sheet are the same.
 import { h, mount, icon, toast, openModal } from '../../ui.js';
 import { CONFIG } from '../../config.js';

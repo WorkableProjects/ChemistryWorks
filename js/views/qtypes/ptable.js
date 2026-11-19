@@ -1,4 +1,4 @@
-// Student widget for `ptable`: a clickable periodic table (V3-05). Answer = array of element symbols.
+// Student widget for `ptable`: a clickable periodic table. Answer = array of element symbols.
 // Layout follows reference-pane.js periodicTable(), reduced to number + symbol so it fits inside a question.
 import { h } from '../../ui.js';
 import { ELEMENTS, GROUP_LABELS } from '../../lib/elements.js';

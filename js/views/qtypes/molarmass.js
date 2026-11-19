@@ -1,4 +1,4 @@
-// `molarmass` question type (V4-03, S10) — student answer + optional work table, builder editor with the built-in
+// `molarmass` question type — student answer + optional work table, builder editor with the built-in
 // molar-mass checker, and review (the key's element table, the student's work).
 // Answer = { value: '74.10', work: [{ symbol, count, mass }] } (typed text).
 import { h } from '../../ui.js';

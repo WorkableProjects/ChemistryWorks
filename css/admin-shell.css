@@ -1,4 +1,4 @@
-/* ChemWorks admin shell (V4-01, feature('adminShell')). Classes prefixed ash- (shell), dash- (dashboard),
+/* ChemWorks admin shell (behind feature('adminShell')). Classes prefixed ash- (shell), dash- (dashboard),
    lib2- (library grid/table), bld2- (builder two-pane). Tokens only; motion = transform/opacity <= 400 ms. */
 
 .ash { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }

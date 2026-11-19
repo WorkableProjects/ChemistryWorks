@@ -1,4 +1,4 @@
-// Constants and unit converter data for the "Units & constants" tab (V4-05). Pure.
+// Constants and unit converter data for the "Units & constants" tab. Pure.
 
 export const CONSTANTS = [
   { id: 'R-J', name: 'Gas constant', symbol: 'R', value: '8.314', unit: 'J/(mol·K)' },

@@ -1,4 +1,4 @@
-// `molbuild` question type (V5-07, S12f) — student widget, builder editor and review.
+// `molbuild` question type — student widget, builder editor and review.
 // Answer: { atoms: ['O','H','H'], bonds: [[0,1,1],[0,2,1]] }; see js/lib/qtypes/molbuild.js.
 import { h, icon } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

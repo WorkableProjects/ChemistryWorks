@@ -1,4 +1,4 @@
-// `dropdown` question type (V4-03) — student widget (native <select>s inline) and builder editor.
+// `dropdown` question type — student widget (native <select>s inline) and builder editor.
 import { h, richText } from '../../ui.js';
 import { registerTypeUI } from './registry.js';
 import { splitMarkers, markerIdsOf } from '../../lib/qtypes/dropdown.js';

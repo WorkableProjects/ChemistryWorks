@@ -24,7 +24,7 @@ export const ACCENTS = {
 export const DARK_ACCENTS = {
   navy: '#2CC5C9', blue: '#7B9AF5', violet: '#A78BFA', teal: '#2DD4BF', green: '#4ADE80', orange: '#FB923C', rose: '#FB7185',
 };
-// V4-00: navy/teal for everyone (dark mode turns navy into teal). Older saved choices still apply.
+// Navy/teal for everyone (dark mode turns navy into teal). Older saved choices still apply.
 export const DEFAULT_ACCENT = { student: 'navy', admin: 'navy' };
 
 const root = () => (typeof document !== 'undefined' ? document.documentElement : null);
@@ -71,7 +71,7 @@ export function applyMotion() {
   else delete el.dataset.motion;
 }
 
-// V5-06 appearance: custom accent (adjusted for contrast per theme), text size, density, dyslexia-friendly font.
+// Appearance: custom accent (adjusted for contrast per theme), text size, density, dyslexia-friendly font.
 export const TEXT_SIZES = ['s', 'm', 'l'];
 export const DENSITIES = ['comfortable', 'compact'];
 const CUSTOM_VARS = ['--primary', '--primary-hover', '--primary-soft', '--primary-line', '--primary-ink', '--on-primary'];

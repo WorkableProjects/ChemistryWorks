@@ -1,4 +1,4 @@
-// `estimate` question type (V4-03, S10) — student slider + number readout, builder editor, review (number line).
+// `estimate` question type — student slider + number readout, builder editor, review (number line).
 // The slider is a native <input type="range"> (arrow keys, Home/End, PageUp/PageDown work); the readout box takes a typed
 // number too. Nothing is recorded until the student moves the slider or types a value.
 import { h } from '../../ui.js';

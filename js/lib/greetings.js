@@ -1,4 +1,4 @@
-// Dashboard greetings (V4-01). One easy-to-edit list: add or change lines in SLOTS / DAYS / SPECIAL below.
+// Dashboard greetings. One easy-to-edit list: add or change lines in SLOTS / DAYS / SPECIAL below.
 // "{FirstName}" is replaced with the admin's first name; with no name the placeholder and its punctuation are dropped.
 // Pure and DOM-free: pickGreeting(date, firstName, rand) is unit-tested.
 

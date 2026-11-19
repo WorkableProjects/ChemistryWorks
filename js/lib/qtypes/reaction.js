@@ -1,4 +1,4 @@
-// `reaction` question type (V4-03): predict the products. Pure definition, no DOM.
+// `reaction` question type: predict the products. Pure definition, no DOM.
 //   Question: { reactants: 'AgNO3(aq) + NaCl(aq)', products: ['AgCl(s)', 'NaNO3(aq)'], requireStates, requireCoefficients, netIonic }
 //   Answer:   the typed product side as text, e.g. "AgCl(s) + NaNO3(aq)" (anything before an arrow is ignored).
 // Species are compared with formulasEqual (order-free). States ((s) (l) (g) (aq)) and coefficients are only checked when the

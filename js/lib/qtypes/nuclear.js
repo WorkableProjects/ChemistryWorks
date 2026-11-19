@@ -1,4 +1,4 @@
-// `nuclear` question type (V4-03): nuclear notation. Pure definition, no DOM.
+// `nuclear` question type: nuclear notation. Pure definition, no DOM.
 //   mode 'isotope':  { mode: 'isotope', isotope: { A, Z, symbol } }          answer { A, Z, symbol }
 //   mode 'equation': { mode: 'equation', left: [particle], right: [particle] } answer { L0: {A,Z,symbol}, R1: … }
 //   particle = { A, Z, symbol } | { name: 'alpha'|'beta'|'positron'|'gamma'|'neutron'|'proton' } | the name as a string;

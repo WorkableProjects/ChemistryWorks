@@ -1,4 +1,4 @@
-// `vsepr` question type (V4-03): molecular shape. Pure definition, no DOM.
+// `vsepr` question type: molecular shape. Pure definition, no DOM.
 //   Question: { formula, electronGeometry, molecularGeometry, bondAngle, fields?: ['electron','molecular','angle'] }
 //   Answer:   { electron, molecular, angle } (ids from the vocabularies below). Each enabled field is worth an equal share.
 import { registerType } from './registry.js';

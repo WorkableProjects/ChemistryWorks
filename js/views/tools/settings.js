@@ -1,4 +1,4 @@
-// Student display settings (V4-05): font size in 3 steps and dyslexia-friendly spacing, saved on this device.
+// Student display settings: font size in 3 steps and dyslexia-friendly spacing, saved on this device.
 // Pure helpers + a tiny DOM applier. Everything is a no-op without a document / storage.
 
 import { load, save } from '../../lib/storage.js';

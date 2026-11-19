@@ -75,7 +75,7 @@ export function confirmDialog({ title, body, confirmLabel = 'Delete', testid = '
   });
 }
 
-/** "Extras" disclosure in the common question settings (V4-03): confidence switch and a point-costing hint. */
+/** "Extras" disclosure in the common question settings: confidence switch and a point-costing hint. */
 export function extrasPanel(q, changed) {
   const text = h('textarea', { class: 'textarea', rows: 2, placeholder: 'Hint shown when the student asks for it (leave empty for no hint)', dataset: { testid: 'q-hint-text' } });
   text.value = q.hint?.text || '';

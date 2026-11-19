@@ -1,4 +1,4 @@
-// Regrade (V4-02, S12): re-run auto-grading on stored answers after an answer key was fixed. Pure.
+// Regrade: re-run auto-grading on stored answers after an answer key was fixed. Pure.
 // Teacher overrides (grades) are kept by the backend (applyRegrade_ re-applies them).
 //   regradeRow(test, row) -> { responses, scoreAchieved, scoreTotal, percentage, changed } | null (nothing gradable)
 import { gradeQuestion, formatAnswer, correctAnswerText } from './grading.js';

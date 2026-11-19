@@ -23,7 +23,7 @@ export function commentBody(text, { className = 'comment-body', testid } = {}) {
       : h(b.type, {}, b.items.map((it) => h('li', {}, inline(it)))))));
 }
 
-/* ------------------------------------------------------------------ comment bank (V4-02, teachers only) */
+/* comment bank (teachers only) */
 
 const bankListeners = new Set();
 const shorten = (t, n = 48) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}\u2026` : t);

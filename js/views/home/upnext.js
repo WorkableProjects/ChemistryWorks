@@ -1,4 +1,4 @@
-// Class Hub on the student home (V5-10): "Up next" rows from profile.hub, shared date/status helpers, teacher-reminder banner.
+// Class Hub on the student home: "Up next" rows from profile.hub, shared date/status helpers, teacher-reminder banner.
 // Rows reuse the home's .row / element-tile style. Tokens only (css/hub.css, css/home.css).
 
 import { h, icon } from '../../ui.js';

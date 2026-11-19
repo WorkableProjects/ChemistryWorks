@@ -101,7 +101,7 @@ const ICONS = {
   monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   sort: '<path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/>',
   keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
-  // V4-01 additions (Lucide-style 2px strokes on a 24px grid)
+  // Additions (Lucide-style 2px strokes on a 24px grid)
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
@@ -124,7 +124,7 @@ const ICONS = {
 };
 export const ICON_NAMES = Object.keys(ICONS);
 /**
- * One icon set (V4-01): every icon is a <symbol> in a single hidden SVG sprite injected once into <body>; icon()
+ * One icon set: every icon is a <symbol> in a single hidden SVG sprite injected once into <body>; icon()
  * returns a small <svg><use href="#i-name"></svg>. Unknown names render empty.
  */
 function ensureSprite() {
@@ -445,7 +445,7 @@ export function themeControl({ floating = false } = {}) {
     'aria-label': `${name} accent`, dataset: { testid: `accent-${name}` }, on: { click: () => setAccent(name) },
   }));
   const roleNote = h('p', { class: 'theme-ctl__note' });
-  // V4-05 student tools: font size (3 steps) + dyslexia-friendly spacing, saved on this device.
+  // Student tools: font size (3 steps) + dyslexia-friendly spacing, saved on this device.
   const fontBtns = FONT_STEPS.map((f) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `font-${f}` },
     on: { click: () => { applySettings(saveSettings({ ...loadSettings(), font: f })); sync(); } } }, FONT_LABELS[f]));
   const spacingBox = h('input', { type: 'checkbox', dataset: { testid: 'dyslexia-spacing' }, 'aria-label': 'Dyslexia-friendly spacing',
@@ -505,7 +505,7 @@ export function themeControl({ floating = false } = {}) {
 /* ---------- Brand: logo images + animated flask loader ---------- */
 
 /**
- * Brand logo (V4-00): inline SVG built from assets/brand/source/chemworks-mark.svg, so it is sharp at any size and
+ * Brand logo: inline SVG built from assets/brand/source/chemworks-mark.svg, so it is sharp at any size and
  * recolours through CSS variables (--brand-navy, --brand-teal, --brand-mark-gap; dark mode and the navy header swap
  * them). kind: 'mark' (flask only) or 'wordmark' (flask + "ChemWorks"). mono: one colour (currentColor) for print and
  * high contrast. The PNGs in assets/brand stay for the favicon, touch icon and PDF.
@@ -555,7 +555,7 @@ export function flaskLoader({ size = 64, label = '', className = '', testid } = 
 }
 
 /**
- * App shell header (V4-01): slim navy bar with the ChemWorks mark + short name, the current title, any `right`
+ * App shell header: slim navy bar with the ChemWorks mark + short name, the current title, any `right`
  * nodes and one settings popover (theme, motion, accent). Under 480 px only the mark shows.
  *   appHeader({ title, subtitle, right, onHome })   title 'ChemistryWorks' (default) means "no page title".
  */
@@ -613,5 +613,5 @@ export function emptyState({ icon: name = 'list', title = '', action = null, tes
     action ? h('button', { type: 'button', class: 'btn btn--subtle btn--sm', on: { click: action.onClick } }, action.label) : null);
 }
 
-// V4-05: re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).
+// Re-apply the saved text size / spacing as soon as any view loads (no-op unless the studentTools flag is on).
 applyStoredSettings();

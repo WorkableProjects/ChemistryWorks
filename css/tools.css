@@ -1,4 +1,4 @@
-/* tools.css — V4-05 student tools: calculator, units & constants, scratchpad, marks, read-aloud, flag note,
+/* tools.css — student tools: calculator, units & constants, scratchpad, marks, read-aloud, flag note,
    offline banner, dashboard, text-size / spacing settings. Tokens only (base.css). Loaded on demand by
    js/views/tools/settings.js ensureToolsCss(), so nothing here applies while the studentTools flag is off. */
 

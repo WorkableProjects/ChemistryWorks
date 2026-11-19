@@ -1,4 +1,4 @@
-// Class page for teachers (V5-10): Stream · Assignments · Roster, plus the tracker.
+// Class page for teachers: Stream · Assignments · Roster, plus the tracker.
 import { h, mount, icon } from '../../../ui.js';
 import { skeleton } from '../common.js';
 import { openAccommodationEditor } from '../accommodations.js';

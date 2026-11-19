@@ -1,4 +1,4 @@
-// Teacher student view (S13a): ?admin=true&section=student&email=. Header, every test with status / score / feedback
+// Teacher student view: ?admin=true&section=student&email=. Header, every test with status / score / feedback
 // state, assignments, in-progress attempts, accommodations (edit link). No XP, level or badges.
 import { h, mount, icon, toast } from '../../ui.js';
 import { getStudentProfileAdmin } from '../../lib/api.js';

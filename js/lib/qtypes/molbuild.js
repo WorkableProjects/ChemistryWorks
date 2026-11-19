@@ -1,4 +1,4 @@
-// `molbuild` question type (V5-07, S12f): molecule builder. Pure definition, no DOM.
+// `molbuild` question type: molecule builder. Pure definition, no DOM.
 //   { type: 'molbuild', atoms: ['C','O','O'], bonds: [[0,1,2],[0,2,2]], extraAtoms?: ['H'] }
 //   Target: atoms (symbols) and bonds [indexA, indexB, order 1..3] by 0-based position in `atoms`.
 //   Answer: { atoms: ['O','C','O'], bonds: [[0,1,2],[1,2,2]] } built by the student, in any order and layout.

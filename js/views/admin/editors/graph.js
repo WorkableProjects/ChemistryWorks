@@ -1,4 +1,4 @@
-// Builder editor for `graph` (V3-05): read a value off a drawn chart, or plot points on an empty grid.
+// Builder editor for `graph`: read a value off a drawn chart, or plot points on an empty grid.
 import { h } from '../../../ui.js';
 import { chartSvg, pointsText } from '../../../lib/qtypes/graph.js';
 import { field, switchEl } from '../common.js';
