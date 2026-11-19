@@ -52,6 +52,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S12a | sonnet | todo | | | |
 | S12c | sonnet | todo | | | |
 | S12b | sonnet | todo | | | |
+| S14 | sonnet | done (partial) | bd4af2f | not run | student-layout e2e unverified; screenshots via CW_SHOTS_DIR not captured; wide widgets not individually resized |
 | S13a | sonnet | todo | | | |
 | S13b | haiku | todo | | | |
 
