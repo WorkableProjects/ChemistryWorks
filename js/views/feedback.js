@@ -17,6 +17,8 @@ import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
 import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
+import { tagStats, withNames, studentTag, rememberTagIndex, recalledTagIndex } from '../lib/tag-stats.js';
+import { tagSummary } from './tag-summary.js';
 
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -90,15 +92,25 @@ function summaryCard(row, fb) {
       row.graded_by ? h('span', { class: 'feedback-summary__by faint' }, `Graded by ${row.graded_by}`) : null));
 }
 
+/** "By topic" for one released review: points per tag, named from the reply's tagIndex. Null when no question has a tag. */
+export function topicSummary(fb, test, code = '') {
+  if (fb?.tagIndex) rememberTagIndex(code || test?.code || fb.test_code, fb.tagIndex);
+  const index = { ...recalledTagIndex(code || test?.code || fb?.test_code), ...(fb?.tagIndex || {}) };
+  const rows = withNames(tagStats([{ responses: fb?.responses, grades: fb?.grades, released: true }], test), (id) => studentTag(id, index));
+  return tagSummary(rows, { title: 'By topic', testid: 'feedback-topics', tag: 'h2' });
+}
+
 function reviewView(fb, test, { onDownload } = {}) {
   const { row, test: t } = feedbackRow(fb, test);
   const model = buildExportModel({ row, test: t, includeComments: true });
+  const topics = topicSummary(fb, test);
   return h('div', { class: 'stack', dataset: { testid: 'feedback-released' } },
     h('div', { class: 'feedback-toolbar' },
       fb.released_at ? h('span', { class: 'muted' }, `Released ${fmtWhen(fb.released_at)}`) : null,
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'feedback-download-pdf' },
         on: { click: () => onDownload?.(row, t) } }, icon('download', { size: 16 }), 'Download PDF')),
     summaryCard(row, fb),
+    topics ? h('section', { class: 'card' }, topics) : null,
     h('section', { class: 'card feedback-doc', 'aria-label': 'Your reviewed test' }, exportDocument(model)));
 }
 

@@ -1004,3 +1004,9 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `importers.js`: `mapTagNames(test, { local, sheet })` -> `{ test, unmatched }` and `applyTagNames(test, { name: id })`. The builder import (file and JSON mode) maps names and opens `import-tags-modal` for the rest.
 - Chip colours are tokens `--tag-<color>-bg` / `--tag-<color>-ink` in `css/base.css` (light and dark), checked for 4.5:1 in `test/unit/tags.test.mjs`. Backup bundles carry `tags` (the local store); restore merges them and publishes with `tagDefs`.
 - The tag picker, filter bar and "Apply tag" dialog live in `js/views/admin/builder/tag-picker.js`; Admin → Tags is `js/views/admin/tags.js` (nav id `tags`, testid `tab-tags`).
+
+### S12b Tags in results views
+- `js/lib/tag-stats.js`: `tagStats(subs, test | (sub) => test, { releasedOnly = true })` -> `[{ id, earned, possible, percent, questions, students }]` weakest first. A submission is `{ responses, grades?, released | released_at }`; a teacher-graded item counts once graded; a question with several tags counts toward each. Student views use the default (released only); teacher views (`adminTagStats`) pass `releasedOnly: false`.
+- Names: students use `studentTag(id, tagIndex)`, teachers `adminTag(id)` (tags.js `resolve`). A missing name is "Unknown tag". `fetchPublishedTestResult` now returns `tagIndex`; `loadTest` and `getFeedback` replies feed `rememberTagIndex(code, index)` / `recalledTagIndex(code)`.
+- `js/views/tag-summary.js`: `tagSummary(rows, opts)` ("By topic" list, styles in `css/tags.css`) and `topicFilter` (study modes). Testids: `results-topics`, `feedback-topics`, `profile-tags`, `grading-tag-stats`, `gbq-tag-stats`, `tracker-tags`, `grading-tag-filter`, `gbq-tag-filter`, `lib-tag-filter`, `mistakes-topic`, `flash-topic`.
+- `matchesLibraryFilter` takes `tag` and `tagsByCode` (Map CODE -> Set of tag ids).

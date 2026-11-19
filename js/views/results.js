@@ -17,6 +17,8 @@ import { hotspotDiagram } from './widgets/hotspot-stage.js';
 import { typeUI } from './qtypes/registry.js';
 import { confidenceLabel, ptsText } from '../lib/extras.js';
 import { choiceImagesEl } from './runner/widgets.js';
+import { tagStats, withNames, studentTag, recalledTagIndex, isReleased } from '../lib/tag-stats.js';
+import { tagSummary } from './tag-summary.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -201,6 +203,14 @@ function reviewItem(r, i, test, stagger) {
 /** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
 export const styles = ['results', 'feedback', 'export', 'runner', 'qtypes', 'diagrams'];
 
+/** "By topic" for a result: only once the teacher has released it (`params.released`, or a released submission). Null otherwise. */
+export function resultTopics({ test, grade, released = false, submission = null, payload = null, tagIndex = null }) {
+  if (!(released === true || isReleased(submission) || isReleased(payload))) return null;
+  const index = { ...recalledTagIndex(test?.code), ...(tagIndex || {}) };
+  const rows = withNames(tagStats([{ responses: grade?.results, released: true }], test), (id) => studentTag(id, index));
+  return tagSummary(rows, { title: 'By topic', testid: 'results-topics', tag: 'h2' });
+}
+
 export function render(root, ctx, params = {}) {
   const { test, grade, payload = null, submission = null, preview = false } = params;
   const pct = parseFloat(grade.percentage) || 0;
@@ -294,6 +304,7 @@ export function render(root, ctx, params = {}) {
           h('div', {}, h('strong', { dataset: { testid: 'score-correct' } }, `${grade.correctCount} of ${grade.questionCount} correct`))),
         passBadge,
         summaryChips(grade),
+        resultTopics({ test, grade, released: params.released === true, submission, payload, tagIndex: params.tagIndex }),
         pending ? h('p', { class: 'notice notice--info', dataset: { testid: 'pending-note' } }, icon('info'),
           h('span', {}, `${pending} ${pending === 1 ? 'answer' : 'answers'} (${grade.pendingPoints} pts) will be graded by your teacher. This score is not final.`)) : null,
         !pending && test.passingPercent != null && typeof test.passingPercent === 'number'

@@ -8,6 +8,7 @@ import { loadCatalog, loadTest, getDrafts, deleteDraft } from '../../lib/tests.j
 import { resource } from '../../lib/store.js';
 import { normalizeTest } from '../../lib/schema.js';
 import { deletePublishedTest, fetchPublishedTest, listTestsSummary } from '../../lib/api.js';
+import { pickerGroups, sheetTagsResource } from '../../lib/tags.js';
 import { skeleton, emptyState, copyText, fmtDate, round2, iconButton } from './common.js';
 
 const points = (t) => round2((t.questions || []).reduce((s, q) => s + (Number(q.points) || 0), 0));
@@ -17,12 +18,12 @@ export function testLink(code) {
 }
 
 // Library view state (card grid / table, search, filters); the view mode is remembered per device.
-const L = { query: '', filters: new Set() };
-export function setLibraryQuery(q) { L.query = String(q || ''); L.filters = new Set(); }
+const L = { query: '', filters: new Set(), tag: '' };
+export function setLibraryQuery(q) { L.query = String(q || ''); L.filters = new Set(); L.tag = ''; }
 export const LIBRARY_FILTERS = ['published', 'submissions', 'grading'];
 
-/** Pure: does a library item pass the search text and the active filters? counts = { CODE: n }, grading = Set of codes. */
-export function matchesLibraryFilter(item, { query = '', filters = [], counts = null, grading = null } = {}) {
+/** Pure: does a library item pass the search text and the active filters? counts = { CODE: n }, grading = Set of codes, tagsByCode = Map CODE -> Set of tag ids (used with `tag`). */
+export function matchesLibraryFilter(item, { query = '', filters = [], counts = null, grading = null, tag = '', tagsByCode = null } = {}) {
   const q = String(query || '').trim().toLowerCase();
   if (q && !`${item.code} ${item.title || ''}`.toLowerCase().includes(q)) return false;
   const f = new Set(filters);
@@ -30,6 +31,7 @@ export function matchesLibraryFilter(item, { query = '', filters = [], counts = 
   if (f.has('published') && item.source !== 'published') return false;
   if (f.has('submissions') && !(counts && Number(counts[code]) > 0)) return false;
   if (f.has('grading') && !(grading && grading.has(code))) return false;
+  if (tag && !(tagsByCode && tagsByCode.get(code) && tagsByCode.get(code).has(tag))) return false;
   return true;
 }
 
@@ -39,6 +41,8 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
   const unsubs = [];
   const knownCodes = new Set(); // every code in the library (bundled, drafts, published): new codes must not clash
   let counts = null; // { CODE: n } once loaded with the admin key; null = unavailable (no counts shown)
+  const tagsByCode = new Map(); // CODE -> Set of tag ids, filled when a tag filter is on
+  const tagsRes = sheetTagsResource(CONFIG.GAS_WEB_APP_URL);
   const body = h('div', { class: 'stack adm-library' }, skeleton(4));
   mount(root, body);
 
@@ -263,7 +267,19 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
   function drawV2({ bundled, drafts, pubItems, publishedContent }) {
     const view = () => load('adminLibView', 'grid');
     const host = h('div', { class: 'stack', dataset: { testid: 'library-sections' } });
-    const pass = (it) => matchesLibraryFilter(it, { query: L.query, filters: [...L.filters], counts, grading: needGrading });
+    const pass = (it) => matchesLibraryFilter(it, { query: L.query, filters: [...L.filters], counts, grading: needGrading, tag: L.tag, tagsByCode });
+    const allItems = [...bundled, ...drafts, ...(pubItems || [])];
+    // A tag filter needs each test's tags; the summary list has none, so the tests load once and are remembered.
+    const warmTags = async () => {
+      const todo = allItems.filter((it) => !tagsByCode.has(String(it.code).toUpperCase()));
+      for (let i = 0; i < todo.length && alive; i += 6) {
+        await Promise.all(todo.slice(i, i + 6).map(async (it) => {
+          const t = await resolveTest(it);
+          tagsByCode.set(String(it.code).toUpperCase(), new Set((t?.questions || []).flatMap((q) => (Array.isArray(q.tags) ? q.tags : []))));
+        }));
+      }
+      if (alive) paint();
+    };
     const listFor = (items, empty) => {
       if (!items.length) return empty;
       const shown = items.filter(pass);
@@ -281,6 +297,11 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
       section('Drafts on this device', 'Stored in this browser only',
         listFor(drafts, emptyState('list', 'No drafts yet', 'Save a draft from the builder and it will show up here.')), 'library-drafts'),
       section('Published to Google Sheet', 'Available to students by code', pubItems ? listFor(pubItems, publishedContent) : publishedContent, 'library-published'));
+    const tagChoices = (() => { const g = pickerGroups(); return [...g.mine, ...g.shared].sort((a, b) => a.name.localeCompare(b.name)); })();
+    const tagSel = tagChoices.length ? h('select', { class: 'select adm-select-sm', 'aria-label': 'Filter tests by tag', dataset: { testid: 'lib-tag-filter' },
+      on: { change: () => { L.tag = tagSel.value; paint(); if (L.tag) warmTags(); } } },
+    h('option', { value: '' }, 'All tags'), tagChoices.map((o) => h('option', { value: o.id }, o.name))) : null;
+    if (tagSel) tagSel.value = tagChoices.some((o) => o.id === L.tag) ? L.tag : '';
     const search = h('input', { class: 'input adm-search', type: 'search', placeholder: 'Search tests by code or title', 'aria-label': 'Search tests', value: L.query, dataset: { testid: 'lib-search' },
       on: { input: () => { L.query = search.value; paint(); } } });
     const chipDefs = [['published', 'Published', 'sheet', true], ['submissions', 'Has submissions', 'inbox', !!counts], ['grading', 'Needs grading', 'pen', !!needGrading]];
@@ -289,10 +310,12 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
       on: { click: (e) => { if (L.filters.has(id)) L.filters.delete(id); else L.filters.add(id); e.currentTarget.setAttribute('aria-pressed', String(L.filters.has(id))); paint(); } } }, icon(ic, { size: 16 }), label));
     const viewBtns = ['grid', 'table'].map((m) => h('button', { type: 'button', title: m === 'grid' ? 'Card view' : 'Table view', 'aria-label': m === 'grid' ? 'Card view' : 'Table view', 'aria-pressed': String(view() === m),
       dataset: { testid: `lib-view-${m}` }, on: { click: () => { save('adminLibView', m); viewBtns.forEach((b, k) => b.setAttribute('aria-pressed', String(['grid', 'table'][k] === m))); paint(); } } }, icon(m === 'grid' ? 'grid' : 'list', { size: 18 })));
-    mount(body, h('div', { class: 'lib2-bar' }, search, h('div', { class: 'lib2-chips', role: 'group', 'aria-label': 'Filters' }, chips), h('div', { class: 'lib2-view', role: 'group', 'aria-label': 'View' }, viewBtns)), host);
+    mount(body, h('div', { class: 'lib2-bar' }, search, h('div', { class: 'lib2-chips', role: 'group', 'aria-label': 'Filters' }, chips), tagSel, h('div', { class: 'lib2-view', role: 'group', 'aria-label': 'View' }, viewBtns)), host);
     paint();
+    if (L.tag) warmTags();
   }
 
+  tagsRes.get().then(() => { if (alive) paintStore(); }).catch(() => { /* local tags still filter */ });
   refresh();
   return () => { alive = false; unsubs.forEach((u) => u()); catalogRes.cancel(); testsRes.cancel(); };
 }

@@ -20,10 +20,13 @@ import { adminCall } from '../../lib/api.js';
 import { openAccommodationEditor } from './accommodations.js';
 import { studentHref } from './hub/data.js';
 import { unverifiedMark } from './identity-mark.js';
+import { adminTagOptions, adminTagStats, hasTag } from '../../lib/tag-stats.js';
+import { sheetTagsResource } from '../../lib/tags.js';
+import { tagSummary } from '../tag-summary.js';
 
 // Module state: remembered while switching tabs in the session.
 const BATCH = 50;
-const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false };
+const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false, tag: '' };
 
 /** Dashboard "Grade next": filter to what needs grading (optionally one test) and open the oldest submission once rows load. */
 export function setGradingFocus({ code = 'all', openFirst = true } = {}) {
@@ -75,6 +78,10 @@ export function renderGrading(root, ctx, { goSettings }) {
     if (!busy && !G.selectedId && G.mode === 'student' && resultsRes.peek()) drawList();
   });
   cleanups.push(unsub);
+  // Tag names come from the tags resource; the list redraws when they arrive.
+  const tagsRes = sheetTagsResource(gasUrl);
+  cleanups.push(tagsRes.subscribe(() => { if (alive && !busy && !G.selectedId && resultsRes.peek()) { if (G.mode === 'student') drawList(); else draw(); } }));
+  tagsRes.get().catch(() => { /* local tag names still show */ });
 
   async function loadRows(force = false) {
     if (resultsRes.peek() === undefined) mount(content, skeleton(5));
@@ -130,13 +137,19 @@ export function renderGrading(root, ctx, { goSettings }) {
   /* ---------------------------------------------------------------- list */
   function visibleRows() {
     // Oldest first, so students are graded in submission order.
-    return sortRows(filterRows(rows, { testCode: G.testCode, status: G.status, query: G.query }), 'timestamp', 'asc');
+    const list = filterRows(rows, { testCode: G.testCode, status: G.status, query: G.query });
+    const tagged = G.tag ? list.filter((r) => hasTag({ responses: r.auto_responses, grades: r.grades }, testCache.get(r.test_code), G.tag)) : list;
+    return sortRows(tagged, 'timestamp', 'asc');
   }
 
   function drawList() {
     const codes = [...new Set(rows.map((r) => r.test_code).filter(Boolean))].sort();
     if (G.testCode !== 'all' && !codes.includes(G.testCode)) G.testCode = 'all';
     const byTest = filterRows(rows, { testCode: G.testCode });
+    const missingTests = codes.filter((c) => !testCache.has(c));
+    if (missingTests.length) Promise.all(missingTests.map(ensureTest)).then(() => { if (alive && !G.selectedId && G.mode === 'student') drawList(); });
+    const tagOptions = adminTagOptions(byTest.map((r) => testCache.get(r.test_code)).filter(Boolean).filter((t, i, a) => a.indexOf(t) === i));
+    if (G.tag && !tagOptions.some((o) => o.id === G.tag) && !missingTests.length) G.tag = '';
     const count = (s) => byTest.filter((r) => r.status === s).length;
 
     const testSel = h('select', { class: 'select adm-select-sm', 'aria-label': 'Filter by test', dataset: { testid: 'grading-test-filter' },
@@ -152,6 +165,11 @@ export function renderGrading(root, ctx, { goSettings }) {
     h('option', { value: STATUS.EXTRA }, `Extra attempts (${count(STATUS.EXTRA)})`),
     h('option', { value: 'all' }, `All (${byTest.filter((r) => r.status !== STATUS.EXTRA).length})`));
     statusSel.value = G.status;
+    const tagSel = tagOptions.length ? h('select', { class: 'select adm-select-sm', 'aria-label': 'Filter by tag', dataset: { testid: 'grading-tag-filter' },
+      on: { change: () => { G.tag = tagSel.value; drawList(); } } },
+    h('option', { value: '' }, 'All tags'), tagOptions.map((o) => h('option', { value: o.id }, o.name))) : null;
+    if (tagSel) tagSel.value = G.tag;
+    const tagHost = h('div', { dataset: { testid: 'grading-tag-stats-host' } });
     const search = h('input', { class: 'input adm-search', type: 'search', placeholder: 'Search name or email', 'aria-label': 'Search submissions', value: G.query, dataset: { testid: 'grading-search' } });
     const tableHost = h('div', { class: 'adm-tablewrap', dataset: { testid: 'grading-table' } });
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
@@ -312,6 +330,8 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('tbody', {}, body.length ? body : h('tr', {}, h('td', { colspan: 8, class: 'muted adm-center' },
           G.status === STATUS.NEEDS_GRADING ? 'Nothing left to grade.' : 'No matching submissions.')))));
       drawBulk();
+      const stats = adminTagStats(list, (r) => testCache.get(r.test_code));
+      mount(tagHost, tagSummary(stats, { title: 'By tag', testid: 'grading-tag-stats', tag: 'h4', hint: 'Average points per tag across the submissions shown, graded answers only.' }));
     }
     const onSearch = debounce(() => { G.query = search.value; drawTable(); }, 120);
     cleanups.push(() => onSearch.cancel());
@@ -322,6 +342,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         modeToggle(),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Status'), statusSel),
+        tagSel ? h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Tag'), tagSel) : null,
         h('span', { class: 'spacer' }), releaseAllBtn, regradeBtn, refreshBtn),
       G.error
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
@@ -329,6 +350,7 @@ export function renderGrading(root, ctx, { goSettings }) {
           h('div', { class: 'adm-toolbar adm-toolbar--wrap' }, h('h3', { class: 'adm-h3' }, 'Submissions'), h('span', { class: 'spacer' }), search,
             h('label', { class: 'adm-inline adm-inline--sm', title: 'Add one points column per question to the CSV' }, perQuestionBox, h('span', {}, 'Per-question columns')), exportBtn, classroomCsvBtn),
           bulkHost,
+          tagHost,
           tableHost,
           h('p', { class: 'field__hint' }, 'Export grades downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom. Classroom CSV is laid out for Classroom\'s Import grades.')));
     drawTable();

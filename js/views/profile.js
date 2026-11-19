@@ -6,6 +6,12 @@ import { getUser } from '../lib/auth.js';
 import { appearancePanel } from './appearance.js';
 import { loadProfile, subscribeProfile } from '../lib/profile.js';
 import { getSyncState, onSyncState } from '../lib/sync.js';
+import { getLocalResults } from '../lib/submit.js';
+import { fetchFeedback } from '../lib/api.js';
+import { getFreshIdToken } from '../lib/auth.js';
+import { loadTest } from '../lib/tests.js';
+import { tagStats, withNames, studentTag, rememberTagIndex, recalledTagIndex } from '../lib/tag-stats.js';
+import { tagSummary } from './tag-summary.js';
 import { elementTile, symbolOf, levelRing, badgeShelf, syncChip, resultRow } from './home/parts.js';
 
 /** Accuracy by topic: the server's `stats.topics` ({ topic: percent } or [{ topic, percent }]) when present, else by test. Released only. */
@@ -18,6 +24,42 @@ function accuracyRows(p) {
   const byTest = new Map();
   for (const r of p.results) if (r.released && r.percentage != null && !byTest.has(r.code)) byTest.set(r.code, [r.title, r.percentage]);
   return { label: 'Accuracy by test', rows: [...byTest.values()] };
+}
+
+const MAX_TAG_RESULTS = 20;
+const MATCH_WINDOW = 5 * 60 * 1000;
+const when = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? t : 0; };
+
+/**
+ * Accuracy by tag across released results: [{ id, name, color, earned, possible, percent }], weakest first.
+ * Needs the answers saved on this device (a result from another device has none), the test for its tags and the released
+ * grades (getFeedback, which also names the tags). Newest results first, at most 20.
+ */
+export async function loadTagAccuracy(p, user, config, { alive = () => true } = {}) {
+  const local = getLocalResults().filter((l) => l && l.submission_id && String(l.student_email || '').toLowerCase() === String(user.email || '').toLowerCase());
+  const released = p.results.filter((r) => r.released).slice(0, MAX_TAG_RESULTS);
+  const token = await getFreshIdToken().catch(() => null);
+  const tests = new Map();
+  const subs = [];
+  for (const r of released) {
+    const mine = local.find((l) => String(l.test_code) === r.code && Math.abs(when(l.submitted_at) - when(r.submittedAt)) <= MATCH_WINDOW);
+    if (!mine || !Array.isArray(mine.responses)) continue;
+    if (!tests.has(r.code)) {
+      try { tests.set(r.code, (await loadTest(r.code, { config })).test); } catch { tests.set(r.code, null); }
+    }
+    if (!alive()) return [];
+    if (!tests.get(r.code)) continue;
+    let grades = {};
+    if (token && config?.GAS_WEB_APP_URL) {
+      const fb = await fetchFeedback({ gasUrl: config.GAS_WEB_APP_URL, submissionId: mine.submission_id, idToken: token });
+      if (!alive()) return [];
+      if (fb.ok && fb.released) { grades = fb.grades || {}; rememberTagIndex(r.code, fb.tagIndex); } else if (fb.ok) continue;
+    }
+    subs.push({ responses: mine.responses, grades, released: true, code: r.code });
+  }
+  const index = {};
+  for (const code of tests.keys()) Object.assign(index, recalledTagIndex(code));
+  return withNames(tagStats(subs, (s) => tests.get(s.code)), (id) => studentTag(id, index));
 }
 
 /** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
@@ -40,7 +82,22 @@ export function render(root, ctx) {
   const appearancePanelEl = appearancePanel({ user });
   if (appearancePanelEl) appearance.querySelector('#profile-appearance')?.append(appearancePanelEl);
 
+  let tagRows = [];
+  let tagSig = '';
+  let lastP = null;
+  function loadTags(p) {
+    const sig = p.results.filter((r) => r.released).map((r) => `${r.code}@${r.submittedAt}`).join('|');
+    if (sig === tagSig) return;
+    tagSig = sig;
+    loadTagAccuracy(p, user, ctx.config, { alive: () => alive && sig === tagSig }).then((rows) => {
+      if (!alive || sig !== tagSig) return;
+      tagRows = rows;
+      if (lastP) paint(lastP);
+    }).catch(() => {});
+  }
+
   function paint(p) {
+    lastP = p;
     const released = p.results.filter((r) => r.released && r.percentage != null);
     const avg = released.length ? Math.round(released.reduce((s, r) => s + r.percentage, 0) / released.length) : null;
     const acc = accuracyRows(p);
@@ -65,6 +122,7 @@ export function render(root, ctx) {
             h('span', { class: 'bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(pct), 'aria-label': `${name} accuracy` },
               h('span', { class: 'bar__fill', style: { width: `${Math.max(0, Math.min(100, pct))}%` } })),
             h('span', { class: 'mono' }, `${Math.round(pct)}%`))))) : null,
+        tagSummary(tagRows, { title: 'Accuracy by tag', testid: 'profile-tags', tag: 'h3' }),
         p.results.length > released.length ? h('p', { class: 'home-note' }, 'Stats use released results only') : null),
       h('section', { class: 'home-section', 'aria-label': 'Badges', dataset: { testid: 'profile-badges' } },
         h('h2', { class: 'home-section__title' }, 'Badges'), badgeShelf(p.badges, { testid: 'profile-badge-shelf' })),
@@ -77,10 +135,11 @@ export function render(root, ctx) {
         h('button', { type: 'button', class: 'btn btn--ghost', dataset: { testid: 'sign-out' }, on: { click: () => ctx.signOut() } }, icon('logout', { size: 16 }), 'Sign out')));
   }
 
-  const { profile, done } = loadProfile(user, { onUpdate: (p) => { if (alive) paint(p); } });
+  const { profile, done } = loadProfile(user, { onUpdate: (p) => { if (alive) { paint(p); loadTags(p); } } });
   paint(profile);
-  done.then((p) => { if (alive && p) paint(p); });
+  loadTags(profile);
+  done.then((p) => { if (alive && p) { paint(p); loadTags(p); } });
   const offSync = onSyncState((s) => chip.update(s));
-  const offProfile = subscribeProfile(user, (p) => { if (alive) paint(p); });
+  const offProfile = subscribeProfile(user, (p) => { if (alive) { paint(p); loadTags(p); } });
   return () => { alive = false; offSync(); offProfile(); appearancePanelEl?.destroy?.(); };
 }
