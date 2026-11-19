@@ -48,7 +48,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S08b | sonnet | done | 2d38131 | not run | S13b must run `npm run stamp:version` after bump. Found: landing.js dead signed-in code; .dash in tools.css + admin-shell.css |
 | S08c | haiku | done | 45083fb | not run | mode renderers return cleanup fn; ?section=insights/mastery now land on dashboard |
 | S09 | sonnet | done (partial) | 5f6764e | not run | axe-core 4.10.2 added (npm install). a11y e2e testids partly guessed. Manual checks (200% zoom, reduced motion, prefers-contrast) not done. Admin views have no h1 |
-| S12a | sonnet | todo | | | |
+| S12a | sonnet | done | 13027c5 | not run | publishTest sends tagDefs; --tag-* tokens in base.css |
 | S12c | sonnet | done | 4648ab7 | not run | Found: no per-student sentAt from backend; adminCall drops error body (rate-limit cursor lost, client retries) |
 | S12b | sonnet | todo | | | |
 | S14 | sonnet | done (partial) | bd4af2f | not run | student-layout e2e unverified; screenshots via CW_SHOTS_DIR not captured; wide widgets not individually resized |
