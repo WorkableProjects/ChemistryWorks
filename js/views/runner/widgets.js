@@ -1,5 +1,5 @@
 // Runner question widgets: per-type answer inputs (choice, numeric, formula, matching, ordering, ...)
-// and buildWidget(q, api) which dispatches on question type. Moved out of runner.js unchanged.
+// and buildWidget(q, api) which dispatches on question type. Split out of the runner.
 // Each widget returns { el, refresh() }.
 
 import { h, renderMath } from '../../ui.js';

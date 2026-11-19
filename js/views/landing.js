@@ -8,7 +8,7 @@ import { getLocalResults } from '../lib/submit.js';
 import { SITE_VERSION } from '../version.js';
 import { dashboardSection } from './tools/dashboard.js';
 import { networkBanner } from './tools/banner.js';
-import { ensureToolsCss } from './tools/settings.js';
+import { ensureCss } from '../lib/css-loader.js';
 import * as home from './home/index.js';
 
 function signInCard(ctx, params) {
@@ -140,12 +140,17 @@ function heroPattern() {
   return svg;
 }
 
+/** Signed-in students get the home screen, so they need its stylesheets; the sign-in screen needs only landing.css. */
+export function styles() {
+  return getUser() ? home.styles : [];
+}
+
 export function render(root, ctx, params = {}) {
   const user = getUser();
   if (user) return home.render(root, ctx, params); // V5-02: the student home replaces this screen
   // V4-05: "My dashboard" and the waiting-submission banner.
   const tools = !!user;
-  ensureToolsCss(); // the merged tests list uses the dashboard styles
+  if (user) ensureCss('tools'); // the merged tests list uses the dashboard styles
   const banner = tools ? networkBanner({ config: ctx.config }) : null;
   mount(root,
     h('main', { class: 'landing' },

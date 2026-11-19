@@ -1,5 +1,5 @@
 // Student widget for `balance`: a coefficient box in front of every formula (V3-05).
-// Contract (see runner.js): returns { el, refresh(answer), focus() }. Answer = array of whole numbers, blank = 0.
+// Contract (see js/views/runner/widgets.js): returns { el, refresh(answer), focus() }. Answer = array of whole numbers, blank = 0.
 import { h } from '../../ui.js';
 import { formulaToHTML } from '../../lib/formula.js';
 

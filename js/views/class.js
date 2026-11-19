@@ -10,6 +10,9 @@ const postRow = (p) => h('li', { class: ['hub-post', p.pinned ? 'is-pinned' : ''
   h('div', { class: 'hub-post__head' }, p.pinned ? h('span', { class: 'chip hub-chip hub-chip--info' }, 'Pinned') : null, h('span', { class: 'row__meta' }, when(p.createdAt))),
   h('p', { class: 'hub-post__body' }, p.body || ''));
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['home', 'hub', 'hub-admin'];
+
 export function render(root, ctx, params = {}) {
   const user = getUser();
   if (!user) { ctx.navigate('landing'); return undefined; }

@@ -2,12 +2,13 @@
 import { h, mount, icon, toast, openModal } from '../../../ui.js';
 import { remindMissing, deleteAssignment } from '../../../lib/api.js';
 import { skeleton, emptyState } from '../common.js';
-import { statusRes, assignmentsRes, creds, STATUS, STATUS_ORDER, fmtWhen, studentHref } from './data.js';
+import { statusRes, assignmentsRes, creds, STATUS, STATUS_ORDER, studentHref } from './data.js';
 import { openAssignDialog } from './assign.js';
+import { formatDate } from '../../../lib/dates.js';
 
 const detail = (r) => {
   if (r.status === 'in_progress') return `${Math.round(r.percentDone || 0)}%${r.lastMode ? ` · ${r.lastMode}` : ''}`;
-  if (r.submittedAt) return `${r.late ? 'Late, ' : ''}${fmtWhen(r.submittedAt)}`;
+  if (r.submittedAt) return `${r.late ? 'Late, ' : ''}${formatDate(r.submittedAt)}`;
   if (r.score !== undefined && r.score !== null) return `${Math.round(r.score)}%`;
   return '';
 };
@@ -61,7 +62,7 @@ export function renderTracker(host, ctx, { assignment, classes, onBack, onChange
     h('div', { class: 'row row--wrap' },
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: onBack } }, icon('left', { size: 14 }), 'Assignments'),
       h('h3', { class: 'adm-h3' }, assignment.title || assignment.testCode),
-      h('span', { class: 'faint' }, assignment.dueAt ? `Due ${fmtWhen(assignment.dueAt)}` : 'No due date'),
+      h('span', { class: 'faint' }, assignment.dueAt ? `Due ${formatDate(assignment.dueAt)}` : 'No due date'),
       h('span', { class: 'spacer' }),
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: () => openAssignDialog(ctx, { classes, assignment, onSaved: onChanged }) } }, icon('pen', { size: 14 }), 'Edit'),
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-label': 'Delete assignment', on: { click: del } }, icon('trash', { size: 14 })),

@@ -385,8 +385,6 @@
 .adm-checklist__item { display: flex; align-items: flex-start; gap: 8px; color: var(--text); }
 .adm-checklist__item svg { flex: none; margin-top: 2px; color: var(--danger); }
 .adm-checklist__item.is-ok svg { color: var(--success); }
-.runner-announcement { margin-bottom: 12px; align-items: center; }
-.runner-announcement__text { flex: 1; }
 /* v4: more library actions (duplicate with new code, version B, print) — let them wrap instead of overflowing. */
 .adm-item__actions { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 @media (max-width: 640px) { .adm-item__actions { justify-content: flex-start; } }

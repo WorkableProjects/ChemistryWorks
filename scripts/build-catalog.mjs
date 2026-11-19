@@ -1,24 +1,30 @@
-// Generates data/tests/catalog.json: { code, title, description, questionCount, points, timeLimitMinutes } per bundled test, in index.json order.
-//   node scripts/build-catalog.mjs
-import { readFile, writeFile } from 'node:fs/promises';
+// Generates data/tests/catalog.json from the bundled tests: { code, title, description, questionCount, points,
+// timeLimitMinutes } per test, sorted by code. catalog.json is the only list of bundled tests.
+//   node scripts/build-catalog.mjs [dir]
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const DIR = fileURLToPath(new URL('../data/tests/', import.meta.url));
 const round2 = (n) => Math.round(n * 100) / 100;
 
+/** The test files in a folder: every .json except the catalog itself. */
+export async function testFiles(dir = DIR) {
+  return (await readdir(dir)).filter((f) => f.endsWith('.json') && f !== 'catalog.json').sort();
+}
+
 export async function buildCatalog(dir = DIR) {
-  const index = JSON.parse(await readFile(`${dir}index.json`, 'utf8'));
   const out = [];
-  for (const e of index) {
-    const t = JSON.parse(await readFile(`${dir}${e.code}.json`, 'utf8'));
+  for (const f of await testFiles(dir)) {
+    const t = JSON.parse(await readFile(`${dir}${f}`, 'utf8'));
     const qs = Array.isArray(t.questions) ? t.questions : [];
-    out.push({ code: e.code, title: e.title || t.title || '', description: e.description || '', questionCount: qs.length,
+    out.push({ code: f.replace(/\.json$/, ''), title: t.title || '', description: t.description || '', questionCount: qs.length,
       points: round2(qs.reduce((s, q) => s + (Number(q.points) || 0), 0)), timeLimitMinutes: Number(t.timeLimitMinutes) || 0 });
   }
   return out;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  await writeFile(`${DIR}catalog.json`, `${JSON.stringify(await buildCatalog(), null, 2)}\n`);
-  console.log('wrote data/tests/catalog.json');
+  const dir = process.argv[2] ? `${process.argv[2].replace(/\/?$/, '/')}` : DIR;
+  await writeFile(`${dir}catalog.json`, `${JSON.stringify(await buildCatalog(dir), null, 2)}\n`);
+  console.log(`wrote ${dir}catalog.json`);
 }

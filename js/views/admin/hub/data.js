@@ -53,10 +53,5 @@ export function toLocalInput(iso) {
 }
 export const fromLocalInput = (v) => (v ? new Date(v).toISOString() : '');
 
-export function fmtWhen(iso) {
-  const d = new Date(iso);
-  return !iso || Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
-
 /** Where a teacher opens a student's page (S13a). */
 export const studentHref = (email) => `?admin=true&section=student&email=${encodeURIComponent(email)}`;

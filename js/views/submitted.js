@@ -4,16 +4,15 @@
 
 import { h, mount, icon, appHeader, userBadge } from '../ui.js';
 import { statusPage } from './status-page.js';
+import { formatDate } from '../lib/dates.js';
 
-function fmtWhen(iso) {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['status'];
 
 export function render(root, ctx, params = {}) {
   const { test, source, status = {} } = params;
   const user = ctx.user;
-  const when = fmtWhen(status.latest?.submitted_at);
+  const when = formatDate(status.latest?.submitted_at);
   const single = !!test?.singleSubmission;
   const canRetake = params.canRetake === true;
   const start = () => ctx.navigate('runner', { test, source, cleared: true });

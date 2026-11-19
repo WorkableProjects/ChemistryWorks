@@ -4,7 +4,7 @@
 import { h, mount, icon, openModal } from '../ui.js';
 import { CONFIG } from '../config.js';
 import { load, save, remove } from '../lib/storage.js';
-import { renderBuilder, setBuilderTest, newBuilderTest, builderIsDirty, getBuilderTest } from './admin/builder.js';
+import { renderBuilder, setBuilderTest, newBuilderTest, builderIsDirty, getBuilderTest } from './admin/builder/index.js';
 import { renderLibrary, setLibraryQuery } from './admin/library.js';
 import { renderGrading, setGradingFocus } from './admin/grading.js';
 import { renderDashboard } from './admin/dashboard.js';
@@ -41,6 +41,9 @@ registerNavItem({ id: 'student', label: 'Student', icon: 'user', hidden: true, r
 /* ---------------------------------------------------------------------------------------------------------------
    Sidebar shell: top bar, sidebar, dashboard.
    --------------------------------------------------------------------------------------------------------------- */
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['admin-shell', 'admin', 'hub-admin', 'admin-student', 'grading', 'export', 'appearance', 'references', 'runner', 'qtypes', 'diagrams'];
+
 export function render(root, ctx, params = {}) {
   const sectionOk = (id) => NAV_ITEMS.some((t) => t.id === id && isAvailable(t));
   let tab = resolveTab(requestedTab(params) || load('adminTab', 'dashboard', 'session'));

@@ -8,7 +8,7 @@ import { resource } from '../../lib/store.js';
 import { TYPE_LABELS, nextQuestionId } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
 import { field, emptyState, skeleton, fmtDate } from './common.js';
-import { getBuilderTest, setBuilderTest } from './builder.js';
+import { getBuilderTest, setBuilderTest } from './builder/index.js';
 
 const TAGS = ['topic', 'unit', 'difficulty', 'ngss'];
 

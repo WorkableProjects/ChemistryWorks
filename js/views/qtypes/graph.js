@@ -2,7 +2,7 @@
 //   mode 'read': the chart is drawn as inline SVG and the student types a number.
 //   mode 'plot': an empty grid; click to add a point, click a point to remove it. Keyboard: arrow keys move a crosshair
 //                (Shift = 5 steps), Enter adds a point (or removes one already under the crosshair), Delete removes the last point.
-// Contract (see runner.js): returns { el, refresh(answer), focus() }. read answer = text; plot answer = [[x, y], …].
+// Contract (see js/views/runner/widgets.js): returns { el, refresh(answer), focus() }. read answer = text; plot answer = [[x, y], …].
 import { h } from '../../ui.js';
 import { chartSvg, chartRange, fromPx, toPx, snap, W, H, pointsText } from '../../lib/qtypes/graph.js';
 

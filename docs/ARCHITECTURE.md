@@ -37,11 +37,11 @@ js/lib/grading.js          auto-grading engine                           (T01)
 js/lib/api.js              Apps Script client                            (T04)
 js/lib/submit.js           payload + dual submission + outbox            (T04)
 js/views/landing.js        sign-in + code entry                          (Opus)
-js/views/runner.js         student test-taking                           (T02)
+js/views/runner/index.js   student test-taking (runner/{timer,drawer,nav,...}.js)
 js/views/results.js        submission confirmation + score review        (T02)
 js/views/admin.js          library, builder, grading, settings
 apps-script/Code.gs        Apps Script backend                           (T04)
-data/tests/*.json          bundled tests; index.json = catalog (ships empty)
+data/tests/*.json          bundled tests; catalog.json = the list of them (npm run build:catalog)
 test/fixtures/tests/       sample tests (CHEM101, ...) used only by the automated tests
 scripts/serve.mjs          static dev server (exports listen(port) -> {server,url})
 test/unit/*.test.mjs       unit tests (node --test)
@@ -383,9 +383,9 @@ The runner tags them (`required-pill`) and the submit modal lists unanswered req
   (`js/lib/changelog.js`, `js/views/changelog.js`). `test/unit/changelog.test.mjs` requires notes for `SITE_VERSION`.
 
 ### Module layout (S01)
-- `js/views/runner.js` = the runner view; per-type answer widgets live in `js/views/runner/widgets.js`
-  (`buildWidget(q, api)`); `runner.js` re-exports `formatInterpreted`, `optionImageEl`, `choiceImagesEl`.
-- `js/views/admin/builder.js` = the builder view; built-in per-type editors live in `js/views/admin/editors/core.js`
+- `js/views/runner/index.js` = the runner view; per-type answer widgets live in `js/views/runner/widgets.js`
+  (`buildWidget(q, api)`); `runner/index.js` re-exports `formatInterpreted`, `optionImageEl`, `choiceImagesEl`.
+- `js/views/admin/builder/index.js` = the builder view (see S08b below); built-in per-type editors live in `js/views/admin/editors/core.js`
   (`typeEditor(q, redraw, changed, uid)`).
 
 ### Brand + shell (S02/S03)
@@ -701,7 +701,11 @@ export default {
 - The URL is built from `import.meta.url`, so it stays relative under the `/ChemistryWorks/` Pages path, and always ends in `?v=` + `SITE_VERSION`.
 - It is idempotent: a stylesheet is added once (tracked with a `data-css` attribute) and later calls return the same promise.
 - It never rejects: it resolves on load, on error, or after 3 seconds. A missing sheet must not block a view.
-- `index.html` links only `css/base.css` and `css/landing.css` (plus fonts and KaTeX). Every other stylesheet is loaded by the view that owns it. Every CSS and JS URL in `index.html` carries `?v=` + `SITE_VERSION`; the boot script in `index.html` reads the version from `js/version.js`.
+- `index.html` links only `css/base.css` and `css/landing.css` (plus fonts and KaTeX). Every other stylesheet is loaded by the view that owns it. Every local CSS and JS URL in `index.html` carries `?v=` + `SITE_VERSION`. The CSP forbids an inline boot script, so `npm run stamp:version` (`scripts/stamp-version.mjs`) writes the version into `index.html` after a bump, and a unit test fails while it is out of step.
+- A top-level view declares what it needs with `export const styles = ['hub', ...]` (or `export function styles(params)`). `navigate()` in `js/app.js` loads those sheets, and the UI module and sheets of every question type the test uses, before the first render, so a view never paints unstyled. Views that other views embed, and the appearance panel and the notifications bell, call `ensureCss` themselves.
+- `pendingCss(names)` returns `null` when every sheet is already loaded (so `navigate()` stays synchronous), else a promise. `ensureCss(name, { media })` links a sheet for one media query (`print`).
+- Question types: `typeCssNames(type)` in `js/lib/qtypes/registry.js` is `runner`, `qtypes`, `qt-<type>` when the type has its own sheet (`QT_SHEETS`), and `diagrams` for `lewis`, `structure` and `orbital`. `preloadQuestionTypes`, `loadTypeUI` and `typeUI` load them.
+- `appearance.css` also holds the text-size, density, dyslexia and reduce-motion rules, so `js/lib/theme.js` loads it whenever one of those is set to a non-default value. `tools.css` holds the font and spacing rules, so `applySettings` loads it when either is set.
 - Ownership (a view calls `ensureCss` for its own sheets before it renders):
 
 | Owner | Stylesheets |
@@ -970,3 +974,10 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - Without `postToClassroom`, `saveAssignment` never calls Classroom and keeps `classroomCourseWorkId`. If the stored coursework was deleted in Classroom, the next post creates a new one. Replies add `classroomDetail` (short text) with `classroomError: 'classroom_error'`.
 - `deleteAssignment` replies add `classroomError` when `deleteInClassroom` failed; the assignment is deleted either way.
 - `test/unit/helpers/fake-classroom.mjs` is the shared fake Classroom service for backend tests.
+
+### S08b Module split, shared helpers, one catalog
+- The runner is `js/views/runner/{index,chrome,cards,timer,drawer,nav,submit,shortcuts,live}.js` plus the existing `widgets.js` and `mode-switcher.js`. `index.js` builds one runtime object `rt` (test, attempt, state, elements, actions); each module exports a factory that adds to it, and modules call each other through `rt`. The old `js/views/runner.js` is gone; `results.js` and `export-view.js` import `choiceImagesEl` from `runner/widgets.js`.
+- The builder is `js/views/admin/builder/{index,state,settings,questions,menu,outline,publish,import,preview}.js` with one builder context `bc` (root, ctx, elements, `changed`, `renderMain`, `refreshValidation`, `listEl`). `index.js` re-exports `getBuilderTest`, `setBuilderTest`, `newBuilderTest`, `builderIsDirty`, `fetchGuide`, `TYPE_ICONS`, `TYPE_DESCRIPTIONS`. The old `js/views/admin/builder.js` is gone. No function in either folder is over 250 lines (a unit test checks).
+- `js/lib/dates.js`: `toMillis`, `formatDate(value, { fallback, time })`, `formatDue`, `formatRelative`. `ui.js` exports `formulaSpan(text, className)`.
+- The boot loader markup in `index.html` is a copy of `flaskSvg(96)`; a unit test fails if they differ.
+- `data/tests/catalog.json` is the only list of bundled tests, built by `npm run build:catalog` from the test files (sorted by code). `index.json` and the fallback to it are removed; `validate-tests` reads `catalog.json` and fails when it is missing a test or out of date.

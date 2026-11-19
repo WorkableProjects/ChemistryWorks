@@ -3,23 +3,19 @@
 
 import { h, icon } from '../../ui.js';
 import { elementTile, symbolOf } from './parts.js';
+import { toMillis, formatDue } from '../../lib/dates.js';
 
 const DAY = 86400000;
 const DONE = new Set(['turned_in', 'graded', 'released']);
 
 /** ms epoch from a number, numeric string or ISO string; null when absent. */
-export const toMs = (v) => {
-  if (v == null || v === '') return null;
-  const n = typeof v === 'number' ? v : (/^\d+$/.test(String(v)) ? Number(v) : Date.parse(v));
-  return Number.isFinite(n) ? n : null;
-};
+export const toMs = toMillis;
 export const dueOf = (a) => toMs(a.effectiveDueAt != null ? a.effectiveDueAt : a.dueAt);
 export const isDone = (a) => DONE.has(a.status) || (a.status === 'late' && !!(a.submittedAt || a.late));
 const startOfDay = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const dayDiff = (t, now) => Math.round((startOfDay(t) - startOfDay(now)) / DAY);
 const weekday = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short' });
 const dateShort = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-const timeShort = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
 /** { text, tone } chip for an assignment at `now` (tone: info | warn | muted). */
 export function assignmentChip(a, now = Date.now()) {
@@ -42,7 +38,7 @@ export function assignmentChip(a, now = Date.now()) {
   return { text: 'No due date', tone: 'muted' };
 }
 
-export const dueText = (a) => { const d = dueOf(a); return d == null ? 'No due date' : `${dateShort(d)}, ${timeShort(d)}`; };
+export const dueText = (a) => formatDue(dueOf(a));
 
 /** Assignments not yet turned in, due soonest first (no due date last). */
 export function upcomingAssignments(hub) {

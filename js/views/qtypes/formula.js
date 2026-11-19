@@ -1,6 +1,5 @@
 // `formula` student widget: a text box with a formatted preview and typing help for charges.
-import { h } from '../../ui.js';
-import { formulaToHTML } from '../../lib/formula.js';
+import { h, formulaSpan } from '../../ui.js';
 import { formatHelpFor } from '../../lib/hints.js';
 import { helpBox, insertBar, CHARGE_KEYS } from './shared.js';
 
@@ -13,8 +12,7 @@ function formulaWidget(q, api) {
       preview.textContent = 'Formatted preview appears here';
     } else {
       preview.classList.remove('is-empty');
-      // formulaToHTML escapes its input; this is the only HTML string rendered from student input.
-      preview.innerHTML = `<span class="formula">${formulaToHTML(input.value)}</span>`;
+      preview.replaceChildren(formulaSpan(input.value));
     }
   };
   const input = h('input', {

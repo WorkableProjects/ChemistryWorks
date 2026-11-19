@@ -2,7 +2,8 @@
 import { h, mount, icon, toast } from '../../../ui.js';
 import { postStream, deleteStreamPost } from '../../../lib/api.js';
 import { compressImageFile } from '../../../lib/image-upload.js';
-import { assignmentsRes, streamRes, creds, fmtWhen } from './data.js';
+import { assignmentsRes, streamRes, creds } from './data.js';
+import { formatDate } from '../../../lib/dates.js';
 
 const IMG_MARK = 'image:';
 const POST_MAX = 2000;
@@ -72,7 +73,7 @@ export function renderStream(host, ctx, cls) {
     if (!all.length) { mount(list, h('p', { class: 'hub-empty', dataset: { testid: 'stream-empty' } }, 'No posts yet. Write the first one above')); return; }
     mount(list, ...all.map((p) => h('article', { class: `hub-post${p.pinned ? ' is-pinned' : ''}`, dataset: { testid: `stream-post-${p.id}` } },
       h('div', { class: 'hub-post__head' },
-        h('span', { class: 'hub-post__meta' }, p.type === 'assignment' ? 'Assignment' : p.type === 'reminder' ? 'Reminder' : 'Post', p.createdAt ? ` · ${fmtWhen(p.createdAt)}` : ''),
+        h('span', { class: 'hub-post__meta' }, p.type === 'assignment' ? 'Assignment' : p.type === 'reminder' ? 'Reminder' : 'Post', p.createdAt ? ` · ${formatDate(p.createdAt)}` : ''),
         p.pinned ? h('span', { class: 'pill pill--primary' }, 'Pinned') : null,
         h('span', { class: 'spacer' }),
         p.type === 'post' && !String(p.id).startsWith('tmp-')
@@ -80,7 +81,7 @@ export function renderStream(host, ctx, cls) {
         p.type !== 'assignment' && !String(p.id).startsWith('tmp-')
           ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-label': 'Delete post', dataset: { testid: `stream-delete-${p.id}` }, on: { click: () => remove(p) } }, icon('trash', { size: 14 })) : null),
       p.type === 'assignment'
-        ? h('p', {}, h('strong', {}, p.body), p.assignment && p.assignment.dueAt ? h('span', { class: 'faint' }, ` · Due ${fmtWhen(p.assignment.dueAt)}`) : null)
+        ? h('p', {}, h('strong', {}, p.body), p.assignment && p.assignment.dueAt ? h('span', { class: 'faint' }, ` · Due ${formatDate(p.assignment.dueAt)}`) : null)
         : postBody(p.body))));
   }
   const unsubs = [posts.subscribe(paint), assigns.subscribe(paint)];

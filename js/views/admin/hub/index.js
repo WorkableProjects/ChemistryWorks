@@ -2,8 +2,9 @@
 import { h, mount, icon } from '../../../ui.js';
 import { skeleton } from '../common.js';
 import { openAccommodationEditor } from '../accommodations.js';
-import { assignmentsRes, fmtWhen, studentHref } from './data.js';
+import { assignmentsRes, studentHref } from './data.js';
 import { openAssignDialog } from './assign.js';
+import { formatDate } from '../../../lib/dates.js';
 import { renderStream } from './stream.js';
 import { renderTracker } from './tracker.js';
 
@@ -32,7 +33,7 @@ export function renderClassHub(root, ctx, { cls, classes, onBack, tab: startTab 
             h('button', { class: 'hub-item__main', type: 'button', on: { click: () => openTracker(a) } },
               h('span', { class: 'hub-tile', 'aria-hidden': 'true' }, String(a.testCode || '').slice(0, 3)),
               h('span', { class: 'hub-item__text' }, h('span', { class: 'hub-item__title' }, a.title || a.testCode),
-                h('span', { class: 'faint' }, a.dueAt ? `Due ${fmtWhen(a.dueAt)}` : 'No due date', a.required ? '' : ' · Optional'))),
+                h('span', { class: 'faint' }, a.dueAt ? `Due ${formatDate(a.dueAt)}` : 'No due date', a.required ? '' : ' · Optional'))),
             h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: `copy-assignment-${a.id}` }, on: { click: () => openAssignDialog(ctx, { classes: classes.filter((c) => c.id !== cls.id), copyFrom: a }) } }, icon('copy', { size: 14 }), 'Copy to class')))));
     };
     const unsub = assigns.subscribe(paint);

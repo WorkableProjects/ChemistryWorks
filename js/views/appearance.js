@@ -4,6 +4,7 @@
 
 import { h, icon } from '../ui.js';
 import { getUser } from '../lib/auth.js';
+import { ensureCss } from '../lib/css-loader.js';
 import { savePrefs, subscribeProfile } from '../lib/profile.js';
 import { fixAccent, contrastRatio, ON_LIGHT_ACCENT, ON_DARK_ACCENT, LIGHT_PAGE, DARK_PAGE } from '../lib/contrast.js';
 import {
@@ -39,6 +40,7 @@ function previewCard(theme, accent, on) {
 }
 
 export function appearancePanel({ user = getUser(), role = 'student' } = {}) {
+  ensureCss('appearance');
   const save = () => {
     if (!user) return;
     const custom = getCustomAccent();

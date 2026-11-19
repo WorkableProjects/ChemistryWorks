@@ -6,6 +6,7 @@
 
 import { load, save } from './storage.js';
 import { fixAccent, parseHex, toHex } from './contrast.js';
+import { ensureCss } from './css-loader.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 /** Browser UI colour (<meta name="theme-color">): the header bar colour per theme. */
@@ -66,7 +67,7 @@ export function setReduceMotion(on) {
 export function applyMotion() {
   const el = root();
   if (!el) return;
-  if (getReduceMotionPref()) el.dataset.motion = 'reduce';
+  if (getReduceMotionPref()) { el.dataset.motion = 'reduce'; ensureCss('appearance'); } // its reduce-motion rules live in appearance.css
   else delete el.dataset.motion;
 }
 
@@ -110,6 +111,8 @@ export function applyAppearance() {
   el.dataset.textSize = a.textSize;
   el.dataset.density = a.density;
   if (a.dyslexia) el.dataset.dyslexia = '1'; else delete el.dataset.dyslexia;
+  // Text size, density and the dyslexia font are styled in appearance.css; the default look needs none of it.
+  if (a.textSize !== 'm' || a.density !== 'comfortable' || a.dyslexia) ensureCss('appearance');
   const custom = getCustomAccent(role);
   const fixed = custom && fixAccent(custom);
   if (!fixed) return;
