@@ -3,7 +3,6 @@
 import { h, mount, icon, toast } from '../../ui.js';
 import { getStudentProfileAdmin } from '../../lib/api.js';
 import { adminKey } from '../../lib/admin-session.js';
-import { feature } from '../../config.js';
 import { skeleton, emptyState, fmtDate, round2 } from './common.js';
 import { openAccommodationEditor } from './accommodations.js';
 import { assignmentsRes, statusRes, STATUS } from './hub/data.js';
@@ -63,7 +62,6 @@ export function renderStudent(root, ctx, { goSettings, go } = {}) {
   }
 
   async function assignmentRowsFor(d) {
-    if (!feature('classHub')) return [];
     try {
       const list = (await assignmentsRes().get()) || [];
       const ids = new Set((d.classes || []).map((c) => c.id));

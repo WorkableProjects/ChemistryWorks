@@ -1,7 +1,6 @@
-// Payload building and submission (Apps Script, plus Netlify Forms until it is removed) with an offline outbox.
+// Payload building and submission (Apps Script) with an offline outbox.
 // The Apps Script reply is read: success is done, a final error is shown and not queued, anything else stays queued.
 // submitResults / flushOutbox never throw.
-import { netlifyFormsEnabled } from '../config.js';
 import { load, save } from './storage.js';
 import { getIdToken, getFreshIdToken } from './auth.js';
 
@@ -91,26 +90,6 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
   };
 }
 
-export function toNetlifyFields(payload) {
-  return {
-    'form-name': 'chemistryworks-submissions',
-    submission_id: String(payload.submission_id ?? ''),
-    student_name: String(payload.student_name ?? ''),
-    student_email: String(payload.student_email ?? ''),
-    test_code: String(payload.test_code ?? ''),
-    test_title: String(payload.test_title ?? ''),
-    score_achieved: String(payload.score_achieved ?? ''),
-    score_total: String(payload.score_total ?? ''),
-    percentage: String(payload.percentage ?? ''),
-    duration_seconds: String(payload.duration_seconds ?? ''),
-    needs_grading: String(!!payload.needs_grading),
-    single_submission: String(!!payload.single_submission),
-    responses_json: JSON.stringify(payload.responses ?? []),
-    flags_json: JSON.stringify(payload.flags ?? {}),
-    submitted_at: String(payload.submitted_at ?? ''),
-  };
-}
-
 function withTimeout(promise, ms, controller) {
   let timer;
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => { try { controller?.abort(); } catch { /* ignore */ } reject(new Error('timeout')); }, ms); });
@@ -148,41 +127,14 @@ async function sendGas(payload, config, fetchImpl, timeoutMs = SUBMIT_TIMEOUT_MS
   }
 }
 
-async function sendNetlify(payload, config, fetchImpl, hostname) {
-  let enabled = false;
-  try {
-    enabled = netlifyFormsEnabled(config, hostname);
-  } catch {
-    enabled = false;
-  }
-  if (!enabled) return 'skipped';
-  try {
-    const res = await fetchImpl('/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(toNetlifyFields(payload)).toString(),
-    });
-    return res && res.ok ? 'sent' : 'failed';
-  } catch {
-    return 'failed';
-  }
-}
-
-async function sendAll(payload, config, fetchImpl, hostname, timeoutMs) {
-  const [g, netlify] = await Promise.all([
-    sendGas(payload, config, fetchImpl, timeoutMs),
-    sendNetlify(payload, config, fetchImpl, hostname),
-  ]);
-  return { gas: g.state, netlify, ...(g.state === 'final' ? { error: g.error } : {}) };
-}
-
-function anySent(r) {
-  return r.gas === 'sent' || r.netlify === 'sent';
+/** Sends to Apps Script only. -> { gas, error? } with gas one of 'sent' | 'final' | 'failed' | 'skipped'. */
+async function sendAll(payload, config, fetchImpl, timeoutMs) {
+  const g = await sendGas(payload, config, fetchImpl, timeoutMs);
+  return { gas: g.state, ...(g.state === 'final' ? { error: g.error } : {}) };
 }
 
 function allFailed(r) {
-  const used = [r.gas, r.netlify].filter((s) => s !== 'skipped');
-  return used.length > 0 && used.every((s) => s === 'failed');
+  return r.gas === 'failed';
 }
 
 function readList(key) {
@@ -197,15 +149,14 @@ function upsert(list, payload) {
   return list;
 }
 
-export async function submitResults(payload, { config, fetchImpl, hostname, timeoutMs } = {}) {
+export async function submitResults(payload, { config, fetchImpl, timeoutMs } = {}) {
   const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
-  const host = hostname ?? (typeof location !== 'undefined' ? location.hostname : '');
-  let result = { gas: 'failed', netlify: 'failed' };
+  let result = { gas: 'failed' };
   try {
     if (!doFetch) throw new Error('fetch unavailable');
-    result = await sendAll(payload, config, doFetch, host, timeoutMs);
+    result = await sendAll(payload, config, doFetch, timeoutMs);
   } catch {
-    result = { gas: config?.GAS_WEB_APP_URL ? 'failed' : 'skipped', netlify: 'failed' };
+    result = { gas: config?.GAS_WEB_APP_URL ? 'failed' : 'skipped' };
   }
   let queued = false;
   try {
@@ -227,18 +178,17 @@ export async function submitResults(payload, { config, fetchImpl, hostname, time
  * Resend everything in the outbox with the same submission_id. A success or a final error removes the item; anything
  * else stays queued. -> { sent, final: [{ submission_id, error }] }. Never throws.
  */
-export async function flushOutboxResult({ config, fetchImpl, hostname, timeoutMs } = {}) {
+export async function flushOutboxResult({ config, fetchImpl, timeoutMs } = {}) {
   const out = { sent: 0, final: [] };
   try {
     const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
     if (!doFetch) return out;
-    const host = hostname ?? (typeof location !== 'undefined' ? location.hostname : '');
     const pending = readList(OUTBOX_KEY);
     const done = new Set();
     for (const payload of pending) {
       try {
-        const r = await sendAll(payload, config, doFetch, host, timeoutMs);
-        if (anySent(r)) {
+        const r = await sendAll(payload, config, doFetch, timeoutMs);
+        if (r.gas === 'sent') {
           done.add(payload.submission_id);
           out.sent++;
         } else if (r.gas === 'final') {

@@ -1,5 +1,4 @@
 // V4-03 dropdown cloze: markers, validation, per-blank credit.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { splitMarkers, markerIdsOf, numberedText } = await import('../../js/lib/qtypes/dropdown.js');

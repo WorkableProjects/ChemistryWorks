@@ -3,7 +3,6 @@
 
 import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getRole, resolvedTheme, onThemeChange,
   prefersReducedMotion, getReduceMotionPref, setReduceMotion } from './lib/theme.js';
-import { feature } from './config.js';
 import { FONT_STEPS, FONT_LABELS, loadSettings, saveSettings, applySettings, applyStoredSettings } from './views/tools/settings.js';
 import { hasUnseenChangelog } from './lib/changelog.js';
 import { SITE_VERSION } from './version.js';
@@ -441,11 +440,10 @@ export function themeControl({ floating = false } = {}) {
   }));
   const roleNote = h('p', { class: 'theme-ctl__note' });
   // V4-05 student tools: font size (3 steps) + dyslexia-friendly spacing, saved on this device.
-  const toolsOn = feature('studentTools');
-  const fontBtns = toolsOn ? FONT_STEPS.map((f) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `font-${f}` },
-    on: { click: () => { applySettings(saveSettings({ ...loadSettings(), font: f })); sync(); } } }, FONT_LABELS[f])) : [];
-  const spacingBox = toolsOn ? h('input', { type: 'checkbox', dataset: { testid: 'dyslexia-spacing' }, 'aria-label': 'Dyslexia-friendly spacing',
-    on: { change: () => { applySettings(saveSettings({ ...loadSettings(), spacing: spacingBox.checked })); } } }) : null;
+  const fontBtns = FONT_STEPS.map((f) => h('button', { type: 'button', role: 'radio', class: 'theme-seg__btn', dataset: { testid: `font-${f}` },
+    on: { click: () => { applySettings(saveSettings({ ...loadSettings(), font: f })); sync(); } } }, FONT_LABELS[f]));
+  const spacingBox = h('input', { type: 'checkbox', dataset: { testid: 'dyslexia-spacing' }, 'aria-label': 'Dyslexia-friendly spacing',
+    on: { change: () => { applySettings(saveSettings({ ...loadSettings(), spacing: spacingBox.checked })); } } });
   const motionBox = h('input', { type: 'checkbox', dataset: { testid: 'reduce-motion' }, 'aria-label': 'Reduce motion',
     on: { change: () => setReduceMotion(motionBox.checked) } });
   const sync = () => {
@@ -453,11 +451,9 @@ export function themeControl({ floating = false } = {}) {
     motionBox.checked = getReduceMotionPref();
     const pref = getThemePref();
     segBtns.forEach((b, i) => b.setAttribute('aria-checked', String(THEMES[i] === pref)));
-    if (toolsOn) {
-      const st = loadSettings();
-      fontBtns.forEach((b, i) => b.setAttribute('aria-checked', String(FONT_STEPS[i] === st.font)));
-      spacingBox.checked = st.spacing;
-    }
+    const st = loadSettings();
+    fontBtns.forEach((b, i) => b.setAttribute('aria-checked', String(FONT_STEPS[i] === st.font)));
+    spacingBox.checked = st.spacing;
     const acc = getAccent();
     swatches.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.testid === `accent-${acc}`)));
     roleNote.textContent = getRole() === 'admin' ? 'Accent for the teacher panel. Students have their own.' : 'Accent for the student view. The teacher panel has its own.';
@@ -467,9 +463,9 @@ export function themeControl({ floating = false } = {}) {
     h('span', { class: 'theme-ctl__label' }, 'Theme'),
     h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Theme' }, segBtns),
     h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Reduce motion'), motionBox),
-    toolsOn ? h('span', { class: 'theme-ctl__label' }, 'Text size') : null,
-    toolsOn ? h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Text size' }, fontBtns) : null,
-    toolsOn ? h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Dyslexia-friendly spacing'), spacingBox) : null,
+    h('span', { class: 'theme-ctl__label' }, 'Text size'),
+    h('div', { class: 'theme-seg', role: 'radiogroup', 'aria-label': 'Text size' }, fontBtns),
+    h('label', { class: 'reduce-motion-row' }, h('span', {}, 'Dyslexia-friendly spacing'), spacingBox),
     h('span', { class: 'theme-ctl__label' }, 'Accent colour'),
     h('div', { class: 'theme-swatches', role: 'radiogroup', 'aria-label': 'Accent colour' }, swatches),
     roleNote,

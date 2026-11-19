@@ -1,4 +1,4 @@
-// Student home (V5-02, behind feature('studentHome')). Paints from local data at once, then updates when the server answers.
+// Student home. Paints from local data at once, then updates when the server answers.
 // Order: header band (avatar, greeting, level ring, code field) -> Up next -> In progress -> Results -> Practice (side column on wide screens).
 // Contract testids: home, home-header, home-code-input, home-code-submit, up-next, continue-btn, in-progress, in-progress-<CODE>,
 // remove-attempt-<CODE>, results-list, practice-shelf, sync-chip.
@@ -14,7 +14,7 @@ import { modeById as getGame } from '../../lib/modes/index.js';
 import { paintHubUpNext, reminderBanner } from './upnext.js';
 import { calendarStrip } from './calendar.js';
 import { bell } from '../notifications.js';
-import { feature } from '../../config.js';
+import { killed } from '../../config.js';
 import { networkBanner } from '../tools/banner.js';
 import { elementTile, symbolOf, levelRing, trendLine, badgeShelf, syncChip, resultRow, modeLabel } from './parts.js';
 
@@ -77,7 +77,7 @@ export function render(root, ctx, params = {}) {
       h('div', { class: 'home-header__code' }, form, err)),
     ringSlot);
 
-  const hubOn = feature('classHub');
+  const hubOn = !killed('classHub');
   const bellEl = hubOn ? bell(ctx, () => (profile && profile.hub) || null) : null;
   const upnext = h('div', { id: 'home-upnext', class: 'home-upnext-slot' });
   const inprog = h('div', { class: 'home-slot' });
@@ -91,7 +91,7 @@ export function render(root, ctx, params = {}) {
     hubOn ? bellEl : null, themeControl());
 
   // Offline / "a submission is waiting to be sent" banner, with Send now.
-  const banner = feature('studentTools') ? networkBanner({ config: ctx.config }) : null;
+  const banner = networkBanner({ config: ctx.config });
 
   const main = h('main', { class: 'home', dataset: { testid: 'home' } }, topbar, banner ? banner.el : null, header,
     h('div', { class: 'home-grid' },

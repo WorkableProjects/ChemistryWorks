@@ -9,7 +9,7 @@ before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
 const DEMO = JSON.parse(readFileSync(new URL('../../data/tests/DEMOV4A.json', import.meta.url), 'utf8'));
-const opts = { config: { FEATURES: { v4Types: true } } };
+const opts = {};
 const part = (page, id) => activeCard(page).locator(tid(`multipart-part-${id}`));
 
 async function open(s) {
@@ -61,8 +61,8 @@ test('every type answered correctly; hint costs a point; confidence is stored an
   assert.match(await page.locator(tid('review-item-q1')).textContent(), /Hydrogen gas is released/);
   assert.match(await page.locator(tid('review-item-q1')).textContent(), /\(a\) .*\(b\)/s);
   // payload carries hint + confidence on the response rows
-  await poll(() => s.netlify.length > 0 || s.gas.some((g) => g && g.responses_json), { message: 'submission payload' });
-  const body = s.netlify[0] || s.gas.find((g) => g && g.responses_json) || {};
+  await poll(() => s.gas.some((g) => g && g.responses_json), { message: 'submission payload' });
+  const body = s.gas.find((g) => g && g.responses_json) || {};
   const rows = JSON.parse(body.responses_json || (body.payload && body.payload.responses_json) || '[]');
   const r5 = rows.find((r) => r.questionId === 'q5');
   assert.equal(r5.confidence, 3);

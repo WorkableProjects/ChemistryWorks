@@ -6,7 +6,7 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-const PATH = '/?admin=true&features=adminShell';
+const PATH = '/?admin=true';
 const withKey = (s) => s.context.addInitScript(() => { try { sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')); } catch { /* ignore */ } });
 
 test('settings: Check setup shows ticks and hints from diag', () => withSession(env, {}, async (s) => {
@@ -23,7 +23,7 @@ test('settings: Check setup shows ticks and hints from diag', () => withSession(
     return null;
   };
   await withKey(s);
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   await page.locator(tid('tab-settings')).click();
   await page.locator(tid('checklist-show')).click();
   const ok = page.locator(tid('check-clientId'));

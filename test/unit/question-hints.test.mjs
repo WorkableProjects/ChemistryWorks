@@ -1,5 +1,4 @@
 // V4-03 per-question extras: confidence, point-costing hint, universal explanation.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { CONFIDENCE_LEVELS, confidenceLabel, validConfidence, hintButtonText, ptsText, confidenceStats } = await import('../../js/lib/extras.js');

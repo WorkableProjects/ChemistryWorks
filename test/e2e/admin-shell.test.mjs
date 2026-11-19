@@ -6,7 +6,7 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-const PATH = '/?admin=true&features=adminShell';
+const PATH = '/?admin=true';
 const NOW = Date.now();
 const iso = (msAgo) => new Date(NOW - msAgo).toISOString();
 
@@ -33,7 +33,7 @@ const withKey = (s) => s.context.addInitScript(() => { try { sessionStorage.setI
 test('lands on the dashboard with a greeting, sidebar navigation and aria-current', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
   backend(s); await withKey(s);
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   await page.locator(tid('dashboard')).waitFor();
   const greeting = (await page.locator(tid('dashboard-greeting')).textContent()).trim();
   assert.ok(greeting.length > 3 && !greeting.includes('{'), greeting);
@@ -62,7 +62,7 @@ test('lands on the dashboard with a greeting, sidebar navigation and aria-curren
 
 test('profile menu shows the account and the theme toggle', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   assert.equal(await page.locator(tid('admin-profile-menu')).isVisible(), false);
   await page.locator(tid('admin-profile')).click();
   await page.locator(tid('admin-profile-menu')).waitFor();
@@ -75,7 +75,7 @@ test('profile menu shows the account and the theme toggle', () => withSession(en
 test('the menu button collapses the sidebar and the choice is remembered', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
   await page.setViewportSize({ width: 1366, height: 800 });
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   assert.equal(await page.locator(tid('admin')).getAttribute('data-nav'), 'full');
   await page.locator(tid('admin-nav-toggle')).click();
   assert.equal(await page.locator(tid('admin')).getAttribute('data-nav'), 'rail');
@@ -94,7 +94,7 @@ test('the menu button collapses the sidebar and the choice is remembered', () =>
 
 test('phones: the sidebar is a drawer opened by the menu button', () => withSession(env, { viewport: { width: 390, height: 800 } }, async (s) => {
   const { page, url } = s;
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   const side = page.locator(tid('admin-sidebar'));
   assert.equal(await page.locator(tid('admin')).getAttribute('data-nav'), 'drawer');
   assert.equal(await side.evaluate((el) => el.inert), true);
@@ -109,7 +109,7 @@ test('phones: the sidebar is a drawer opened by the menu button', () => withSess
 
 test('library: search, filters and the card / table toggle', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   await page.locator(tid('tab-library')).click();
   await page.locator(tid('library-grid')).first().waitFor();
   assert.ok(await page.locator(tid('library-item-CHEM101')).count() >= 1);
@@ -131,7 +131,7 @@ test('library: search, filters and the card / table toggle', () => withSession(e
 
 test('builder: outline reorders by keyboard and by drag, and the student preview runs', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   await page.locator(tid('tab-builder')).click();
   await page.locator(tid('builder-outline')).waitFor();
   await page.locator(tid('test-code')).fill('SHELL1');
@@ -180,7 +180,7 @@ test('builder: outline reorders by keyboard and by drag, and the student preview
 test('grading split view: J/K move between students, digits set points, saved pop', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
   backend(s); await withKey(s);
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   await page.locator(tid('tab-grading')).click();
   await page.locator(tid('grading-row')).first().waitFor();
   await page.locator(tid('grading-row')).first().click();
@@ -209,7 +209,7 @@ test('grading split view: J/K move between students, digits set points, saved po
 test('no horizontal scroll at 360, 768 and 1366 px', () => withSession(env, {}, async (s) => {
   const { page, url } = s;
   backend(s); await withKey(s);
-  await unlockAdmin(page, url, { path: PATH });
+  await unlockAdmin(page, url, { path: PATH, dashboard: true });
   for (const width of [360, 768, 1366]) {
     await page.setViewportSize({ width, height: 800 });
     for (const tab of ['dashboard', 'library', 'builder', 'grading', 'settings']) {

@@ -1,6 +1,6 @@
 // Zero-dependency static server for local development and E2E tests.
 //   node scripts/serve.mjs [port]      (default 3000; PORT env also honored; 0 = random)
-// Mirrors netlify.toml: /test -> index.html. POST / returns 200 to simulate Netlify Forms.
+// /test and / serve index.html.
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -16,11 +16,6 @@ const TYPES = {
 export function createServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
-    if (req.method === 'POST') {
-      req.resume();
-      req.on('end', () => { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('ok'); });
-      return;
-    }
     let path = decodeURIComponent(url.pathname);
     if (path === '/' || path === '/test') path = '/index.html';
     const file = normalize(join(ROOT, path));

@@ -13,7 +13,7 @@
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
 
-import { CONFIG, feature } from './config.js';
+import { CONFIG, killed } from './config.js';
 import { clearStore } from './lib/store.js';
 import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
 import { whoAmI } from './lib/api.js';
@@ -52,9 +52,7 @@ const resolveView = (view) => loaded.get(view) || VIEWS[view];
 
 function setUrl(params) {
   const url = new URL(location.href);
-  const features = url.searchParams.get('features'); // keep ?features= (V4-08 flags) across navigation
   url.search = '';
-  if (features) url.searchParams.set('features', features);
   for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, v);
   if (url.pathname.endsWith('/test') && !params.code) url.pathname = url.pathname.replace(/test$/, '');
   history.replaceState(null, '', url);
@@ -164,11 +162,8 @@ async function openTest(code, opts = {}) {
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
     // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
-    if (feature('v5Attempt')) {
-      const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
-      if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
-      return navigate('runner', { test, source, cleared: true });
-    }
+    const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
+    if (!killed('gameModes') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
     navigate('runner', { test, source, cleared: true });
   } catch (err) {
     if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });
@@ -183,7 +178,7 @@ function openAdmin() {
 }
 
 async function runVersionCheck() {
-  if (!feature('adminAccounts') || !CONFIG.GAS_WEB_APP_URL) return; // behind the flag until the v4 backend is the norm
+  if (!CONFIG.GAS_WEB_APP_URL) return;
   const info = await checkBackendVersion({ gasUrl: CONFIG.GAS_WEB_APP_URL });
   if (!info.outdated) return;
   for (let i = 0; i < 40 && !(currentView === 'admin' && loaded.has('admin') && root.firstChild); i++) await new Promise((r) => setTimeout(r, 50));
@@ -259,8 +254,8 @@ function start() {
   if (params.get('admin') === 'true') return adminGate();
 
   if (code && getUser()) return openTest(code);
-  if (params.get('view') === 'profile' && getUser() && feature('studentHome')) return navigate('profile');
-  if (params.get('view') === 'class' && params.get('id') && getUser() && feature('classHub')) return navigate('class', { id: params.get('id') });
+  if (params.get('view') === 'profile' && getUser()) return navigate('profile');
+  if (params.get('view') === 'class' && params.get('id') && getUser() && !killed('classHub')) return navigate('class', { id: params.get('id') });
   navigate('landing', { code: code ? normalizeCode(code) : undefined });
 }
 

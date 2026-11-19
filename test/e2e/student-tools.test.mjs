@@ -6,7 +6,6 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-const ON = { FEATURES: { studentTools: true } };
 const TOOLS = { calculator: true, constants: true, scratchpad: true, highlighter: true, readAloud: true };
 const toolTest = (code, extra = {}) => adhocTest(code, {
   tools: TOOLS,
@@ -25,16 +24,7 @@ const calc = async (page, expr) => {
   await page.locator(tid('calc-equals')).click();
 };
 
-test('flag off: no tools appear even when the test asks for them', () => withSession(env, { config: { FEATURES: { studentTools: false } } }, async (s) => {
-  s.serveTest('TL0', toolTest('TL0'));
-  await startTest(s, 'TL0');
-  assert.equal(await s.page.locator(tid('reference-pane')).count(), 0);
-  assert.equal(await s.page.locator(tid('scratchpad')).count(), 0);
-  assert.equal(await s.page.locator(tid('flag-note-row')).count(), 0);
-  assert.equal(await s.page.locator(tid('read-aloud')).count(), 0);
-}));
-
-test('calculator and units/constants tabs', () => withSession(env, { config: ON }, async (s) => {
+test('calculator and units/constants tabs', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.serveTest('TL1', toolTest('TL1'));
   await startTest(s, 'TL1');
@@ -73,7 +63,7 @@ test('calculator and units/constants tabs', () => withSession(env, { config: ON 
   await waitText(page.locator(tid('conv-result')), /0\.25 L/);
 }));
 
-test('scratchpad: saved with progress, never submitted', () => withSession(env, { config: ON }, async (s) => {
+test('scratchpad: saved with progress, never submitted', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.serveTest('TL2', toolTest('TL2'));
   await startTest(s, 'TL2');
@@ -104,7 +94,7 @@ test('scratchpad: saved with progress, never submitted', () => withSession(env, 
   assert.ok(!JSON.stringify(sub).includes('strokes'));
 }));
 
-test('flag with a note goes into the payload', () => withSession(env, { config: ON }, async (s) => {
+test('flag with a note goes into the payload', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.serveTest('TL3', toolTest('TL3'));
   await startTest(s, 'TL3');
@@ -121,7 +111,7 @@ test('flag with a note goes into the payload', () => withSession(env, { config: 
   assert.deepEqual(sub.flags.questions, { q1: 'Is this H2O or D2O?' });
 }));
 
-test('strike-out and highlighter work from the keyboard-reachable toolbar', () => withSession(env, { config: ON }, async (s) => {
+test('strike-out and highlighter work from the keyboard-reachable toolbar', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.serveTest('TL4', toolTest('TL4'));
   await startTest(s, 'TL4');
@@ -151,7 +141,7 @@ test('strike-out and highlighter work from the keyboard-reachable toolbar', () =
   assert.equal(await card.locator('mark.tool-mark').count(), 0);
 }));
 
-test('read aloud speaks formulas sensibly', () => withSession(env, { config: ON }, async (s) => {
+test('read aloud speaks formulas sensibly', () => withSession(env, {}, async (s) => {
   const { page } = s;
   await page.context().addInitScript(() => {
     window.__spoken = [];
@@ -169,7 +159,7 @@ test('read aloud speaks formulas sensibly', () => withSession(env, { config: ON 
   assert.equal(await activeCard(page).locator(tid('read-aloud')).getAttribute('aria-pressed'), 'true');
 }));
 
-test('offline banner while taking a test; recovered when back online', () => withSession(env, { config: ON }, async (s) => {
+test('offline banner while taking a test; recovered when back online', () => withSession(env, {}, async (s) => {
   const { page, context } = s;
   s.serveTest('TL6', toolTest('TL6'));
   await startTest(s, 'TL6');
@@ -181,10 +171,9 @@ test('offline banner while taking a test; recovered when back online', () => wit
   await page.locator(tid('net-banner')).waitFor({ state: 'hidden' });
 }));
 
-test('a submission waiting in the outbox shows a banner on the landing page', () => withSession(env, { config: ON }, async (s) => {
+test('a submission waiting in the outbox shows a banner on the landing page', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.modes.gas = 'fail';
-  s.modes.netlify = 500;
   s.serveTest('TL7', toolTest('TL7'));
   await startTest(s, 'TL7');
   await activeCard(page).locator(tid('option-a')).click();
@@ -196,7 +185,7 @@ test('a submission waiting in the outbox shows a banner on the landing page', ()
   await page.locator(tid('net-send-now')).waitFor();
 }));
 
-test('text size and dyslexia spacing in the settings popover persist', () => withSession(env, { config: ON }, async (s) => {
+test('text size and dyslexia spacing in the settings popover persist', () => withSession(env, {}, async (s) => {
   const { page } = s;
   await page.goto(s.url + '/');
   await signIn(page);
@@ -214,7 +203,7 @@ test('text size and dyslexia spacing in the settings popover persist', () => wit
   assert.deepEqual(await attrs(), ['', '']);
 }));
 
-test('student home lists in-progress and submitted tests', () => withSession(env, { config: ON }, async (s) => {
+test('student home lists in-progress and submitted tests', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.serveTest('TL8', toolTest('TL8'));
   await startTest(s, 'TL8');
@@ -233,7 +222,7 @@ test('student home lists in-progress and submitted tests', () => withSession(env
   assert.match(await page.locator(`${tid('results-list')} li`).first().textContent(), /TL8/);
 }));
 
-test('released feedback offers Review my mistakes for game-mode tests only', () => withSession(env, { config: ON }, async (s) => {
+test('released feedback offers Review my mistakes for game-mode tests only', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.serveTest('TLA', toolTest('TLA', { gameMode: true }));
   s.serveTest('TLB', toolTest('TLB'));

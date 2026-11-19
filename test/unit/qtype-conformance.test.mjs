@@ -1,7 +1,6 @@
 // Conformance for every registered question type: its fixture is normalized, validated and graded, and the answer
 // reads back as text for results, CSV and the PDF export. The UI and editor loaders need a browser, so test/e2e covers
 // them; here only the unknown-type rejection runs.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';

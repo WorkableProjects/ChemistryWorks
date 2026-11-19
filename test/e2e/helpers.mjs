@@ -28,21 +28,20 @@ export async function startEnv() {
 
 /**
  * Create an isolated browser context + page with deterministic network.
- * Returns a session: { page, context, gas, netlify, errors, modes, onGas, serveTest(code, obj), close() }.
- *   gas / netlify   every captured POST (parsed), including ones answered with a failure
- *   modes           { gas: 'ok'|'fail', netlify: 200|500 } mutable at any time
+ * Returns a session: { page, context, gas, errors, modes, onGas, serveTest(code, obj), close() }.
+ *   gas             every captured Apps Script POST (parsed), including ones answered with a failure
+ *   modes           { gas: 'ok'|'fail' } mutable at any time
  */
 export async function newSession(env, { config = {}, viewport, acceptDownloads = true, gasDelayMs = 0 } = {}) {
   const context = await env.browser.newContext({ viewport: viewport || { width: 1280, height: 900 }, acceptDownloads });
   const gas = [];
   const statusCalls = [];
-  const netlify = [];
   const errors = [];
-  const modes = { gas: 'ok', netlify: 200 };
+  const modes = { gas: 'ok' };
   const overrides = new Map(); // pathname -> body object
 
   // Tests always use demo sign-in, whatever Google settings js/config.js has for the live site.
-  const cfg = { GAS_WEB_APP_URL: GAS_URL, NETLIFY_FORMS: true, GOOGLE_CLIENT_ID: '', ALLOW_DEMO_SIGNIN: true, ...config };
+  const cfg = { GAS_WEB_APP_URL: GAS_URL, GOOGLE_CLIENT_ID: '', ALLOW_DEMO_SIGNIN: true, ...config };
   await context.addInitScript((c) => { window.CHEMISTRYWORKS_CONFIG = c; }, cfg);
 
   const origin = new URL(env.url).origin;
@@ -50,11 +49,6 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
     const req = route.request();
     const u = new URL(req.url());
     if (u.origin === origin) {
-      if (req.method() === 'POST' && u.pathname === '/') {
-        const body = Object.fromEntries(new URLSearchParams(req.postData() || ''));
-        netlify.push(body);
-        return route.fulfill({ status: modes.netlify, contentType: 'text/plain', body: modes.netlify === 200 ? 'ok' : 'error' });
-      }
       if (req.method() === 'GET' && overrides.has(u.pathname)) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overrides.get(u.pathname)) });
       }
@@ -98,7 +92,7 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
   });
 
   const session = {
-    page, context, gas, netlify, errors, modes, statusCalls, url: env.url, gasDelayMs,
+    page, context, gas, errors, modes, statusCalls, url: env.url, gasDelayMs,
     onGas: null, // optional (body) => reply object for Apps Script POSTs (admin actions)
     serveTest(code, test) { overrides.set(`/data/tests/${code}.json`, test); },
     async close() {
@@ -246,8 +240,8 @@ export async function unlockAdmin(page, baseUrl, { path = '/?admin=true', dashbo
   // No Google client ID in tests, so the demo admin opens the panel directly.
   await page.goto(baseUrl + path);
   await page.locator(tid('admin')).waitFor();
-  // V4-01: the admin shell opens on the Dashboard; tests written for the classic panel start on the Library.
-  if (!/features=/.test(path) && !dashboard && await page.locator(tid('dashboard')).count()) {
+  // The admin shell opens on the Dashboard; tests that want the Library start there with dashboard: false.
+  if (!dashboard && await page.locator(tid('dashboard')).count()) {
     const phone = (await page.locator(tid('admin')).getAttribute('data-nav')) === 'drawer';
     if (phone) { // phone: open the drawer, wait for it to finish sliding in
       await page.locator(tid('admin-nav-toggle')).click();

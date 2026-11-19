@@ -277,12 +277,12 @@ export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchI
   }
 }
 // Public (student) actions: progressPing, getTest (POST, with idToken), submitGameScore, getLeaderboard, reportError.
-// `unavailable` is true when the deployed backend does not know the action yet (older Code.gs) or is unreachable.
+// `unavailable` is true when the deployed backend is unreachable.
 export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {}) {
   try {
     const d = await post(gasUrl, { action, ...payload }, fetchImpl);
     if (d && d.result === 'success') return { ok: true, data: d };
-    return { ok: false, error: (d && d.error) || 'unknown_error', data: d, unavailable: !!d && d.error === 'unknown_action' };
+    return { ok: false, error: (d && d.error) || 'unknown_error', data: d };
   } catch (e) {
     return { ok: false, error: msg(e), unavailable: true };
   }
