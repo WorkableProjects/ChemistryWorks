@@ -35,7 +35,8 @@ jobs:
       - run: npm ci
       - run: npm run validate:tests
       - run: npm run build:catalog
-      - name: Catalog is up to date
+      - run: npm run build:sw-list
+      - name: Catalog and service worker list are up to date
         run: git diff --exit-code
 
   e2e:
