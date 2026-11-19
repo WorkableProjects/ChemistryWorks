@@ -315,8 +315,8 @@ export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fet
 
 // ---------- v5 (B3): Class Hub ----------
 // Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
-export const saveAssignment = ({ gasUrl, adminKey, assignment, fetchImpl } = {}) => adminCall('saveAssignment', { assignment }, { gasUrl, adminKey, fetchImpl });
-export const deleteAssignment = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteAssignment', { id }, { gasUrl, adminKey, fetchImpl });
+export const saveAssignment = ({ gasUrl, adminKey, assignment, postToClassroom, fetchImpl } = {}) => adminCall('saveAssignment', { assignment, postToClassroom }, { gasUrl, adminKey, fetchImpl });
+export const deleteAssignment = ({ gasUrl, adminKey, id, deleteInClassroom, fetchImpl } = {}) => adminCall('deleteAssignment', { id, deleteInClassroom }, { gasUrl, adminKey, fetchImpl });
 export const listStream = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listStream', { classId }, { gasUrl, adminKey, fetchImpl });
 export const listAssignments = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listAssignments', { classId }, { gasUrl, adminKey, fetchImpl });
 // With `id` (and pinned / body) edits an existing post instead of creating one.
@@ -336,3 +336,16 @@ export const saveTag = ({ gasUrl, adminKey, tag, fetchImpl } = {}) => adminCall(
 export const deleteTag = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteTag', { id }, { gasUrl, adminKey, fetchImpl });
 // -> { ok, data: { into, rewrittenTests, rewrittenQuestions } }
 export const mergeTags = ({ gasUrl, adminKey, from, into, fetchImpl } = {}) => adminCall('mergeTags', { from, into }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- v6 (B4): Google Classroom ----------
+// All run as the deploying account; every reply carries `syncAccount`.
+// -> { ok, data: { courses: [{ id, name, section, room, courseState }], syncAccount } }
+export const listClassroomCourses = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listClassroomCourses', {}, { gasUrl, adminKey, fetchImpl });
+// courseId '' unlinks. -> { ok, data: { classId, classroomCourseId, courseName, syncAccount } }
+export const linkClassroomCourse = ({ gasUrl, adminKey, classId, courseId, fetchImpl } = {}) => adminCall('linkClassroomCourse', { classId, courseId }, { gasUrl, adminKey, fetchImpl });
+// mode: 'merge' (default) | 'replace'. -> { ok, data: { added, total, skippedNoEmail, syncAccount } }
+export const importClassroomRoster = ({ gasUrl, adminKey, classId, mode, fetchImpl } = {}) => adminCall('importClassroomRoster', { classId, mode }, { gasUrl, adminKey, fetchImpl });
+// -> { ok, data: { courseWorkId, courseWorkState, maxPoints, syncAccount, counts, rows: [{ email, name, points, possible, released, classroomDraft, classroomAssigned, lastSent, action, target }] } }
+export const previewGradeSync = ({ gasUrl, adminKey, assignmentId, fetchImpl } = {}) => adminCall('previewGradeSync', { assignmentId }, { gasUrl, adminKey, fetchImpl });
+// Call again with the returned `cursor` until `done`. -> { ok, data: { done, cursor, synced, failed, skipped, results: [{ email, status, error? }], syncAccount } }
+export const syncGrades = ({ gasUrl, adminKey, assignmentId, overwrite, emails, cursor, fetchImpl } = {}) => adminCall('syncGrades', { assignmentId, overwrite, emails, cursor }, { gasUrl, adminKey, fetchImpl });

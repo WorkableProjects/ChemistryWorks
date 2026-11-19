@@ -76,7 +76,7 @@ export function makeGas(initialProps = {}, { clock: startClock = Date.UTC(2026, 
     ScriptApp: {
       getProjectTriggers: () => g.triggers.slice(),
       deleteTrigger: (t) => { g.triggers = g.triggers.filter((x) => x !== t); },
-      newTrigger: (h) => { const t = { getHandlerFunction: () => h, spec: {} }; const b = { timeBased: () => b, everyDays: (n) => { t.spec.everyDays = n; return b; }, atHour: (n) => { t.spec.atHour = n; return b; }, create: () => { g.triggers.push(t); return t; } }; return b; },
+      newTrigger: (h) => { const t = { getHandlerFunction: () => h, spec: {} }; const b = { timeBased: () => b, everyDays: (n) => { t.spec.everyDays = n; return b; }, everyHours: (n) => { t.spec.everyHours = n; return b; }, atHour: (n) => { t.spec.atHour = n; return b; }, create: () => { g.triggers.push(t); return t; } }; return b; },
     },
     LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
     Utilities: {

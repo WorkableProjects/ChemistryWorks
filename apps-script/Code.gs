@@ -152,6 +152,11 @@ function doPost(e) {
       case 'saveTag':
       case 'deleteTag':
       case 'mergeTags':
+      case 'listClassroomCourses':
+      case 'linkClassroomCourse':
+      case 'importClassroomRoster':
+      case 'previewGradeSync':
+      case 'syncGrades':
       case 'batch':
         return json_(handleAdmin_(body));
       case 'getTest':
@@ -210,7 +215,7 @@ function setupChecklist_() {
   add('owner', 'Admins sheet has an owner', owner, 'Add a row to the Admins sheet (Email, Role = owner) and run setup again.');
   var have = {};
   try { ScriptApp.getProjectTriggers().forEach(function (t) { have[t.getHandlerFunction()] = true; }); } catch (e) { have = {}; }
-  add('triggers', 'Daily cleanup trigger is installed', triggerList_().every(function (t) { return have[t.handler]; }),
+  add('triggers', 'Background triggers are installed (daily cleanup, hourly Classroom publishing)', triggerList_().every(function (t) { return have[t.handler]; }),
     'Run setup() or setupTriggers() from the editor.');
   if (typeof Classroom !== 'undefined') {
     var granted = false;
@@ -716,7 +721,7 @@ var LOGGED_ACTIONS_ = { publishTest: 1, deleteTest: 1, saveGrade: 1, releaseAll:
   saveClass: 1, deleteClass: 1, saveBankItem: 1, deleteBankItem: 1, saveAccommodation: 1, deleteAccommodation: 1, extendWindow: 1,
   applyRegrade: 1, clearLeaderboard: 1, hideLeaderboardEntry: 1, saveSettings: 1,
   saveAssignment: 1, deleteAssignment: 1, postStream: 1, deleteStreamPost: 1, remindMissing: 1,
-  saveTag: 1, deleteTag: 1, mergeTags: 1 };
+  saveTag: 1, deleteTag: 1, mergeTags: 1, linkClassroomCourse: 1, importClassroomRoster: 1 };
 
 function logTarget_(body) {
   switch (body.action) {
@@ -744,6 +749,8 @@ function logTarget_(body) {
     case 'saveTag': return String((body.tag && body.tag.id) || '');
     case 'deleteTag': return String(body.id || '');
     case 'mergeTags': return String(body.from || '') + ' > ' + String(body.into || '');
+    case 'linkClassroomCourse':
+    case 'importClassroomRoster': return String(body.classId || '');
   }
   return '';
 }
@@ -755,6 +762,8 @@ function logDetails_(body, res) {
     case 'allowRetake': return body.allow === false ? 'revoked' : 'allowed';
     case 'saveAdmin': return 'role ' + (res.role || '');
     case 'saveGrade': return body.release === true ? 'released' : '';
+    case 'linkClassroomCourse': return body.courseId ? 'linked ' + String(body.courseId) : 'unlinked';
+    case 'importClassroomRoster': return 'added ' + num_(res.added) + ' of ' + num_(res.total);
   }
   return '';
 }
@@ -787,9 +796,9 @@ function dispatchAdminRaw_(body, auth) {
     case 'saveGrade':
       // "Graded by": a Google admin who sent no name is recorded by email.
       if (auth.via === 'google' && !String(body.gradedBy == null ? '' : body.gradedBy).trim()) body.gradedBy = auth.email;
-      return saveGrade_(body);
+      return autoSyncSavedGrade_(body, saveGrade_(body), auth);
     case 'getSubmissionCounts': return getSubmissionCounts_();
-    case 'releaseAll': return releaseAll_(body.testCode);
+    case 'releaseAll': return autoSyncReleased_(body.testCode, releaseAll_(body.testCode), auth);
     case 'allowRetake': return allowRetake_(body);
     case 'whoami': return whoami_(auth);
     case 'listAdmins': return listAdmins_();
@@ -828,6 +837,11 @@ function dispatchAdminRaw_(body, auth) {
     case 'saveTag': return saveTag_(body, auth);
     case 'deleteTag': return deleteTag_(body, auth);
     case 'mergeTags': return mergeTags_(body, auth);
+    case 'listClassroomCourses': return listClassroomCourses_();
+    case 'linkClassroomCourse': return linkClassroomCourse_(body);
+    case 'importClassroomRoster': return importClassroomRoster_(body, auth);
+    case 'previewGradeSync': return previewGradeSync_(body);
+    case 'syncGrades': return syncGrades_(body, auth);
   }
   return { result: 'error', error: 'unknown_action' };
 }
@@ -1363,6 +1377,7 @@ function bustFor_(body) {
     case 'deleteClass': return bust_('classes:list', 'roster:' + String(body.id || ''));
     case 'saveSettings': return bust_('settings');
     case 'saveAssignment': case 'deleteAssignment': return bust_('assignments:list');
+    case 'linkClassroomCourse': case 'importClassroomRoster': return bust_('classes:list', 'roster:' + String(body.classId || ''));
   }
 }
 // The changed row for a write: a test summary, or the submission row. Additive; old fields stay.
@@ -1753,7 +1768,7 @@ function releaseAll_(testCode) {
     }
     if (n) relRange.setValues(rel);
     var emailed = n ? sendReleaseEmails_(mail) : 0;
-    return { result: 'success', released: n, emailed: emailed };
+    return { result: 'success', released: n, emailed: emailed, _emails: mail.map(function (m) { return m.email; }) };
   });
 }
 
@@ -1778,7 +1793,7 @@ function allowRetake_(body) {
 // ===========================================================================
 
 var CLASSES_SHEET = 'Classes';
-var CLASS_HEADERS = ['ID', 'Name', 'Period', 'Emails (JSON)', 'Updated By', 'Updated At'];
+var CLASS_HEADERS = ['ID', 'Name', 'Period', 'Emails (JSON)', 'Updated By', 'Updated At', 'classroomCourseId', 'autoSyncClassroom'];
 var BANK_SHEET = 'Bank';
 var BANK_HEADERS = ['ID', 'Question (JSON)', 'Tags (JSON)', 'Added By', 'Added At', 'Edited By', 'Edited At'];
 var ACC_SHEET = 'Accommodations';
@@ -1831,7 +1846,8 @@ function classesCached_() {
   return cached_('classes:list', CACHE_TTL, function () {
     var r = sheetRows_(CLASSES_SHEET, CLASS_HEADERS);
     return r.values.filter(function (v) { return String(v[0]); }).map(function (v) {
-      return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]) };
+      return { id: String(v[0]), name: String(v[1]), period: String(v[2]), emails: parseJson_(v[3], []) || [], updated_by: String(v[4]), updated_at: iso_(v[5]),
+        classroomCourseId: String(v[6] || ''), autoSyncClassroom: boolCell_(v[7]) };
     });
   });
 }
@@ -1855,7 +1871,8 @@ function saveClass_(body, auth) {
     var sheet = getSheet_(CLASSES_SHEET, CLASS_HEADERS);
     var row = findRow_(sheet, 1, id);
     var vals = [id, text_(name), text_(String(c.period || '').slice(0, 40)), json, text_(actorOf_(auth)), new Date()];
-    if (row) sheet.getRange(row, 1, 1, vals.length).setValues([vals]); else sheet.appendRow(vals);
+    if (row) sheet.getRange(row, 1, 1, vals.length).setValues([vals]); else { sheet.appendRow(vals); row = sheet.getLastRow(); }
+    if (c.autoSyncClassroom !== undefined) sheet.getRange(row, CLASS_HEADERS.indexOf('autoSyncClassroom') + 1).setValue(c.autoSyncClassroom === true);
     var cls = { id: id, name: name, period: String(c.period || ''), emails: emails };
     return { result: 'success', cls: cls, row: cls };
   });
@@ -2657,7 +2674,7 @@ function batch_(body, auth) {
 // ===========================================================================
 
 var ASSIGNMENTS_SHEET = 'Assignments';
-var ASSIGNMENT_HEADERS = ['id', 'classId', 'testCode', 'title', 'instructions', 'opensAt', 'dueAt', 'lateAllowed', 'required', 'modesJson', 'publishAt', 'createdBy', 'createdAt'];
+var ASSIGNMENT_HEADERS = ['id', 'classId', 'testCode', 'title', 'instructions', 'opensAt', 'dueAt', 'lateAllowed', 'required', 'modesJson', 'publishAt', 'createdBy', 'createdAt', 'classroomCourseWorkId'];
 var STREAM_SHEET = 'Stream';
 var STREAM_ARCHIVE_SHEET = 'Stream_archive';
 var STREAM_HEADERS = ['id', 'classId', 'type', 'body', 'pinned', 'createdBy', 'createdAt'];
@@ -2744,7 +2761,8 @@ function assignmentRow_(v) {
   return {
     id: String(v[0]), classId: String(v[1]), testCode: normalizeCode_(v[2]), title: String(v[3] || ''), instructions: String(v[4] || ''),
     opensAt: iso_(v[5]), dueAt: iso_(v[6]), lateAllowed: v[7] === '' ? true : boolCell_(v[7]), required: boolCell_(v[8]),
-    modes: parseJson_(v[9], []) || [], publishAt: iso_(v[10]), createdBy: String(v[11] || ''), createdAt: iso_(v[12])
+    modes: parseJson_(v[9], []) || [], publishAt: iso_(v[10]), createdBy: String(v[11] || ''), createdAt: iso_(v[12]),
+    classroomCourseWorkId: String(v[13] || '')
   };
 }
 // All assignments (cached 120 s, busted by saveAssignment / deleteAssignment). Not personal data.
@@ -2816,12 +2834,14 @@ function saveAssignment_(body, auth) {
   var row = assignmentRow_(ASSIGNMENT_HEADERS.map(function (h) { return stored[h]; }));
   var out = { result: 'success', assignment: row };
   if (!existing) out.post = appendStream_(classId, 'assignment', title, false, by, { assignmentId: id, testCode: code });
+  if (body.postToClassroom === true || a.postToClassroom === true) postAssignmentToClassroom_(out);
   return out;
 }
 
 function deleteAssignment_(body) {
   var id = String(body.id || '').trim();
   if (!id) return { result: 'error', error: 'invalid_request' };
+  var classroom = body.deleteInClassroom === true ? deleteClassroomWork_(id) : { deleted: false };
   return withLock_(function () {
     var sheet = getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS);
     var vals = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
@@ -2836,7 +2856,9 @@ function deleteAssignment_(body) {
       var p = streamRow_(rows[j]);
       if (p.type !== 'post' && p.refId === id) ss.deleteRow(j + 2);
     }
-    return { result: 'success', id: id, deleted: true };
+    var res = { result: 'success', id: id, deleted: true, classroomDeleted: classroom.deleted };
+    if (classroom.error) res.classroomError = classroom.error;
+    return res;
   });
 }
 
@@ -3072,7 +3094,10 @@ function assignmentGate_(email, testCode, acc, now) {
 
 // Every time-driven trigger the backend owns. setupTriggers() replaces them by handler name.
 function triggerList_() {
-  return [{ handler: 'pruneSheets', schedule: { everyDays: 1, atHour: 3 } }];
+  return [
+    { handler: 'pruneSheets', schedule: { everyDays: 1, atHour: 3 } },
+    { handler: 'publishDueClassroomWork', schedule: { everyHours: 1 } }
+  ];
 }
 function setupTriggers() {
   var list = triggerList_();
@@ -3082,7 +3107,10 @@ function setupTriggers() {
     if (names[t.getHandlerFunction()]) ScriptApp.deleteTrigger(t);
   });
   list.forEach(function (t) {
-    ScriptApp.newTrigger(t.handler).timeBased().everyDays(t.schedule.everyDays).atHour(t.schedule.atHour).create();
+    var b = ScriptApp.newTrigger(t.handler).timeBased();
+    if (t.schedule.everyHours) b.everyHours(t.schedule.everyHours);
+    else b.everyDays(t.schedule.everyDays).atHour(t.schedule.atHour);
+    b.create();
   });
   return list.map(function (t) { return t.handler; });
 }
@@ -3182,4 +3210,478 @@ function removeDiagRows_(email) {
       rowIndexStore_('rowidx:' + p[0] + ':' + p[2], {});
     });
   });
+}
+
+
+// ===========================================================================
+// Google Classroom (advanced service `Classroom` v1, runs as the deploying account).
+// ===========================================================================
+
+var CLASSROOM_SYNC_SHEET = 'ClassroomSync';
+var CLASSROOM_SYNC_HEADERS = ['assignmentId', 'email', 'courseWorkId', 'submissionId', 'sentGrade', 'sentAt', 'status', 'error'];
+var CLASSROOM_BUDGET_MS = 25000;
+var CLASSROOM_PATCH_GAP_MS = 100;
+var CLASSROOM_PAGE_LIMIT = 200;
+var CLASSROOM_PUBLISH_WINDOW_MS = 3 * 24 * 3600 * 1000;
+
+function classroomOn_() { return typeof Classroom !== 'undefined' && !!Classroom; }
+function syncAccount_() {
+  try { return String(Session.getEffectiveUser().getEmail() || ''); } catch (e) { return ''; }
+}
+function sleep_(ms) {
+  try { if (typeof Utilities.sleep === 'function') Utilities.sleep(ms); } catch (e) { /* no sleep available */ }
+}
+
+// A thrown Classroom error -> { error, detail, notFound }.
+function classroomError_(e) {
+  var msg = String((e && e.message) || e || '').replace(/\s+/g, ' ');
+  var code = num_(e && (e.code || (e.details && e.details.code)), 0);
+  var error = 'classroom_error';
+  if (/ProjectPermissionDenied/i.test(msg)) error = 'classroom_not_our_coursework';
+  else if (code === 403 || /\b403\b|PERMISSION_DENIED|does not have permission|forbidden/i.test(msg)) error = 'classroom_not_teacher';
+  else if (code === 429 || /\b429\b|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) error = 'classroom_rate_limited';
+  return { error: error, detail: msg.slice(0, 200), notFound: code === 404 || /\b404\b|not found/i.test(msg) };
+}
+// Runs a Classroom call -> { ok: true, value } | { ok: false, err }.
+function classroomGuard_(fn) {
+  try { return { ok: true, value: fn() }; } catch (e) { return { ok: false, err: classroomError_(e) }; }
+}
+function classroomFail_(err) {
+  var out = { result: 'error', error: err.error };
+  if (err.error === 'classroom_error' && err.detail) out.detail = err.detail;
+  return out;
+}
+function classroomUnavailable_() {
+  return { result: 'error', error: 'classroom_error', detail: 'The Classroom service is not enabled for this script.' };
+}
+// All pages of a list call. `call(optionalArgs)` -> response; `key` names the array in the response.
+function classroomPages_(call, key) {
+  var out = [];
+  var token = '';
+  for (var guard = 0; guard < CLASSROOM_PAGE_LIMIT; guard++) {
+    var r = call(token ? { pageToken: token } : {}) || {};
+    (r[key] || []).forEach(function (x) { out.push(x); });
+    token = r.nextPageToken || '';
+    if (!token) break;
+  }
+  return out;
+}
+function classroomCourses_() {
+  return classroomPages_(function (opt) {
+    opt.teacherId = 'me';
+    opt.courseStates = ['ACTIVE'];
+    return Classroom.Courses.list(opt);
+  }, 'courses');
+}
+function classroomStudents_(courseId) {
+  return classroomPages_(function (opt) { return Classroom.Courses.Students.list(courseId, opt); }, 'students');
+}
+function classOfId_(id) {
+  return classesCached_().filter(function (c) { return c.id === id; })[0] || null;
+}
+function setClassCols_(classId, patch) {
+  return withLock_(function () {
+    var sheet = getSheet_(CLASSES_SHEET, CLASS_HEADERS);
+    var row = findRow_(sheet, 1, classId);
+    if (!row) return false;
+    var head = headerOf_(sheet);
+    for (var k in patch) {
+      if (!Object.prototype.hasOwnProperty.call(patch, k)) continue;
+      var col = head.indexOf(k);
+      if (col >= 0) sheet.getRange(row, col + 1).setValue(typeof patch[k] === 'string' ? text_(patch[k]) : patch[k]);
+    }
+    return true;
+  });
+}
+
+// ---------- courses and roster ----------
+function listClassroomCourses_() {
+  if (!classroomOn_()) return classroomUnavailable_();
+  var g = classroomGuard_(classroomCourses_);
+  if (!g.ok) return classroomFail_(g.err);
+  var courses = g.value.map(function (c) {
+    return { id: String(c.id), name: String(c.name || ''), section: String(c.section || ''), room: String(c.room || ''), courseState: String(c.courseState || '') };
+  });
+  return { result: 'success', courses: courses, syncAccount: syncAccount_() };
+}
+
+function linkClassroomCourse_(body) {
+  var classId = String((body && body.classId) || '').trim();
+  var courseId = String((body && body.courseId) == null ? '' : body.courseId).trim();
+  if (!classId) return { result: 'error', error: 'invalid_request' };
+  if (!classOfId_(classId)) return { result: 'error', error: 'not_found' };
+  if (!courseId) {
+    setClassCols_(classId, { classroomCourseId: '' });
+    return { result: 'success', classId: classId, classroomCourseId: '', courseName: '', syncAccount: syncAccount_() };
+  }
+  if (!classroomOn_()) return classroomUnavailable_();
+  var g = classroomGuard_(classroomCourses_);
+  if (!g.ok) return classroomFail_(g.err);
+  var course = g.value.filter(function (c) { return String(c.id) === courseId; })[0];
+  if (!course) return { result: 'error', error: 'classroom_course_not_found' };
+  setClassCols_(classId, { classroomCourseId: courseId });
+  return { result: 'success', classId: classId, classroomCourseId: courseId, courseName: String(course.name || ''), syncAccount: syncAccount_() };
+}
+
+function importClassroomRoster_(body, auth) {
+  var classId = String((body && body.classId) || '').trim();
+  if (!classId) return { result: 'error', error: 'invalid_request' };
+  var cls = classOfId_(classId);
+  if (!cls) return { result: 'error', error: 'not_found' };
+  if (!cls.classroomCourseId) return { result: 'error', error: 'classroom_not_linked' };
+  if (!classroomOn_()) return classroomUnavailable_();
+  var g = classroomGuard_(function () { return classroomStudents_(cls.classroomCourseId); });
+  if (!g.ok) {
+    if (g.err.notFound) return { result: 'error', error: 'classroom_course_not_found' };
+    return classroomFail_(g.err);
+  }
+  var skipped = 0;
+  var found = [];
+  g.value.forEach(function (st) {
+    var email = normEmail_(st && st.profile && st.profile.emailAddress);
+    if (email && EMAIL_RE.test(email)) found.push(email); else skipped++;
+  });
+  var imported = cleanEmails_(found);
+  var before = cls.emails || [];
+  var roster = body.mode === 'replace' ? imported : cleanEmails_(before.concat(imported));
+  var added = imported.filter(function (e) { return before.indexOf(e) < 0; }).length;
+  var json = JSON.stringify(roster);
+  if (json.length > MAX_CELL_CHARS) return { result: 'error', error: 'class_too_large' };
+  setClassCols_(classId, { 'Emails (JSON)': json, 'Updated By': actorOf_(auth), 'Updated At': new Date() });
+  return { result: 'success', added: added, total: roster.length, skippedNoEmail: skipped, syncAccount: syncAccount_() };
+}
+
+// ---------- coursework ----------
+function testPoints_(test) {
+  var qs = test && Array.isArray(test.questions) ? test.questions : [];
+  var points = 0;
+  qs.forEach(function (q) { var p = q && q.points !== undefined && q.points !== null ? parseFloat(q.points) : 1; points += isFinite(p) ? p : 0; });
+  return round2_(points);
+}
+function assignmentFresh_(id) {
+  return sheetRows_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS).values.filter(function (v) { return String(v[0]) === String(id); }).map(assignmentRow_)[0] || null;
+}
+function testLink_(code) {
+  var site = String(PropertiesService.getScriptProperties().getProperty('SITE_URL') || '');
+  return site ? site + (site.indexOf('?') < 0 ? '?' : '&') + 'code=' + encodeURIComponent(code) : '';
+}
+
+// Creates (or updates) the Classroom assignment for a saved assignment. Failures go on `out`; the assignment stays saved.
+function postAssignmentToClassroom_(out) {
+  var a = out.assignment;
+  var fail = function (err) {
+    out.classroomError = err.error;
+    if (err.error === 'classroom_error' && err.detail) out.classroomDetail = err.detail;
+  };
+  if (!classroomOn_()) return fail({ error: 'classroom_error', detail: 'The Classroom service is not enabled for this script.' });
+  var cls = classOfId_(a.classId);
+  if (!cls || !cls.classroomCourseId) return fail({ error: 'classroom_not_linked' });
+  var tz = scriptTz_();
+  var link = testLink_(a.testCode);
+  var resource = {
+    title: a.title,
+    description: [a.instructions, link ? 'Test link: ' + link : ''].filter(function (x) { return x; }).join('\n\n'),
+    maxPoints: testPoints_(publishedTest_(a.testCode)) || 100,
+    workType: 'ASSIGNMENT'
+  };
+  var dueMs = parseWhen_(a.dueAt, tz);
+  if (dueMs !== null) {
+    var d = new Date(dueMs);
+    resource.dueDate = { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+    resource.dueTime = { hours: d.getUTCHours(), minutes: d.getUTCMinutes() };
+  }
+  var pubMs = parseWhen_(a.publishAt, tz);
+  var wantState = pubMs !== null && pubMs > Date.now() ? 'DRAFT' : 'PUBLISHED';
+  var courseId = cls.classroomCourseId;
+  var g = null;
+  if (a.classroomCourseWorkId) {
+    var mask = ['title', 'description', 'maxPoints'];
+    if (resource.dueDate) mask.push('dueDate', 'dueTime');
+    var patch = {};
+    mask.forEach(function (k) { patch[k] = resource[k]; });
+    if (wantState === 'PUBLISHED') { patch.state = 'PUBLISHED'; mask.push('state'); }
+    g = classroomGuard_(function () { return Classroom.Courses.CourseWork.patch(patch, courseId, a.classroomCourseWorkId, { updateMask: mask.join(',') }); });
+    if (!g.ok && !g.err.notFound) return fail(g.err);
+  }
+  if (!g || !g.ok) {
+    resource.state = wantState;
+    if (link) resource.materials = [{ link: { url: link, title: a.title } }];
+    g = classroomGuard_(function () { return Classroom.Courses.CourseWork.create(resource, courseId); });
+    if (!g.ok) return fail(g.err);
+  }
+  var cw = g.value || {};
+  var cwId = String(cw.id || a.classroomCourseWorkId || '');
+  upsertByKey_(getSheet_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS), ['id'], { id: a.id, classroomCourseWorkId: cwId });
+  out.assignment.classroomCourseWorkId = cwId;
+  out.classroomState = String(cw.state || wantState);
+  out.syncAccount = syncAccount_();
+}
+
+// -> { deleted, error? }. Used by deleteAssignment when deleteInClassroom is true.
+function deleteClassroomWork_(assignmentId) {
+  var a = assignmentFresh_(assignmentId);
+  if (!a || !a.classroomCourseWorkId) return { deleted: false };
+  var cls = classOfId_(a.classId);
+  if (!cls || !cls.classroomCourseId) return { deleted: false, error: 'classroom_not_linked' };
+  if (!classroomOn_()) return { deleted: false, error: 'classroom_error' };
+  var g = classroomGuard_(function () { return Classroom.Courses.CourseWork.remove(cls.classroomCourseId, a.classroomCourseWorkId); });
+  if (g.ok) return { deleted: true };
+  return g.err.notFound ? { deleted: false } : { deleted: false, error: g.err.error };
+}
+
+// Time-driven trigger (hourly). Publishes Classroom drafts whose publishAt has passed.
+// Public so a trigger can call it (Apps Script cannot trigger functions ending in an underscore).
+function publishDueClassroomWork() {
+  resetRequest_();
+  var out = { published: 0, failed: 0 };
+  if (!classroomOn_()) return out;
+  var tz = scriptTz_();
+  var now = Date.now();
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); } catch (e) { cache = null; }
+  sheetRows_(ASSIGNMENTS_SHEET, ASSIGNMENT_HEADERS).values.filter(function (v) { return String(v[0]); }).map(assignmentRow_).forEach(function (a) {
+    if (!a.classroomCourseWorkId || !a.publishAt) return;
+    var due = parseWhen_(a.publishAt, tz);
+    if (due === null || due > now || now - due > CLASSROOM_PUBLISH_WINDOW_MS) return;
+    var flag = 'cwpub:' + a.classroomCourseWorkId;
+    try { if (cache && cache.get(flag)) return; } catch (e) { /* no cache */ }
+    var cls = classOfId_(a.classId);
+    if (!cls || !cls.classroomCourseId) return;
+    var cur = classroomGuard_(function () { return Classroom.Courses.CourseWork.get(cls.classroomCourseId, a.classroomCourseWorkId); });
+    if (cur.ok && cur.value && cur.value.state === 'DRAFT') {
+      var pub = classroomGuard_(function () { return Classroom.Courses.CourseWork.patch({ state: 'PUBLISHED' }, cls.classroomCourseId, a.classroomCourseWorkId, { updateMask: 'state' }); });
+      if (pub.ok) out.published++; else { out.failed++; return; }
+    } else if (!cur.ok) { out.failed++; return; }
+    try { if (cache) cache.put(flag, '1', 21600); } catch (e2) { /* no cache */ }
+  });
+  return out;
+}
+
+// ---------- grade sync ----------
+function gradeNum_(v) {
+  return v === undefined || v === null || v === '' || !isFinite(parseFloat(v)) ? null : parseFloat(v);
+}
+function gradeEq_(a, b) { return a !== null && b !== null && Math.abs(a - b) < 0.005; }
+
+// Counted submission per student for one test -> { email: { fraction | null (still to grade), released } }.
+function classroomLocalGrades_(testCode) {
+  var rows = readCols_(getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS),
+    ['Timestamp', 'Student Email', 'Test Code', 'Status', 'Score Achieved', 'Total Score', 'Percentage (%)', 'Final Score', 'Final Percentage (%)', 'Released At']);
+  var out = {};
+  var at = {};
+  rows.forEach(function (r) {
+    if (normalizeCode_(r['Test Code']) !== testCode) return;
+    var st = String(r.Status || '');
+    if (st === STATUS_EXTRA || st === STATUS_CLOSED || st === STATUS_NOT_ROSTER) return;
+    var e = normEmail_(r['Student Email']);
+    var when = parseWhen_(iso_(r.Timestamp)) || 0;
+    if (out[e] && at[e] > when) return;
+    at[e] = when;
+    var total = num_(r['Total Score']);
+    var earned = r['Final Score'] === '' || r['Final Score'] === null ? num_(r['Score Achieved']) : num_(r['Final Score']);
+    var pct = r['Final Percentage (%)'] === '' || r['Final Percentage (%)'] === null ? num_(r['Percentage (%)']) : num_(r['Final Percentage (%)']);
+    var fraction = st === STATUS_NEEDS_GRADING ? null : Math.max(0, Math.min(1, total > 0 ? earned / total : pct / 100));
+    out[e] = { fraction: fraction, released: !!r['Released At'] };
+  });
+  return out;
+}
+
+function classroomSyncRows_(assignmentId) {
+  var out = {};
+  sheetRows_(CLASSROOM_SYNC_SHEET, CLASSROOM_SYNC_HEADERS).values.forEach(function (v) {
+    if (String(v[0]) !== String(assignmentId)) return;
+    out[normEmail_(v[1])] = { submissionId: String(v[3] || ''), sentGrade: gradeNum_(v[4]), sentAt: iso_(v[5]), status: String(v[6] || ''), error: String(v[7] || '') };
+  });
+  return out;
+}
+
+// new | update | same | skipped_teacher_changed. Both grade fields we would write must be empty or hold what we last sent.
+function gradeAction_(grade, target, curDraft, curAssigned, sync) {
+  var sent = sync ? sync.sentGrade : null;
+  if (sync && sync.status === 'assigned' && target === 'draft' && gradeEq_(curAssigned, sent)) return 'same';
+  var fields = target === 'assigned' ? [curDraft, curAssigned] : [curDraft];
+  if (fields.every(function (v) { return gradeEq_(v, grade); })) return 'same';
+  var ours = function (v) { return v === null || (sent !== null && gradeEq_(v, sent)); };
+  if (!fields.every(ours)) return 'skipped_teacher_changed';
+  return fields.every(function (v) { return v === null; }) ? 'new' : 'update';
+}
+
+// -> { error } | { courseId, courseWorkId, maxPoints, courseWorkState, rows } ; rows follow the class roster order.
+function gradeSyncPlan_(a) {
+  if (!classroomOn_()) return { error: classroomUnavailable_() };
+  var cls = classOfId_(a.classId);
+  if (!cls || !cls.classroomCourseId || !a.classroomCourseWorkId) return { error: { result: 'error', error: 'classroom_not_linked' } };
+  var courseId = cls.classroomCourseId;
+  var cwId = a.classroomCourseWorkId;
+  var fail = function (g) { return { error: g.err.notFound ? { result: 'error', error: 'classroom_not_linked' } : classroomFail_(g.err) }; };
+  var cwGet = classroomGuard_(function () { return Classroom.Courses.CourseWork.get(courseId, cwId); });
+  if (!cwGet.ok) return fail(cwGet);
+  var maxPoints = gradeNum_(cwGet.value && cwGet.value.maxPoints);
+  if (maxPoints === null) maxPoints = testPoints_(publishedTest_(a.testCode)) || 100;
+  var sg = classroomGuard_(function () { return classroomStudents_(courseId); });
+  if (!sg.ok) return fail(sg);
+  var subg = classroomGuard_(function () {
+    return classroomPages_(function (opt) { return Classroom.Courses.CourseWork.StudentSubmissions.list(courseId, cwId, opt); }, 'studentSubmissions');
+  });
+  if (!subg.ok) return fail(subg);
+  var byEmail = {};
+  sg.value.forEach(function (st) {
+    var email = normEmail_(st && st.profile && st.profile.emailAddress);
+    if (email) byEmail[email] = { userId: String(st.userId || ''), name: String((st.profile.name && st.profile.name.fullName) || '') };
+  });
+  var byUser = {};
+  subg.value.forEach(function (s) { byUser[String(s.userId)] = s; });
+  var local = classroomLocalGrades_(a.testCode);
+  var syncs = classroomSyncRows_(a.id);
+  var names = {};
+  readCols_(getSheet_(STUDENTS_SHEET, STUDENT_HEADERS), ['email', 'name']).forEach(function (r) { names[normEmail_(r.email)] = String(r.name || ''); });
+  var rows = (cls.emails || []).map(function (email) {
+    var st = byEmail[email];
+    var sub = st ? byUser[st.userId] : null;
+    var row = { email: email, name: names[email] || (st && st.name) || '', points: null, possible: maxPoints, released: false,
+      classroomDraft: null, classroomAssigned: null, lastSent: null, action: '', target: '', submissionId: '' };
+    var sync = syncs[email] || null;
+    if (sync) row.lastSent = sync.sentGrade;
+    if (!st || !sub) { row.action = 'skipped_not_on_roster'; return row; }
+    row.submissionId = String(sub.id || '');
+    row.classroomDraft = gradeNum_(sub.draftGrade);
+    row.classroomAssigned = gradeNum_(sub.assignedGrade);
+    var mine = local[email];
+    if (!mine || mine.fraction === null) { row.action = 'skipped_not_graded'; return row; }
+    row.points = round2_(mine.fraction * maxPoints);
+    row.released = mine.released;
+    row.target = mine.released ? 'assigned' : 'draft';
+    row.action = gradeAction_(row.points, row.target, row.classroomDraft, row.classroomAssigned, sync);
+    return row;
+  });
+  return { courseId: courseId, courseWorkId: cwId, maxPoints: maxPoints, courseWorkState: String((cwGet.value && cwGet.value.state) || ''), rows: rows };
+}
+
+function previewGradeSync_(body) {
+  var a = assignmentFresh_(String((body && body.assignmentId) || '').trim());
+  if (!a) return { result: 'error', error: 'not_found' };
+  var plan = gradeSyncPlan_(a);
+  if (plan.error) return plan.error;
+  var counts = {};
+  var rows = plan.rows.map(function (r) {
+    counts[r.action] = (counts[r.action] || 0) + 1;
+    return { email: r.email, name: r.name, points: r.points, possible: r.possible, released: r.released, classroomDraft: r.classroomDraft,
+      classroomAssigned: r.classroomAssigned, lastSent: r.lastSent, action: r.action, target: r.target };
+  });
+  return { result: 'success', courseWorkId: plan.courseWorkId, courseWorkState: plan.courseWorkState, maxPoints: plan.maxPoints,
+    syncAccount: syncAccount_(), counts: counts, rows: rows };
+}
+
+function recordClassroomSync_(a, plan, email, fields) {
+  var row = { assignmentId: a.id, email: email, courseWorkId: plan ? plan.courseWorkId : a.classroomCourseWorkId };
+  for (var k in fields) if (Object.prototype.hasOwnProperty.call(fields, k)) row[k] = fields[k];
+  upsertByKey_(getSheet_(CLASSROOM_SYNC_SHEET, CLASSROOM_SYNC_HEADERS), ['assignmentId', 'email'], row);
+}
+
+// Patches the actionable rows from `opts.start`, about 100 ms apart, until done or the time budget is used.
+// opts: { overwrite, emails, start, auth }.
+function runGradeSync_(a, plan, opts) {
+  var only = null;
+  if (opts.emails) { only = {}; opts.emails.forEach(function (e) { only[normEmail_(e)] = true; }); }
+  var rows = plan.rows.filter(function (r) { return !only || only[r.email]; });
+  var out = { done: true, cursor: '', synced: 0, failed: 0, skipped: 0, results: [], error: '' };
+  var t0 = Date.now();
+  var wrote = 0;
+  for (var i = opts.start || 0; i < rows.length; i++) {
+    var r = rows[i];
+    var go = r.action === 'new' || r.action === 'update' || (r.action === 'skipped_teacher_changed' && opts.overwrite === true);
+    if (!go) { out.skipped++; continue; }
+    if (wrote > 0) {
+      if (Date.now() - t0 >= CLASSROOM_BUDGET_MS) { out.done = false; out.cursor = String(i); break; }
+      sleep_(CLASSROOM_PATCH_GAP_MS);
+    }
+    var patch = { draftGrade: r.points };
+    var mask = 'draftGrade';
+    if (r.target === 'assigned') { patch.assignedGrade = r.points; mask += ',assignedGrade'; }
+    var g = classroomGuard_(function () {
+      return Classroom.Courses.CourseWork.StudentSubmissions.patch(patch, plan.courseId, plan.courseWorkId, r.submissionId, { updateMask: mask });
+    });
+    wrote++;
+    if (g.ok) {
+      recordClassroomSync_(a, plan, r.email, { submissionId: r.submissionId, sentGrade: r.points, sentAt: new Date(), status: r.target, error: '' });
+      appendLog_(opts.auth || {}, 'syncGrades', a.id + ' · ' + r.email, r.target + ' ' + r.points);
+      out.synced++;
+      out.results.push({ email: r.email, status: r.target });
+      continue;
+    }
+    if (g.err.error === 'classroom_rate_limited') { out.done = false; out.cursor = String(i); out.error = g.err.error; break; }
+    recordClassroomSync_(a, plan, r.email, { submissionId: r.submissionId, status: 'failed', error: g.err.error });
+    appendLog_(opts.auth || {}, 'syncGrades', a.id + ' · ' + r.email, 'failed ' + g.err.error);
+    out.failed++;
+    out.results.push({ email: r.email, status: 'failed', error: g.err.error });
+  }
+  return out;
+}
+
+function syncGrades_(body, auth) {
+  var a = assignmentFresh_(String((body && body.assignmentId) || '').trim());
+  if (!a) return { result: 'error', error: 'not_found' };
+  var start = 0;
+  if (body.cursor !== undefined && body.cursor !== null && body.cursor !== '') {
+    if (!/^\d{1,6}$/.test(String(body.cursor))) return { result: 'error', error: 'invalid_request' };
+    start = parseInt(body.cursor, 10);
+  }
+  var plan = gradeSyncPlan_(a);
+  if (plan.error) return plan.error;
+  var run = runGradeSync_(a, plan, { overwrite: body.overwrite === true, emails: Array.isArray(body.emails) ? body.emails : null, start: start, auth: auth });
+  var res = { result: run.error ? 'error' : 'success', done: run.done, cursor: run.cursor, synced: run.synced, failed: run.failed, skipped: run.skipped,
+    results: run.results, syncAccount: syncAccount_() };
+  if (run.error) res.error = run.error;
+  return res;
+}
+
+// ---------- auto-sync on release (best effort; a failure never fails the release) ----------
+function autoSyncEmails_(code, emails, auth) {
+  if (!classroomOn_() || !emails.length) return null;
+  var total = { synced: 0, failed: 0 };
+  try {
+    var targets = assignmentsCached_().filter(function (a) {
+      var cls = classOfId_(a.classId);
+      return a.testCode === code && a.classroomCourseWorkId && cls && cls.autoSyncClassroom && cls.classroomCourseId;
+    });
+    if (!targets.length) return null;
+    targets.forEach(function (cached) {
+      var a = assignmentFresh_(cached.id) || cached;
+      var cls = classOfId_(a.classId);
+      var mine = emails.filter(function (e) { return (cls.emails || []).indexOf(e) >= 0; });
+      if (!mine.length) return;
+      var plan = gradeSyncPlan_(a);
+      if (plan.error) {
+        mine.forEach(function (e) {
+          recordClassroomSync_(a, null, e, { status: 'failed', error: plan.error.error || 'classroom_error' });
+          appendLog_(auth || {}, 'syncGrades', a.id + ' · ' + e, 'failed ' + (plan.error.error || 'classroom_error'));
+        });
+        total.failed += mine.length;
+        return;
+      }
+      var run = runGradeSync_(a, plan, { overwrite: false, emails: mine, start: 0, auth: auth });
+      total.synced += run.synced;
+      total.failed += run.failed;
+    });
+  } catch (e) { /* best effort */ }
+  return total;
+}
+function autoSyncReleased_(testCode, res, auth) {
+  if (!res) return res;
+  var emails = res._emails;
+  delete res._emails;
+  if (res.result !== 'success' || !emails || !emails.length) return res;
+  var sum = autoSyncEmails_(normalizeCode_(testCode), emails, auth);
+  if (sum) res.classroomSync = sum;
+  return res;
+}
+function autoSyncSavedGrade_(body, res, auth) {
+  if (!res || res.result !== 'success' || body.release !== true) return res;
+  try {
+    var sub = submissionById_(body.submissionId);
+    if (!sub) return res;
+    var sum = autoSyncEmails_(normalizeCode_(sub.test_code), [normEmail_(sub.student_email)], auth);
+    if (sum) res.classroomSync = sum;
+  } catch (e) { /* best effort */ }
+  return res;
 }
