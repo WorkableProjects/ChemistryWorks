@@ -46,7 +46,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S07 | sonnet | done | 3f232a4 | not run | CSP meta, SRI, theme-boot.js; csp.test.mjs e2e unverified |
 | S08a | haiku | done (partial) | 08d452d | not run | Left for S08c: Code.gs Netlify webhook path + its test (backend-core:163), admin.js LEGACY_TABS shim, sections.js constants→resources; docs FEATURES/Netlify mentions (S13b) |
 | S08b | sonnet | done | 2d38131 | not run | S13b must run `npm run stamp:version` after bump. Found: landing.js dead signed-in code; .dash in tools.css + admin-shell.css |
-| S08c | haiku | todo | | | |
+| S08c | haiku | done | 45083fb | not run | mode renderers return cleanup fn; ?section=insights/mastery now land on dashboard |
 | S09 | sonnet | todo | | | |
 | S12a | sonnet | todo | | | |
 | S12c | sonnet | todo | | | |
