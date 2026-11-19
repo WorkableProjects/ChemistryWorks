@@ -53,8 +53,8 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S12b | sonnet | done | fa79173 | not run | Found: admin/stats.js normalizeRow drops assignmentId/late/dueAt (grading Late/Due never shows) |
 | S14 | sonnet | done (partial) | bd4af2f | not run | student-layout e2e unverified; screenshots via CW_SHOTS_DIR not captured; wide widgets not individually resized |
 | S10 | sonnet | done | 86e40fa | not run | pwa e2e selectors unverified; CSP worker-src/manifest-src added |
-| S13a | sonnet | todo | | | |
-| S13b | haiku | todo | | | |
+| S13a | sonnet | done | 1ecbd51 | unit 1583, e2e 272, validate 5 | final test pass; 11 app bugs fixed; ARCHITECTURE rewritten |
+| S13b | opus+haiku | done | — | changelog test 4 | done by orchestrator per user; guide.md by Haiku |
 
 ## Handoff notes
 
