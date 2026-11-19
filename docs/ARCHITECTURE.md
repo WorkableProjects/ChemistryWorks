@@ -869,7 +869,7 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 | `previewGradeSync` | `{ assignmentId }` | `{ result, courseWorkId, maxPoints, syncAccount, counts, rows: [{ email, name, points, possible, released, classroomDraft, classroomAssigned, lastSent, action }] }` |
 | `syncGrades` | `{ assignmentId, overwrite?: boolean, emails?: string[], cursor?: string }` | `{ result, done, cursor, synced, failed, skipped, results: [{ email, status, error? }] }` |
 
-`postToClassroom: true` creates coursework with the assignment's title, `description` = instructions + the test link (`?code=<CODE>`), `maxPoints` = the test's total points, the due date and time from `dueAt`, `workType: 'ASSIGNMENT'` and `materials: [{ link }]`. `state` is `DRAFT` when `publishAt` is in the future (the `publishDueClassroomWork_` trigger publishes it once `publishAt` has passed), otherwise `PUBLISHED`. If the assignment already has a `classroomCourseWorkId`, saving updates that coursework instead of creating another.
+`postToClassroom: true` creates coursework with the assignment's title, `description` = instructions + the test link (`?code=<CODE>`), `maxPoints` = the test's total points, the due date and time from `dueAt`, `workType: 'ASSIGNMENT'` and `materials: [{ link }]`. `state` is `DRAFT` when `publishAt` is in the future (the hourly `publishDueClassroomWork` trigger publishes it once `publishAt` has passed), otherwise `PUBLISHED`. If the assignment already has a `classroomCourseWorkId`, saving updates that coursework instead of creating another.
 
 **Grade rules**
 - The grade is `round(fraction × maxPoints, 2)`, where `fraction` is the student's final score (after teacher grading and regrades) over the test's points, taken from the submission ChemistryWorks counts for that student (an `Extra attempt` never counts).
@@ -887,7 +887,7 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 
 ### Backend housekeeping
 
-- **`setupTriggers()`** installs the time-driven triggers and is safe to run any number of times (it removes its own earlier triggers by handler name, then installs). It keeps one list of `{ handler, schedule }`. B2 installs `pruneSheets` daily (public, because Apps Script cannot trigger functions whose names end in `_`) (around 03:00 script time). B4 appends `publishDueClassroomWork_` to the same list. `setup()` calls `setupTriggers()`.
+- **`setupTriggers()`** installs the time-driven triggers and is safe to run any number of times (it removes its own earlier triggers by handler name, then installs). It keeps one list of `{ handler, schedule }`. B2 installs `pruneSheets` daily (public, because Apps Script cannot trigger functions whose names end in `_`) (around 03:00 script time). B4 appends `publishDueClassroomWork` (public, hourly: `schedule: { everyHours: 1 }`; a schedule is either `{ everyDays, atHour }` or `{ everyHours }`) to the same list. `setup()` calls `setupTriggers()`.
 - **Retention settings** live in the `Settings` sheet (`Key`, `Value`), read through `readSettings_()` and written through `saveSettings`. Keys, with defaults: `retainLiveDays` 1, `retainLogDays` 180, `retainErrorsDays` 180, `archiveStreamDays` 300. Values are whole numbers from 1 to 3650; anything else is ignored. `Stream` posts older than `archiveStreamDays` move to `Stream_archive`. Pruning works in chunks and rewrites the range in one call; it never deletes row by row.
 - **`diag`** (admin action, request `{}`) replies:
 ```js
@@ -952,3 +952,14 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - The four switches (`isAnswered`/`score`/`formatAnswer`/`formatCorrect` in `grading.js`, normalize/validate/blank in `schema.js`, `buildWidget`, `typeEditor`) no longer name these types. `fillblank` supplies `displayText`, which `displayQuestionText` uses. `correctAnswer(q)` on each definition replaces the per-type branch in `gradeTest`.
 - `optLabel(option)` (plain-text name of a choice) is exported from `js/views/qtypes/shared.js`.
 - CSS: `css/qt-<type>.css` for matching, ordering, fillblank, categorize, balance, econfig, ptable and hotspot, split out of `runner.css` and `qtypes.css` and linked from `index.html` until `ensureCss` exists. `sigfigs` has no rules of its own.
+
+### B4 Google Classroom backend (Code.gs)
+
+- Contract deviations: the publish trigger is `publishDueClassroomWork` (no trailing underscore, because Apps Script cannot trigger private functions) and runs hourly; `triggerList_()` schedules may now be `{ everyHours }`. `Classes` columns are named `classroomCourseId` and `autoSyncClassroom`; `saveClass` accepts `cls.autoSyncClassroom` (a save that omits it leaves the setting alone) and never clears the link. `listClasses` rows carry both fields (admin only; students never see them).
+- `previewGradeSync` replies add `courseWorkState` and a `target` (`draft` or `assigned`) on each row. A roster student with no Classroom submission yet (for example while the coursework is still a draft) is `skipped_not_on_roster`.
+- Guard: a row is `skipped_teacher_changed` when any grade field we would write holds a value that is not what we last sent. Draft to assigned (release) is an `update`, not a conflict.
+- `syncGrades` cursor is the index into the roster-ordered rows (`"3"`). A Classroom rate limit replies `{ result: 'error', error: 'classroom_rate_limited', cursor, done: false }`; call again with the cursor.
+- `releaseAll` and `saveGrade({ release: true })` replies add `classroomSync: { synced, failed }` only when auto-sync ran for at least one assignment.
+- Without `postToClassroom`, `saveAssignment` never calls Classroom and keeps `classroomCourseWorkId`. If the stored coursework was deleted in Classroom, the next post creates a new one. Replies add `classroomDetail` (short text) with `classroomError: 'classroom_error'`.
+- `deleteAssignment` replies add `classroomError` when `deleteInClassroom` failed; the assignment is deleted either way.
+- `test/unit/helpers/fake-classroom.mjs` is the shared fake Classroom service for backend tests.

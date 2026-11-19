@@ -303,19 +303,21 @@ test('pruneSheets: an empty database is fine', () => {
   assert.deepEqual(res.removed, { Live: 0, Log: 0, Errors: 0 });
 });
 
-test('setupTriggers: installs one daily pruneSheets trigger and can run twice', () => {
+test('setupTriggers: installs a daily pruneSheets and an hourly Classroom publish trigger, and can run twice', () => {
   g.run('setupTriggers()');
   g.run('setupTriggers()');
-  assert.equal(g.triggers.length, 1);
+  assert.equal(g.triggers.length, 2);
   assert.equal(g.triggers[0].getHandlerFunction(), 'pruneSheets');
   assert.deepEqual(plain(g.triggers[0].spec), { everyDays: 1, atHour: 3 });
+  assert.equal(g.triggers[1].getHandlerFunction(), 'publishDueClassroomWork');
+  assert.deepEqual(plain(g.triggers[1].spec), { everyHours: 1 });
 });
 
 test('setupTriggers: leaves triggers it does not own alone', () => {
   g.triggers.push({ getHandlerFunction: () => 'somethingElse', spec: {} });
   g.run('setupTriggers()');
   g.run('setupTriggers()');
-  assert.deepEqual(g.triggers.map((t) => t.getHandlerFunction()).sort(), ['pruneSheets', 'somethingElse']);
+  assert.deepEqual(g.triggers.map((t) => t.getHandlerFunction()).sort(), ['pruneSheets', 'publishDueClassroomWork', 'somethingElse']);
 });
 
 test('setup(): installs the trigger, and running it twice still leaves one', () => {
