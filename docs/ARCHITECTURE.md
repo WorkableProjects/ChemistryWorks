@@ -937,7 +937,6 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `manual: false` is now set on every definition, as the contract says.
 - `ensureCss` does not exist yet (S08). Until it does, `css/qt-truefalse.css` and `css/qt-formula.css` are linked from `index.html`. Other rules for moved types (`.opt`, `.q-preview`, `.q-unit`, `.q-formula-preview`) are shared with imagechoice, sigfigs, graph, naming and reaction, so they stay in `runner.css`.
 
-<<<<<<< HEAD
 ### B3 Tags backend (Code.gs)
 
 - The `Tests` sheet gains a fifth column, `Owner` (lower-cased email of the first admin to publish the test; empty for tests published with the admin key and for older tests). `mergeTags` rewrites only tests whose `Owner` equals the caller's email.
@@ -946,7 +945,6 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `publishTest` upserts only the tags that questions use. Unknown ids are checked before anything is written. Tag actions are not in the `batch` allow-list.
 - `getFeedback` replies (released or not) carry `tagIndex` for the test the submission belongs to.
 - `api.js` `publishTest` still sends no `tagDefs` and drops the reply's `tags` and `ids`; the builder wiring (S12a) must extend it.
-=======
 ### S06a Type registry II
 
 - Moved to the TypeDef contract: matching, ordering, fillblank, categorize, balance, econfig, ptable, sigfigs, hotspot. Definitions live in `js/lib/qtypes/<type>.js` (the existing helper modules now also register their type; `matching`, `ordering`, `fillblank` and `ptable` are new files). UI modules are `js/views/qtypes/<type>.js` (the old `js/views/widgets/<type>.js` files moved there); editors are `js/views/admin/editors/<type>.js` (default export `{ type, edit }`). Each is in the `UI_LOADERS` and `EDITOR_LOADERS` maps.
@@ -954,4 +952,3 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - The four switches (`isAnswered`/`score`/`formatAnswer`/`formatCorrect` in `grading.js`, normalize/validate/blank in `schema.js`, `buildWidget`, `typeEditor`) no longer name these types. `fillblank` supplies `displayText`, which `displayQuestionText` uses. `correctAnswer(q)` on each definition replaces the per-type branch in `gradeTest`.
 - `optLabel(option)` (plain-text name of a choice) is exported from `js/views/qtypes/shared.js`.
 - CSS: `css/qt-<type>.css` for matching, ordering, fillblank, categorize, balance, econfig, ptable and hotspot, split out of `runner.css` and `qtypes.css` and linked from `index.html` until `ensureCss` exists. `sigfigs` has no rules of its own.
->>>>>>> 0ac059f
