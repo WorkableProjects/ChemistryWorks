@@ -402,7 +402,7 @@ test('getSubmissionCounts requires the admin key and counts per test code', () =
 test('v4: the admin key path works as before and does not need the Admins sheet', () => {
   assert.equal(post({ action: 'listTests', adminKey: 'secret' }).result, 'success');
   assert.equal(sheets.has('Admins'), false);
-  assert.equal(get({ action: 'ping' }).version, '5.0.0');
+  assert.equal(get({ action: 'ping' }).version, '6.0.0');
 });
 
 test('v4 S10: payload.instance.seed is stored in the Seed column (also instance_json / instance_seed)', () => {

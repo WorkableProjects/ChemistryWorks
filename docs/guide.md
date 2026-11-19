@@ -1281,7 +1281,7 @@ This section is for the teacher (or an AI with access to the repository).
 ### Option A: Admin panel (no code, recommended)
 
 1. Save the JSON as a file named after the code, e.g. `CHEM-DEMO.json`. Alternatively, copy the JSON text.
-2. Open the site with `?admin=true` at the end of the address (or click **Teacher / admin** in the bottom-right of the home screen) and enter the admin access code.
+2. Open the site with `?admin=true` at the end of the address (or click **Teacher / admin** in the bottom-right of the home screen) and sign in with Google. Your account must be on the Admins sheet.
 3. Go to the **Builder** tab, then either:
    - click **Import JSON** and choose the file, **or**
    - switch the builder to **JSON** mode, paste the JSON, and click **Apply JSON**.
@@ -1305,7 +1305,7 @@ Use this when the test should live in Git and work even if Apps Script is down.
    ```bash
    npm run validate:tests
    ```
-4. Commit, push, and let Netlify redeploy.
+4. Commit and push; GitHub Pages redeploys after CI passes.
 
 If a bundled test and a published test share a code, the bundled one is used.
 

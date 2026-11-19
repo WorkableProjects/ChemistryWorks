@@ -18,6 +18,8 @@ ChemistryWorks lets teachers create and manage chemistry assessments, review stu
 - Organize tests with classes, rosters, question banks, and randomized pools.
 - Export grades as CSV and reviewed submissions as PDF.
 - Use classroom tools such as print versions and activity logs.
+- Sync grades to Google Classroom: link a course, import the roster, post assignments and send grades.
+- Tag questions by topic and see scores by topic in grading, the tracker and results.
 - Run a Class Hub for each class: assignments with due dates, a class stream, missing-work reminders, and a teacher view of what a student sees.
 
 ### For students
@@ -28,6 +30,7 @@ ChemistryWorks lets teachers create and manage chemistry assessments, review stu
 - View released grades and teacher feedback.
 - Practise in ten game modes (Classic, Lightning, Survival, Flashcards, Mistake review, Tower, Boss battle, Match-Up, Quiz show, Race, Bingo), with progress and badges on a student home and profile that follow you across devices.
 - See upcoming work, due dates and notifications in the Class Hub.
+- Install ChemistryWorks like an app and keep working offline; answers send when you're back online.
 - Answer new question types: ion formulas, atom and ion builder, average atomic mass, Bohr model, oxidation numbers, solubility rules, heating curves, gas laws and molecule builder.
 
 The platform also supports light, dark, and system themes, plus an appearance panel for accent colour and text size. See the [teacher guide](docs/guide.md) for detailed instructions and the [architecture notes](docs/ARCHITECTURE.md) for the test schema and module contracts.
@@ -54,9 +57,9 @@ The application and unit tests use Node's built-in runner and do not require add
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions for Google sign-in, Google Sheets and the Apps Script backend, and Netlify. Add the required project settings to `js/config.js` before deployment.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions for Google sign-in, Google Sheets, the Apps Script backend and GitHub Pages. Add the required project settings to `js/config.js` before deployment.
 
-For existing installations, consult the upgrade instructions in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-to-v4).
+For existing installations, consult the upgrade instructions in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-to-v6).
 
 ## Repository structure
 

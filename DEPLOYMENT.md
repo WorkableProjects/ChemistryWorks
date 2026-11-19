@@ -1,27 +1,26 @@
 # ChemistryWorks Deployment Guide
 
-> **Now hosted on GitHub Pages** (https://workableprojects.github.io/ChemistryWorks/). See [docs/github-pages.md](docs/github-pages.md). Netlify steps below are kept for rollback; `NETLIFY_FORMS` is now `false`.
+> Hosted on **GitHub Pages** (https://workableprojects.github.io/ChemistryWorks/). See [docs/github-pages.md](docs/github-pages.md).
 
 This guide takes you from a fresh clone to a live site that signs students in with Google, grades tests in the browser, and records every submission in a Google Sheet. It replaces section 8 of `chemistryworks_specification.md`, which has a few inaccuracies (see "Corrections to the original sketch" at the end).
 
 ## Overview
 
 ```
- Student browser (static site on Netlify)
+ Student browser (static site on GitHub Pages)
    |  Google Identity Services sign-in (needs the OAuth Client ID)
    |  grades the test locally (answer key ships with the test)
    |
    +--POST (text/plain JSON, no-cors)--------> Apps Script Web App --> Google Sheet
    |                                            (Submissions + Tests tabs)
    |                                                  ^
-   +--POST (form-urlencoded to "/")--> Netlify Forms  |  optional outgoing webhook
                                           (backup) ---+  (deduplicated by submission_id)
 
  Teacher: /?admin=true --> builds tests, "Publish" --> Apps Script (ADMIN_KEY) --> Tests tab
                        <-- Grading tab reads results from the Submissions tab (ADMIN_KEY)
 ```
 
-What you need: a Google account, a free Netlify account, a Git host (GitHub/GitLab/Bitbucket) holding this repo. Everything except the Google OAuth client and Apps Script URL works without any setup, so you can start locally.
+What you need: a Google account, a GitHub repository with Pages turned on. Everything except the Google OAuth client and Apps Script URL works without any setup, so you can start locally.
 
 ---
 
@@ -33,9 +32,9 @@ npm test             # unit tests (node --test)
 npm run test:e2e     # browser tests (uses the pre-installed playwright package)
 ```
 
-With no `GOOGLE_CLIENT_ID` configured, the landing page shows a **demo sign-in** (type any name and email). No tests are bundled by default: add your own to `data/tests/` or publish one from the admin panel. Open `http://localhost:3000/?admin=true` and enter the admin access code (`chemadmin` by default) to see the admin panel.
+With no `GOOGLE_CLIENT_ID` configured, the landing page shows a **demo sign-in** (type any name and email). No tests are bundled by default: add your own to `data/tests/` or publish one from the admin panel. Open `http://localhost:3000/?admin=true` to see the admin panel. With no Google client ID set, a demo admin opens it directly.
 
-On `localhost`/`127.0.0.1` the Netlify Forms backup is skipped automatically, and Apps Script is skipped until you configure its URL. Submissions are still saved in a local log on the device.
+On `localhost`, Apps Script is skipped until you configure its URL. Submissions are still saved in a local log on the device.
 
 ---
 
@@ -48,7 +47,7 @@ On `localhost`/`127.0.0.1` the Netlify Forms backup is skipped automatically, an
 3. Go to **APIs & Services > Credentials > Create credentials > OAuth client ID**.
    - Application type: **Web application**.
    - **Authorized JavaScript origins** (origins only: scheme + host + port, no path, no trailing slash):
-     - `https://YOUR-SITE.netlify.app` (and your custom domain if you add one)
+     - `https://YOUR-USER.github.io` (and your custom domain if you add one)
      - `http://localhost:3000`
      - `http://127.0.0.1:3000`
    - **Authorized redirect URIs: leave empty.** ChemistryWorks uses the Google Identity Services button/One Tap flow, which returns a credential to JavaScript on the page; it never redirects, so redirect URIs are not used.
@@ -141,6 +140,19 @@ The v5 site needs Code.gs **5.0.0** (student profiles, saved attempts, the Class
 
 **Rollback:** redeploy the previous Code.gs version and revert the site commit. The new tabs are ignored by older versions.
 
+### Upgrading to v6
+
+The v6 site needs Code.gs **6.0.0**. The admin panel shows a banner until the backend is upgraded.
+
+1. Paste the new `apps-script/Code.gs` and `appsscript.json` over the old ones and **Save** (or run `npm run gas:push`, see below).
+2. Run `setup` once from the editor and approve the new Google Classroom permissions. It adds the **Tags** and Classroom tabs; existing tabs and rows are kept. Its return value is a setup checklist.
+3. Open **Triggers** and check there is a daily `pruneSheets` and an hourly `publishDueClassroomWork` trigger.
+4. **Deploy > Manage deployments > Edit > Version: New version > Deploy**. Redeploy the **existing** deployment so the URL stays the same.
+5. Check `YOUR_EXEC_URL?action=ping` reports `6.0.0`.
+6. The admin access code is gone. Admins sign in with Google and must be on the **Admins** sheet. The Sheet key (`ADMIN_KEY`) is optional and is entered in admin → Settings.
+
+**Rollback:** redeploy the previous Code.gs version and revert the site commit.
+
 ### Copy this deployment for a second teacher
 
 Make a copy of the Google Sheet (File → Make a copy: it copies the bound Apps Script too), set its script properties, deploy it as a Web App, and point a second copy of the site (`js/config.js` `GAS_WEB_APP_URL`, `SHEET_URL`) at it. Move tests across with **Settings → Platform → Download backup / Restore from backup**.
@@ -162,28 +174,32 @@ Edit the values at the top of `js/config.js`:
 | `GOOGLE_CLIENT_ID` | Client ID from step 2 |
 | `GAS_WEB_APP_URL` | The `/exec` URL from step 3 |
 | `SHEET_URL` | Link to your Google Sheet (shown in the admin panel) |
-| `ADMIN_ACCESS_CODE` | Change from the default `chemadmin`; it only hides the admin UI |
 | `ALLOW_DEMO_SIGNIN` | Set to `false` in production so only Google sign-in is offered |
 | `ALLOWED_EMAIL_DOMAINS` | Optional, e.g. `['myschool.org']` |
-| `NETLIFY_FORMS` | `false` on GitHub Pages; `'auto'` only if hosting on Netlify |
 
 Commit and push. For quick experiments you can also define `window.CHEMISTRYWORKS_CONFIG = {...}` before `js/app.js` loads, but editing the file is the normal route.
 
 ---
 
-## 5. Netlify
+## 5. GitHub Pages and optional automatic backend deploys
 
-1. In [Netlify](https://app.netlify.com/): **Add new site > Import an existing project**, connect the repository.
-2. Build settings: **Build command** empty, **Publish directory** `.` (these match `netlify.toml`, so the defaults are already right).
-3. Deploy. Add your Netlify domain to the OAuth client's Authorized JavaScript origins (step 2) if you have not yet.
-4. **Forms:** Netlify detects `<form name="chemistryworks-submissions" data-netlify="true">` in `index.html` during deploy. Check **Forms** in the site dashboard; `chemistryworks-submissions` should be listed. If the Forms page says detection is disabled, open **Site configuration > Forms** (older UI: **Forms > Settings**) and enable form detection, then trigger **Deploys > Trigger deploy > Clear cache and deploy site**.
-5. **Optional webhook to the sheet:** **Forms > Form notifications > Add notification > Outgoing webhook**, pick the `chemistryworks-submissions` form, and paste the `/exec` URL. Netlify then POSTs every form submission to Apps Script, which stores it if it has not already. This is safe because the sheet de-duplicates on `submission_id`, so a submission delivered by both the browser and Netlify is stored once. It gives you a second route into the sheet if a student's browser could not reach Apps Script. (Netlify's free plan has a monthly form-submission quota; the backup posts count against it.)
+The site deploys to GitHub Pages from `main` after CI passes (`.github/workflows/pages.yml`). Add your Pages domain to the OAuth client's Authorized JavaScript origins (step 2).
 
----
+Site settings can come from repository variables, which are written to `js/config.local.js` at deploy time, so they don't need to be committed.
+
+**Optional: clasp and `gas-deploy.yml`.** To push `Code.gs` from GitHub instead of pasting it:
+
+1. Copy `apps-script/.clasp.json.example` to `.clasp.json` at the repository root and set your script ID. Locally, `npm run gas:push` pushes the backend.
+2. In the repository settings add the secrets `CLASPRC_JSON` (the contents of your `~/.clasprc.json` after `clasp login`), `GAS_SCRIPT_ID` and `GAS_DEPLOYMENT_ID`, and `GAS_WEB_APP_URL` as a secret or variable.
+3. Run the **gas-deploy** workflow. It pushes, redeploys the existing deployment and checks that `ping` reports the new version.
+
+The manual paste route above still works.
+
+**Google Classroom.** Grade sync runs as the account that deployed the Apps Script. Each teacher who wants sync uses their own deployment (see "Copy this deployment for a second teacher"). Grades that are graded but not released go to Classroom as draft grades; released grades go as assigned grades.
 
 ## 6. Creating tests
 
-Open `https://YOUR-SITE.netlify.app/?admin=true`, enter the admin access code, then:
+Open `https://YOUR-SITE/?admin=true`, sign in with a Google account on the Admins sheet, then:
 
 - **Builder** tab: create a test visually or edit JSON, **Preview**, **Save draft** (stored in this browser only), **Download JSON**.
 - **Settings** tab: paste your `ADMIN_KEY` (kept for the browser session only) and use **Ping backend** to verify the connection.
@@ -211,7 +227,6 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 - [ ] Take one of your tests: answer, submit, and see the score and review.
 - [ ] The **Submissions** tab has a new row with the right name, email, test code, score, percentage and JSON responses.
 - [ ] Submit the same attempt's retry (**retry-submit** on the results page, or the webhook if enabled): the sheet still has one row for that attempt.
-- [ ] Netlify **Forms** shows the submission.
 - [ ] Publish a test from the admin panel; open it by code in a private window from another account.
 - [ ] Admin > Grading loads the submissions from the Sheet.
 - [ ] Go offline (browser dev tools), submit: the result is queued, and it is delivered on the next visit once you are back online.
@@ -232,9 +247,7 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 
 **`admin_key_not_configured` / `unauthorized` in the admin panel.** Set the `ADMIN_KEY` script property (step 3.5), and enter the same value under Admin > Settings. Script property changes apply immediately; no redeploy needed.
 
-**Netlify form not detected.** The form must be in the deployed `index.html` as static HTML (it is). Make sure form detection is enabled, then clear the cache and redeploy. Submissions made before detection was enabled are not retroactively recorded.
 
-**Netlify backup returns an error on a custom setup.** Posts go to `/` on the same origin; they fail on hosts other than Netlify. Set `NETLIFY_FORMS: false` if you deploy elsewhere.
 
 **A test I published is not found.** Codes are upper-cased (`chem101` opens `CHEM101`). Check the **Tests** tab of the sheet and that the page uses the current `/exec` URL.
 
@@ -246,9 +259,9 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 
 - **Answer keys are client-side.** Grading happens in the browser, so the correct answers are in the downloaded test file and a determined student can find them with developer tools. Treat ChemistryWorks as a **formative, low/medium-stakes** tool (practice, quizzes, checks for understanding), not a proctored exam.
 - **Scores are self-reported by the browser.** A student could forge a submission to the Apps Script URL. Compare against the review responses and use the tab-switch and auto-submit flags only as hints.
-- **The admin access code is UI-only.** It is visible in `js/config.js`. What actually protects publishing tests and reading results is the **`ADMIN_KEY`** script property, checked server-side by Apps Script. Use a long random value and do not commit it.
+- **Admin access is checked by Apps Script.** Admins sign in with Google and the backend checks the Admins sheet. The optional `ADMIN_KEY` script property is a Sheet credential; use a long random value and do not commit it.
 - **Student data.** The sheet holds names, emails and answers. Keep it private to the teacher account, and follow your school's data-privacy policy (for example FERPA/COPPA). Anyone can POST submissions to the `/exec` URL and read published tests by code, but cannot read results without `ADMIN_KEY`.
-- **Quotas.** Apps Script has daily execution limits and the script serializes writes with a lock; this comfortably handles a class at a time. Netlify Forms has a monthly submission quota on free plans.
+- **Quotas.** Apps Script has daily execution limits and the script serializes writes with a lock; this comfortably handles a class at a time.
 - **Domain restriction** via `ALLOWED_EMAIL_DOMAINS` is client-side; set the `ALLOWED_DOMAINS` script property (v3) or use an Internal consent screen for enforcement.
 - **Results lookup is token-verified (v3).** Students only get their own released review: the backend checks the Google ID token (audience, expiry, verified email) before reading any row. The teacher note is never returned. When the test has *Show correct answers* off, correct answers are removed from the reply.
 - **One submission per student relies on Google sign-in.** A student with two Google accounts can submit once per account (`ALLOWED_DOMAINS` narrows this). A forced duplicate is stored as `Extra attempt` (never lost, not counted). Demo sign-in cannot use these features unless `ALLOW_UNVERIFIED_EMAIL` is on.
@@ -261,5 +274,4 @@ Test JSON reference (short): a test has `code`, `title`, optional settings (`tim
 - Apps Script: updating the script requires a **new version** on the existing deployment (Manage deployments > Edit), otherwise the `/exec` URL keeps serving old code; "New deployment" creates a new URL.
 - Apps Script access must be **Anyone** (not "Anyone with Google account"), and the Web App URL used by the client must be the `/exec` one.
 - Browser posts to Apps Script use `Content-Type: text/plain` with `no-cors`; `application/json` would trigger a CORS preflight that Apps Script does not answer.
-- The Netlify outgoing webhook delivers `{ "data": {...form fields...} }`, which `Code.gs` understands, and duplicates are dropped by `submission_id`.
 - The script now also stores published tests and serves results, protected by `ADMIN_KEY`.

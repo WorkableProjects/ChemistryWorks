@@ -14,7 +14,7 @@
  * upgrade period (adminKey in the request body). Every admin write is appended to the Log sheet.
  */
 
-var VERSION = '5.0.0';
+var VERSION = '6.0.0';
 
 var SUBMISSIONS_SHEET = 'Submissions';
 var TESTS_SHEET = 'Tests';
