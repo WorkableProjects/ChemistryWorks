@@ -44,7 +44,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | B3 | sonnet | done | 158c1ce | unit 1304 | Tests sheet gains Owner column. S12a must extend api.js publishTest to send tagDefs and keep reply tags/ids |
 | B4 | sonnet | done | 4173baa | not run | hourly publishDueClassroomWork trigger. Found: setupChecklist_ ids differ from contract (S13a) |
 | S07 | sonnet | done | 3f232a4 | not run | CSP meta, SRI, theme-boot.js; csp.test.mjs e2e unverified |
-| S08a | haiku | todo | | | |
+| S08a | haiku | done (partial) | 08d452d | not run | Left for S08c: Code.gs Netlify webhook path + its test (backend-core:163), admin.js LEGACY_TABS shim, sections.js constants→resources; docs FEATURES/Netlify mentions (S13b) |
 | S08b | sonnet | todo | | | |
 | S08c | haiku | todo | | | |
 | S10 | sonnet | todo | | | |
