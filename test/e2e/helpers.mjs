@@ -6,7 +6,7 @@ import { listen } from '../../scripts/serve.mjs';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 
-export const GAS_URL = 'https://gas.example.test/exec';
+export const GAS_URL = 'https://script.google.com/macros/s/TEST/exec';
 /** Default action/locator timeout: a broken suite fails fast instead of waiting 30 s per locator. */
 export const ACTION_TIMEOUT = 5000;
 export const STUDENT = { name: 'Ada Lovelace', email: 'ada@example.org' };
@@ -365,6 +365,12 @@ export function createMockBackend({ classes = [], tests = [], students = {}, pro
       case 'syncProgress':
         if (b.attempt) state.attempts[`${emailOf(b)}|${b.attempt.code}`] = { ...b.attempt, updatedAt: iso(state.now()) };
         return { result: 'success' };
+      case 'saveClass': {
+        const cls = state.classes.find((c) => c.id === b.cls.id);
+        if (!cls) return { result: 'error', error: 'not_found' };
+        Object.assign(cls, b.cls);
+        return { result: 'success', class: cls };
+      }
       case 'listClasses': return { result: 'success', classes: state.classes.map((c) => ({ period: '', updated_by: '', updated_at: '', ...c })) };
       case 'listTests': return { result: 'success', tests: state.tests.map((t) => ({ updatedAt: '2026-01-01T00:00:00Z', submissionCount: 0, ...t })) };
       case 'listAssignments': return { result: 'success', assignments: state.assignments.filter((a) => !b.classId || a.classId === b.classId) };

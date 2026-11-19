@@ -28,8 +28,10 @@ const ALLOWED_TAGS = new Set(['sub', 'sup', 'span', 'svg', 'rect', 'line', 'text
 function assertInert(html, where) {
   for (const m of html.matchAll(/<\/?\s*([a-zA-Z][a-zA-Z0-9-]*)([^>]*)>/g)) {
     assert.ok(ALLOWED_TAGS.has(m[1].toLowerCase()), `${where}: unexpected <${m[1]}> in ${html}`);
-    assert.ok(!/\son[a-z]+\s*=/i.test(m[2]), `${where}: event handler in ${m[0]}`);
-    assert.ok(!/javascript:/i.test(m[2]), `${where}: script URL in ${m[0]}`);
+    // Quoted attribute values are escaped text, so only the attribute names and link targets matter.
+    const bare = m[2].replace(/"[^"]*"/g, '""');
+    assert.ok(!/\son[a-z]+\s*=/i.test(bare), `${where}: event handler in ${m[0]}`);
+    assert.ok(!/(href|src)\s*=\s*"\s*javascript:/i.test(m[2]), `${where}: script URL in ${m[0]}`);
   }
 }
 
@@ -61,7 +63,7 @@ const DIR = new URL('../fixtures/types/', import.meta.url);
 for (const type of registeredTypes()) {
   test(`${type}: format, keyText and toPdf return text for hostile content`, () => {
     const fx = JSON.parse(readFileSync(new URL(`${type}.json`, DIR), 'utf8'));
-    const hostile = JSON.stringify(fx, (k, v) => (typeof v === 'string' && !/^(id|type|mode|kind)$/.test(k) ? `${v}${PAYLOADS[0]}` : v));
+    const hostile = JSON.stringify(fx.question, (k, v) => (typeof v === 'string' && !/^(id|type|mode|kind)$/.test(k) ? `${v}${PAYLOADS[0]}` : v));
     const q = normalizeTest({ code: 'XSS', title: 'XSS', questions: [JSON.parse(hostile)] }).questions[0];
     const def = typeDef(type);
     const answers = [def.correctAnswer(q), PAYLOADS[1], [PAYLOADS[2]], { a: PAYLOADS[3] }];

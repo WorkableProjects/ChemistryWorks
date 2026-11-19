@@ -8,6 +8,7 @@
 import { h, icon, brandLogo, themeControl } from '../../ui.js';
 import { load, save } from '../../lib/storage.js';
 import { getUser } from '../../lib/auth.js';
+import { ensureCss } from '../../lib/css-loader.js';
 import { THEMES, getThemePref, setThemePref, onThemeChange, prefersReducedMotion } from '../../lib/theme.js';
 
 /* ------------------------------------------------------------------ nav model (pure) */
@@ -100,27 +101,6 @@ export function avatarTone(seed) {
   let n = 0;
   for (const ch of String(seed || '?')) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
   return n % 4;
-}
-
-/* ------------------------------------------------------------------ stylesheet */
-
-let cssPromise = null;
-/** Load css/admin-shell.css once (index.html does not need to list it). Resolves when applied, or after a short timeout. */
-export function ensureShellCss() {
-  if (cssPromise) return cssPromise;
-  cssPromise = new Promise((resolve) => {
-    if (typeof document === 'undefined') return resolve();
-    const href = new URL('../../../css/admin-shell.css', import.meta.url).href;
-    const existing = [...document.querySelectorAll('link[rel="stylesheet"]')].find((l) => l.getAttribute('href') === 'css/admin-shell.css' || l.href === href);
-    const link = existing || h('link', { rel: 'stylesheet', href });
-    if (!existing) document.head.appendChild(link);
-    else if (link.sheet) return resolve();
-    const done = () => resolve();
-    link.addEventListener('load', done, { once: true });
-    link.addEventListener('error', done, { once: true });
-    setTimeout(done, 1500);
-  });
-  return cssPromise;
 }
 
 /* ------------------------------------------------------------------ the shell */
@@ -414,7 +394,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   const onBuilderChange = () => refreshTabs();
   document.addEventListener('cw:builder-change', onBuilderChange);
   cleanups.push(() => document.removeEventListener('cw:builder-change', onBuilderChange));
-  ensureShellCss().then(() => {
+  ensureCss('admin-shell').then(() => {
     el.classList.remove('ash--wait');
     requestAnimationFrame(() => { placePill(); placeTabIndicator(); });
   });

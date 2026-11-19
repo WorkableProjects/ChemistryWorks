@@ -2,6 +2,7 @@
 // timeLimitMinutes } per test, sorted by code. catalog.json is the only list of bundled tests.
 //   node scripts/build-catalog.mjs [dir]
 import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DIR = fileURLToPath(new URL('../data/tests/', import.meta.url));
@@ -15,7 +16,7 @@ export async function testFiles(dir = DIR) {
 export async function buildCatalog(dir = DIR) {
   const out = [];
   for (const f of await testFiles(dir)) {
-    const t = JSON.parse(await readFile(`${dir}${f}`, 'utf8'));
+    const t = JSON.parse(await readFile(join(dir, f), 'utf8'));
     const qs = Array.isArray(t.questions) ? t.questions : [];
     out.push({ code: f.replace(/\.json$/, ''), title: t.title || '', description: t.description || '', questionCount: qs.length,
       points: round2(qs.reduce((s, q) => s + (Number(q.points) || 0), 0)), timeLimitMinutes: Number(t.timeLimitMinutes) || 0 });

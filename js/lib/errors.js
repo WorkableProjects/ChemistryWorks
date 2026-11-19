@@ -8,7 +8,7 @@ import { getIdToken } from './auth.js';
 export const LIMITS = { perPage: 5, gapMs: 10000 };
 
 /** Remove anything that could hold student input (quoted strings, JSON, emails) and cap the length. */
-export function scrub(text, max = 500) {
+function scrub(text, max = 500) {
   return String(text || '')
     .replace(/"[^"]{0,200}"|'[^']{0,200}'/g, '"…"')
     .replace(/\{[\s\S]{0,400}\}/g, '{…}')
@@ -32,7 +32,7 @@ export function reportIdentity() {
   return { clientId: clientId(), ...(idToken ? { idToken } : {}) };
 }
 
-export function makeLimiter({ perPage = LIMITS.perPage, gapMs = LIMITS.gapMs } = {}) {
+function makeLimiter({ perPage = LIMITS.perPage, gapMs = LIMITS.gapMs } = {}) {
   let count = 0; let last = -Infinity;
   return (now = Date.now()) => {
     if (count >= perPage || now - last < gapMs) return false;

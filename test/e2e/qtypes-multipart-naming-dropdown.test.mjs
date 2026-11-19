@@ -61,9 +61,8 @@ test('every type answered correctly; hint costs a point; confidence is stored an
   assert.match(await page.locator(tid('review-item-q1')).textContent(), /Hydrogen gas is released/);
   assert.match(await page.locator(tid('review-item-q1')).textContent(), /\(a\) .*\(b\)/s);
   // payload carries hint + confidence on the response rows
-  await poll(() => s.gas.some((g) => g && g.responses_json), { message: 'submission payload' });
-  const body = s.gas.find((g) => g && g.responses_json) || {};
-  const rows = JSON.parse(body.responses_json || (body.payload && body.payload.responses_json) || '[]');
+  await poll(() => s.gas.some((g) => g && Array.isArray(g.responses)), { message: 'submission payload' });
+  const rows = s.gas.find((g) => g && Array.isArray(g.responses)).responses;
   const r5 = rows.find((r) => r.questionId === 'q5');
   assert.equal(r5.confidence, 3);
   assert.equal(r5.hintUsed, true);

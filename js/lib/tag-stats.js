@@ -40,7 +40,7 @@ export function isReleased(sub) {
 }
 
 /** Points per tag for one submission: Map tagId -> { earned, possible, questions }. */
-export function submissionTagTotals(sub, test) {
+function submissionTagTotals(sub, test) {
   const byQuestion = tagIds(test);
   const out = new Map();
   if (!byQuestion.size) return out;
@@ -111,7 +111,7 @@ export function studentTag(id, tagIndex) {
 }
 
 /** Teacher side: name from the local store and the `tags` resource, else "Unknown tag". */
-export function adminTag(id) {
+function adminTag(id) {
   const r = resolve([id])[0];
   return { id, name: r.name, color: r.color, unknown: !!r.unknown };
 }

@@ -101,7 +101,10 @@ export function normalizeRow(raw) {
     comments: isObj(r.comments) ? r.comments : {},   // v2: { questionId: comment text }
     released_at: r.released_at || '',
     retake_allowed_at: r.retake_allowed_at || '',  // v3: ISO time the teacher allowed a retake, '' = none
-    graded_by: r.graded_by || '',                    // who graded (free text)                // v2: ISO time grades/comments were released to the student, '' = not released
+    graded_by: r.graded_by || '',                    // who graded (free text)
+    late: r.late === true || r.late === 'true',     // arrived after the due date or late window
+    assignmentId: r.assignmentId || '',
+    dueAt: r.dueAt || '',
   };
 }
 

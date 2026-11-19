@@ -27,15 +27,17 @@ test('offline: landing and an opened test load, an answer saves, the submission 
   const s = await newSession(env, { serviceWorkers: 'allow' });
   const { page, context } = s;
   try {
+    s.serveTest('DEMOV4A', JSON.parse(readFileSync(new URL('../../data/tests/DEMOV4A.json', import.meta.url), 'utf8'))); // the harness serves fixtures, not data/tests
     await page.goto(`${s.url}/`);
     await controlled(page);
     await openDemoTest(page);
     assert.ok(await page.evaluate(async () => (await caches.keys()).some((k) => k.startsWith('cw-shell-'))), 'shell cache exists');
 
     await context.setOffline(true);
+    s.modes.gas = 'fail'; // mocked routes still answer while offline, so make the backend unreachable like a real offline browser
     await page.goto(`${s.url}/?code=DEMOV4A`);
     await page.locator(tid('runner')).waitFor();
-    await waitText(page.locator(tid('net-banner')), 'Offline — your answers are saved on this device');
+    await waitText(page.locator(tid('net-banner')), /^Offline — your answers are saved on this device/);
 
     await activeCard(page).locator('[data-testid="multipart-part-a"] [data-testid="option-b"]').click();
     await page.reload();
@@ -50,6 +52,7 @@ test('offline: landing and an opened test load, an answer saves, the submission 
     const id = await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox'))[0].submission_id);
 
     await context.setOffline(false);
+    s.modes.gas = 'ok';
     await page.locator(tid('retry-submit')).click();
     await poll(() => s.gas.some((b) => b && b.submission_id === id), { message: 'queued submission sent' });
     await waitAttr(status, 'data-queued', 'false');

@@ -60,7 +60,7 @@ export function signOut() {
 }
 
 /** Decode the payload of a Google ID token (JWT). The token is not verified client-side. */
-export function decodeJwt(token) {
+function decodeJwt(token) {
   const part = String(token).split('.')[1];
   if (!part) throw new Error('Malformed credential');
   const b64 = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=');
@@ -70,7 +70,7 @@ export function decodeJwt(token) {
   return JSON.parse(json);
 }
 
-export function emailAllowed(email, domains = []) {
+function emailAllowed(email, domains = []) {
   if (!domains || !domains.length) return true;
   const d = String(email).split('@')[1]?.toLowerCase();
   return domains.some((x) => String(x).toLowerCase() === d);

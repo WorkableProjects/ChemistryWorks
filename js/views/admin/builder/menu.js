@@ -39,7 +39,10 @@ const SHORT_LABELS = {
 for (const t of registeredTypes().filter((x) => QUESTION_TYPES.includes(x))) {
   const d = typeDef(t);
   const g = TYPE_GROUPS.find((x) => x.title === d.group);
-  if (g && !g.types.includes(t)) g.types.push(t);
+  if (g && !g.types.includes(t)) {
+    for (const other of TYPE_GROUPS) other.types = other.types.filter((x) => x !== t); // the definition's group wins; a type is listed once
+    g.types.push(t);
+  }
   if (d.shortLabel) SHORT_LABELS[t] = d.shortLabel;
 }
 /** The "Add question" button and its filterable type picker. */

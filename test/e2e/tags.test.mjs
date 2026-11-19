@@ -67,6 +67,11 @@ async function teacher(be, email) {
 }
 
 const editor = (page, i) => page.locator(tid('question-editor')).nth(i);
+/** Question editors are collapsed accordions; open one before looking inside it. */
+async function openEditor(page, i) {
+  const toggle = editor(page, i).locator('.adm-q__toggle');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+}
 const localTags = (page, email) => page.evaluate((e) => JSON.parse(localStorage.getItem(`cw:tags:${e}`) || '[]'), email);
 
 async function newTestWith(page, url, code, nQuestions) {
@@ -216,6 +221,8 @@ test('importing a test with tag names: matches local tags, then asks about the r
     const ids = Object.fromEntries(stored.map((t) => [t.name, t.id]));
     assert.equal(ids.Ions, 'tg_ions01');
     await a.page.locator(tid('builder-mode-visual')).click();
+    await openEditor(a.page, 0);
+    await openEditor(a.page, 1);
     await editor(a.page, 0).locator(tid(`tag-chip-${ids.Ions}`)).waitFor();
     await editor(a.page, 0).locator(tid(`tag-chip-${ids.Bonding}`)).waitFor();
     await editor(a.page, 1).locator(tid(`tag-chip-${ids.Moles}`)).waitFor();

@@ -4,7 +4,7 @@
 import { load, save } from './storage.js';
 import { getIdToken, getFreshIdToken } from './auth.js';
 
-export const SUBMIT_TIMEOUT_MS = 15000;
+const SUBMIT_TIMEOUT_MS = 15000;
 
 /** Backend errors that will never succeed on a resend: show them, do not queue. */
 const FINAL_ERRORS = new Set(['closed', 'not_open', 'not_on_roster', 'single_submission', 'submission_too_large', 'invalid_request', 'invalid_email', 'unauthorized']);
@@ -84,6 +84,8 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
       tab_switches: Number(f.tab_switches ?? f.tabSwitches) || 0,
       auto_submitted: Boolean(f.auto_submitted ?? f.autoSubmitted),
       mode: f.mode === 'scroll' ? 'scroll' : 'focus',
+      // The game or study mode the attempt was last in (omitted for plain tests).
+      ...(typeof (f.game_mode ?? f.gameMode) === 'string' && (f.game_mode ?? f.gameMode) ? { game_mode: String(f.game_mode ?? f.gameMode).slice(0, 40) } : {}),
       // { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
       ...(cleanFlagNotes(f.questions) ? { questions: cleanFlagNotes(f.questions) } : {}),
     },

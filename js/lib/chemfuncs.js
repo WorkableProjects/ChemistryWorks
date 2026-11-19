@@ -12,7 +12,7 @@ import { normalizeFormula } from './formula.js';
 const MASS = new Map(ELEMENTS.map((e) => [e.symbol, Number(String(e.mass).replace(/[()]/g, ''))]));
 
 export const GAS_CONSTANT = 0.082057; // L·atm / (mol·K)
-export const AVOGADRO = 6.022e23;
+const AVOGADRO = 6.022e23;
 export const KW = 1e-14;
 
 const round = (x, places = 6) => (Number.isFinite(x) ? Math.round(x * 10 ** places) / 10 ** places : x);
@@ -118,7 +118,7 @@ export const idealGasN = (P, V, T) => Number(P) * Number(V) / (GAS_CONSTANT * Nu
 export const idealGasT = (P, V, n) => Number(P) * Number(V) / (Number(n) * GAS_CONSTANT);
 
 // ---- solutions ---------------------------------------------------------------------------------------------
-export const molarity = (mol, litres) => Number(mol) / Number(litres);
+const molarity = (mol, litres) => Number(mol) / Number(litres);
 /** C1·V1 = C2·V2 solved for C2 / V2 / V1. */
 export const dilutionC2 = (c1, v1, v2) => Number(c1) * Number(v1) / Number(v2);
 export const dilutionV2 = (c1, v1, c2) => Number(c1) * Number(v1) / Number(c2);
@@ -128,7 +128,7 @@ export const dilutionV1 = (c2, v2, c1) => Number(c2) * Number(v2) / Number(c1);
 export const pH = (hConc) => -Math.log10(Number(hConc));
 export const pOH = (ohConc) => -Math.log10(Number(ohConc));
 export const hFromPH = (v) => 10 ** -Number(v);
-export const ohFromPH = (v) => 10 ** -(14 - Number(v));
+const ohFromPH = (v) => 10 ** -(14 - Number(v));
 /** pH of a strong monoprotic acid of concentration c (mol/L), ignoring water. */
 export const pHStrongAcid = (c) => -Math.log10(Number(c));
 /** pH of a strong base of concentration c (mol/L). */

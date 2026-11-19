@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, mkdirSync } from 'node:fs';
-import { startEnv, withSession, startTest, tid, activeCard, submit, noHorizontalScroll, nextFrames, STUDENT } from './helpers.mjs';
+import { startEnv, withSession, startTest, tid, activeCard, submit, noHorizontalScroll, nextFrames, settled, STUDENT } from './helpers.mjs';
 
 let env;
 before(async () => { env = await startEnv(); });
@@ -115,6 +115,7 @@ test('1280px with the rail open: the content fills the rest of the width', () =>
   await startTest(s, CODE);
   await page.locator(tid('navigator-toggle')).click();
   await page.locator(`${tid('navigator')}.is-open`).waitFor();
+  await settled(page, tid('navigator')); // the rail slides in over 320 ms
   await nextFrames(page);
   const { left, right, rail } = await page.evaluate(() => {
     const m = document.querySelector('.runner-main').getBoundingClientRect();

@@ -13,11 +13,11 @@ import { instantiateSteps } from './instantiate-steps.js';
 
 export { addInstantiateStep } from './instantiate-steps.js';
 
-export function studentSeed(email, code) {
+function studentSeed(email, code) {
   return `${String(email || '').trim().toLowerCase()}|${String(code || '').trim().toUpperCase()}`;
 }
 
-export function seededRandom(seedString) {
+function seededRandom(seedString) {
   let seed = 2166136261;
   for (const ch of String(seedString)) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
   return () => {

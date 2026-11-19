@@ -352,7 +352,7 @@ img { max-width: 100%; }
 /* ---------- Cards / notices ---------- */
 .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); }
 /* Cards are solid paper: texture never shows behind text. */
-.card--glass { background: var(--bg-elev); }
+
 .card__title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
 .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius); font-size: 14px; }
 .notice--info { background: var(--primary-soft); color: var(--primary-ink); }
@@ -378,7 +378,7 @@ img { max-width: 100%; }
   --text: var(--header-fg); --text-muted: var(--header-fg-muted); --text-faint: var(--header-fg-muted);
   --bg-elev: rgb(255 255 255 / 0.06); --bg-sunken: rgb(255 255 255 / 0.12); --border: var(--header-line); --border-strong: rgb(255 255 255 / 0.32);
   --primary: var(--brand-teal-on-header); --primary-soft: rgb(255 255 255 / 0.12); --primary-hover: var(--header-fg); --primary-line: rgb(255 255 255 / 0.3);
-  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
+  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-teal-ink: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
   color: var(--text);
 }
 .app-header :focus-visible { outline-color: var(--brand-teal-on-header); }
@@ -466,8 +466,7 @@ img { max-width: 100%; }
 :root[data-motion="reduce"]::view-transition-group(*), :root[data-motion="reduce"]::view-transition-old(*), :root[data-motion="reduce"]::view-transition-new(*) { animation: none !important; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.link-quiet { color: var(--text-faint); text-decoration: none; }
-.link-quiet:hover { color: var(--primary); text-decoration: underline; }
+
 /* Staggered list entrance (js/ui.js stagger() sets animation-delay per child). */
 .stagger-item { animation: rise var(--dur-slow) var(--ease-out) both; }
 .reduce-motion-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
@@ -546,9 +545,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .q-structure__count.is-match::after { content: " \2713"; }
 
 /* V3 polish: notices with an inline action */
-.code-notice { align-items: center; flex-wrap: wrap; }
-.code-notice[hidden] { display: none; }
-.code-notice .field-error { flex: 1; min-width: 160px; margin: 0; color: inherit; }
+
 .app-header .icon-btn, .app-header .theme-ctl__btn { min-width: 44px; min-height: 44px; }
 
 /* ---------- Brand (assets/brand) ---------- */
@@ -568,7 +565,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .brand-logo--wordmark { font-size: var(--brand-size, 52px); height: 1em; }
 .brand-logo--mark { height: var(--brand-size, 100%); max-height: 100%; }
 .brand-logo__chem { color: var(--brand-navy); }
-.brand-logo__works { color: var(--brand-teal); }
+.brand-logo__works { color: var(--brand-teal-ink); }
 /* Mono: one colour for print and high contrast. */
 .brand-logo--mono { --brand-navy: currentColor; --brand-teal: currentColor; }
 @media (prefers-contrast: more) { .brand-logo { --brand-teal: var(--brand-navy); } }

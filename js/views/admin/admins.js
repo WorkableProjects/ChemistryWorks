@@ -67,7 +67,7 @@ export function renderAdmins(host, ctx) {
 
   function drawList() {
     if (!admins.length) { mount(listHost, h('p', { class: 'muted' }, 'No admins on the list yet.')); return; }
-    mount(listHost, h('div', { class: 'adm-tablewrap' }, h('table', { class: 'adm-table' },
+    mount(listHost, h('div', { class: 'adm-tablewrap', tabindex: '0', role: 'region', 'aria-label': 'Admins' }, h('table', { class: 'adm-table' },
       h('thead', {}, h('tr', {}, ['Email', 'Role', 'Added by', 'Added', ''].map((t) => h('th', { scope: 'col' }, t)))),
       h('tbody', {}, admins.map((a) => {
         const self = a.email === me.email;
@@ -132,7 +132,7 @@ export function renderActivityLog(host) {
     if (!alive) return;
     if (!res.ok) { mount(body, h('p', { class: 'muted' }, `Activity log unavailable: ${adminErrorText(res.error)}`)); return; }
     if (!res.rows.length) { mount(body, h('p', { class: 'muted' }, 'No activity recorded yet.')); return; }
-    mount(body, h('div', { class: 'adm-tablewrap' }, h('table', { class: 'adm-table' },
+    mount(body, h('div', { class: 'adm-tablewrap', tabindex: '0', role: 'region', 'aria-label': 'Activity log entries' }, h('table', { class: 'adm-table' },
       h('thead', {}, h('tr', {}, ['Time', 'Admin', 'Action', 'Target', 'Details'].map((t) => h('th', { scope: 'col' }, t)))),
       h('tbody', {}, res.rows.map((r) => h('tr', {},
         h('td', {}, r.time ? fmtDate(r.time) : '—'), h('td', {}, r.admin || '—'), h('td', {}, r.action || '—'), h('td', {}, r.target || '—'), h('td', {}, r.details || '')))))));

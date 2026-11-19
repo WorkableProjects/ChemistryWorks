@@ -218,7 +218,7 @@ test('no horizontal scroll at 360, 768 and 1366 px', () => withSession(env, {}, 
       await page.locator(tid(`tab-${tab}`)).click();
       await page.locator('#ash-main').waitFor();
       await nextFrames(page);
-      assert.ok(await noHorizontalScroll(page), `${tab} at ${width}px`);
+      await poll(() => noHorizontalScroll(page), { message: `no horizontal scroll: ${tab} at ${width}px`, timeout: 5000 }); // the sidebar may still be resizing
     }
   }
 }));

@@ -7,7 +7,7 @@
 import { seededShuffle } from '../ui.js';
 import { groupQuestions } from './sections.js';
 
-export const MAX_CODE_LENGTH = 32;
+const MAX_CODE_LENGTH = 32;
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const upper = (s) => String(s ?? '').trim().toUpperCase();
 

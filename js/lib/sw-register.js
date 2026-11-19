@@ -27,7 +27,7 @@ function promptReload(reg) {
 }
 
 /** Register sw.js (relative to the page, so it works under /ChemistryWorks/). Resolves to the registration or null. */
-export async function registerServiceWorker() {
+async function registerServiceWorker() {
   if (!canRegister()) return null;
   try {
     const reg = await navigator.serviceWorker.register('sw.js');

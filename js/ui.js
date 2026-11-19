@@ -295,7 +295,8 @@ export function toast(message, { type = 'info', timeout = 3200, action = null } 
   setTimeout(dismiss, timeout);
   // Swipe sideways to dismiss.
   let x0 = null;
-  el.addEventListener('pointerdown', (e) => { x0 = e.clientX; el.classList.add('is-dragging'); el.setPointerCapture?.(e.pointerId); });
+  // A press on the action button is a click, not a swipe: capturing the pointer would send the click to the toast instead.
+  el.addEventListener('pointerdown', (e) => { if (e.target.closest?.('button, a')) return; x0 = e.clientX; el.classList.add('is-dragging'); el.setPointerCapture?.(e.pointerId); });
   el.addEventListener('pointermove', (e) => { if (x0 !== null) el.style.setProperty('--swipe-x', `${e.clientX - x0}px`); });
   const end = (e) => {
     if (x0 === null) return;
