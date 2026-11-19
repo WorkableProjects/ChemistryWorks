@@ -1,0 +1,18 @@
+/* `datatable` question type. */
+.q-datatable { display: grid; gap: 8px; }
+.q-datatable .q-hint { margin: 0; }
+.q-dt__scroll { overflow-x: auto; border-radius: var(--radius); }
+.q-dt__scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.q-dt__table { border-collapse: collapse; width: 100%; background: var(--bg-elev); }
+.q-dt__table th, .q-dt__table td { padding: 8px 10px; border: 1px solid var(--border-control); text-align: center; }
+.q-dt__th, .q-dt__table thead th { background: var(--bg-sunken); font-size: 14px; font-weight: 600; }
+.q-dt__rowhead { font-weight: 600; background: var(--bg-sunken); }
+.q-dt__given { font-weight: 600; }
+.q-dt__in { width: 100%; min-width: 4.5em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); }
+.q-dt__table--sm th, .q-dt__table--sm td { padding: 4px 8px; font-size: 14px; }
+.q-dt__table td.is-right { background: var(--success-soft); color: var(--success-ink); }
+.q-dt__table td.is-wrong { background: var(--danger-soft); color: var(--danger-ink); }
+.q-dt__table td.is-key { background: var(--success-soft); color: var(--success-ink); font-weight: 600; }
+.q-dt-ed__cells { display: flex; flex-wrap: wrap; gap: 10px; }
+.q-dt-ed__cell { display: grid; gap: 4px; min-width: 7em; flex: 1; }
+.q-dt-ed__given { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; min-height: var(--touch, 44px); }

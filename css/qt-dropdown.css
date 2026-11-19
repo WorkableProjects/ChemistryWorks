@@ -1,0 +1,7 @@
+/* `dropdown` question type. */
+.q-dropdown .q-dropdown__select { min-height: 44px; width: auto; max-width: 100%; margin: 0 4px; }
+.mp-ed__part, .dropdown-ed__blank { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mp-ed__part legend, .dropdown-ed__blank legend { padding: 0 6px; font-weight: 600; font-size: 14px; color: var(--text); }
+.naming-ed__row, .dropdown-ed__opt { display: flex; gap: 8px; align-items: center; }
+.naming-ed__row .input, .dropdown-ed__opt .input { flex: 1; min-width: 0; }
+.dropdown-ed__opt input[type="radio"] { width: 20px; height: 20px; flex: none; }

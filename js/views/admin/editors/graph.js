@@ -68,3 +68,5 @@ export function graphEditor(q, redraw, changed) {
     preview,
     modeFields);
 }
+
+export default { type: 'graph', edit: ({ q, redraw, changed }) => graphEditor(q, redraw, changed) };

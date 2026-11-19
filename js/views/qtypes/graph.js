@@ -1,4 +1,4 @@
-// Student widget for `graph` (V3-05).
+// Student widget for `graph`.
 //   mode 'read': the chart is drawn as inline SVG and the student types a number.
 //   mode 'plot': an empty grid; click to add a point, click a point to remove it. Keyboard: arrow keys move a crosshair
 //                (Shift = 5 steps), Enter adds a point (or removes one already under the crosshair), Delete removes the last point.
@@ -101,3 +101,8 @@ const plotWidget = (q, api) => {
 export function graphWidget(q, api) {
   return q.mode === 'plot' ? plotWidget(q, api) : readWidget(q, api);
 }
+
+export default {
+  type: 'graph',
+  render: ({ q, api }) => graphWidget(q, api),
+};

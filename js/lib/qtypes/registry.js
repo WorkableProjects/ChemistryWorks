@@ -16,6 +16,8 @@
 //     keyText(q) -> string,                            // the correct answer as text
 //     correctAnswer(q) -> any,                         // stored as `correctAnswer` in graded results
 //     toPdf(q, answer, H) -> string[],                 // optional; lines for the PDF / print export. Default [format(q, answer)]
+//     isManual(q) -> boolean,                          // optional; per-question teacher grading (structure with studentCharges); replaces `manual`
+//     resultExtras(q) -> object,                       // optional; extra fields copied onto each graded result row (open: rubric)
 //   }
 // H is the helper bag the callers pass in, so type modules never import schema.js / grading.js:
 //   { normalizeQuestion, validateQuestion, gradeQuestion, isAnswered, formatAnswer, correctAnswerText, parseNumber }
@@ -64,6 +66,12 @@ const UI_LOADERS = {
   ptable: () => import('../../views/qtypes/ptable.js'),
   sigfigs: () => import('../../views/qtypes/sigfigs.js'),
   hotspot: () => import('../../views/qtypes/hotspot.js'),
+  lewis: () => import('../../views/qtypes/lewis.js'),
+  structure: () => import('../../views/qtypes/structure.js'),
+  orbital: () => import('../../views/qtypes/orbital.js'),
+  graph: () => import('../../views/qtypes/graph.js'),
+  short: () => import('../../views/qtypes/short.js'),
+  open: () => import('../../views/qtypes/open.js'),
   multipart: () => import('../../views/qtypes/multipart.js'),
   naming: () => import('../../views/qtypes/naming.js'),
   dropdown: () => import('../../views/qtypes/dropdown.js'),
@@ -103,6 +111,12 @@ const EDITOR_LOADERS = {
   ptable: () => import('../../views/admin/editors/ptable.js'),
   sigfigs: () => import('../../views/admin/editors/sigfigs.js'),
   hotspot: () => import('../../views/admin/editors/hotspot.js'),
+  lewis: () => import('../../views/admin/editors/lewis.js'),
+  structure: () => import('../../views/admin/editors/structure.js'),
+  orbital: () => import('../../views/admin/editors/orbital.js'),
+  graph: () => import('../../views/admin/editors/graph.js'),
+  short: () => import('../../views/admin/editors/short.js'),
+  open: () => import('../../views/admin/editors/open.js'),
 };
 
 /** True when a UI module exists for this type (loaded or loadable). */

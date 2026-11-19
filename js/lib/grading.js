@@ -1,10 +1,7 @@
 // Auto-grading engine. Pure functions, no DOM. Never throws on malformed answers.
 
-import { isDotArray, dotTotal, followsPlacementRule, canonicalDots, describeDots } from './lewis.js';
-import { isStructureAnswered, scoreStructure, describeStructure, acceptedStructures } from './structure.js';
-import { isOrbitalAnswered, describeOrbital } from './orbital.js';
 import { isManualQuestion } from './schema.js';
-import { isPlotAnswered, scorePlot, pointsText } from './qtypes/graph.js';
+export { rubricText } from './qtypes/open.js';
 import { typeDef } from './qtypes/registry.js';
 import './qtypes/index.js'; // registers every question type definition
 
@@ -50,46 +47,18 @@ export function parseNumber(str, { unit = '' } = {}) {
 
 export function isAnswered(question, answer) {
   if (answer === undefined || answer === null) return false;
-  const type = question && question.type;
-  switch (type) {
-    case 'short':
-    case 'open':
-      return typeof answer === 'string' && answer.trim() !== '';
-    case 'structure':
-      return isStructureAnswered(answer);
-    case 'orbital':
-      return isOrbitalAnswered(question, answer);
-    case 'lewis':
-      return isDotArray(answer) && dotTotal(answer) > 0;
-    case 'graph':
-      return question.mode === 'plot' ? isPlotAnswered(answer) : (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
-    default:
-      if (typeDef(type)?.isAnswered) return !!typeDef(type).isAnswered(question, answer, GRADING_HELPERS);
-      if (typeof answer === 'string') return answer.trim() !== '';
-      if (Array.isArray(answer)) return answer.length > 0;
-      if (isPlainObject(answer)) return Object.keys(answer).length > 0;
-      return true;
-  }
+  const def = typeDef(question && question.type);
+  if (def?.isAnswered) return !!def.isAnswered(question, answer, GRADING_HELPERS);
+  if (typeof answer === 'string') return answer.trim() !== '';
+  if (Array.isArray(answer)) return answer.length > 0;
+  if (isPlainObject(answer)) return Object.keys(answer).length > 0;
+  return true;
 }
 
 /** Returns { fraction, full } for an answered question. */
 function score(q, answer) {
-  switch (q.type) {
-    case 'lewis': {
-      if (!isDotArray(answer)) return { fraction: 0, full: false };
-      const ok = dotTotal(answer) === Number(q.correctAnswer)
-        && (q.checkPlacement === false || followsPlacementRule(answer, q.element));
-      return { fraction: ok ? 1 : 0, full: ok };
-    }
-    case 'structure':
-      return scoreStructure(q, answer);
-    case 'graph':
-      // read mode reuses the numeric grading above
-      return q.mode === 'plot' ? scorePlot(q, answer) : score({ type: 'numeric', correctAnswer: q.answer, tolerance: q.tolerance, toleranceType: 'absolute', unit: q.unit }, answer);
-    default:
-      if (typeDef(q.type)?.grade) return typeDef(q.type).grade(q, answer, GRADING_HELPERS);
-      return { fraction: 0, full: false };
-  }
+  const def = typeDef(q.type);
+  return def?.grade ? def.grade(q, answer, GRADING_HELPERS) : { fraction: 0, full: false };
 }
 
 /** Helpers handed to v4 type definitions (js/lib/qtypes/registry.js), so they never import this module. */
@@ -139,22 +108,9 @@ export function formatAnswer(question, answer) {
   try {
     if (q.type === 'formula' && Array.isArray(answer)) return answer.length ? answer.map(String).join(' / ') : DASH;
     if (!isAnswered(q, answer)) return DASH;
-    switch (q.type) {
-      case 'short':
-      case 'open':
-        return String(answer).trim();
-      case 'structure':
-        return describeStructure(q, answer);
-      case 'orbital':
-        return describeOrbital(q, answer);
-      case 'graph':
-        return q.mode === 'plot' ? pointsText(answer) : String(answer).trim();
-      case 'lewis':
-        return describeDots(answer, q.element);
-      default:
-        if (typeDef(q.type)?.format) return typeDef(q.type).format(q, answer, GRADING_HELPERS);
-        return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
-    }
+    const def = typeDef(q.type);
+    if (def?.format) return def.format(q, answer, GRADING_HELPERS);
+    return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
   } catch {
     return DASH;
   }
@@ -168,11 +124,6 @@ export function pdfLines(question, answer) {
     try { return def.toPdf(q, answer, GRADING_HELPERS).map(String); } catch { /* fall through to the plain answer */ }
   }
   return [formatAnswer(q, answer)];
-}
-
-/** Rubric as text: "• Uses ions (2 pts)\n• ..." */
-export function rubricText(rubric) {
-  return (Array.isArray(rubric) ? rubric : []).map((r) => `• ${r.text} (${r.points} pt${Number(r.points) === 1 ? '' : 's'})`).join('\n');
 }
 
 /** Question text as shown in results / grading (fill-in blanks become numbered lines; a v4 type may supply `displayText`). */
@@ -189,29 +140,9 @@ export function correctAnswerText(q) {
 }
 
 function formatCorrect(q) {
-  if (typeDef(q.type)?.keyText) return typeDef(q.type).keyText(q, GRADING_HELPERS) || DASH;
-  if (q.type === 'short') return q.sampleAnswer ? String(q.sampleAnswer) : DASH;
-  if (q.type === 'open') {
-    const parts = [q.sampleAnswer ? String(q.sampleAnswer) : '', q.rubric && q.rubric.length ? `Rubric:\n${rubricText(q.rubric)}` : ''].filter(Boolean);
-    return parts.length ? parts.join('\n\n') : DASH;
-  }
-  if (q.type === 'graph') {
-    if (q.mode === 'plot') return pointsText(q.targets) || DASH;
-    return q.answer === null || q.answer === undefined || q.answer === '' ? DASH : `${q.answer}${q.unit ? ` ${q.unit}` : ''}`;
-  }
-  if (q.type === 'orbital') return q.sampleAnswer ? `Sample: ${describeOrbital(q, q.sampleAnswer)}` : DASH;
-  if (q.type === 'structure') {
-    const list = acceptedStructures(q);
-    if (!list.length) return DASH;
-    return list.map((k, i) => `${list.length > 1 ? `Form ${i + 1}: ` : ''}${describeStructure(q, k)}`).join(' | ');
-  }
-  const a = q.correctAnswer;
-  if (q.type === 'lewis') {
-    const n = Number(a);
-    if (!Number.isInteger(n) || n < 1) return DASH;
-    return `${describeDots(canonicalDots(n, q.element), q.element)}${q.checkPlacement === false ? ' — any placement' : ''}`;
-  }
-  return formatAnswer(q, a);
+  const def = typeDef(q.type);
+  if (def?.keyText) return def.keyText(q, GRADING_HELPERS) || DASH;
+  return formatAnswer(q, q.correctAnswer);
 }
 
 /**
@@ -246,7 +177,7 @@ export function gradeTest(test, answers, opts = {}) {
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: typeDef(q.type)?.correctAnswer ? typeDef(q.type).correctAnswer(q) : q.type === 'graph' ? (q.mode === 'plot' ? q.targets : q.answer) : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.correctAnswer,
+      correctAnswer: typeDef(q.type)?.correctAnswer ? typeDef(q.type).correctAnswer(q) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,
@@ -257,7 +188,7 @@ export function gradeTest(test, answers, opts = {}) {
       ...(q.section ? { sectionId: q.section } : {}),
       ...(g.hintUsed ? { hintUsed: true, hintCost: g.hintCost } : {}),
       ...(q.confidence && g.answered && Number.isInteger(c) && c >= 1 && c <= 3 ? { confidence: c } : {}),
-      ...(q.type === 'open' && Array.isArray(q.rubric) && q.rubric.length ? { rubric: q.rubric.map((r) => ({ text: r.text, points: r.points })) } : {}),
+      ...(typeDef(q.type)?.resultExtras ? typeDef(q.type).resultExtras(q) : {}),
     };
   });
 

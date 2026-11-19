@@ -1,0 +1,31 @@
+/* `dimensional` question type. */
+.q-dim { display: grid; gap: 12px; }
+.q-dim .q-hint { margin: 0; }
+.q-dim__given { margin: 0; font-size: 18px; }
+.q-dim__tiles { display: flex; flex-wrap: wrap; gap: 12px; }
+.q-dim__tile { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-control); border-radius: var(--radius); background: var(--bg-sunken); }
+.q-dim__fraction { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.q-dim__top, .q-dim__bottom { display: flex; gap: 6px; }
+.q-dim__bar { height: 2px; background: var(--text); border-radius: 1px; }
+.q-dim__in { width: 6.5em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); }
+.q-dim__top .q-dim__in:first-child, .q-dim__bottom .q-dim__in:first-child { width: 5em; }
+.q-dim__remove { min-height: var(--touch, 44px); }
+.q-dim__actions { display: flex; }
+.q-dim__units { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius); background: var(--bg-sunken); font-family: var(--font-mono); font-size: 18px; min-height: 52px; }
+.q-dim__term { display: inline-flex; gap: 4px; }
+.q-dim__frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.q-dim__units .q-dim__top { border-bottom: 2px solid var(--text); padding: 0 4px; justify-content: center; }
+.q-dim__units .q-dim__bottom { padding: 0 4px; justify-content: center; }
+.q-dim__units .q-dim__top:empty::before, .q-dim__units .q-dim__bottom:empty::before { content: "1"; color: var(--text-faint); }
+.q-dim__u.is-cancelled { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--text-faint); }
+.q-dim__x { color: var(--text-muted); }
+.q-dim__final { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.q-dim__eq { font-size: 22px; font-weight: 600; color: var(--text-muted); }
+.q-dim-review { display: inline-flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.q-dim-review .q-dim__units { font-size: 14px; min-height: 0; padding: 6px 10px; }
+.q-dim-ed__factor, .q-nuc-ed__particle { display: grid; gap: 10px; }
+
+@media (max-width: 720px) {
+  .q-dim__tile { width: 100%; }
+  .q-dim__in { width: 100%; }
+}

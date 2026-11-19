@@ -1,0 +1,28 @@
+/* `titration` question type. */
+.q-tit { display: grid; gap: 12px; }
+.q-tit__setup { margin: 0; font-weight: 600; }
+.q-tit__sim { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.q-tit__chartwrap { min-width: 0; }
+.q-tit__chart, .q-tit-review svg { display: block; width: 100%; height: auto; max-width: 420px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+.q-tit__grid { stroke: var(--border); stroke-width: 1; }
+.q-tit__tick, .q-tit__axis { fill: var(--text-muted); font-size: 10px; font-family: var(--font-body); }
+.q-tit__line { stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; }
+.q-tit__dot { fill: var(--primary); }
+.q-tit__mark { fill: var(--accent-2); stroke: var(--bg-elev); stroke-width: 2; }
+.q-tit__mark.is-key { fill: var(--success); }
+.q-tit__mark.is-student { fill: var(--warning); }
+.q-tit__controls { display: grid; gap: 10px; }
+.q-tit__read { margin: 0; font-size: 18px; font-weight: 600; font-family: var(--font-mono); }
+.q-tit__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.q-tit__buttons .btn { min-height: var(--touch, 44px); }
+.q-tit__slider { width: 100%; min-height: var(--touch, 44px); accent-color: var(--primary); }
+.q-tit__answers { display: flex; flex-wrap: wrap; gap: 14px; }
+.q-tit__field { display: grid; gap: 4px; }
+.q-tit__label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.q-tit__inwrap { display: inline-flex; align-items: center; gap: 8px; }
+.q-tit__in { width: 8em; min-height: var(--touch, 44px); }
+.q-tit__unit { font-weight: 600; color: var(--text-muted); }
+
+@media (max-width: 720px) {
+  .q-tit__sim { grid-template-columns: minmax(0, 1fr); }
+}
