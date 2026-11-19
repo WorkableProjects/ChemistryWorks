@@ -185,3 +185,8 @@ export function hotspotWidget(q, api) {
     focus: () => chips.values().next().value?.focus(),
   };
 }
+
+export default {
+  type: 'hotspot',
+  render: ({ q, api }) => hotspotWidget(q, api),
+};

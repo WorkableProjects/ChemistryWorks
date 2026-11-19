@@ -2,16 +2,12 @@
 
 import { normalizeSymbol, valenceOf } from './lewis.js';
 import { bondEnds, validateStructure } from './structure.js';
-import { BLANK_KINDS, markerIds } from './blanks.js';
 import { FORMAT_HELP_MODES } from './hints.js';
 import { AUFBAU, ORBITAL_TYPES, DEFAULT_MAX_SUBLEVEL, DEFAULT_ORBITAL_TYPES, validateOrbital } from './orbital.js';
 import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
-import { ELEMENTS } from './elements.js';
-import { parseConfig } from './qtypes/econfig.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
 import { cleanGameOptions, validateGameOptions } from './games/options.js';
 import { feature } from '../config.js';
-import { normOptions, validateList } from './qtypes/shared.js';
 import './qtypes/index.js'; // registers every question type definition
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
@@ -108,29 +104,6 @@ function normalizeQuestion(raw) {
     } else delete q.hint;
   }
   switch (q.type) {
-    case 'ordering':
-      q.items = normOptions(q.items);
-      q.partialCredit = bool(q.partialCredit, true);
-      q.topLabel = str(q.topLabel);
-      q.bottomLabel = str(q.bottomLabel);
-      break;
-    case 'fillblank':
-      q.blanks = Array.isArray(q.blanks) ? q.blanks.map((b) => {
-        const src = isObj(b) ? b : {};
-        const answers = Array.isArray(src.answers) ? src.answers : src.answers === undefined || src.answers === null ? [] : [src.answers];
-        const out = { ...src, id: str(src.id).trim(), answers: answers.map((a) => (typeof a === 'number' ? a : str(a))), kind: src.kind ? str(src.kind).trim() : 'text' };
-        if (out.kind === 'number') {
-          out.tolerance = src.tolerance === undefined || src.tolerance === null || src.tolerance === '' ? 0 : Number(src.tolerance);
-          out.toleranceType = src.toleranceType || 'absolute';
-          out.unit = str(src.unit);
-        }
-        return out;
-      }) : [];
-      q.partialCredit = bool(q.partialCredit, true);
-      q.caseSensitive = bool(q.caseSensitive, false);
-      q.wordBank = bool(q.wordBank, false);
-      q.distractors = Array.isArray(q.distractors) ? q.distractors.map((d) => str(d)) : [];
-      break;
     case 'structure':
       q.atoms = Array.isArray(q.atoms) ? q.atoms.map((a) => {
         const src = isObj(a) ? a : {};
@@ -157,11 +130,6 @@ function normalizeQuestion(raw) {
       q.maxWords = nullableNum(q.maxWords);
       q.showRubric = bool(q.showRubric, true);
       break;
-    case 'matching':
-      q.left = normOptions(q.left);
-      q.right = normOptions(q.right);
-      q.partialCredit = bool(q.partialCredit, true);
-      break;
     case 'lewis': {
       const sym = normalizeSymbol(q.element);
       q.element = sym || str(q.element).trim();
@@ -177,53 +145,6 @@ function normalizeQuestion(raw) {
     case 'short':
       q.sampleAnswer = str(q.sampleAnswer);
       break;
-    case 'balance': {
-      const list = (v) => (Array.isArray(v) ? v : v === undefined || v === null || v === '' ? [] : [v]).map((x) => str(x).trim());
-      q.reactants = list(q.reactants);
-      q.products = list(q.products);
-      q.coefficients = Array.isArray(q.coefficients) ? q.coefficients.map((n) => (typeof n === 'string' && n.trim() !== '' ? Number(n) : n)) : [];
-      q.allowMultiples = bool(q.allowMultiples, false);
-      q.partialCredit = bool(q.partialCredit, false);
-      break;
-    }
-    case 'econfig':
-      q.answers = (Array.isArray(q.answers) ? q.answers : q.answers === undefined || q.answers === null || q.answers === '' ? [] : [q.answers]).map((a) => str(a).trim());
-      break;
-    case 'ptable': {
-      const bySymbol = new Map(ELEMENTS.map((e) => [e.symbol.toLowerCase(), e.symbol]));
-      q.answers = (Array.isArray(q.answers) ? q.answers : q.answers === undefined || q.answers === null || q.answers === '' ? [] : [q.answers])
-        .map((a) => bySymbol.get(str(a).trim().toLowerCase()) || str(a).trim());
-      q.multiple = bool(q.multiple, true);
-      q.partialCredit = bool(q.partialCredit, false);
-      break;
-    }
-    case 'sigfigs':
-      if (typeof q.answer === 'string' && q.answer.trim() !== '' && Number.isFinite(Number(q.answer))) q.answer = Number(q.answer);
-      if (typeof q.sigFigs === 'string' && q.sigFigs.trim() !== '' && Number.isFinite(Number(q.sigFigs))) q.sigFigs = Number(q.sigFigs);
-      q.tolerance = q.tolerance === undefined || q.tolerance === null || q.tolerance === '' ? 0 : Number(q.tolerance);
-      q.partialCredit = bool(q.partialCredit, true);
-      break;
-    case 'categorize':
-      q.categories = (Array.isArray(q.categories) ? q.categories : []).map((c) => {
-        const src = isObj(c) ? c : { id: c, label: c };
-        return { ...src, id: str(src.id).trim(), label: str(src.label !== undefined ? src.label : src.text) };
-      });
-      q.items = (Array.isArray(q.items) ? q.items : []).map((it) => {
-        const src = isObj(it) ? it : { id: it, text: it };
-        return { ...src, id: str(src.id).trim(), text: str(src.text), category: str(src.category).trim() };
-      });
-      q.partialCredit = bool(q.partialCredit, true);
-      break;
-    case 'hotspot': {
-      q.labels = (Array.isArray(q.labels) ? q.labels : []).map((l) => {
-        const src = isObj(l) ? l : { id: l, text: l };
-        const num = (v) => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v);
-        return { ...src, id: str(src.id).trim(), text: str(src.text), x: num(src.x), y: num(src.y) };
-      });
-      q.radius = q.radius === undefined || q.radius === null || q.radius === '' ? 0.06 : Number(q.radius);
-      q.partialCredit = bool(q.partialCredit, true);
-      break;
-    }
     case 'graph': {
       q.mode = str(q.mode).trim() === 'plot' ? 'plot' : 'read';
       const src = isObj(q.chart) ? q.chart : {};
@@ -348,22 +269,6 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   }
   const a = q.correctAnswer;
   switch (q.type) {
-    case 'matching': {
-      const leftIds = validateList(q.left, 'left item', where, errors);
-      const rightIds = validateList(q.right, 'right item', where, errors);
-      if (!isObj(a)) {
-        errors.push(`${where}: correctAnswer must be an object mapping each left id to a right id.`);
-      } else {
-        for (const id of leftIds) {
-          if (!(id in a)) errors.push(`${where}: correctAnswer is missing a match for left item "${id}".`);
-        }
-        for (const [l, r] of Object.entries(a)) {
-          if (!leftIds.has(l)) errors.push(`${where}: correctAnswer refers to unknown left item "${l}".`);
-          else if (typeof r !== 'string' || !rightIds.has(r)) errors.push(`${where}: correctAnswer for "${l}" points to unknown right item "${r}".`);
-        }
-      }
-      break;
-    }
     case 'lewis':
       if (!nonEmptyStr(q.element) || !normalizeSymbol(q.element)) errors.push(`${where}: element must be an element symbol such as "O" or "Cl".`);
       if (!Number.isInteger(a) || a < 1 || a > 8) errors.push(`${where}: correctAnswer must be the number of valence electrons (a whole number from 1 to 8).`);
@@ -371,117 +276,12 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
     case 'short':
       if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
       break;
-    case 'ordering': {
-      const ids = validateList(q.items, 'item', where, errors);
-      if (!Array.isArray(a) || a.length !== ids.size || new Set(a).size !== a.length || a.some((id) => !ids.has(id))) {
-        errors.push(`${where}: correctAnswer must list every item id exactly once, in the correct order.`);
-      }
-      break;
-    }
-    case 'fillblank': {
-      const blanks = Array.isArray(q.blanks) ? q.blanks : [];
-      if (!blanks.length) { errors.push(`${where}: blanks needs at least 1 blank.`); break; }
-      const ids = new Set();
-      blanks.forEach((b, i) => {
-        const n = i + 1;
-        if (!isObj(b)) { errors.push(`${where}: blank ${n} must be an object with id and answers.`); return; }
-        if (!nonEmptyStr(b.id) || !ID_RE.test(b.id)) errors.push(`${where}: blank ${n} has an invalid id (use letters, digits, "_" or "-").`);
-        else if (ids.has(b.id)) errors.push(`${where}: duplicate blank id "${b.id}".`);
-        else ids.add(b.id);
-        const kind = b.kind === undefined ? 'text' : b.kind;
-        if (!BLANK_KINDS.includes(kind)) errors.push(`${where}: blank ${n} kind must be "text", "number" or "formula".`);
-        if (!Array.isArray(b.answers) || !b.answers.length || b.answers.some((x) => !(nonEmptyStr(x) || isNum(x)))) {
-          errors.push(`${where}: blank ${n} needs answers: a list of accepted answers, e.g. ["H2O"].`);
-        } else if (kind === 'number' && b.answers.some((x) => !isNum(x) && !Number.isFinite(Number(String(x).replace(/\s*[x×*]\s*10\s*\^\s*/i, 'e'))))) {
-          errors.push(`${where}: blank ${n} is a number blank, so every answer must be a number.`);
-        }
-        if (kind === 'number' && b.tolerance !== undefined && (!isNum(b.tolerance) || b.tolerance < 0)) errors.push(`${where}: blank ${n} tolerance must be 0 or greater.`);
-      });
-      const marks = markerIds(q.text);
-      for (const id of ids) {
-        const c = marks.filter((m) => m === id).length;
-        if (c === 0) errors.push(`${where}: text is missing the marker {{${id}}} for blank "${id}".`);
-        else if (c > 1) errors.push(`${where}: marker {{${id}}} appears more than once in the text.`);
-      }
-      for (const m of new Set(marks)) if (!ids.has(m)) errors.push(`${where}: text has {{${m}}} but there is no blank with id "${m}".`);
-      if (q.distractors !== undefined && (!Array.isArray(q.distractors) || q.distractors.some((d) => typeof d !== 'string'))) errors.push(`${where}: distractors must be a list of text.`);
-      break;
-    }
     case 'structure':
       validateStructure(q, where, errors);
       break;
     case 'orbital':
       validateOrbital(q, where, errors);
       break;
-    case 'balance': {
-      const names = (list, label) => {
-        if (!Array.isArray(list) || list.length === 0 || list.some((f) => !nonEmptyStr(f))) { errors.push(`${where}: ${label} must be a non-empty list of formulas, e.g. ["H2", "O2"].`); return 0; }
-        return list.length;
-      };
-      const n = names(q.reactants, 'reactants') + names(q.products, 'products');
-      const c = q.coefficients;
-      if (!Array.isArray(c) || c.some((x) => !Number.isInteger(x) || x < 1)) errors.push(`${where}: coefficients must be a list of positive whole numbers.`);
-      else if (n && c.length !== n) errors.push(`${where}: coefficients needs ${n} numbers (one per reactant and product, in order) but has ${c.length}.`);
-      break;
-    }
-    case 'econfig': {
-      if (!Array.isArray(q.answers) || q.answers.length === 0) { errors.push(`${where}: answers must list at least one electron configuration, e.g. ["1s2 2s2 2p6 3s1", "[Ne] 3s1"].`); break; }
-      q.answers.forEach((x, i) => {
-        if (!nonEmptyStr(x) || !parseConfig(x)) errors.push(`${where}: answer ${i + 1} is not a readable electron configuration (use forms like "1s2 2s2 2p6" or "[Ne] 3s1").`);
-      });
-      break;
-    }
-    case 'ptable': {
-      const symbols = new Set(ELEMENTS.map((e) => e.symbol));
-      if (!Array.isArray(q.answers) || q.answers.length === 0) { errors.push(`${where}: answers must list at least one element symbol, e.g. ["Na"].`); break; }
-      q.answers.forEach((x) => { if (typeof x !== 'string' || !symbols.has(x)) errors.push(`${where}: "${x}" is not an element symbol.`); });
-      if (new Set(q.answers).size !== q.answers.length) errors.push(`${where}: answers lists the same element more than once.`);
-      if (q.multiple !== undefined && typeof q.multiple !== 'boolean') errors.push(`${where}: multiple must be true or false.`);
-      if (q.multiple === false && q.answers.length !== 1) errors.push(`${where}: a single-select question (multiple: false) needs exactly one answer.`);
-      break;
-    }
-    case 'sigfigs':
-      if (!isNum(q.answer)) errors.push(`${where}: answer must be a number.`);
-      if (!Number.isInteger(q.sigFigs) || q.sigFigs < 1 || q.sigFigs > 15) errors.push(`${where}: sigFigs must be a whole number from 1 to 15.`);
-      if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
-      break;
-    case 'categorize': {
-      const cats = Array.isArray(q.categories) ? q.categories : [];
-      const catIds = new Set();
-      if (cats.length < 2) errors.push(`${where}: categorize needs at least 2 categories.`);
-      cats.forEach((c, i) => {
-        if (!isObj(c) || !nonEmptyStr(c.id)) { errors.push(`${where}: category ${i + 1} needs an id.`); return; }
-        if (!nonEmptyStr(c.label)) errors.push(`${where}: category ${i + 1} needs a label.`);
-        if (catIds.has(c.id)) errors.push(`${where}: duplicate category id "${c.id}".`);
-        catIds.add(c.id);
-      });
-      const items = Array.isArray(q.items) ? q.items : [];
-      if (items.length < 1) errors.push(`${where}: categorize needs at least 1 item.`);
-      const itemIds = new Set();
-      items.forEach((it, i) => {
-        if (!isObj(it) || !nonEmptyStr(it.id)) { errors.push(`${where}: item ${i + 1} needs an id.`); return; }
-        if (!nonEmptyStr(it.text)) errors.push(`${where}: item ${i + 1} has empty text.`);
-        if (itemIds.has(it.id)) errors.push(`${where}: duplicate item id "${it.id}".`);
-        itemIds.add(it.id);
-        if (!catIds.has(it.category)) errors.push(`${where}: item ${i + 1} ("${it.id}") category "${it.category}" is not one of the categories.`);
-      });
-      break;
-    }
-    case 'hotspot': {
-      if (!isObj(q.image) || !nonEmptyStr(q.image.url)) errors.push(`${where}: hotspot needs image: { "url": "...", "alt": "..." }.`);
-      const labels = Array.isArray(q.labels) ? q.labels : [];
-      if (labels.length < 1) errors.push(`${where}: hotspot needs at least 1 label.`);
-      const seen = new Set();
-      labels.forEach((l, i) => {
-        if (!isObj(l) || !nonEmptyStr(l.id)) { errors.push(`${where}: label ${i + 1} needs an id.`); return; }
-        if (!nonEmptyStr(l.text)) errors.push(`${where}: label ${i + 1} has empty text.`);
-        if (seen.has(l.id)) errors.push(`${where}: duplicate label id "${l.id}".`);
-        seen.add(l.id);
-        if (!isNum(l.x) || l.x < 0 || l.x > 1 || !isNum(l.y) || l.y < 0 || l.y > 1) errors.push(`${where}: label ${i + 1} ("${l.id}") x and y must be numbers from 0 to 1 (fractions of the image).`);
-      });
-      if (!isNum(q.radius) || q.radius <= 0 || q.radius > 1) errors.push(`${where}: radius must be a number above 0 and at most 1 (a fraction of the image width).`);
-      break;
-    }
     case 'graph': {
       if (q.mode !== 'read' && q.mode !== 'plot') errors.push(`${where}: mode must be "read" or "plot".`);
       const c = q.chart;
@@ -613,28 +413,8 @@ export function validateTest(test) {
 export function blankQuestion(type, id = 'q1') {
   const base = { id, type, text: 'New question', points: 1, explanation: '' };
   switch (type) {
-    case 'matching':
-      return {
-        ...base,
-        partialCredit: true,
-        left: [{ id: 'l1', text: 'Item 1' }, { id: 'l2', text: 'Item 2' }],
-        right: [{ id: 'r1', text: 'Match 1' }, { id: 'r2', text: 'Match 2' }],
-        correctAnswer: { l1: 'r1', l2: 'r2' },
-      };
     case 'lewis': return { ...base, text: 'Draw the Lewis dot diagram for oxygen.', element: 'O', correctAnswer: 6, checkPlacement: true };
     case 'short': return { ...base, points: 2, sampleAnswer: '' };
-    case 'ordering':
-      return {
-        ...base, text: 'Arrange these elements from lowest to highest electronegativity.', partialCredit: true, topLabel: 'Lowest', bottomLabel: 'Highest',
-        items: [{ id: 'na', text: 'Na' }, { id: 'c', text: 'C' }, { id: 'o', text: 'O' }, { id: 'f', text: 'F' }],
-        correctAnswer: ['na', 'c', 'o', 'f'],
-      };
-    case 'fillblank':
-      return {
-        ...base, points: 2, text: 'Water has the formula {{b1}} and contains {{b2}} hydrogen atoms per molecule.',
-        blanks: [{ id: 'b1', answers: ['H2O'], kind: 'formula' }, { id: 'b2', answers: ['2', 'two'], kind: 'text' }],
-        partialCredit: true, caseSensitive: false, wordBank: false, distractors: [], formatHelp: 'auto',
-      };
     case 'structure':
       return {
         ...base, points: 3, text: 'Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.', partialCredit: false,
@@ -653,25 +433,6 @@ export function blankQuestion(type, id = 'q1') {
       return {
         ...base, points: 4, text: 'Explain why ionic compounds have high melting points.', sampleAnswer: '', minWords: null, maxWords: null, showRubric: true,
         rubric: [{ text: 'Identifies strong electrostatic attraction between oppositely charged ions', points: 2 }, { text: 'Links it to the energy needed to break the lattice', points: 2 }],
-      };
-    case 'balance':
-      return { ...base, text: 'Balance the equation for the formation of water.', reactants: ['H2', 'O2'], products: ['H2O'], coefficients: [2, 1, 2], allowMultiples: false, partialCredit: false };
-    case 'econfig':
-      return { ...base, text: 'Write the ground-state electron configuration of sodium.', answers: ['1s2 2s2 2p6 3s1', '[Ne] 3s1'] };
-    case 'ptable':
-      return { ...base, text: 'Click the alkali metal in period 3.', answers: ['Na'], multiple: true, partialCredit: false };
-    case 'sigfigs':
-      return { ...base, text: 'Write 0.00450 g in scientific notation with the correct number of significant figures.', answer: 0.0045, sigFigs: 3, tolerance: 0.000001, partialCredit: true };
-    case 'categorize':
-      return {
-        ...base, text: 'Sort each compound into the type of bonding it has.', partialCredit: true,
-        categories: [{ id: 'ionic', label: 'Ionic' }, { id: 'covalent', label: 'Covalent' }],
-        items: [{ id: 'i1', text: 'NaCl', category: 'ionic' }, { id: 'i2', text: 'H2O', category: 'covalent' }],
-      };
-    case 'hotspot':
-      return {
-        ...base, text: 'Place each label on the diagram.', partialCredit: true, radius: 0.06,
-        image: { url: 'data/tests/lab-bench.svg', alt: 'A lab bench with a beaker, a flask and a burner', position: 'right' }, labels: [{ id: 'a', text: 'Beaker', x: 0.25, y: 0.6 }],
       };
     case 'graph':
       return {

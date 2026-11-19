@@ -60,3 +60,6 @@ export function insertBar(input, keys) {
 
 export const CHARGE_KEYS = [['^', '^', 0, 'Insert ^ (start a charge)'], ['+', '+', 0, 'Insert + sign'], ['−', '-', 0, 'Insert − sign'], ['( )', '()', 1, 'Insert parentheses'], ['·', '.', 0, 'Insert hydrate dot']];
 export const EXP_KEYS = [['×10^', 'x10^', 0, 'Insert ×10^'], ['e', 'e', 0, 'Insert e (exponent)'], ['−', '-', 0, 'Insert minus sign']];
+
+/** Plain-text name of a choice, for aria-labels: its text, else its image description. */
+export const optLabel = (o) => (o && String(o.text || '').trim()) || (o && o.image && o.image.alt) || (o && o.id) || '';

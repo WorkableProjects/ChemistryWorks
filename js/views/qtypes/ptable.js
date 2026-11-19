@@ -62,3 +62,8 @@ export function ptableWidget(q, api) {
     },
   };
 }
+
+export default {
+  type: 'ptable',
+  render: ({ q, api }) => ptableWidget(q, api),
+};

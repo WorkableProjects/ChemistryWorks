@@ -1,0 +1,6 @@
+/* `econfig` question type: the typed configuration and its preview. */
+/* econfig */
+.q-econfig-preview { margin-top: 10px; min-height: 52px; display: flex; align-items: center; padding: 10px 16px; border-radius: var(--radius); background: var(--bg-sunken); font-size: 22px; font-weight: 600; overflow-x: auto; }
+.q-econfig-preview.is-empty { font-size: 14px; font-weight: 500; color: var(--text-faint); }
+.q-econfig-preview.is-error { box-shadow: inset 0 0 0 1px var(--warning-line); }
+.q-econfig .q-hint { margin: 0 0 8px; }

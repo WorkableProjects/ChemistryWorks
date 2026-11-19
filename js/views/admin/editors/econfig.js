@@ -16,3 +16,5 @@ export function econfigEditor(q, changed) {
     field('Accepted configurations (one per line)', ta, 'Order, spacing, ^ or superscripts and noble-gas cores ([He] … [Rn]) are normalized. List exceptions such as Cr and Cu here.'),
     chips);
 }
+
+export default { type: 'econfig', edit: ({ q, changed }) => econfigEditor(q, changed) };

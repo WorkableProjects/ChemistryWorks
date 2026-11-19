@@ -1,6 +1,6 @@
-// Per-type question editors for the admin Builder that have not moved to their own module yet: lewis, short, matching,
-// ordering, fill-in-the-blank, structure, orbital and open. `typeEditor` picks the editor for a question's type and is
-// what the Builder view mounts; moved types load lazily from js/views/admin/editors/<type>.js.
+// Per-type question editors for the admin Builder that have not moved to their own module yet: lewis, short, structure,
+// orbital, open and graph. `typeEditor` picks the editor for a question's type and is what the Builder view mounts;
+// moved types load lazily from js/views/admin/editors/<type>.js.
 // Each editor mutates the question in place, calls `changed()` for light refreshes and `redraw()` when its shape changes.
 import { h, mount, icon } from '../../../ui.js';
 import { normalizeSymbol, valenceOf, canonicalDots } from '../../../lib/lewis.js';
@@ -10,36 +10,20 @@ import { acceptedStructures, valenceTotal, electronsDrawn, bondEnds, MAX_CHARGE 
 import { AUFBAU, ORBITAL_TYPES, sublevelsFor, normalizeOrbitalAnswer, isOrbitalAnswered, resolveOrbitalSource, diagramFromCounts, configurationText, rangeForCounts } from '../../../lib/orbital.js';
 import { ELEMENTS } from '../../../lib/elements.js';
 import { orbitalWidget } from '../../orbital-view.js';
-import { balanceEditor } from './balance.js';
-import { econfigEditor } from './econfig.js';
-import { ptableEditor } from './ptable.js';
-import { sigfigsEditor } from './sigfigs.js';
-import { categorizeEditor } from './categorize.js';
-import { hotspotEditor } from './hotspot.js';
 import { graphEditor } from './graph.js';
-import { BLANK_KINDS, markerIds } from '../../../lib/blanks.js';
 import { field, switchEl, debounce, iconButton } from '../common.js';
 import { typeEditorModule, hasTypeUI, loadTypeEditor } from '../../qtypes/registry.js';
-import { uniqueId, optionImageControl, withVariables, formatHelpField } from './shared.js';
+import { uniqueId } from './shared.js';
 import '../../qtypes/index.js'; // registers the older question-type editors
 
 // ---------- per-type editors ----------
 export function typeEditor(q, redraw, changed, uid) {
   switch (q.type) {
-    case 'matching': return matchingEditor(q, redraw, changed);
     case 'lewis': return lewisEditor(q, changed);
     case 'short': return shortEditor(q, changed);
-    case 'ordering': return orderingEditor(q, redraw, changed);
-    case 'fillblank': return fillBlankEditor(q, redraw, changed);
     case 'structure': return structureEditor(q, redraw, changed);
     case 'open': return openEditor(q, redraw, changed);
     case 'orbital': return orbitalEditor(q, redraw, changed);
-    case 'balance': return balanceEditor(q, redraw, changed);
-    case 'econfig': return econfigEditor(q, changed);
-    case 'ptable': return ptableEditor(q, changed, redraw);
-    case 'sigfigs': return withVariables(q, sigfigsEditor(q, changed), redraw, changed);
-    case 'categorize': return categorizeEditor(q, redraw, changed);
-    case 'hotspot': return hotspotEditor(q, redraw, changed);
     case 'graph': return graphEditor(q, redraw, changed);
     default: {
       const mod = typeEditorModule(q.type);
@@ -102,144 +86,6 @@ function shortEditor(q, changed) {
   return h('div', { class: 'stack' },
     h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Not auto-graded. Students’ answers appear in the Grading tab, where you assign points.')),
     field('Sample answer', ta, 'Shown to you while grading. Students see it in the review only if “Show correct answers” is on.'));
-}
-
-function matchingEditor(q, redraw, changed) {
-  q.left = Array.isArray(q.left) ? q.left : [];
-  q.right = Array.isArray(q.right) ? q.right : [];
-  if (!q.correctAnswer || typeof q.correctAnswer !== 'object' || Array.isArray(q.correctAnswer)) q.correctAnswer = {};
-  const selects = [];
-  const rightLabel = (r, i) => (r.text ? r.text : `(item ${i + 1})`);
-  const fillSelect = (sel, leftId) => {
-    const cur = q.correctAnswer[leftId] ?? '';
-    mount(sel, h('option', { value: '' }, 'Choose…'), q.right.map((r, i) => h('option', { value: r.id }, rightLabel(r, i))));
-    sel.value = q.right.some((r) => r.id === cur) ? cur : '';
-  };
-  const refreshSelects = () => selects.forEach(({ sel, id }) => fillSelect(sel, id));
-
-  const leftRows = q.left.map((l, i) => {
-    const txt = h('input', { class: 'input', value: l.text || '', placeholder: `Left item ${i + 1}`, 'aria-label': `Left item ${i + 1}`, dataset: { testid: `match-left-${i}` }, on: { input: () => { l.text = txt.value; changed(); } } });
-    const sel = h('select', { class: 'select', 'aria-label': `Correct match for left item ${i + 1}`, dataset: { testid: `match-correct-${i}` }, on: { change: () => { q.correctAnswer[l.id] = sel.value; changed(); } } });
-    selects.push({ sel, id: l.id });
-    fillSelect(sel, l.id);
-    const rm = iconButton('x', 'Remove left item', () => { q.left.splice(i, 1); delete q.correctAnswer[l.id]; redraw(); changed(); }, { testid: `match-left-remove-${i}` });
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-match-row' }, txt, h('span', { class: 'adm-match-arrow', 'aria-hidden': 'true' }, icon('right', { size: 16 })), sel, rm), optionImageControl(l, changed, `match-left-${i}`));
-  });
-  const rightRows = q.right.map((r, i) => {
-    const txt = h('input', { class: 'input', value: r.text || '', placeholder: `Right item ${i + 1}`, 'aria-label': `Right item ${i + 1}`, dataset: { testid: `match-right-${i}` },
-      on: { input: () => { r.text = txt.value; refreshSelects(); changed(); } } });
-    const rm = iconButton('x', 'Remove right item', () => {
-      q.right.splice(i, 1);
-      for (const l of q.left) if (q.correctAnswer[l.id] === r.id) q.correctAnswer[l.id] = q.right[0]?.id ?? '';
-      redraw();
-      changed();
-    }, { testid: `match-right-remove-${i}` });
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt adm-opt--plain' }, txt, rm), optionImageControl(r, changed, `match-right-${i}`));
-  });
-  return h('div', { class: 'stack' },
-    h('div', { class: 'field__label' }, 'Left items and their correct match'),
-    h('div', { class: 'adm-opts' }, leftRows),
-    h('button', { class: 'btn btn--ghost btn--sm adm-self-start', type: 'button', dataset: { testid: 'add-match-left' }, on: { click: () => {
-      const id = uniqueId('l', q.left);
-      q.left.push({ id, text: '' });
-      q.correctAnswer[id] = q.right[0]?.id ?? '';
-      redraw();
-      changed();
-    } } }, icon('plus', { size: 16 }), 'Add left item'),
-    h('div', { class: 'field__label' }, 'Right items (distractors allowed; each can be reused)'),
-    h('div', { class: 'adm-opts' }, rightRows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-match-right' }, on: { click: () => {
-        q.right.push({ id: uniqueId('r', q.right), text: '' });
-        redraw();
-        changed();
-      } } }, icon('plus', { size: 16 }), 'Add right item'),
-      switchEl({ label: 'Partial credit', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })));
-}
-
-function orderingEditor(q, redraw, changed) {
-  q.items = Array.isArray(q.items) ? q.items : [];
-  const sync = () => { q.correctAnswer = q.items.map((it) => it.id); };
-  sync();
-  const rows = q.items.map((it, i) => {
-    const txt = h('input', { class: 'input', value: it.text || '', placeholder: `Item ${i + 1}`, 'aria-label': `Item ${i + 1} (correct position ${i + 1})`, dataset: { testid: `order-item-${i}` },
-      on: { input: () => { it.text = txt.value; changed(); } } });
-    const mv = (d) => { const j = i + d; if (j < 0 || j >= q.items.length) return; [q.items[i], q.items[j]] = [q.items[j], q.items[i]]; sync(); redraw(); changed(); };
-    return h('div', { class: 'adm-optwrap' }, h('div', { class: 'adm-opt adm-opt--order' },
-      h('span', { class: 'adm-blank__num' }, String(i + 1)), txt,
-      iconButton('up', 'Move up', () => mv(-1), { testid: `order-up-${i}` }),
-      iconButton('down', 'Move down', () => mv(1), { testid: `order-down-${i}` }),
-      iconButton('x', 'Remove item', () => { q.items.splice(i, 1); sync(); redraw(); changed(); }, { testid: `order-remove-${i}` })),
-    optionImageControl(it, changed, `order-item-${i}`));
-  });
-  const top = h('input', { class: 'input', value: q.topLabel || '', placeholder: 'e.g. Lowest', dataset: { testid: 'order-top-label' }, on: { input: () => { q.topLabel = top.value; changed(); } } });
-  const bottom = h('input', { class: 'input', value: q.bottomLabel || '', placeholder: 'e.g. Highest', dataset: { testid: 'order-bottom-label' }, on: { input: () => { q.bottomLabel = bottom.value; changed(); } } });
-  return h('div', { class: 'stack' },
-    h('div', { class: 'field__label' }, 'Items in the CORRECT order (students see them scrambled)'),
-    h('div', { class: 'adm-opts' }, rows),
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-order-item' }, on: { click: () => {
-        q.items.push({ id: uniqueId('i', q.items), text: '' }); sync(); redraw(); changed();
-      } } }, icon('plus', { size: 16 }), 'Add item'),
-      switchEl({ label: 'Partial credit', hint: 'Points for each item in the right position', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })),
-    h('div', { class: 'adm-grid adm-grid--4' }, field('Label above the list', top, 'Optional'), field('Label below the list', bottom, 'Optional')));
-}
-
-function fillBlankEditor(q, redraw, changed) {
-  q.blanks = Array.isArray(q.blanks) ? q.blanks : [];
-  const textArea = () => document.activeElement?.closest?.('.adm-q')?.querySelector('[data-testid="q-text"]');
-  const markers = h('p', { class: 'field__hint', dataset: { testid: 'blank-markers' } });
-  const checkMarkers = () => {
-    const marks = markerIds(q.text);
-    const missing = q.blanks.filter((b) => !marks.includes(b.id)).map((b) => `{{${b.id}}}`);
-    markers.textContent = missing.length ? `Add ${missing.join(', ')} to the question text where each blank goes.` : 'Each {{id}} in the question text becomes a blank for students.';
-    markers.classList.toggle('field-error', missing.length > 0);
-  };
-  const rows = q.blanks.map((b, i) => {
-    const list = Array.isArray(b.answers) ? b.answers : [];
-    const ans = h('input', { class: 'input', value: list.join(', '), placeholder: 'Accepted answers, comma-separated', 'aria-label': `Blank ${i + 1} accepted answers`, dataset: { testid: `blank-answers-${i}` },
-      on: { input: () => { b.answers = ans.value.split(',').map((x) => x.trim()).filter(Boolean); changed(); } } });
-    const kind = h('select', { class: 'select', 'aria-label': `Blank ${i + 1} kind`, dataset: { testid: `blank-kind-${i}` }, on: { change: () => {
-      b.kind = kind.value;
-      if (b.kind === 'number') { b.tolerance ??= 0; b.toleranceType ??= 'absolute'; b.unit ??= ''; }
-      redraw(); changed();
-    } } }, BLANK_KINDS.map((k) => h('option', { value: k }, { text: 'Word / text', number: 'Number', formula: 'Formula' }[k])));
-    kind.value = b.kind || 'text';
-    const rm = iconButton('x', 'Remove blank', () => { q.blanks.splice(i, 1); redraw(); changed(); }, { testid: `blank-remove-${i}` });
-    const row = h('div', { class: 'adm-blank' }, h('span', { class: 'adm-blank__num' }, `{{${b.id}}}`), ans, kind, rm);
-    if (b.kind !== 'number') return row;
-    const tol = h('input', { class: 'input', type: 'number', min: '0', step: 'any', value: b.tolerance ?? 0, 'aria-label': `Blank ${i + 1} tolerance`, on: { input: () => { b.tolerance = tol.value.trim() === '' ? 0 : Number(tol.value); changed(); } } });
-    const tt = h('select', { class: 'select', 'aria-label': `Blank ${i + 1} tolerance type`, on: { change: () => { b.toleranceType = tt.value; changed(); } } },
-      h('option', { value: 'absolute' }, 'Absolute (±)'), h('option', { value: 'percent' }, 'Percent (±%)'));
-    tt.value = b.toleranceType || 'absolute';
-    const unit = h('input', { class: 'input', value: b.unit || '', placeholder: 'Unit (optional)', 'aria-label': `Blank ${i + 1} unit`, on: { input: () => { b.unit = unit.value; changed(); } } });
-    return h('div', { class: 'stack' }, row, h('div', { class: 'adm-grid adm-grid--4' }, field('Tolerance', tol), field('Tolerance type', tt), field('Unit', unit)));
-  });
-  const distractors = h('input', { class: 'input', value: (q.distractors || []).join(', '), placeholder: 'Extra wrong words, comma-separated', dataset: { testid: 'blank-distractors' },
-    on: { input: () => { q.distractors = distractors.value.split(',').map((x) => x.trim()).filter(Boolean); changed(); } } });
-  checkMarkers();
-  requestAnimationFrame(() => markers.closest('.adm-q')?.addEventListener('input', checkMarkers));
-  return h('div', { class: 'stack' },
-    h('p', { class: 'notice notice--info' }, icon('info'), h('span', {}, 'Write the sentence in the question text and put {{b1}}, {{b2}}, … where each blank goes.')),
-    h('div', { class: 'field__label' }, 'Blanks'),
-    h('div', { class: 'adm-opts' }, rows),
-    markers,
-    h('div', { class: 'row row--wrap' },
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'add-blank' }, on: { click: (e) => {
-        const id = uniqueId('b', q.blanks);
-        q.blanks.push({ id, answers: [], kind: 'text' });
-        const ta = e.currentTarget.closest('.adm-q')?.querySelector('[data-testid="q-text"]') || textArea();
-        if (ta && !markerIds(ta.value).includes(id)) {
-          ta.value = `${ta.value.replace(/\s+$/, '')} {{${id}}}`;
-          ta.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        redraw(); changed();
-      } } }, icon('plus', { size: 16 }), 'Add blank'),
-      switchEl({ label: 'Partial credit', hint: 'Points for each correct blank', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }),
-      switchEl({ label: 'Case sensitive (text blanks)', checked: !!q.caseSensitive, testid: 'case-sensitive', onChange: (v) => { q.caseSensitive = v; changed(); } }),
-      switchEl({ label: 'Word bank', hint: 'Students pick from a list instead of typing', checked: !!q.wordBank, testid: 'word-bank', onChange: (v) => { q.wordBank = v; redraw(); changed(); } })),
-    q.wordBank ? field('Distractors (word bank only)', distractors, 'Wrong choices mixed into the word bank') : null,
-    formatHelpField(q, changed));
 }
 
 function structureEditor(q, redraw, changed) {

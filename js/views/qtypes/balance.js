@@ -46,3 +46,8 @@ export function balanceWidget(q, api) {
     focus: () => inputs[0]?.focus(),
   };
 }
+
+export default {
+  type: 'balance',
+  render: ({ q, api }) => balanceWidget(q, api),
+};

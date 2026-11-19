@@ -29,3 +29,8 @@ export function econfigWidget(q, api) {
     focus: () => input.focus(),
   };
 }
+
+export default {
+  type: 'econfig',
+  render: ({ q, api }) => econfigWidget(q, api),
+};

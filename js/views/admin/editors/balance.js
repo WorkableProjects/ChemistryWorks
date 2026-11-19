@@ -50,3 +50,5 @@ export function balanceEditor(q, redraw, changed) {
     switchEl({ label: 'Accept any whole-number multiple', hint: 'Off: only the coefficients above are correct', checked: !!q.allowMultiples, testid: 'balance-multiples', onChange: (v) => { q.allowMultiples = v; changed(); } }),
     switchEl({ label: 'Partial credit', hint: 'Credit for each coefficient in the right place', checked: !!q.partialCredit, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }));
 }
+
+export default { type: 'balance', edit: ({ q, redraw, changed }) => balanceEditor(q, redraw, changed) };

@@ -31,3 +31,8 @@ export function sigfigsWidget(q, api) {
     focus: () => input.focus(),
   };
 }
+
+export default {
+  type: 'sigfigs',
+  render: ({ q, api }) => sigfigsWidget(q, api),
+};

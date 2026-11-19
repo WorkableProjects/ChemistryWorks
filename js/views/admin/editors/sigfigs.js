@@ -3,6 +3,7 @@ import { h } from '../../../ui.js';
 import { parseNumber } from '../../../lib/grading.js';
 import { formatWithSigFigs } from '../../../lib/qtypes/sigfigs.js';
 import { field, switchEl } from '../common.js';
+import { withVariables } from './shared.js';
 
 export function sigfigsEditor(q, changed) {
   const hint = h('span', { class: 'field__hint', dataset: { testid: 'sigfigs-hint' } });
@@ -23,3 +24,5 @@ export function sigfigsEditor(q, changed) {
     hint,
     switchEl({ label: 'Partial credit', hint: 'Half the points for the right value, half for the right number of significant figures', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }));
 }
+
+export default { type: 'sigfigs', edit: ({ q, redraw, changed }) => withVariables(q, sigfigsEditor(q, changed), redraw, changed) };
