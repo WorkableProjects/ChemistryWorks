@@ -96,6 +96,7 @@ function navigate(view, params = {}) {
     if (seq !== navSeq) return; // a newer navigation won the race
     const res = resolveView(view).render(root, ctx, params);
     cleanup = typeof res === 'function' ? res : null;
+    announceView(view, params, seq);
   };
   const start = () => {
     if (seq !== navSeq) return;
@@ -130,6 +131,40 @@ function navigate(view, params = {}) {
   } else {
     start();
   }
+}
+
+// The view's title element: an <h1>, or for views whose heading is another element (runner bar, admin) the one
+// marked data-view-title, or the first <h2>.
+const titleEl = () => root.querySelector('h1, [data-view-title], h2');
+
+function viewAnnouncement(view, params, el) {
+  const test = params.test;
+  if ((view === 'runner' || view === 'game') && test?.title) {
+    const n = Array.isArray(test.questions) ? test.questions.length : 0;
+    return `${view === 'game' ? 'Game' : 'Test'}: ${test.title}${n ? `, ${n} question${n === 1 ? '' : 's'}` : ''}`;
+  }
+  return (el?.textContent || '').trim() || document.title;
+}
+
+/** Announce the new view in the polite live region and move focus to its title (unless the view already took focus). */
+function announceView(view, params, seq) {
+  const live = document.getElementById('view-announcer');
+  let tries = 0;
+  const attempt = () => {
+    if (seq !== navSeq) return;
+    const el = titleEl();
+    if (!el && tries++ < 30) { setTimeout(attempt, 50); return; }
+    if (el) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      const active = document.activeElement;
+      if (!active || active === document.body || !active.isConnected || !root.contains(active)) el.focus({ preventScroll: true });
+    }
+    if (live) {
+      live.textContent = '';
+      setTimeout(() => { if (seq === navSeq) live.textContent = viewAnnouncement(view, params, el); }, 30);
+    }
+  };
+  attempt();
 }
 
 /** Load a test by code and open it in the runner (student mode). Errors return to landing. */

@@ -24,15 +24,17 @@ function widget(q, api) {
   const commit = () => api.set(q.id, build.atoms.length ? clone(build) : undefined, { debounce: true });
   const bondIndex = (i, j) => build.bonds.findIndex((b) => b[0] === Math.min(i, j) && b[1] === Math.max(i, j));
 
+  const say = h('p', { class: 'sr-only', 'aria-live': 'polite', dataset: { testid: 'molbuild-status' } });
   const pick = (i) => {
-    if (selected < 0) selected = i;
-    else if (selected === i) selected = -1;
+    if (selected < 0) { selected = i; say.textContent = `${build.atoms[i]} atom ${i + 1} picked up. Choose a second atom to bond it to.`; }
+    else if (selected === i) { selected = -1; say.textContent = 'Atom put down.'; }
     else {
       const a = Math.min(selected, i), b = Math.max(selected, i);
       const k = bondIndex(a, b);
       if (k < 0) build.bonds.push([a, b, 1]);
       else if (build.bonds[k][2] >= MAX_ORDER) build.bonds.splice(k, 1);
       else build.bonds[k][2] += 1;
+      say.textContent = `${build.atoms[a]} atom ${a + 1} and ${build.atoms[b]} atom ${b + 1}: ${bondIndex(a, b) < 0 ? 'bond removed' : `${ORDER_NAME[build.bonds[bondIndex(a, b)][2]]} bond`}.`;
       selected = -1;
       commit();
     }
@@ -72,7 +74,7 @@ function widget(q, api) {
   paint();
 
   return {
-    el: h('div', { class: 'qm-root', dataset: { testid: 'molbuild-widget' } }, bank, board, help, bondList, formula, hint),
+    el: h('div', { class: 'qm-root', dataset: { testid: 'molbuild-widget' } }, bank, board, help, bondList, formula, hint, say),
     refresh(answer) {
       const next = toBuild(answer);
       if (JSON.stringify(next) === JSON.stringify(build)) return;
