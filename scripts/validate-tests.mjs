@@ -1,56 +1,71 @@
-// Validates every bundled test in data/tests/*.json and the index.json catalog.
+// Validates every bundled test in data/tests/*.json and the catalog.json list of them.
 //   node scripts/validate-tests.mjs      (exit 1 on any error)
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeTest, validateTest } from '../js/lib/schema.js';
+import { buildCatalog, testFiles } from './build-catalog.mjs';
 
 const DIR = fileURLToPath(new URL('../data/tests/', import.meta.url));
+
+/** catalog.json must be an array of entries with a unique code. Returns the entries (empty when unreadable). */
+async function readCatalog(dir, errors) {
+  try {
+    const catalog = JSON.parse(await readFile(join(dir, 'catalog.json'), 'utf8'));
+    if (!Array.isArray(catalog)) throw new Error('catalog.json must be an array');
+    return catalog;
+  } catch (e) {
+    errors.push(`catalog.json: ${e.message} (run npm run build:catalog)`);
+    return [];
+  }
+}
+
+async function checkTestFile(dir, f, catalog) {
+  const base = f.replace(/\.json$/, '');
+  const row = { file: f, code: '', questions: 0, points: 0, status: 'ok' };
+  const local = [];
+  try {
+    const test = normalizeTest(JSON.parse(await readFile(join(dir, f), 'utf8')));
+    row.code = test.code;
+    row.questions = test.questions.length;
+    row.points = Math.round(test.questions.reduce((s, q) => s + (Number(q.points) || 0), 0) * 100) / 100;
+    if (test.code !== base) local.push(`${f}: file name must equal <code>.json (code is "${test.code}")`);
+    const { errors: errs } = validateTest(test);
+    for (const e of errs) local.push(`${f}: ${e}`);
+    const entry = catalog.find((c) => c && c.code === base);
+    if (entry && entry.title !== test.title) local.push(`${f}: catalog.json title "${entry.title}" differs from test title "${test.title}"`);
+  } catch (e) {
+    local.push(`${f}: ${e.message}`);
+  }
+  if (!catalog.some((c) => c && c.code === base)) local.push(`${f}: missing from catalog.json (run npm run build:catalog)`);
+  if (local.length) row.status = 'ERROR';
+  return { row, local };
+}
 
 export async function validateBank(dir = DIR) {
   const errors = [];
   const rows = [];
-  const files = (await readdir(dir)).filter((f) => f.endsWith('.json') && f !== 'index.json' && f !== 'catalog.json').sort();
+  const files = await testFiles(dir);
+  const catalog = await readCatalog(dir, errors);
 
-  let index = [];
-  try {
-    index = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8'));
-    if (!Array.isArray(index)) throw new Error('index.json must be an array');
-  } catch (e) {
-    errors.push(`index.json: ${e.message}`);
-  }
-  const indexCodes = new Set();
-  for (const entry of index) {
-    if (!entry || typeof entry.code !== 'string') { errors.push('index.json: entry without a code'); continue; }
-    if (indexCodes.has(entry.code)) errors.push(`index.json: duplicate code ${entry.code}`);
-    indexCodes.add(entry.code);
+  const catalogCodes = new Set();
+  for (const entry of catalog) {
+    if (!entry || typeof entry.code !== 'string') { errors.push('catalog.json: entry without a code'); continue; }
+    if (catalogCodes.has(entry.code)) errors.push(`catalog.json: duplicate code ${entry.code}`);
+    catalogCodes.add(entry.code);
   }
 
   const fileCodes = new Set();
   for (const f of files) {
-    const base = f.replace(/\.json$/, '');
-    fileCodes.add(base);
-    const row = { file: f, code: '', questions: 0, points: 0, status: 'ok' };
-    const local = [];
-    try {
-      const test = normalizeTest(JSON.parse(await readFile(join(dir, f), 'utf8')));
-      row.code = test.code;
-      row.questions = test.questions.length;
-      row.points = Math.round(test.questions.reduce((s, q) => s + (Number(q.points) || 0), 0) * 100) / 100;
-      if (test.code !== base) local.push(`${f}: file name must equal <code>.json (code is "${test.code}")`);
-      const { errors: errs } = validateTest(test);
-      for (const e of errs) local.push(`${f}: ${e}`);
-      const entry = index.find((i) => i && i.code === base);
-      if (entry && entry.title !== test.title) local.push(`${f}: index.json title "${entry.title}" differs from test title "${test.title}"`);
-    } catch (e) {
-      local.push(`${f}: ${e.message}`);
-    }
-    if (!indexCodes.has(base)) local.push(`${f}: missing from index.json`);
-    if (local.length) row.status = 'ERROR';
+    fileCodes.add(f.replace(/\.json$/, ''));
+    const { row, local } = await checkTestFile(dir, f, catalog);
     errors.push(...local);
     rows.push(row);
   }
-  for (const code of indexCodes) if (!fileCodes.has(code)) errors.push(`index.json: ${code} has no data/tests/${code}.json file`);
+  for (const code of catalogCodes) if (!fileCodes.has(code)) errors.push(`catalog.json: ${code} has no ${code}.json file`);
+  if (catalog.length && !errors.length && JSON.stringify(catalog) !== JSON.stringify(await buildCatalog(dir))) {
+    errors.push('catalog.json is out of date (run npm run build:catalog)');
+  }
   return { rows, errors };
 }
 

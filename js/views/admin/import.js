@@ -3,7 +3,7 @@
 import { h, mount, icon, toast } from '../../ui.js';
 import { parsePlainText, parseQuestionCsv, parseFormsCsv } from '../../lib/importers.js';
 import { normalizeTest, validateTest } from '../../lib/schema.js';
-import { setBuilderTest } from './builder.js';
+import { setBuilderTest } from './builder/index.js';
 
 export function renderImport(root, ctx, { openInBuilder, go } = {}) {
   const kind = h('select', { class: 'select', 'aria-label': 'Format', dataset: { testid: 'import-kind' } },

@@ -44,6 +44,9 @@ function mistakeRows(user, attempts) {
   return attempts.map((a) => ({ a, n: (load(progressKey(user.email, a.code), {}).wrong || []).length })).filter((x) => x.n > 0);
 }
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['home', 'hub', 'tools', 'game'];
+
 export function render(root, ctx, params = {}) {
   const user = getUser();
   if (!user) return undefined;

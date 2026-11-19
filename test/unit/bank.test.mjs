@@ -9,7 +9,7 @@ import { validateBank } from '../../scripts/validate-tests.mjs';
 
 // Sample tests live in test/fixtures/tests (data/tests ships empty).
 const DIR = new URL('../fixtures/tests/', import.meta.url);
-const files = readdirSync(DIR).filter((f) => f.endsWith('.json') && f !== 'index.json').sort();
+const files = readdirSync(DIR).filter((f) => f.endsWith('.json') && f !== 'catalog.json').sort();
 const load = (f) => normalizeTest(JSON.parse(readFileSync(new URL(f, DIR), 'utf8')));
 
 function keyAnswer(q) {

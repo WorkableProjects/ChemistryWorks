@@ -4,6 +4,9 @@
 import { renderModeShell } from './mode-shell.js';
 import { modeById } from '../lib/modes/index.js';
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['game', 'modes', 'runner', 'qtypes', 'tools', 'references', 'diagrams'];
+
 export function render(root, ctx, params = {}) {
   const { test } = params;
   const user = ctx.user;

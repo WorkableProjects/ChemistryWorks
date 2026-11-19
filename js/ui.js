@@ -6,6 +6,7 @@ import { THEMES, ACCENTS, getThemePref, setThemePref, getAccent, setAccent, getR
 import { FONT_STEPS, FONT_LABELS, loadSettings, saveSettings, applySettings, applyStoredSettings } from './views/tools/settings.js';
 import { hasUnseenChangelog } from './lib/changelog.js';
 import { SITE_VERSION } from './version.js';
+import { formulaToHTML } from './lib/formula.js';
 
 /**
  * Create an element.
@@ -44,6 +45,11 @@ export function h(tag, attrs = {}, ...children) {
   }
   append(el, children);
   return el;
+}
+
+/** A chemical formula as `<span class="formula">` with subscripts and charges. Extra classes go on the same span. formulaToHTML escapes its input. */
+export function formulaSpan(text, className = '') {
+  return h('span', { class: ['formula', className], html: formulaToHTML(String(text ?? '')) });
 }
 
 function append(el, children) {

@@ -2,7 +2,7 @@
 // Keyboard: choose a label, then arrow keys move a crosshair over the image (step 0.02, Shift = 0.1) and Enter places it.
 // Pins and the crosshair live in .q-hot__frame, a box exactly the size of the rendered image, so x / y fractions
 // mean the same spot here and in the teacher's editor whatever the image size or the card width.
-// Contract (see runner.js): returns { el, refresh(answer), focus() }. Answer = { labelId: { x, y } } (fractions 0-1).
+// Contract (see js/views/runner/widgets.js): returns { el, refresh(answer), focus() }. Answer = { labelId: { x, y } } (fractions 0-1).
 import { h, openModal, prefersReducedMotion } from '../../ui.js';
 import { safeImageUrl } from '../../lib/sections.js';
 

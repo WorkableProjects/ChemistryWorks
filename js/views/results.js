@@ -4,9 +4,8 @@
 
 import { questionImageEl } from './question-image.js';
 import {
-  h, mount, icon, richText, renderMath, toast, formatDurationLong, appHeader, userBadge, prefersReducedMotion,
+  h, mount, icon, richText, renderMath, toast, formatDurationLong, appHeader, userBadge, prefersReducedMotion, formulaSpan,
 } from '../ui.js';
-import { formulaToHTML } from '../lib/formula.js';
 import { flushOutboxResult, finalMessage } from '../lib/submit.js';
 import { canonicalDots } from '../lib/lewis.js';
 import { lewisDiagram } from './lewis-view.js';
@@ -17,7 +16,7 @@ import { orbitalDiagram } from './orbital-view.js';
 import { hotspotDiagram } from './widgets/hotspot-stage.js';
 import { typeUI } from './qtypes/registry.js';
 import { confidenceLabel, ptsText } from '../lib/extras.js';
-import { choiceImagesEl } from './runner.js';
+import { choiceImagesEl } from './runner/widgets.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -115,7 +114,7 @@ function reviewItem(r, i, test, stagger) {
   const statusIcon = status === 'correct' ? 'check' : status === 'partial' ? 'minus' : status === 'pending' ? 'hourglass' : status === 'unanswered' ? 'alert' : 'x';
   const open = status !== 'correct';
 
-  const formulaHtml = (text) => h('span', { class: 'results-formula', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
+  const formulaHtml = (text) => h('span', { class: 'results-formula' }, formulaSpan(text));
   const given = !r.answered
     ? h('span', { class: 'muted' }, 'Not answered')
     : r.type === 'formula' || r.type === 'balance' ? formulaHtml(r.givenAnswerText)
@@ -198,6 +197,9 @@ function reviewItem(r, i, test, stagger) {
   );
   return item;
 }
+
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['results', 'feedback', 'export', 'runner', 'qtypes', 'diagrams'];
 
 export function render(root, ctx, params = {}) {
   const { test, grade, payload = null, submission = null, preview = false } = params;

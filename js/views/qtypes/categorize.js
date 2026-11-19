@@ -1,6 +1,6 @@
 // Student widget for `categorize` (V3-05): every item card has a <select> to choose its group, so it works with
 // keyboard, touch and screen readers. Dragging a card onto a group is an optional extra for mouse users.
-// Contract (see runner.js): returns { el, refresh(answer), focus() }. Answer = { itemId: categoryId }.
+// Contract (see js/views/runner/widgets.js): returns { el, refresh(answer), focus() }. Answer = { itemId: categoryId }.
 import { h } from '../../ui.js';
 
 export function categorizeWidget(q, api) {

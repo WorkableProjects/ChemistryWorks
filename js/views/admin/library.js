@@ -277,7 +277,7 @@ export function renderLibrary(root, ctx, { openInBuilder, goSettings, goGrading 
     };
     const paint = () => mount(host,
       section('Bundled (data/tests)', 'Committed to the repository',
-        listFor(bundled, emptyState('flask', 'No bundled tests', 'Add JSON files to data/tests/ and list them in index.json.')), 'library-bundled'),
+        listFor(bundled, emptyState('flask', 'No bundled tests', 'Add JSON files to data/tests/ and run npm run build:catalog.')), 'library-bundled'),
       section('Drafts on this device', 'Stored in this browser only',
         listFor(drafts, emptyState('list', 'No drafts yet', 'Save a draft from the builder and it will show up here.')), 'library-drafts'),
       section('Published to Google Sheet', 'Available to students by code', pubItems ? listFor(pubItems, publishedContent) : publishedContent, 'library-published'));

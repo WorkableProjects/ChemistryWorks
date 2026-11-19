@@ -4,6 +4,9 @@ import { mount, h, icon, appHeader, userBadge } from '../ui.js';
 import { statusPage } from './status-page.js';
 import { formatWhen } from '../lib/schedule.js';
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['status'];
+
 export function render(root, ctx, params = {}) {
   const { reason, title = '', opensAt, closesAt, code } = params;
   const copy = {

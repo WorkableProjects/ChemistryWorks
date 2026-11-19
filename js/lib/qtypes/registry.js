@@ -22,6 +22,8 @@
 // H is the helper bag the callers pass in, so type modules never import schema.js / grading.js:
 //   { normalizeQuestion, validateQuestion, gradeQuestion, isAnswered, formatAnswer, correctAnswerText, parseNumber }
 
+import { ensureCssAll, pendingCss } from '../css-loader.js';
+
 const DEFS = new Map();
 
 export function registerType(def) {
@@ -119,6 +121,25 @@ const EDITOR_LOADERS = {
   open: () => import('../../views/admin/editors/open.js'),
 };
 
+/* ------------------------------------------------------------------ stylesheets */
+
+// Types that have their own css/qt-<type>.css. A unit test keeps this list in step with the css folder.
+export const QT_SHEETS = [
+  'balance', 'bohr', 'categorize', 'datatable', 'dimensional', 'dropdown', 'econfig', 'estimate', 'fillblank', 'formula',
+  'gaslaw', 'heatcurve', 'hotspot', 'imagechoice', 'ionbuilder', 'ionicformula', 'isotopemass', 'matching', 'molarmass',
+  'molbuild', 'multipart', 'naming', 'nuclear', 'ordering', 'oxidation', 'particles', 'ptable', 'reaction', 'solubility',
+  'titration', 'truefalse', 'vsepr',
+];
+const DIAGRAM_TYPES = new Set(['lewis', 'structure', 'orbital']);
+
+/** Stylesheets a question of this type needs: the shared question styles, its own sheet, and diagrams where it draws them. */
+export function typeCssNames(type) {
+  const names = ['runner', 'qtypes'];
+  if (QT_SHEETS.includes(type)) names.push(`qt-${type}`);
+  if (DIAGRAM_TYPES.has(type)) names.push('diagrams');
+  return names;
+}
+
 /** True when a UI module exists for this type (loaded or loadable). */
 export function hasTypeUI(type) {
   return UI.has(type) || Object.hasOwn(UI_LOADERS, type);
@@ -126,7 +147,9 @@ export function hasTypeUI(type) {
 
 /** The UI module, synchronously, once loadTypeUI(type) has resolved; null before that. */
 export function typeUI(type) {
-  return UI.get(type) || null;
+  const ui = UI.get(type) || null;
+  if (ui) ensureCssAll(typeCssNames(type));
+  return ui;
 }
 
 /** The editor module `{ type, edit(editorCtx) }`, synchronously, once loaded; null before that. */
@@ -147,7 +170,7 @@ export function loadTypeUI(type) {
   if (UI_PROMISES.has(type)) return UI_PROMISES.get(type);
   const load = Object.hasOwn(UI_LOADERS, type) ? UI_LOADERS[type] : null;
   if (!load) return Promise.reject(new Error(`unknown_type:${type}`));
-  const p = load().then((m) => {
+  const p = Promise.all([load(), ensureCssAll(typeCssNames(type))]).then(([m]) => {
     if (m && m.default && typeof m.default === 'object') UI.set(type, m.default);
     return UI.get(type);
   });
@@ -183,11 +206,15 @@ function typesIn(questions, out = new Set()) {
 }
 
 /**
- * Loads the UI module of every type these questions use. Returns null when they are all loaded already (so a caller can
+ * Loads the UI module and stylesheets of every type these questions use. Returns null when they are all loaded already (so a caller can
  * carry on synchronously), else a promise that never rejects.
  */
 export function preloadQuestionTypes(questions) {
-  const wanted = [...typesIn(questions)].filter((t) => hasTypeUI(t) && !UI.has(t));
-  if (!wanted.length) return null;
-  return Promise.all(wanted.map((t) => loadTypeUI(t).catch(() => null))).then(() => undefined);
+  const types = [...typesIn(questions)].filter(hasTypeUI);
+  const wanted = types.filter((t) => !UI.has(t));
+  const sheets = pendingCss(types.flatMap(typeCssNames));
+  if (!wanted.length && !sheets) return null;
+  const jobs = wanted.map((t) => loadTypeUI(t).catch(() => null));
+  if (sheets) jobs.push(sheets);
+  return Promise.all(jobs).then(() => undefined);
 }

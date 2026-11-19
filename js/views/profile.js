@@ -20,6 +20,9 @@ function accuracyRows(p) {
   return { label: 'Accuracy by test', rows: [...byTest.values()] };
 }
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['home', 'appearance'];
+
 export function render(root, ctx) {
   const user = getUser();
   if (!user) { ctx.navigate('landing'); return undefined; }

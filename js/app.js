@@ -27,9 +27,10 @@ import { load, save } from './lib/storage.js';
 import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
 import { preloadQuestionTypes } from './lib/qtypes/registry.js';
+import { ensureCss, pendingCss } from './lib/css-loader.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
-import * as runner from './views/runner.js';
+import * as runner from './views/runner/index.js';
 import * as results from './views/results.js';
 import * as feedback from './views/feedback.js';
 import * as submitted from './views/submitted.js';
@@ -98,9 +99,13 @@ function navigate(view, params = {}) {
   };
   const start = () => {
     if (seq !== navSeq) return;
-    // A view that draws questions needs the UI module of each question type first (null when they are all loaded).
-    const pending = preloadQuestionTypes(params.test?.questions);
-    if (pending) pending.then(() => { if (seq === navSeq) transition(); });
+    // The view's stylesheets, and for a view that draws questions the UI module and stylesheets of each question type,
+    // load before the first render (each is null when everything is loaded already, so the render stays synchronous).
+    const mod = resolveView(view);
+    const sheets = pendingCss(typeof mod.styles === 'function' ? mod.styles(params) : mod.styles || []);
+    const types = preloadQuestionTypes(params.test?.questions);
+    const waits = [sheets, types].filter(Boolean);
+    if (waits.length) Promise.all(waits).then(() => { if (seq === navSeq) transition(); });
     else transition();
   };
   const transition = () => {
@@ -271,4 +276,5 @@ onAuthChange((user) => {
 window.addEventListener('error', (e) => console.error('[ChemistryWorks]', e.error || e.message));
 // V4-08: opt-in error reports (the backend refuses them unless Settings > Error reports is on).
 if (!navigator.webdriver) installErrorReporting(CONFIG);
+ensureCss('print', { media: 'print' }); // never blocks rendering; the export and print views rely on it
 start();

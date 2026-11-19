@@ -17,7 +17,6 @@ import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
 import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
-import { ensureToolsCss } from './tools/settings.js';
 
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -110,6 +109,9 @@ function otherAttempts(others) {
     h('ul', {}, others.map((o) => h('li', {}, `${fmtWhen(o.submitted_at) || 'Unknown date'} · ${o.released ? 'released' : 'not released yet'}`))));
 }
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['results', 'feedback', 'export', 'runner', 'qtypes', 'diagrams'];
+
 export function render(root, ctx, params = {}) {
   const payload = params.payload || null;
   const user = ctx.user;
@@ -147,7 +149,6 @@ export function render(root, ctx, params = {}) {
   // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
   function mistakeReviewButton() {
     if (test?.gameMode !== true) return null;
-    ensureToolsCss();
     return h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'review-mistakes' },
       on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'mistakes', studyBlocked: true }) } },
     icon('refresh', { size: 16 }), 'Review my mistakes');

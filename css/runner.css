@@ -359,3 +359,7 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
   .mode-switcher { display: none; }
   .mode-switcher__select:not([hidden]) { display: block; }
 }
+
+/* Teacher announcement above the questions */
+.runner-announcement { margin-bottom: 12px; align-items: center; }
+.runner-announcement__text { flex: 1; }
