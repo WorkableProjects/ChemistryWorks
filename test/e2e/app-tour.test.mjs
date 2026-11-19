@@ -69,7 +69,7 @@ test('admin: tabs, every v4 question type in the builder picker, version-check n
   s.onGas = (b) => (b.action === 'getResults' ? { result: 'success', rows: [] } : null);
   await s.context.addInitScript(() => { try { sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')); } catch { /* ignore */ } });
   await unlockAdmin(page, url);
-  // Insights now lives inside Grading (the old `insights` tab redirects there).
+  // Insights is no longer a tab (it lives inside Grading).
   for (const t of ['library', 'builder', 'grading', 'settings']) assert.equal(await page.locator(tid(`tab-${t}`)).count(), 1, `tab ${t}`);
   assert.equal(await page.locator(tid('tab-insights')).count(), 0);
   await page.locator(tid('tab-builder')).click();

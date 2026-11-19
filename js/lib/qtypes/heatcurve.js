@@ -1,4 +1,4 @@
-// `heatcurve` question type (V5-07, S12d): heating / cooling curve. Pure definition, no DOM.
+// `heatcurve` question type: heating / cooling curve. Pure definition, no DOM.
 //   { type: 'heatcurve', substance: 'Water', curve: [{ x: 0, y: -20 }, ...],   (heat added vs temperature; >= 2 points)
 //     segments: [{ phase: 'solid', process: 'heat' }, ...] }                   (one per gap between points: the key)
 //   phase: solid | liquid | gas | solid-liquid | liquid-gas;  process: heat (q = mcΔT) | fus (q = mΔH fus) | vap (q = mΔH vap)

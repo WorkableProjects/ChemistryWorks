@@ -11,7 +11,7 @@ export function render(host, attempt, ctx) {
 
   function show(ids) {
     if (dead) return;
-    inner?.destroy();
+    inner?.();
     if (!ids.length) {
       inner = null;
       emptyCard(host, {
@@ -36,5 +36,5 @@ export function render(host, attempt, ctx) {
     .then((s) => show(mistakeIds(attempt, s?.feedback || null)))
     .catch(() => show(local));
 
-  return { destroy() { dead = true; inner?.destroy(); ctx.hudSlot.replaceChildren(); } };
+  return () => { dead = true; inner?.(); ctx.hudSlot.replaceChildren(); };
 }

@@ -1,4 +1,4 @@
-// V4-09 algorithmic (randomized) questions — S10. Pure, no DOM, no eval / Function.
+// Algorithmic (randomized) questions. Pure, no DOM, no eval / Function.
 //
 // A question (numeric, sigfigs, dimensional or multipart) may carry
 //   variables: {

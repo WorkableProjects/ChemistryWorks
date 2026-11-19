@@ -73,5 +73,5 @@ export function render(host, attempt, ctx) {
   }
 
   intro();
-  return { destroy() { ended = true; ctx.hudSlot.replaceChildren(); } };
+  return () => { ended = true; ctx.hudSlot.replaceChildren(); };
 }

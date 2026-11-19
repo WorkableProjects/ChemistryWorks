@@ -1,4 +1,4 @@
-// Assign dialog (V5-10): library test, one or more classes, opens / due, late, instructions, modes, required, publish later.
+// Assign dialog: library test, one or more classes, opens / due, late, instructions, modes, required, publish later.
 import { h, openModal, toast } from '../../../ui.js';
 import { field } from '../common.js';
 import { loadTest } from '../../../lib/tests.js';

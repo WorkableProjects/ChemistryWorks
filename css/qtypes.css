@@ -1,4 +1,4 @@
-/* V3-05 question types: balance, econfig, ptable, sigfigs. Uses the base tokens only. */
+/* Question types: balance, econfig, ptable, sigfigs. Uses the base tokens only. */
 
 /* builder editors */
 .adm-bal-key { display: inline-block; line-height: 44px; border: 1px solid var(--border-control); border-radius: var(--radius-sm); background: var(--bg-elev); }
@@ -6,7 +6,7 @@
 .adm-grid--2 { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 720px) { .adm-grid--2 { grid-template-columns: minmax(0, 1fr); } }
 
-/* ---- V3-05 part 2: categorize, hotspot, graph ---- */
+/* part 2: categorize, hotspot, graph ---- */
 
 /* graph */
 .q-graph__frame { max-width: 560px; margin-bottom: 8px; }

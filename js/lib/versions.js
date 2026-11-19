@@ -1,4 +1,4 @@
-// Duplicate and "Version B" helpers for the library (V4-02). Pure: no DOM, no storage.
+// Duplicate and "Version B" helpers for the library. Pure: no DOM, no storage.
 //   suggestCopyCode(code, existing)   CODE -> CODE-2 (next free), checked against every code in the library
 //   duplicateTest(test, code)         deep copy under a new code
 //   versionTest(test, opts)           same test, questions and answer options shuffled by a fixed seed, code CODE-B

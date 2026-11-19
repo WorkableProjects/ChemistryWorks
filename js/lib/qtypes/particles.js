@@ -1,4 +1,4 @@
-// `particles` question type (V4-03, S10): a particle-diagram box. The student places particles of the species in the
+// `particles` question type: a particle-diagram box. The student places particles of the species in the
 // palette into one or more zones (for example "Gas" and "Liquid", or just "Box"); the counts per zone and species are graded.
 // Pure definition, no DOM.
 //   { type: 'particles', species: [{ id: 'h2', label: 'H₂', shape: 'circle'|'square'|'triangle'|'diamond', tone: 1..6 }],

@@ -1,4 +1,4 @@
-// Read-aloud button for a question card (V4-05), using the Web Speech API when the browser has it.
+// Read-aloud button for a question card, using the Web Speech API when the browser has it.
 // readAloudButton({ getText }) -> { el, stop() } | null (null when speech synthesis is unavailable)
 
 import { h, icon } from '../../ui.js';

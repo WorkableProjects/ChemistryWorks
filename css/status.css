@@ -1,4 +1,4 @@
-/* ChemWorks — shared status pages + mode select (V4-01). Tokens come from base.css. */
+/* ChemWorks — shared status pages + mode select. Tokens come from base.css. */
 
 /* ---------- Status page ---------- */
 .status-shell, .mode-view { min-height: 100vh; background: var(--bg); }

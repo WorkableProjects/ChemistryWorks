@@ -1,4 +1,4 @@
-/* ChemWorks — results + feedback (moved out of runner.css in v4 S01). Tokens come from base.css. */
+/* ChemWorks — results + feedback (moved out of runner.css in). Tokens come from base.css. */
 
 /* ---------- Results ---------- */
 .results { width: min(820px, 100%); margin: 0 auto; padding: 32px 20px 72px; display: flex; flex-direction: column; gap: 20px; }
@@ -105,5 +105,5 @@
 @media (prefers-reduced-motion: reduce) { .results-confetti { display: none; } }
 :root[data-motion="reduce"] .results-confetti { display: none; }
 
-/* ---- per-question extras (V4-03) ---- */
+/* per-question extras ---- */
 .results-extras { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

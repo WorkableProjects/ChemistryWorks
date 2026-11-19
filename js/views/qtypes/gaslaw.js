@@ -1,4 +1,4 @@
-// `gaslaw` question type (V5-07, S12e) — student widget, builder editor and review.
+// `gaslaw` question type — student widget, builder editor and review.
 // Answer: { law, setup: { slot: knownKey | '?' }, value }; see js/lib/qtypes/gaslaw.js.
 import { h } from '../../ui.js';
 import { registerTypeUI } from './registry.js';

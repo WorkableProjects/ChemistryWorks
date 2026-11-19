@@ -1,4 +1,4 @@
-// `particles` question type (V4-03, S10) — student particle box, builder editor, review (draws the box).
+// `particles` question type — student particle box, builder editor, review (draws the box).
 // Pick a species in the palette, then click inside a zone to place a particle there, click a particle to remove it. Keyboard:
 // Tab to a zone, Enter / Space adds the selected species, Backspace / Delete removes the last one of that species; every
 // species also has Add / Remove buttons with a live count under each zone.

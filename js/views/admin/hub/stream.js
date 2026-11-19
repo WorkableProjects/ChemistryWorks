@@ -1,4 +1,4 @@
-// Teacher stream (V5-10): post text / link / picture, pin one, delete. Assignment posts come from the assignments.
+// Teacher stream: post text / link / picture, pin one, delete. Assignment posts come from the assignments.
 import { h, mount, icon, toast } from '../../../ui.js';
 import { postStream, deleteStreamPost } from '../../../lib/api.js';
 import { compressImageFile } from '../../../lib/image-upload.js';

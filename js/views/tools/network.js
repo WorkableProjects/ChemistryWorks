@@ -1,4 +1,4 @@
-// Offline / outbox banner state (V4-05). Pure: bannerState(online, outbox) says what (if anything) to tell the student.
+// Offline / outbox banner state. Pure: bannerState(online, outbox) says what (if anything) to tell the student.
 
 /** -> null | { kind: 'offline' | 'queued', text } */
 export function bannerState({ online = true, outbox = 0 } = {}) {

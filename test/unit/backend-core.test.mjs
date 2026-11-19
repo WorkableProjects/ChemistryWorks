@@ -160,29 +160,6 @@ test('submission is a plain append and takes no script lock', () => {
   assert.equal(lockCalls.release, 0);
 });
 
-test('Netlify webhook shape is parsed (strings coerced, JSON columns decoded)', () => {
-  const r = post({
-    number: 3, title: 'chemistryworks-submissions', form_name: 'chemistryworks-submissions',
-    data: {
-      submission_id: 'nl-1', student_name: 'Bo', student_email: 'bo@x.org', test_code: 'CHEM101', test_title: 'Foundations',
-      score_achieved: '4', score_total: '7', percentage: '57.14', duration_seconds: '90',
-      responses_json: JSON.stringify([{ questionId: 'q1' }]), flags_json: JSON.stringify({ tab_switches: 1, auto_submitted: false }),
-      submitted_at: 'z',
-    },
-  });
-  assert.equal(r.result, 'success');
-  const row = sheets.get('Submissions').rows[1];
-  assert.deepEqual([...row.slice(1, 12)], ['nl-1', 'Bo', 'bo@x.org', 'CHEM101', 'Foundations', 4, 7, 57.14, 90, 1, false]);
-  assert.deepEqual(JSON.parse(row[12]), [{ questionId: 'q1' }]);
-});
-
-test('direct submission followed by webhook delivery is deduped', () => {
-  post(sample({ submission_id: 'dual' }));
-  const r = post({ data: { submission_id: 'dual', test_code: 'CHEM101', percentage: '71.43' } });
-  assert.equal(r.duplicate, true);
-  assert.equal(sheets.get('Submissions').getLastRow(), 2);
-});
-
 test('submission without id or code is rejected', () => {
   assert.equal(post(sample({ submission_id: '' })).error, 'missing_submission_id');
   assert.equal(post(sample({ test_code: '' })).error, 'missing_test_code');

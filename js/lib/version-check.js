@@ -1,4 +1,4 @@
-// V4-08 version check: compare the deployed Apps Script version (?action=ping) with this site's version and, for
+// Version check: compare the deployed Apps Script version (?action=ping) with this site's version and, for
 // admins only, show a banner with the upgrade steps when the backend is older. A failed ping shows nothing.
 
 import { h } from '../ui.js';

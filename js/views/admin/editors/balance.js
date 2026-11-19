@@ -1,4 +1,4 @@
-// Builder editor for `balance` (V3-05): formulas on each side, the coefficient key, and the grading switches.
+// Builder editor for `balance`: formulas on each side, the coefficient key, and the grading switches.
 import { h, mount } from '../../../ui.js';
 import { formulaToHTML } from '../../../lib/formula.js';
 import { field, switchEl } from '../common.js';

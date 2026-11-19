@@ -1,4 +1,4 @@
-// `isotopemass` question type (V5-07, S11c): average atomic mass from isotope data. Pure definition, no DOM.
+// `isotopemass` question type: average atomic mass from isotope data. Pure definition, no DOM.
 //   { type: 'isotopemass', element: 'Chlorine', ask: 'average'|'abundance'|'table',
 //     isotopes: [{ label: 'Cl-35', mass: 34.969, abundance: 75.78 }, ...],   (abundance in %, sums to 100)
 //     average?: 35.45 (shown to the student when ask = 'abundance'; default: computed),

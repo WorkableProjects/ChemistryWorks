@@ -1,9 +1,9 @@
-// Student feedback review (V2-07, rebuilt for V3-01 on the PDF export model so it matches the teacher's export).
+// Student feedback review (V2-07, rebuilt on the PDF export model so it matches the teacher's export).
 // Grades, comments and answers are shown ONLY from a released server reply.
 //
 // render(root, ctx, params) -> cleanup()
 //   params.payload  — a past submission from getLocalResults() (landing "Your submitted tests")
-//   params.status   — a checkSubmissionState() result (opened from the test link, V3-01)
+// params.status — a checkSubmissionState() result (opened from the test link)
 //   params.test     — the loaded test (optional; loaded by code when missing)
 //   params.source   — the test source (passed through to the runner for Take again)
 //   params.practiceOnly — offer Game mode practice (single-submission test already submitted)
@@ -146,7 +146,7 @@ export function render(root, ctx, params = {}) {
       on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'classic', studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
   }
 
-  // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
+  // Released feedback -> Mistake Review game (only for tests with game mode on).
   function mistakeReviewButton() {
     if (test?.gameMode !== true) return null;
     return h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'review-mistakes' },
@@ -195,7 +195,7 @@ export function render(root, ctx, params = {}) {
     await ensureTest();
     if (!alive) return;
 
-    // 1) Server copy (V3-01): any device, verified identity.
+    // 1) Server copy: any device, verified identity.
     let status = params.status || null;
     if (!status && code) status = await checkSubmissionState(ctx, test || { code });
     if (!alive) return;

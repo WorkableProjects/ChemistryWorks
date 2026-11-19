@@ -1,4 +1,4 @@
-// UI for `dimensional` (V4-03): the given quantity, a row of fraction tiles the student adds, units that cancel are struck
+// UI for `dimensional`: the given quantity, a row of fraction tiles the student adds, units that cancel are struck
 // through, then the final value + unit. Keyboard only: every tile field is a text input, "Add factor" / "Remove" are buttons.
 // Answer = { factors: [{ top: {value, unit}, bottom: {value, unit} }], value, unit } (typed text).
 import { h } from '../../ui.js';

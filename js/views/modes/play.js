@@ -1,6 +1,6 @@
 // Shared question-by-question loop for Mistake Review, Tower and Boss Battle: an intro card, then each question
 // (the runner widget, so every answer goes through `attempt.set`), a feedback card, and the end summary via ctx.onEnd.
-// playSeq(host, attempt, ctx, { mode, ids, lead, notes, visual?, hud?, step }) -> { destroy() }
+// playSeq(host, attempt, ctx, { mode, ids, lead, notes, visual?, hud?, step }) -> cleanup()
 //   ids:    question ids to play, in order (must come from the attempt)
 //   visual: () => Node | null, drawn above the question and the feedback card
 //   hud:    () => [{ testid, text, fig? }]
@@ -79,7 +79,7 @@ export function playSeq(host, attempt, ctx, { mode, ids, lead, notes = [], visua
   }
 
   intro();
-  return { destroy() { ended = true; ctx.hudSlot.replaceChildren(); } };
+  return () => { ended = true; ctx.hudSlot.replaceChildren(); };
 }
 
 /** A message card with one action, for modes that have nothing to play. */

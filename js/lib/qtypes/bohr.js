@@ -1,4 +1,4 @@
-// `bohr` question type (V5-07, S12a): Bohr / shell model. Pure definition, no DOM.
+// `bohr` question type: Bohr / shell model. Pure definition, no DOM.
 //   { type: 'bohr', mode: 'element'|'count', element: 'Mg', electrons: 12, partialCredit: true }
 //   mode 'element': the element sets the number of electrons; mode 'count': the electron count is given.
 //   Covers the first 20 electrons only. Shells fill 2, 8, 8, then 2 in shell 4 (school Bohr model).

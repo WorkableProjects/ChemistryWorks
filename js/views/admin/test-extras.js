@@ -1,4 +1,4 @@
-// Builder › Test settings › "Schedule, classes and tools" (V4-02 / V4-05 / V4-07): open / close window, late work,
+// Builder › Test settings › "Schedule, classes and tools": open / close window, late work,
 // announcement, classes + roster only, question pools per section, student tools, assigned practice.
 // testExtrasPanel(test, changed, ctx) -> <details>
 import { h } from '../../ui.js';

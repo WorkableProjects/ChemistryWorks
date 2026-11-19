@@ -26,7 +26,7 @@ export function parseSci(raw) {
   return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s) ? Number(s) : NaN;
 }
 
-/** V4-09: numeric / sigfigs editors get the "Randomize with variables" panel underneath. */
+/** Numeric / sigfigs editors get the "Randomize with variables" panel underneath. */
 export function withVariables(q, editor, redraw, changed) {
   const panel = variablesEditor(q, redraw, changed);
   return panel ? h('div', { class: 'stack' }, editor, panel) : editor;

@@ -41,7 +41,7 @@ export const TYPE_LABELS = {
   hotspot: 'Label the diagram',
   graph: 'Read or plot a graph',
 };
-// V4-03: registered v4 types join the type list and labels (js/lib/qtypes/registry.js).
+// Registered v4 types join the type list and labels (js/lib/qtypes/registry.js).
 for (const t of registeredTypes()) {
   if (!QUESTION_TYPES.includes(t)) QUESTION_TYPES.push(t);
   TYPE_LABELS[t] = typeDef(t).label || t;
@@ -89,7 +89,7 @@ function normalizeQuestion(raw) {
   } else delete q.image;
   if (q.section === undefined || q.section === null || str(q.section).trim() === '') delete q.section;
   else q.section = str(q.section).trim();
-  // V4-03 per-question extras (all optional, off by default): confidence switch and a point-costing hint.
+  // Per-question extras (all optional, off by default): confidence switch and a point-costing hint.
   if (q.confidence !== undefined) {
     if (bool(q.confidence, false)) q.confidence = true; else delete q.confidence;
   }
@@ -126,8 +126,8 @@ export function normalizeTest(raw) {
   t.singleSubmission = bool(t.singleSubmission, false);
   t.requireAllQuestions = bool(t.requireAllQuestions, false);
   if (t.games !== undefined) t.games = Array.isArray(t.games) ? t.games.map((g) => str(g).trim()).filter(Boolean) : undefined;
-  if (t.gameOptions !== undefined) t.gameOptions = cleanGameOptions(t.gameOptions); // V4-04
-  // V4-02 / V4-07 test settings (all optional): window, late work, announcement, classes / roster, tools, practice.
+  if (t.gameOptions !== undefined) t.gameOptions = cleanGameOptions(t.gameOptions);
+  // Test settings (all optional): window, late work, announcement, classes / roster, tools, practice.
   for (const k of ['opensAt', 'closesAt']) { if (t[k] === '' || t[k] === null) delete t[k]; else if (t[k] !== undefined) t[k] = str(t[k]).trim(); }
   if (t.announcement !== undefined) { t.announcement = str(t.announcement).trim(); if (!t.announcement) delete t.announcement; }
   if (t.late !== undefined && t.late !== null && !isObj(t.late)) delete t.late;
@@ -259,7 +259,7 @@ export function validateTest(test) {
     const seen = new Set();
     test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet));
   }
-  errors.push(...validateGameOptions(test)); // V4-04
+  errors.push(...validateGameOptions(test));
   const badDate = (v) => v !== undefined && v !== '' && !Number.isFinite(Date.parse(v));
   for (const k of ['opensAt', 'closesAt']) if (badDate(test[k])) errors.push(`Test: ${k} must be a date and time (e.g. 2026-11-10T08:00).`);
   if (test.opensAt && test.closesAt && Date.parse(test.closesAt) <= Date.parse(test.opensAt)) errors.push('Test: closesAt must be after opensAt.');

@@ -1,4 +1,4 @@
-/* Class Hub, teacher side (V5-10). Everything under .hub-admin; tokens only. */
+/* Class Hub, teacher side. Everything under .hub-admin; tokens only. */
 .hub-admin .hub-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--border); }
 .hub-admin .hub-tabs[hidden] { display: none; }
 .hub-admin .hub-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: var(--space-2) var(--space-3); font: inherit; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }

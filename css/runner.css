@@ -333,7 +333,7 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 .runner-hbtn, .q-flag, .runner-top .icon-btn, .nav-drawer .icon-btn, .runner-jump, .q-order__btn { min-width: 44px; }
 .q-clear { min-width: 44px; padding: 10px 8px; }
 
-/* ---- per-question extras (V4-03): hint + "How sure are you?" ---- */
+/* per-question extras: hint + "How sure are you?" ---- */
 .q-extras { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
 .q-extras [hidden] { display: none; }
 .q-hintbtn { align-self: flex-start; min-height: 44px; }
@@ -347,7 +347,7 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
 .q-conf__btn.is-selected { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .q-conf__btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-/* ---- V5-01 mode switcher (runner bar + game mode header). Segmented control; a menu on phones. */
+/* mode switcher (runner bar + game mode header). Segmented control; a menu on phones. */
 .mode-switcher-wrap { display: flex; align-items: center; min-width: 0; margin-left: auto; }
 .mode-switcher { display: inline-flex; gap: 2px; padding: 2px; max-width: 100%; overflow-x: auto; border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border); scrollbar-width: none; }
 .mode-switcher__btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }

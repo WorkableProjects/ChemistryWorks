@@ -171,7 +171,7 @@ function reviewItem(r, i, test, stagger) {
     h('span', { class: 'results-item__pts' }, r.needsGrading ? `— / ${r.pointsPossible} pts` : `${r.pointsEarned} / ${r.pointsPossible} pts`),
     h('span', { class: 'results-item__chev' }, icon('down', { size: 16 })),
   );
-  // V4-03 extras: the hint that cost points and the student's own confidence (with a nudge when certain but wrong).
+  // Extras: the hint that cost points and the student's own confidence (with a nudge when certain but wrong).
   const certainWrong = r.confidence === 3 && r.answered && !r.isCorrect && !r.needsGrading;
   const extrasNote = (r.hintUsed || r.confidence)
     ? h('div', { class: 'results-extras', dataset: { testid: 'results-extras' } },

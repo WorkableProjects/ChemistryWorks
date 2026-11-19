@@ -31,7 +31,7 @@ async function post(gasUrl, body, fetchImpl) {
   return parse(await f(gasUrl, { method: 'POST', headers: TEXT_HEADERS, body: JSON.stringify(body) }));
 }
 
-// Admin POST (V4-07). The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
+// Admin POST. The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
 // Google admin, { adminKey } when a key is set); an explicit `adminKey` argument wins. When the Google token has
 // expired mid-session ('invalid_token') it is refreshed silently once and the request retried, never a password.
 async function adminPost(gasUrl, body, adminKey, fetchImpl, { idToken } = {}) {
@@ -67,7 +67,7 @@ export async function fetchPublishedTest(code, { gasUrl, fetchImpl } = {}) {
   return r.test || null;
 }
 
-// v4 S11/S12: { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
+// { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
 // POST form is used, which applies the student's extension and roster check server-side.
 export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToken } = {}) {
   try {
@@ -175,7 +175,7 @@ export async function fetchFeedback({ gasUrl, submissionId, idToken, fetchImpl }
   }
 }
 
-// V3-01: the signed-in student's submissions for one test (no admin key; identity verified on the server
+// The signed-in student's submissions for one test (no admin key; identity verified on the server
 // from the Google ID token). -> { ok: true, submitted, attempts, latest, feedback?, others? } |
 // { ok: false, error } (error 'identity_not_configured' / OUTDATED_BACKEND / network -> caller fails open).
 export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEmail, fetchImpl } = {}) {
@@ -192,7 +192,7 @@ export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEma
   }
 }
 
-// V3-03 (admin): release every Graded / Auto-graded submission of a test. -> { ok, released: n, error? }
+// Admin: release every Graded / Auto-graded submission of a test. -> { ok, released: n, error? }
 export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
   try {
     const d = await adminPost(gasUrl, { action: 'releaseAll', testCode }, adminKey, fetchImpl);
@@ -202,7 +202,7 @@ export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {})
   }
 }
 
-// V3-03 (admin): allow (or revoke) one more submission for the student of this submission.
+// Admin: allow (or revoke) one more submission for the student of this submission.
 // -> { ok, retake_allowed_at, error? }
 export async function allowRetake({ gasUrl, adminKey, submissionId, allow = true, fetchImpl } = {}) {
   try {
@@ -213,7 +213,7 @@ export async function allowRetake({ gasUrl, adminKey, submissionId, allow = true
   }
 }
 
-// ---- V4-07 admin accounts ----
+// admin accounts ----
 
 // Who am I? Confirms the signed-in Google user is on the Admins sheet.
 // -> { ok: true, email, role, via } | { ok: false, error: 'not_admin' | 'invalid_token' | ... }
@@ -266,7 +266,7 @@ export async function getLog({ gasUrl, adminKey, limit = 100, fetchImpl } = {}) 
   }
 }
 
-// ---------- v4 S11–S17 actions (generic helpers; every function resolves, never throws) ----------
+// ---------- Actions (generic helpers; every function resolves, never throws) ----------
 // adminCall('listClasses', {}, { gasUrl }) -> { ok: true, data } | { ok: false, error }   (admin credentials merged as above)
 export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchImpl } = {}) {
   try {
@@ -288,7 +288,7 @@ export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {
   }
 }
 
-// ---------- v5 (B1): student profile + sync, batch ----------
+// ---------- Student profile, sync and batch ----------
 // Every wrapper resolves { ok: true, data } | { ok: false, error, unavailable? } and never throws.
 // No gasUrl or an old backend -> { ok: false, unavailable: true }: callers keep working from localStorage.
 async function studentCall(action, payload, { gasUrl, idToken, fetchImpl } = {}) {
@@ -307,13 +307,13 @@ export const getStudentProfileAdmin = ({ gasUrl, adminKey, email, fetchImpl } = 
 // requests: [{ action, ...fields }] (max 50). -> { ok, data: { results: [...] } }
 export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adminCall('batch', { requests }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v5 (B2): fast reads ----------
+// ---------- Fast reads ----------
 // -> { ok, data: { tests: [{ code, title, updatedAt, status, questionCount, points, needsGrading, submissionCount }] } }
 export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
 // since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
 export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since, includeAnswers: true }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v5 (B3): Class Hub ----------
+// ---------- Class Hub ----------
 // Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
 export const saveAssignment = ({ gasUrl, adminKey, assignment, postToClassroom, fetchImpl } = {}) => adminCall('saveAssignment', { assignment, postToClassroom }, { gasUrl, adminKey, fetchImpl });
 export const deleteAssignment = ({ gasUrl, adminKey, id, deleteInClassroom, fetchImpl } = {}) => adminCall('deleteAssignment', { id, deleteInClassroom }, { gasUrl, adminKey, fetchImpl });
@@ -328,7 +328,7 @@ export const remindMissing = ({ gasUrl, adminKey, id, fetchImpl } = {}) => admin
 export const getClassHub = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getClassHub', {}, { gasUrl, idToken, fetchImpl });
 export const markNotificationsRead = ({ gasUrl, idToken, ids, all, fetchImpl } = {}) => studentCall('markNotificationsRead', { ids, all }, { gasUrl, idToken, fetchImpl });
 
-// ---------- v6 (B3): tags ----------
+// ---------- Tags ----------
 // -> { ok, data: { tags: [{ id, ownerEmail, ownerName, name, color, description, firstTestCode, createdAt, updatedAt, mergedInto, usage: { questions, tests } }] } }
 export const listTags = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTags', {}, { gasUrl, adminKey, fetchImpl });
 // tag: { id, name?, color?, description? }. Owner only; edits a Sheet tag, never creates one.
@@ -337,7 +337,7 @@ export const deleteTag = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall
 // -> { ok, data: { into, rewrittenTests, rewrittenQuestions } }
 export const mergeTags = ({ gasUrl, adminKey, from, into, fetchImpl } = {}) => adminCall('mergeTags', { from, into }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v6 (B4): Google Classroom ----------
+// ---------- Google Classroom ----------
 // All run as the deploying account; every reply carries `syncAccount`.
 // -> { ok, data: { courses: [{ id, name, section, room, courseState }], syncAccount } }
 export const listClassroomCourses = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listClassroomCourses', {}, { gasUrl, adminKey, fetchImpl });

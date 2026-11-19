@@ -1,4 +1,4 @@
-/* ChemistryWorks — landing (V4-01). Tokens come from base.css. */
+/* ChemistryWorks — landing. Tokens come from base.css. */
 
 .landing { position: relative; overflow: hidden; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
 

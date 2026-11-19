@@ -7,8 +7,8 @@
 //   game     params: { test, source }     (single-player practice; never submits)
 //   runner   params: { test, source, preview?: boolean }
 //   results  params: { test, grade, payload, submission, preview?: boolean }
-//   feedback params: { payload } (a past submission from getLocalResults()) | { test, source, status, canRetake, practiceOnly } (V3-01)
-//   submitted params: { test, source, status, canRetake }  (V3-01/02: submitted, not released yet)
+// feedback params: { payload } (a past submission from getLocalResults()) | { test, source, status, canRetake, practiceOnly }
+// submitted params: { test, source, status, canRetake } (submitted, not released yet)
 //   admin    params: {}
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
@@ -138,13 +138,13 @@ async function openTest(code, opts = {}) {
   try {
     const idToken = ctx.user?.provider === 'google' ? getIdToken() : null;
     const loaded = await loadTest(c, { config: CONFIG, idToken });
-    // V4-09 / V4-02: per-student instance (randomized numbers, drawn pool questions), stable across devices.
+    // Per-student instance (randomized numbers, drawn pool questions), stable across devices.
     let test = instantiateTest(loaded.test, { email: ctx.user?.email || '' });
     const { source } = loaded;
-    // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
+    // Ask the backend whether this student already submitted (fails open when unavailable).
     mount(root, h('div', { class: 'status-check' }, flaskLoader({ size: 88, label: 'Checking your submission…', testid: 'submission-status-check' })));
     const state = await checkSubmissionState(ctx, test);
-    // V4-02 S11/S12: roster-only and the open/close window (server state wins: it knows this student's extension).
+    // Roster-only and the open/close window (server state wins: it knows this student's extension).
     if (state.roster && state.roster.required && state.roster.ok === false) return navigate('unavailable', { reason: 'not_on_roster', title: test.title, code: test.code });
     const win = state.window || windowState(test, state.accommodations);
     if (win.state === 'before') return navigate('unavailable', { reason: 'not_open', title: test.title, opensAt: win.opensAt, code: test.code });
@@ -166,8 +166,8 @@ async function openTest(code, opts = {}) {
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
-    // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
-    const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
+    // No chooser page — the runner header has the mode switcher. Resume in the mode used last.
+    const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode
     if (!killed('gameModes') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
     navigate('runner', { test, source, cleared: true });
   } catch (err) {
@@ -274,7 +274,7 @@ onAuthChange((user) => {
 });
 
 window.addEventListener('error', (e) => console.error('[ChemistryWorks]', e.error || e.message));
-// V4-08: opt-in error reports (the backend refuses them unless Settings > Error reports is on).
+// Opt-in error reports (the backend refuses them unless Settings > Error reports is on).
 if (!navigator.webdriver) installErrorReporting(CONFIG);
 ensureCss('print', { media: 'print' }); // never blocks rendering; the export and print views rely on it
 start();

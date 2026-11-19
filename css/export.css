@@ -1,4 +1,4 @@
-/* ChemWorks — PDF export header/footer on screen (V4-01). Print rules stay in print.css. */
+/* ChemWorks — PDF export header/footer on screen. Print rules stay in print.css. */
 .export-doc .export-head { margin: 0 0 var(--space-3); }
 .export-doc .export-head__top { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; padding-bottom: var(--space-3); border-bottom: 2px solid var(--brand-teal); }
 .export-doc .export-head__logo { --brand-size: 34px; flex: 0 0 auto; }

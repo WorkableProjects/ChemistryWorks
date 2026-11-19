@@ -1,4 +1,4 @@
-// Builder editor for `econfig` (V3-05): one accepted configuration per line, with a superscript preview.
+// Builder editor for `econfig`: one accepted configuration per line, with a superscript preview.
 import { h, mount } from '../../../ui.js';
 import { configToHTML, parseConfig } from '../../../lib/qtypes/econfig.js';
 import { field } from '../common.js';

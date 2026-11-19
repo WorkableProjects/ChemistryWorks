@@ -1,4 +1,4 @@
-// Pure helpers for the `graph` question type (V3-05): grading plot answers and drawing the chart as an SVG string.
+// Pure helpers for the `graph` question type: grading plot answers and drawing the chart as an SVG string.
 // mode 'read': student types a number (graded like `numeric`). mode 'plot': student places points; answer = [[x, y], …].
 import { registerType, typeDef } from './registry.js';
 import { str, bool, isObj, DASH } from './shared.js';

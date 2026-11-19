@@ -97,7 +97,7 @@ export function renderGrading(root, ctx, { goSettings }) {
 
   let gbqCleanup = null;
   const stopGbq = () => { try { gbqCleanup?.(); } catch (e) { console.error(e); } gbqCleanup = null; };
-  // V4-01 split view: J/K and number keys live on the document while one submission is open.
+  // Split view: J/K and number keys live on the document while one submission is open.
   let keysOff = null;
   const stopKeys = () => { try { keysOff?.(); } catch (e) { console.error(e); } keysOff = null; };
 
@@ -155,8 +155,8 @@ export function renderGrading(root, ctx, { goSettings }) {
     const search = h('input', { class: 'input adm-search', type: 'search', placeholder: 'Search name or email', 'aria-label': 'Search submissions', value: G.query, dataset: { testid: 'grading-search' } });
     const tableHost = h('div', { class: 'adm-tablewrap', dataset: { testid: 'grading-table' } });
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
-    // V3-03: release every graded / auto-graded submission of the selected test.
-    // V4-02: re-run auto-grading on every submission of this test with the current answer key (overrides kept).
+    // Release every graded / auto-graded submission of the selected test.
+    // Re-run auto-grading on every submission of this test with the current answer key (overrides kept).
     const regradeBtn = G.testCode === 'all' ? null : h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'regrade' }, on: { click: () => {
       openModal({ title: `Regrade ${G.testCode}?`, testid: 'regrade-modal',
         body: 'Every submission of this test is auto-graded again with the current answer key. Teacher-graded questions and your point overrides are kept.',
@@ -594,7 +594,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 
-    // V3-03: allow this student one more submission (single-submission tests).
+    // Allow this student one more submission (single-submission tests).
     const retakeBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'allow-retake' }, 'aria-pressed': String(!!row.retake_allowed_at),
       on: { click: async () => {
         const allow = !row.retake_allowed_at;
@@ -635,7 +635,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('span', {}, 'Final score: ', totalEl), warnEl, savedEl, h('span', { class: 'spacer' }),
         h('label', { class: 'adm-inline adm-release', for: 'release-grade' }, releaseBox, 'Release grade & comments to student'),
         releaseStatus, saveNextBtn, saveBtn)];
-    // V4-01 split view: student list on the left, the open submission on the right (list hidden on phones).
+    // Split view: student list on the left, the open submission on the right (list hidden on phones).
     const shown = pos >= 0 ? list : [row, ...list];
     const listPane = h('aside', { class: 'grd2__list', 'aria-label': 'Students', dataset: { testid: 'grading-split-list' } },
       h('p', { class: 'grd2__listhead' }, G.testCode === 'all' ? 'Students' : `Students · ${G.testCode}`, h('span', { class: 'faint' }, ` (${shown.length})`)),

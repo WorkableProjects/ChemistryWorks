@@ -1,4 +1,4 @@
-// V5-02 student profile: the local profile (XP record + local results + attempts + game bests) merged with the server's
+// Student profile: the local profile (XP record + local results + attempts + game bests) merged with the server's
 // `getStudentProfile`. The student home and profile pages read ONLY the shape documented below.
 // Local first (synchronous, always works), then the server fills in. No backend / demo sign-in -> local only, synced: false.
 // Contract: docs/ARCHITECTURE.md -> V5 contracts -> Student home + profile.

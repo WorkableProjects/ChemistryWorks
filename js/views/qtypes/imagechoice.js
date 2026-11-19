@@ -1,4 +1,4 @@
-// `imagechoice` question type (V4-03, S10) — student widget (picture cards as a radio group / checkbox group), builder
+// `imagechoice` question type — student widget (picture cards as a radio group / checkbox group), builder
 // editor (URL + required alt text per option) and review (the chosen / correct pictures).
 // Answer = option id (single) or array of option ids (multiple).
 import { h, icon } from '../../ui.js';

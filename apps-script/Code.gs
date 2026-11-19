@@ -423,9 +423,8 @@ function indexedRowAdd_(sheet, keyCols, keyVals, row) {
 // Submissions
 // ---------------------------------------------------------------------------
 
-// Accepts a direct payload or a Netlify outgoing-webhook body ({ data: { ...form fields } }).
 function normalizeSubmission_(body) {
-  var d = body && body.data && typeof body.data === 'object' ? body.data : body;
+  var d = body;
   return {
     submission_id: d.submission_id ? String(d.submission_id) : '',
     student_name: d.student_name || '',

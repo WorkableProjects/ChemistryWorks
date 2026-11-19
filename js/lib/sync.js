@@ -1,4 +1,4 @@
-// V5-02 progress sync: queues attempt + XP/badge deltas and sends them with `syncProgress`.
+// Progress sync: queues attempt + XP/badge deltas and sends them with `syncProgress`.
 // Never blocks the UI and never throws. Throttle: at most one flush per 30 s, plus immediately on a mode switch and on
 // `pagehide`. Failures retry with backoff (30 s, 60 s ... 5 min). No backend / demo sign-in / old backend -> state
 // 'offline' and nothing is sent. The queue is kept in localStorage (`syncq:<email>`) so it survives a reload.

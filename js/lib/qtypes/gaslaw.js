@@ -1,4 +1,4 @@
-// `gaslaw` question type (V5-07, S12e): gas-law setup. Pure definition, no DOM.
+// `gaslaw` question type: gas-law setup. Pure definition, no DOM.
 //   The student picks the law, puts each given value into its slot of the formula, then solves for the unknown.
 //   { type: 'gaslaw', law: 'combined', unknown: 'V2', unit: 'L',
 //     knowns: { P1: { value: '1.20', unit: 'atm' }, V1: {...}, T1: {...}, P2: {...}, T2: {...} },   (every variable but `unknown`)

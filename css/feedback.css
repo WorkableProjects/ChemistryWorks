@@ -25,7 +25,7 @@
 
 /* Landing: past submissions */
 
-/* v3: released review on the export model (V3-01) */
+/* v3: released review on the export model */
 .feedback-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .feedback-doc { padding: 20px 22px; overflow-x: auto; }
 .feedback-doc .export-doc { font-size: 15px; }

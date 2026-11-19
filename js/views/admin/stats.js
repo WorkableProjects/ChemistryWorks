@@ -153,7 +153,7 @@ export function csvField(value) {
 const qKey = (r, qid) => `${r.test_code}\u0000${qid}`;
 
 /**
- * Per-question columns for the gradebook CSV (V4-02): one column per question in first-seen order across `rows`.
+ * Per-question columns for the gradebook CSV: one column per question in first-seen order across `rows`.
  * [{ key, testCode, questionId, number, possible }]; `number` counts per test code (Q1, Q2, ...).
  */
 export function questionColumns(rows) {
@@ -245,7 +245,7 @@ export function answersForQuestion(rows, questionId) {
   return out;
 }
 
-/* ------------------------------------------------------------------ grade by question (V4-02) */
+/* grade by question */
 
 /**
  * The full grades object to save for one submission after setting ONE question's points: the student's existing
@@ -278,7 +278,7 @@ export function stepIndex(index, delta, length) {
   return Math.min(length - 1, Math.max(0, index + delta));
 }
 
-/* ------------------------------------------------------------------ bulk tools (V4-02) */
+/* bulk tools */
 
 export const BULK = { RELEASE: 'release', UNRELEASE: 'unrelease', RETAKE: 'retake' };
 

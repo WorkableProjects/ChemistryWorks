@@ -1,7 +1,7 @@
 // Shared round loop for the question-by-question modes (Classic, Lightning Round, Survival).
 // The rules are pure (js/lib/modes/<id>.js `rules()`); this file only draws them. Every answer goes through
 // `attempt.set` (via ctx.widgetFor), so it shows as answered in Study. A round holds exactly the attempt's questions.
-// playRound(host, attempt, ctx, mode) -> { destroy() }
+// playRound(host, attempt, ctx, mode) -> cleanup()
 
 import { h, mount } from '../../ui.js';
 import { normalizeGameOptions } from '../../lib/games/options.js';
@@ -165,5 +165,5 @@ export function playRound(host, attempt, ctx, mode) {
   }
 
   intro();
-  return { destroy() { ended = true; stopTimer(); ctx.hudSlot.replaceChildren(); } };
+  return () => { ended = true; stopTimer(); ctx.hudSlot.replaceChildren(); };
 }

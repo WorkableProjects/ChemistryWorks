@@ -71,7 +71,7 @@ const GRADING_HELPERS = {
 };
 
 /**
- * Grade one answer. `opts.hintUsed` (V4-03): the student revealed the question's hint, so `hint.cost` points are
+ * Grade one answer. `opts.hintUsed`: the student revealed the question's hint, so `hint.cost` points are
  * subtracted from what they earned (never below 0). Two-argument calls behave exactly as before.
  */
 export function gradeQuestion(question, answer, opts = {}) {
@@ -146,7 +146,7 @@ function formatCorrect(q) {
 }
 
 /**
- * Grade a whole test. `opts` (all optional, V4-03): `hintsUsed` (Set or array of question ids whose hint was revealed;
+ * Grade a whole test. `opts` (all optional): `hintsUsed` (Set or array of question ids whose hint was revealed;
  * the hint cost is deducted) and `confidence` ({ [questionId]: 1|2|3 }, kept on the result row for questions that ask
  * "How sure are you?" and were answered).
  */
