@@ -39,7 +39,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | B2 | sonnet | done | 8d3eb20 | unit 1202, grading e2e 12, smoke 4 | also closed getClassHub _email hole; one follow-up (public trigger name, includeAnswers clients, email|code index). Found: index cache write unlocked (race could miss Extra-attempt mark) |
 | S05 | sonnet | done | f041994 | unit 1287, e2e 181 | 5 types moved. Deferred: CSS split to S08b (ensureCss); admin export + grade-by-question must preload types with `review` (S06) |
 | S06a | sonnet | done | 0ac059f | not run (user: test once at end) | 9 types moved |
-| S06b | sonnet | todo | | | |
+| S06b | sonnet | done | 17f9d64 | not run | 6 types moved, switches deleted; isManual/resultExtras added |
 | S11 | sonnet | done | aaf00b4 | unit 1320, smoke 4 | rate-limited mid-run, resumed. config.js loads config.local.js (gitignored); gas-deploy needs CLASPRC_JSON, GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID secrets |
 | B3 | sonnet | done | 158c1ce | unit 1304 | Tests sheet gains Owner column. S12a must extend api.js publishTest to send tagDefs and keep reply tags/ids |
 | B4 | sonnet | todo | | | |
