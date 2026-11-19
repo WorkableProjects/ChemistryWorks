@@ -1,4 +1,7 @@
-// Grading helpers for the `balance` question type (V3-05). Pure functions, no DOM.
+// `balance`: write the coefficients that balance an equation. Answer: an array of whole numbers, one per formula.
+// Also the grading helpers for that type. Pure functions, no DOM.
+import { registerType } from './registry.js';
+import { str, bool, nonEmptyStr } from './shared.js';
 
 const isPosInt = (n) => Number.isInteger(n) && n > 0;
 const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
@@ -61,3 +64,49 @@ export function equationText(q, coefficients, { showOnes = false } = {}) {
   };
   return `${r.map((f, i) => term(f, i)).join(' + ')} → ${p.map((f, i) => term(f, r.length + i)).join(' + ')}`;
 }
+
+export const def = {
+  type: 'balance',
+  label: 'Balance the equation',
+  shortLabel: 'Balance equation',
+  group: 'Chemistry',
+  manual: false,
+
+  normalize(q) {
+    const list = (v) => (Array.isArray(v) ? v : v === undefined || v === null || v === '' ? [] : [v]).map((x) => str(x).trim());
+    q.reactants = list(q.reactants);
+    q.products = list(q.products);
+    q.coefficients = Array.isArray(q.coefficients) ? q.coefficients.map((n) => (typeof n === 'string' && n.trim() !== '' ? Number(n) : n)) : [];
+    q.allowMultiples = bool(q.allowMultiples, false);
+    q.partialCredit = bool(q.partialCredit, false);
+  },
+
+  validate(q, where, errors) {
+    const names = (list, label) => {
+      if (!Array.isArray(list) || list.length === 0 || list.some((f) => !nonEmptyStr(f))) { errors.push(`${where}: ${label} must be a non-empty list of formulas, e.g. ["H2", "O2"].`); return 0; }
+      return list.length;
+    };
+    const n = names(q.reactants, 'reactants') + names(q.products, 'products');
+    const c = q.coefficients;
+    if (!Array.isArray(c) || c.some((x) => !Number.isInteger(x) || x < 1)) errors.push(`${where}: coefficients must be a list of positive whole numbers.`);
+    else if (n && c.length !== n) errors.push(`${where}: coefficients needs ${n} numbers (one per reactant and product, in order) but has ${c.length}.`);
+  },
+
+  blank: (base) => ({ ...base, text: 'Balance the equation for the formation of water.', reactants: ['H2', 'O2'], products: ['H2O'], coefficients: [2, 1, 2], allowMultiples: false, partialCredit: false }),
+
+  isAnswered: (q, answer) => isBalanceAnswered(answer),
+
+  grade: (q, answer) => scoreBalance(q, answer),
+
+  format: (q, answer) => equationText(q, answer),
+
+  keyText(q) {
+    const text = equationText(q, q.coefficients);
+    return q.allowMultiples ? `${text} (or any whole-number multiple)` : text;
+  },
+
+  correctAnswer: (q) => q.coefficients,
+};
+
+registerType(def);
+export default def;

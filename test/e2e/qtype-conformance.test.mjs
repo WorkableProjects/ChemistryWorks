@@ -10,8 +10,8 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-// Types on the TypeDef contract. S06a and S06b add the rest.
-const TYPES = ['mcq', 'multi', 'truefalse', 'numeric', 'formula'];
+// Types on the TypeDef contract so far.
+const TYPES = ['mcq', 'multi', 'truefalse', 'numeric', 'formula', 'matching', 'ordering', 'fillblank', 'categorize', 'balance', 'econfig', 'ptable', 'sigfigs', 'hotspot'];
 const MODES = ['classic', 'lightning', 'survival', 'flashcards', 'mistakes', 'tower', 'boss', 'matchup', 'quizshow', 'race', 'bingo', 'study'];
 const NOT = { result: 'success', submitted: false, blocking: false, attempts: 0, latest: null, others: [] };
 
@@ -115,7 +115,7 @@ test('the landing page loads no moved type UI module', async () => {
   const s = await newSession(env);
   try {
     const seen = [];
-    s.page.on('request', (r) => { if (/\/js\/(views\/qtypes|views\/admin\/editors)\/(mcq|multi|truefalse|numeric|formula)\.js/.test(r.url())) seen.push(r.url()); });
+    s.page.on('request', (r) => { if (/\/js\/(views\/qtypes|views\/admin\/editors)\/(mcq|multi|truefalse|numeric|formula|matching|ordering|fillblank|categorize|balance|econfig|ptable|sigfigs|hotspot)\.js/.test(r.url())) seen.push(r.url()); });
     await s.page.goto(`${s.url}/`);
     await poll(() => s.page.locator(tid('demo-name')).count(), { message: 'landing' });
     assert.deepEqual(seen, []);

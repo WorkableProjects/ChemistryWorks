@@ -1,4 +1,7 @@
-// Electron-configuration parsing and comparison (V3-05). Pure functions, no DOM.
+import { registerType } from './registry.js';
+import { str, nonEmptyStr } from './shared.js';
+
+// `econfig` (electron configuration) with its parsing and comparison helpers. Pure functions, no DOM.
 //   parseConfig("[Ne] 3s1")      -> Map { "1s" => 2, "2s" => 2, "2p" => 6, "3s" => 1 }   (null when it cannot be read)
 //   configsEqual(a, b)           -> true when both parse and have the same orbital -> count map (order does not matter)
 
@@ -103,3 +106,40 @@ export function configToText(input) {
     return m ? m[1] + [...m[2]].map((d) => SUPERSCRIPT[Number(d)]).join('') : tok;
   }).join(' ');
 }
+
+export const def = {
+  type: 'econfig',
+  label: 'Electron configuration',
+  shortLabel: 'Electron config',
+  group: 'Chemistry',
+  manual: false,
+
+  normalize(q) {
+    q.answers = (Array.isArray(q.answers) ? q.answers : q.answers === undefined || q.answers === null || q.answers === '' ? [] : [q.answers]).map((a) => str(a).trim());
+  },
+
+  validate(q, where, errors) {
+    if (!Array.isArray(q.answers) || q.answers.length === 0) { errors.push(`${where}: answers must list at least one electron configuration, e.g. ["1s2 2s2 2p6 3s1", "[Ne] 3s1"].`); return; }
+    q.answers.forEach((x, i) => {
+      if (!nonEmptyStr(x) || !parseConfig(x)) errors.push(`${where}: answer ${i + 1} is not a readable electron configuration (use forms like "1s2 2s2 2p6" or "[Ne] 3s1").`);
+    });
+  },
+
+  blank: (base) => ({ ...base, text: 'Write the ground-state electron configuration of sodium.', answers: ['1s2 2s2 2p6 3s1', '[Ne] 3s1'] }),
+
+  isAnswered: (q, answer) => typeof answer === 'string' && answer.trim() !== '',
+
+  grade(q, answer) {
+    const ok = typeof answer === 'string' && matchesAny(answer, q.answers);
+    return { fraction: ok ? 1 : 0, full: ok };
+  },
+
+  format: (q, answer) => configToText(String(answer)),
+
+  keyText: (q) => (Array.isArray(q.answers) && q.answers.length ? q.answers.map((a) => configToText(a)).join(' / ') : '—'),
+
+  correctAnswer: (q) => q.answers,
+};
+
+registerType(def);
+export default def;

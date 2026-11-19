@@ -54,3 +54,5 @@ export function categorizeEditor(q, redraw, changed) {
       } } }, icon('plus', { size: 16 }), 'Add item'),
       switchEl({ label: 'Partial credit', hint: 'Points for each item put in the right group', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })));
 }
+
+export default { type: 'categorize', edit: ({ q, redraw, changed }) => categorizeEditor(q, redraw, changed) };

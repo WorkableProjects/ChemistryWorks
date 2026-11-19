@@ -77,3 +77,8 @@ export function categorizeWidget(q, api) {
     focus: () => selects.values().next().value?.focus(),
   };
 }
+
+export default {
+  type: 'categorize',
+  render: ({ q, api }) => categorizeWidget(q, api),
+};

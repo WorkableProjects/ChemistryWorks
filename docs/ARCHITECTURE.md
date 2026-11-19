@@ -936,3 +936,11 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `pdfLines(q, answer)` in `js/lib/grading.js` returns the type's `toPdf` lines, else `[formatAnswer(q, answer)]`.
 - `manual: false` is now set on every definition, as the contract says.
 - `ensureCss` does not exist yet (S08). Until it does, `css/qt-truefalse.css` and `css/qt-formula.css` are linked from `index.html`. Other rules for moved types (`.opt`, `.q-preview`, `.q-unit`, `.q-formula-preview`) are shared with imagechoice, sigfigs, graph, naming and reaction, so they stay in `runner.css`.
+
+### S06a Type registry II
+
+- Moved to the TypeDef contract: matching, ordering, fillblank, categorize, balance, econfig, ptable, sigfigs, hotspot. Definitions live in `js/lib/qtypes/<type>.js` (the existing helper modules now also register their type; `matching`, `ordering`, `fillblank` and `ptable` are new files). UI modules are `js/views/qtypes/<type>.js` (the old `js/views/widgets/<type>.js` files moved there); editors are `js/views/admin/editors/<type>.js` (default export `{ type, edit }`). Each is in the `UI_LOADERS` and `EDITOR_LOADERS` maps.
+- None of the nine has a `review` function. Results, export and grading draw hotspot answers through `js/views/widgets/hotspot-stage.js` (`hotspotDiagram`), which stays where it is and is imported statically.
+- The four switches (`isAnswered`/`score`/`formatAnswer`/`formatCorrect` in `grading.js`, normalize/validate/blank in `schema.js`, `buildWidget`, `typeEditor`) no longer name these types. `fillblank` supplies `displayText`, which `displayQuestionText` uses. `correctAnswer(q)` on each definition replaces the per-type branch in `gradeTest`.
+- `optLabel(option)` (plain-text name of a choice) is exported from `js/views/qtypes/shared.js`.
+- CSS: `css/qt-<type>.css` for matching, ordering, fillblank, categorize, balance, econfig, ptable and hotspot, split out of `runner.css` and `qtypes.css` and linked from `index.html` until `ensureCss` exists. `sigfigs` has no rules of its own.

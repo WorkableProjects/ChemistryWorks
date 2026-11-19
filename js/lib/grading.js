@@ -2,18 +2,10 @@
 
 import { isDotArray, dotTotal, followsPlacementRule, canonicalDots, describeDots } from './lewis.js';
 import { isStructureAnswered, scoreStructure, describeStructure, acceptedStructures } from './structure.js';
-import { blankCorrect, blankedText } from './blanks.js';
 import { isOrbitalAnswered, describeOrbital } from './orbital.js';
 import { isManualQuestion } from './schema.js';
-import { ELEMENTS } from './elements.js';
-import { isBalanceAnswered, scoreBalance, equationText } from './qtypes/balance.js';
-import { matchesAny, configToText } from './qtypes/econfig.js';
-import { countSigFigs, formatWithSigFigs } from './qtypes/sigfigs.js';
-import { isCategorizeAnswered, scoreCategorize, categorizeText, categorizeKeyText } from './qtypes/categorize.js';
-import { isHotspotAnswered, scoreHotspot, hotspotText, hotspotKeyText } from './qtypes/hotspot.js';
 import { isPlotAnswered, scorePlot, pointsText } from './qtypes/graph.js';
 import { typeDef } from './qtypes/registry.js';
-import { optionText } from './qtypes/shared.js';
 import './qtypes/index.js'; // registers every question type definition
 
 const SUP_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-' };
@@ -63,30 +55,12 @@ export function isAnswered(question, answer) {
     case 'short':
     case 'open':
       return typeof answer === 'string' && answer.trim() !== '';
-    case 'ordering':
-      return Array.isArray(answer) && answer.length > 0;
-    case 'fillblank':
-      return isPlainObject(answer) && Object.values(answer).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
     case 'structure':
       return isStructureAnswered(answer);
     case 'orbital':
       return isOrbitalAnswered(question, answer);
     case 'lewis':
       return isDotArray(answer) && dotTotal(answer) > 0;
-    case 'matching':
-      return isPlainObject(answer) && Object.values(answer).some((v) => v !== null && v !== undefined && String(v).trim() !== '');
-    case 'balance':
-      return isBalanceAnswered(answer);
-    case 'econfig':
-      return typeof answer === 'string' && answer.trim() !== '';
-    case 'ptable':
-      return Array.isArray(answer) && answer.length > 0;
-    case 'sigfigs':
-      return (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
-    case 'categorize':
-      return isCategorizeAnswered(answer);
-    case 'hotspot':
-      return isHotspotAnswered(answer);
     case 'graph':
       return question.mode === 'plot' ? isPlotAnswered(answer) : (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
     default:
@@ -107,69 +81,8 @@ function score(q, answer) {
         && (q.checkPlacement === false || followsPlacementRule(answer, q.element));
       return { fraction: ok ? 1 : 0, full: ok };
     }
-    case 'ordering': {
-      const key = Array.isArray(q.correctAnswer) ? q.correctAnswer.map(String) : [];
-      if (!Array.isArray(answer) || !key.length) return { fraction: 0, full: false };
-      let right = 0;
-      key.forEach((id, i) => { if (String(answer[i]) === id) right++; });
-      if (right === key.length && answer.length === key.length) return { fraction: 1, full: true };
-      return { fraction: q.partialCredit === false ? 0 : right / key.length, full: false };
-    }
-    case 'fillblank': {
-      const blanks = Array.isArray(q.blanks) ? q.blanks : [];
-      if (!isPlainObject(answer) || !blanks.length) return { fraction: 0, full: false };
-      const right = blanks.filter((b) => blankCorrect(b, answer[b.id], { caseSensitive: !!q.caseSensitive, parseNumber })).length;
-      if (right === blanks.length) return { fraction: 1, full: true };
-      return { fraction: q.partialCredit === false ? 0 : right / blanks.length, full: false };
-    }
     case 'structure':
       return scoreStructure(q, answer);
-    case 'matching': {
-      if (!isPlainObject(answer) || !isPlainObject(q.correctAnswer)) return { fraction: 0, full: false };
-      const leftIds = Array.isArray(q.left) && q.left.length ? q.left.map((l) => l.id) : Object.keys(q.correctAnswer);
-      if (!leftIds.length) return { fraction: 0, full: false };
-      let right = 0;
-      for (const id of leftIds) {
-        if (answer[id] !== undefined && answer[id] !== null && String(answer[id]) === String(q.correctAnswer[id])) right++;
-      }
-      const full = right === leftIds.length;
-      if (full) return { fraction: 1, full: true };
-      return { fraction: q.partialCredit === false ? 0 : right / leftIds.length, full: false };
-    }
-    case 'balance':
-      return scoreBalance(q, answer);
-    case 'econfig': {
-      const ok = typeof answer === 'string' && matchesAny(answer, q.answers);
-      return { fraction: ok ? 1 : 0, full: ok };
-    }
-    case 'ptable': {
-      // Same set rules as `multi` (partial credit = (right - wrong) / expected).
-      if (!Array.isArray(answer) || !Array.isArray(q.answers)) return { fraction: 0, full: false };
-      const correct = new Set(q.answers.map(String));
-      const picked = new Set(answer.map(String));
-      let right = 0;
-      let wrong = 0;
-      for (const sym of picked) (correct.has(sym) ? right++ : wrong++);
-      if (right === correct.size && wrong === 0) return { fraction: 1, full: true };
-      if (q.partialCredit && correct.size > 0) return { fraction: Math.max(0, (right - wrong) / correct.size), full: false };
-      return { fraction: 0, full: false };
-    }
-    case 'sigfigs': {
-      const raw = typeof answer === 'number' ? String(answer) : answer;
-      const x = parseNumber(raw);
-      const key = Number(q.answer);
-      if (Number.isNaN(x) || !Number.isFinite(key) || q.answer === null || q.answer === '' || typeof q.answer === 'boolean') return { fraction: 0, full: false };
-      const tol = Number(q.tolerance) > 0 ? Number(q.tolerance) : 0;
-      const valueOk = Math.abs(x - key) <= tol + 1e-9 * Math.abs(key);
-      const sfOk = countSigFigs(raw) === Number(q.sigFigs);
-      if (valueOk && sfOk) return { fraction: 1, full: true };
-      if (q.partialCredit !== false && (valueOk || sfOk)) return { fraction: 0.5, full: false };
-      return { fraction: 0, full: false };
-    }
-    case 'categorize':
-      return scoreCategorize(q, answer);
-    case 'hotspot':
-      return scoreHotspot(q, answer);
     case 'graph':
       // read mode reuses the numeric grading above
       return q.mode === 'plot' ? scorePlot(q, answer) : score({ type: 'numeric', correctAnswer: q.answer, tolerance: q.tolerance, toleranceType: 'absolute', unit: q.unit }, answer);
@@ -230,45 +143,14 @@ export function formatAnswer(question, answer) {
       case 'short':
       case 'open':
         return String(answer).trim();
-      case 'ordering':
-        return answer.map((id) => optionText(q.items, id)).join(' → ');
-      case 'fillblank':
-        return (q.blanks || []).map((b, i) => {
-          const v = answer[b.id];
-          return `(${i + 1}) ${v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : DASH}`;
-        }).join('; ');
       case 'structure':
         return describeStructure(q, answer);
       case 'orbital':
         return describeOrbital(q, answer);
-      case 'balance':
-        return equationText(q, answer);
-      case 'econfig':
-        return configToText(String(answer));
-      case 'ptable': {
-        const picked = new Set(answer.map(String));
-        const known = ELEMENTS.filter((e) => picked.has(e.symbol)).map((e) => `${e.name} (${e.symbol})`);
-        const unknown = [...picked].filter((sym) => !ELEMENTS.some((e) => e.symbol === sym));
-        return [...known, ...unknown].join('; ');
-      }
-      case 'sigfigs':
-        return String(answer).trim();
-      case 'categorize':
-        return categorizeText(q, answer);
-      case 'hotspot':
-        return hotspotText(q, answer);
       case 'graph':
         return q.mode === 'plot' ? pointsText(answer) : String(answer).trim();
       case 'lewis':
         return describeDots(answer, q.element);
-      case 'matching':
-        return (q.left || [])
-          .map((l) => {
-            const r = answer[l.id];
-            const has = r !== undefined && r !== null && String(r).trim() !== '';
-            return `${optionText(q.left, l.id)} → ${has ? optionText(q.right, r) : DASH}`;
-          })
-          .join('; ');
       default:
         if (typeDef(q.type)?.format) return typeDef(q.type).format(q, answer, GRADING_HELPERS);
         return typeof answer === 'object' ? JSON.stringify(answer) : String(answer);
@@ -298,7 +180,7 @@ export function displayQuestionText(q) {
   if (q && typeDef(q.type)?.displayText) {
     try { return String(typeDef(q.type).displayText(q)); } catch { /* fall through to the raw text */ }
   }
-  return q && q.type === 'fillblank' ? blankedText(q.text) : String(q?.text ?? '');
+  return String(q?.text ?? '');
 }
 
 /** The answer key as display text (used by the games to show "Correct answer"). */
@@ -313,21 +195,6 @@ function formatCorrect(q) {
     const parts = [q.sampleAnswer ? String(q.sampleAnswer) : '', q.rubric && q.rubric.length ? `Rubric:\n${rubricText(q.rubric)}` : ''].filter(Boolean);
     return parts.length ? parts.join('\n\n') : DASH;
   }
-  if (q.type === 'fillblank') {
-    return (q.blanks || []).map((b, i) => `(${i + 1}) ${(b.answers || []).map(String).join(' / ') || DASH}`).join('; ') || DASH;
-  }
-  if (q.type === 'balance') {
-    const text = equationText(q, q.coefficients);
-    return q.allowMultiples ? `${text} (or any whole-number multiple)` : text;
-  }
-  if (q.type === 'econfig') return Array.isArray(q.answers) && q.answers.length ? q.answers.map((a) => configToText(a)).join(' / ') : DASH;
-  if (q.type === 'ptable') return Array.isArray(q.answers) && q.answers.length ? formatAnswer(q, q.answers) : DASH;
-  if (q.type === 'sigfigs') {
-    const n = Number(q.sigFigs);
-    return Number.isFinite(Number(q.answer)) && q.answer !== null && q.answer !== '' ? `${formatWithSigFigs(q.answer, n)} (${n} significant ${n === 1 ? 'figure' : 'figures'})` : DASH;
-  }
-  if (q.type === 'categorize') return categorizeKeyText(q);
-  if (q.type === 'hotspot') return hotspotKeyText(q);
   if (q.type === 'graph') {
     if (q.mode === 'plot') return pointsText(q.targets) || DASH;
     return q.answer === null || q.answer === undefined || q.answer === '' ? DASH : `${q.answer}${q.unit ? ` ${q.unit}` : ''}`;
@@ -338,7 +205,6 @@ function formatCorrect(q) {
     if (!list.length) return DASH;
     return list.map((k, i) => `${list.length > 1 ? `Form ${i + 1}: ` : ''}${describeStructure(q, k)}`).join(' | ');
   }
-  if (q.type === 'ordering') return Array.isArray(q.correctAnswer) ? q.correctAnswer.map((id) => optionText(q.items, id)).join(' → ') : DASH;
   const a = q.correctAnswer;
   if (q.type === 'lewis') {
     const n = Number(a);
@@ -380,7 +246,7 @@ export function gradeTest(test, answers, opts = {}) {
       type: q.type,
       givenAnswer: g.answered ? raw : null,
       givenAnswerText: formatAnswer(q, g.answered ? raw : null),
-      correctAnswer: typeDef(q.type)?.correctAnswer ? typeDef(q.type).correctAnswer(q) : q.type === 'balance' ? q.coefficients : q.type === 'categorize' ? Object.fromEntries((q.items || []).map((it) => [it.id, it.category])) : q.type === 'hotspot' ? Object.fromEntries((q.labels || []).map((l) => [l.id, { x: l.x, y: l.y }])) : q.type === 'graph' ? (q.mode === 'plot' ? q.targets : q.answer) : q.type === 'econfig' || q.type === 'ptable' ? q.answers : q.type === 'sigfigs' ? q.answer : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.type === 'fillblank' ? Object.fromEntries((q.blanks || []).map((b) => [b.id, b.answers])) : q.correctAnswer,
+      correctAnswer: typeDef(q.type)?.correctAnswer ? typeDef(q.type).correctAnswer(q) : q.type === 'graph' ? (q.mode === 'plot' ? q.targets : q.answer) : q.type === 'structure' ? q.correctAnswer : isManualQuestion(q) ? (q.sampleAnswer || null) : q.correctAnswer,
       correctAnswerText: formatCorrect(q),
       isCorrect: g.isCorrect,
       answered: g.answered,
