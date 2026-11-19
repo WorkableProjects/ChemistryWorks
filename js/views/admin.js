@@ -39,7 +39,7 @@ registerNavItem({ id: 'student', label: 'Student', icon: 'user', hidden: true, r
    Sidebar shell: top bar, sidebar, dashboard.
    --------------------------------------------------------------------------------------------------------------- */
 /** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
-export const styles = ['admin-shell', 'admin', 'hub-admin', 'admin-student', 'grading', 'export', 'appearance', 'references', 'runner', 'qtypes', 'diagrams'];
+export const styles = ['admin-shell', 'admin', 'hub-admin', 'classroom', 'admin-student', 'grading', 'export', 'appearance', 'references', 'runner', 'qtypes', 'diagrams'];
 
 export function render(root, ctx, params = {}) {
   const sectionOk = (id) => NAV_ITEMS.some((t) => t.id === id && isAvailable(t));

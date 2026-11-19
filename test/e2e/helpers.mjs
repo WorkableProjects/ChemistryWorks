@@ -301,6 +301,7 @@ export function createMockBackend({ classes = [], tests = [], students = {}, pro
   const state = {
     classes, tests, students, assignments: [], stream: [], submissions: [], attempts: {}, readIds: new Set(), seq: 1, calls: [],
     now: () => Date.now(), // tests may replace it to move the backend clock
+    classroom: { syncAccount: 'sync@school.example', courses: [], roster: {}, cw: {}, grades: {}, pageSize: 2 },
   };
   const nextId = (p) => `${p}${state.seq++}`;
   const emailOf = (b) => String(b.idToken || '').replace(/^mock\./, '').toLowerCase();
@@ -371,7 +372,8 @@ export function createMockBackend({ classes = [], tests = [], students = {}, pro
         const a = b.assignment || {};
         const test = state.tests.find((t) => t.code === a.testCode);
         const row = { id: nextId('asg'), classId: a.classId, testCode: a.testCode, title: a.title || (test && test.title) || a.testCode, instructions: a.instructions || '', opensAt: a.opensAt || '',
-          dueAt: a.dueAt || '', lateAllowed: a.lateAllowed !== false, required: a.required === true, modes: a.modes || [], publishAt: a.publishAt || '', createdBy: 'teacher', createdAt: iso(state.now()) };
+          dueAt: a.dueAt || '', lateAllowed: a.lateAllowed !== false, required: a.required === true, modes: a.modes || [], publishAt: a.publishAt || '', createdBy: 'teacher', createdAt: iso(state.now()),
+          ...(b.postToClassroom ? { classroomCourseWorkId: `cw-${a.classId}-${a.testCode}` } : {}) };
         const at = a.id ? state.assignments.findIndex((x) => x.id === a.id) : -1;
         if (at >= 0) { state.assignments[at] = { ...state.assignments[at], ...row, id: a.id, createdAt: state.assignments[at].createdAt }; return { result: 'success', assignment: state.assignments[at] }; }
         state.assignments.push(row);
@@ -379,7 +381,7 @@ export function createMockBackend({ classes = [], tests = [], students = {}, pro
         state.stream.push(post);
         return { result: 'success', assignment: row, post };
       }
-      case 'deleteAssignment': state.assignments = state.assignments.filter((a) => a.id !== b.id); return { result: 'success', id: b.id, deleted: true };
+      case 'deleteAssignment': state.assignments = state.assignments.filter((a) => a.id !== b.id); return { result: 'success', id: b.id, deleted: true, classroomDeleted: b.deleteInClassroom === true };
       case 'getAssignmentStatus': {
         const a = state.assignments.find((x) => x.id === b.id);
         if (!a) return { result: 'error', error: 'not_found' };
@@ -401,8 +403,87 @@ export function createMockBackend({ classes = [], tests = [], students = {}, pro
         return { result: 'success', post };
       }
       case 'listStream': return { result: 'success', posts: state.stream.filter((p) => p.classId === b.classId).sort((x, y) => ms(y.createdAt) - ms(x.createdAt)) };
-      default: return null; // anything else: the session's default success reply
+      default: return classroomReply(state, b) || null; // anything else: the session's default success reply
     }
   }
-  return { state, handle, hubFor, attach(session) { session.onGas = handle; return session; } };
+  /** Classroom test helpers: a graded submission is { points, possible, released } for (email, testCode). */
+  const classroom = {
+    addCourse: (course, roster = []) => { state.classroom.courses.push(course); state.classroom.roster[course.id] = roster; },
+    grade: (email, testCode, points, possible, released = false) => { state.classroom.grades[`${email}|${testCode}`] = { points, possible, released }; },
+    /** Set what Classroom holds for a student, as if the teacher typed it there. */
+    setClassroomGrade: (assignmentId, email, fields) => { const cw = state.classroom.cw; cw[assignmentId] = cw[assignmentId] || {}; cw[assignmentId][email] = { ...(cw[assignmentId][email] || {}), ...fields }; },
+  };
+  return { state, handle, hubFor, classroom, attach(session) { session.onGas = handle; return session; } };
+}
+
+// Google Classroom actions of the mock backend (courses, link, roster import, preview and sync of grades).
+function classroomReply(state, b) {
+  const C = state.classroom;
+  const ok = (o) => ({ result: 'success', syncAccount: C.syncAccount, ...o });
+  const planRows = (a) => {
+    const cwMap = C.cw[a.id] || {};
+    const roster = ((state.classes.find((c) => c.id === a.classId) || {}).emails || []).map((e) => e.toLowerCase());
+    const inCourse = new Set(C.roster[(state.classes.find((c) => c.id === a.classId) || {}).classroomCourseId] || []);
+    return roster.map((email) => {
+      const g = C.grades[`${email}|${a.testCode}`];
+      const cw = cwMap[email] || {};
+      const row = { email, name: state.students[email] || '', points: g ? g.points : null, possible: g ? g.possible : null, released: !!(g && g.released),
+        classroomDraft: cw.draft ?? null, classroomAssigned: cw.assigned ?? null, lastSent: cw.sent ?? null, action: '', target: g && g.released ? 'assigned' : 'draft' };
+      if (!inCourse.has(email)) row.action = 'skipped_not_on_roster';
+      else if (!g) row.action = 'skipped_not_graded';
+      else {
+        const current = row.target === 'assigned' ? cw.assigned : cw.draft;
+        if (current === undefined || current === null) row.action = 'new';
+        else if (current !== cw.sent) row.action = 'skipped_teacher_changed';
+        else if (cw.state === row.target || (cw.state === 'assigned' && row.target === 'draft')) row.action = 'same';
+        else row.action = 'update';
+      }
+      return row;
+    });
+  };
+  switch (b.action) {
+    case 'listClassroomCourses': return ok({ courses: C.courses.map((c) => ({ section: '', room: '', courseState: 'ACTIVE', ...c })) });
+    case 'linkClassroomCourse': {
+      const cls = state.classes.find((c) => c.id === b.classId);
+      const course = C.courses.find((c) => c.id === b.courseId);
+      if (b.courseId && !course) return { result: 'error', error: 'classroom_course_not_found' };
+      cls.classroomCourseId = b.courseId;
+      return ok({ classId: b.classId, classroomCourseId: b.courseId, courseName: course ? course.name : '' });
+    }
+    case 'importClassroomRoster': {
+      const cls = state.classes.find((c) => c.id === b.classId);
+      const found = C.roster[cls.classroomCourseId] || [];
+      const before = new Set(cls.emails || []);
+      const next = b.mode === 'replace' ? found : [...new Set([...(cls.emails || []), ...found])];
+      cls.emails = next;
+      return ok({ added: next.filter((e) => !before.has(e)).length, total: next.length, skippedNoEmail: 0 });
+    }
+    case 'previewGradeSync': {
+      const a = state.assignments.find((x) => x.id === b.assignmentId);
+      if (!a || !a.classroomCourseWorkId) return { result: 'error', error: 'classroom_not_linked' };
+      const rows = planRows(a);
+      const counts = {}; rows.forEach((r) => { counts[r.action] = (counts[r.action] || 0) + 1; });
+      return ok({ courseWorkId: a.classroomCourseWorkId, courseWorkState: 'PUBLISHED', maxPoints: 10, counts, rows });
+    }
+    case 'syncGrades': {
+      const a = state.assignments.find((x) => x.id === b.assignmentId);
+      if (!a || !a.classroomCourseWorkId) return { result: 'error', error: 'classroom_not_linked' };
+      const rows = planRows(a).filter((r) => !b.emails || b.emails.includes(r.email));
+      const start = Number(b.cursor || 0);
+      const page = rows.slice(start, start + C.pageSize);
+      const out = { synced: 0, failed: 0, skipped: 0, results: [] };
+      for (const r of page) {
+        const send = r.action === 'new' || r.action === 'update' || (b.overwrite && r.action === 'skipped_teacher_changed');
+        if (!send) { out.skipped += 1; out.results.push({ email: r.email, status: 'skipped' }); continue; }
+        if (C.failEmails && C.failEmails.includes(r.email)) { out.failed += 1; out.results.push({ email: r.email, status: 'failed', error: 'classroom_not_our_coursework' }); continue; }
+        C.cw[a.id] = C.cw[a.id] || {};
+        const cur = C.cw[a.id][r.email] || {};
+        C.cw[a.id][r.email] = { ...cur, draft: r.points, ...(r.target === 'assigned' ? { assigned: r.points } : {}), sent: r.points, state: r.target };
+        out.synced += 1; out.results.push({ email: r.email, status: r.target });
+      }
+      const next = start + C.pageSize;
+      return ok({ ...out, done: next >= rows.length, cursor: next >= rows.length ? '' : String(next) });
+    }
+    default: return null;
+  }
 }
