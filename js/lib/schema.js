@@ -89,6 +89,11 @@ function normalizeQuestion(raw) {
   } else delete q.image;
   if (q.section === undefined || q.section === null || str(q.section).trim() === '') delete q.section;
   else q.section = str(q.section).trim();
+  // Tag ids (never names): trimmed and de-duplicated. More than MAX_TAGS_PER_QUESTION is a validation error.
+  if (q.tags !== undefined) {
+    const list = Array.isArray(q.tags) ? [...new Set(q.tags.map((x) => str(x).trim()).filter(Boolean))] : [];
+    if (list.length) q.tags = list; else delete q.tags;
+  }
   // Per-question extras (all optional, off by default): confidence switch and a point-costing hint.
   if (q.confidence !== undefined) {
     if (bool(q.confidence, false)) q.confidence = true; else delete q.confidence;
@@ -163,7 +168,9 @@ export function normalizeTest(raw) {
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const nonEmptyStr = (v) => typeof v === 'string' && v.trim() !== '';
 
-function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
+export const MAX_TAGS_PER_QUESTION = 10;
+
+function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set(), { known = null, warnings = [] } = {}) {
   const idLabel = isObj(q) && q.id !== undefined && q.id !== '' ? String(q.id) : '?';
   const where = `Question ${index + 1} (${idLabel})`;
   if (isObj(q) && isObj(q.image)) {
@@ -183,6 +190,16 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
     errors.push(`${where}: section "${q.section}" does not exist. Add it under sections or remove the question's section.`);
   }
 
+  if (q.tags !== undefined) {
+    if (!Array.isArray(q.tags)) errors.push(`${where}: tags must be a list of tag ids.`);
+    else {
+      if (q.tags.length > MAX_TAGS_PER_QUESTION) errors.push(`${where}: a question can have at most ${MAX_TAGS_PER_QUESTION} tags.`);
+      if (known) {
+        const unknown = q.tags.filter((id) => !known.has(id));
+        if (unknown.length) warnings.push(`${where}: ${unknown.length === 1 ? 'a tag is' : `${unknown.length} tags are`} not on this device or the Sheet (${unknown.join(', ')}).`);
+      }
+    }
+  }
   if (q.confidence !== undefined && typeof q.confidence !== 'boolean') errors.push(`${where}: confidence must be true or false.`);
   if (q.hint !== undefined) {
     if (!isObj(q.hint)) errors.push(`${where}: hint must be an object with text and cost.`);
@@ -203,8 +220,14 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
   }
 }
 
-export function validateTest(test) {
+/**
+ * -> { valid, errors } and, when `knownTagIds` (an iterable of local and Sheet tag ids) is given, `warnings`:
+ * one line per question that uses a tag id outside that set. Warnings never make a test invalid.
+ */
+export function validateTest(test, { knownTagIds } = {}) {
   const errors = [];
+  const warnings = [];
+  const tagCtx = { known: knownTagIds ? new Set(knownTagIds) : null, warnings };
   if (!isObj(test)) return { valid: false, errors: ['Test: must be an object.'] };
 
   if (!nonEmptyStr(test.code)) errors.push('Test: code is required.');
@@ -257,7 +280,7 @@ export function validateTest(test) {
     errors.push('Test: add at least one question.');
   } else {
     const seen = new Set();
-    test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet));
+    test.questions.forEach((q, i) => validateQuestion(q, i, seen, errors, sectionIdSet, tagCtx));
   }
   errors.push(...validateGameOptions(test));
   const badDate = (v) => v !== undefined && v !== '' && !Number.isFinite(Date.parse(v));
@@ -281,7 +304,7 @@ export function validateTest(test) {
     if (!isObj(pool) || !Number.isInteger(pool.draw) || pool.draw < 1) errors.push(`Section "${sec.title || sec.id}": pool.draw must be a whole number of at least 1.`);
     else if (pool.draw > n) errors.push(`Section "${sec.title || sec.id}": pool draws ${pool.draw} but the section has only ${n} questions.`);
   }
-  return { valid: errors.length === 0, errors };
+  return knownTagIds ? { valid: errors.length === 0, errors, warnings } : { valid: errors.length === 0, errors };
 }
 
 export function blankQuestion(type, id = 'q1') {

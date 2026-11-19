@@ -154,6 +154,17 @@
 :root[data-accent="orange"] { --primary: #B03A0A; --primary-hover: #8F2F08; --primary-soft: #FCE8D8; --primary-line: #F2C6A4; --primary-ink: #6E2506; --accent-2: #A16207; }
 :root[data-accent="green"]  { --primary: #166534; --primary-hover: #14532D; --primary-soft: #DDF1E3; --primary-line: #B4DEC1; --primary-ink: #14532D; --accent-2: #0D6B64; }
 
+/* Tag chip colours (question tags): a tint and an ink per accent name. Text contrast is tested. */
+:root {
+  --tag-blue-bg: #E1E8F8; --tag-blue-ink: #1B2F6B;
+  --tag-violet-bg: #ECE6FA; --tag-violet-ink: #4C1D95;
+  --tag-teal-bg: #D9F1F1; --tag-teal-ink: #004F52;
+  --tag-green-bg: #DDF1E3; --tag-green-ink: #14532D;
+  --tag-orange-bg: #FCE8D8; --tag-orange-ink: #6E2506;
+  --tag-rose-bg: #FBE3E8; --tag-rose-ink: #881337;
+  --tag-gray-bg: #E6EBF1; --tag-gray-ink: #3F4B5C;
+}
+
 /* ---------- Dark mode: deep navy. data-theme="dark" is set by js/lib/theme.js. ---------- */
 :root[data-theme="dark"] {
   --brand-navy: #E7EDF7;
@@ -214,6 +225,15 @@
 :root[data-theme="dark"][data-role="admin"] { --header-bg: #050B16; }
 /* Dark accents are lighter; --on-primary is dark ink so text on them keeps AA contrast. Navy becomes teal. */
 :root[data-theme="dark"] { --primary: #2CC5C9; --primary-hover: #5ED6D9; --accent-2: #9DB4F8; }
+:root[data-theme="dark"] {
+  --tag-blue-bg: #1E2B54; --tag-blue-ink: #BFD0FB;
+  --tag-violet-bg: #2E2150; --tag-violet-ink: #DDD0FE;
+  --tag-teal-bg: #0F3A3C; --tag-teal-ink: #8FE9E2;
+  --tag-green-bg: #12361F; --tag-green-ink: #9AF0B8;
+  --tag-orange-bg: #43240F; --tag-orange-ink: #FDC99B;
+  --tag-rose-bg: #4A1A27; --tag-rose-ink: #FDB4C2;
+  --tag-gray-bg: #243046; --tag-gray-ink: #C9D4E3;
+}
 :root[data-theme="dark"][data-accent="navy"]   { --primary: #2CC5C9; --primary-hover: #5ED6D9; --accent-2: #9DB4F8; }
 :root[data-theme="dark"][data-accent="blue"]   { --primary: #7B9AF5; --primary-hover: #9DB4F8; --accent-2: #A5B4FC; }
 :root[data-theme="dark"][data-accent="violet"] { --primary: #A78BFA; --primary-hover: #C4B5FD; --accent-2: #F0ABFC; }

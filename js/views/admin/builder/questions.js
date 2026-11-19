@@ -1,12 +1,57 @@
 // Builder question list: the editor card for each question, move, duplicate, delete and add, and the section labels.
 
-import { h, mount, icon, richText, renderMath, prefersReducedMotion } from '../../../ui.js';
+import { h, mount, icon, richText, renderMath, prefersReducedMotion, toast } from '../../../ui.js';
 import { TYPE_LABELS, blankQuestion, nextQuestionId } from '../../../lib/schema.js';
 import { groupQuestions, orderQuestions } from '../../../lib/sections.js';
 import { withQuestionImage } from '../../question-image.js';
 import { typeEditor } from '../editors/core.js';
 import { field, switchEl, debounce, iconButton } from '../common.js';
 import { S, clone, previewText, confirmDialog, extrasPanel, sectionSummary, sectionTitleOf, sectionKey } from './state.js';
+import { resolve, usedTagIds } from '../../../lib/tags.js';
+import { MAX_TAGS_PER_QUESTION } from '../../../lib/schema.js';
+import { tagPicker, tagBar, applyTagDialog } from './tag-picker.js';
+
+// Tag filter ('' = all, 'none', or a tag id) and the questions ticked for "Apply tag". They survive list redraws.
+const tagUi = { filter: '', selected: new Set() };
+
+const matchesFilter = (q) => !tagUi.filter || (tagUi.filter === 'none' ? !(q.tags && q.tags.length) : !!(q.tags && q.tags.includes(tagUi.filter)));
+
+/** Hides the editors the tag filter excludes and redraws the filter bar. Cheap; keeps focus and open state. */
+export function applyTagFilter(bc) {
+  if (!bc.listEl) return;
+  const qs = S.test.questions;
+  if (tagUi.filter && tagUi.filter !== 'none' && !usedTagIds(S.test).includes(tagUi.filter)) tagUi.filter = '';
+  editors(bc).forEach((el) => { const q = qs[Number(el.dataset.index)]; el.hidden = !!q && !matchesFilter(q); });
+  const host = bc.listEl.querySelector(':scope > .tagbar-host');
+  if (!host) return;
+  const shown = qs.filter(matchesFilter);
+  mount(host, tagBar({
+    used: resolve(usedTagIds(S.test)), filter: tagUi.filter, selected: [...tagUi.selected].filter((q) => qs.includes(q)).length, shown: shown.length,
+    onFilter: (v) => { tagUi.filter = v; applyTagFilter(bc); },
+    onSelectShown: (on) => { shown.forEach((q) => (on ? tagUi.selected.add(q) : tagUi.selected.delete(q))); syncSelectBoxes(bc); applyTagFilter(bc); },
+    onClear: () => { tagUi.selected.clear(); syncSelectBoxes(bc); applyTagFilter(bc); },
+    onApply: () => applyTagDialog({ count: tagUi.selected.size, onApply: (id) => applyTagToSelected(bc, id) }),
+  }));
+}
+
+function syncSelectBoxes(bc) {
+  editors(bc).forEach((el) => { const q = S.test.questions[Number(el.dataset.index)]; const box = el.querySelector('[data-testid="q-select"]'); if (box && q) box.checked = tagUi.selected.has(q); });
+}
+
+function applyTagToSelected(bc, id) {
+  let added = 0; let full = 0;
+  for (const q of S.test.questions.filter((x) => tagUi.selected.has(x))) {
+    const cur = Array.isArray(q.tags) ? q.tags : [];
+    if (cur.includes(id)) continue;
+    if (cur.length >= MAX_TAGS_PER_QUESTION) { full++; continue; }
+    q.tags = [...cur, id];
+    added++;
+  }
+  tagUi.selected.clear();
+  renderList(bc);
+  bc.changed();
+  toast(`Tag added to ${added} question${added === 1 ? '' : 's'}${full ? `. ${full} already had ${MAX_TAGS_PER_QUESTION} tags.` : ''}`, { type: full ? 'info' : 'success' });
+}
 
 export const editors = (bc) => (bc.listEl ? [...bc.listEl.querySelectorAll(':scope > .adm-q')] : []);
 
@@ -52,6 +97,8 @@ export function renderList(bc) {
   S.test.questions = orderQuestions(S.test);
   const secs = S.test.sections || [];
   const nodes = [];
+  for (const q of [...tagUi.selected]) if (!S.test.questions.includes(q)) tagUi.selected.delete(q);
+  if (S.test.questions.length) nodes.push(h('div', { class: 'tagbar-host' }));
   if (secs.length) {
     for (const g of groupQuestions(S.test)) {
       const id = g.section ? g.section.id : '';
@@ -66,7 +113,9 @@ export function renderList(bc) {
     S.test.questions.forEach((q, i) => nodes.push(buildEditor(bc, q, i)));
   }
   mount(bc.listEl, nodes);
+  bc.onTagsChanged = () => applyTagFilter(bc);
   renumber(bc);
+  applyTagFilter(bc);
   renderMath(bc.listEl);
 }
 
@@ -141,7 +190,11 @@ function buildEditor(bc, q, index) {
     if (S.open.has(q)) S.open.delete(q); else S.open.add(q);
     sync();
   } } }, num, h('span', { class: 'pill pill--primary' }, TYPE_LABELS[q.type] || q.type), pointsChip, prev, icon('down', { size: 16, className: 'adm-q__chev' }));
-  const head = h('div', { class: 'adm-q__head' }, toggle,
+  const selBox = h('input', { type: 'checkbox', class: 'adm-q__select', checked: tagUi.selected.has(q), dataset: { testid: 'q-select' }, on: { change: () => {
+    if (selBox.checked) tagUi.selected.add(q); else tagUi.selected.delete(q);
+    applyTagFilter(bc);
+  } } });
+  const head = h('div', { class: 'adm-q__head' }, selBox, toggle,
     h('div', { class: 'adm-q__actions' }, upBtn, downBtn,
       iconButton('copy', 'Duplicate question', () => duplicateQuestion(bc, Number(el.dataset.index)), { testid: 'q-duplicate' }),
       iconButton('trash', 'Delete question', () => deleteQuestion(bc, Number(el.dataset.index)), { testid: 'q-delete', className: 'icon-btn--danger' })));
@@ -213,6 +266,7 @@ function buildEditor(bc, q, index) {
   const inner = h('div', { class: 'adm-q__inner' },
     h('div', { class: 'adm-grid adm-grid--idsec' }, field('ID', idInput), field('Points', pts), field('Section', secSel)),
     field('Question text', text),
+    tagPicker(bc, q),
     (imgRow = h('div', { class: 'adm-grid adm-grid--idsec', hidden: q.type === 'hotspot' }, field('Image (optional)', imgUrl), field('Image description', imgAlt), field('Image position', imgPos))),
     richPrev,
     typeSection,
@@ -234,6 +288,7 @@ function buildEditor(bc, q, index) {
   el._setIndex = (k, total) => {
     el.dataset.index = String(k);
     num.textContent = `Q${k + 1}`;
+    selBox.setAttribute('aria-label', `Select question ${k + 1}`);
     const qs = S.test.questions;
     upBtn.disabled = k === 0 || sectionKey(qs[k - 1]) !== sectionKey(q);
     downBtn.disabled = k === total - 1 || sectionKey(qs[k + 1]) !== sectionKey(q);

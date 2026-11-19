@@ -79,10 +79,18 @@ export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToke
   }
 }
 
-export async function publishTest(test, { gasUrl, adminKey, fetchImpl } = {}) {
+// tagDefs: [{ id, name, color, description }] for every tag the test uses (omitted when not given).
+// -> { ok: true, tags: [{ id, ownerEmail, name, color, description, applied }] } | { ok: false, error, ids? }
+// `ids` lists the tag ids behind an `unknown_tag` error.
+export async function publishTest(test, { gasUrl, adminKey, tagDefs, fetchImpl } = {}) {
   try {
-    const d = await adminPost(gasUrl, { action: 'publishTest', test }, adminKey, fetchImpl);
-    return d && d.result === 'success' ? { ok: true } : { ok: false, error: failure(d) };
+    const body = { action: 'publishTest', test };
+    if (Array.isArray(tagDefs)) body.tagDefs = tagDefs;
+    const d = await adminPost(gasUrl, body, adminKey, fetchImpl);
+    if (d && d.result === 'success') return { ok: true, tags: Array.isArray(d.tags) ? d.tags : [] };
+    const out = { ok: false, error: failure(d) };
+    if (d && Array.isArray(d.ids)) out.ids = d.ids;
+    return out;
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

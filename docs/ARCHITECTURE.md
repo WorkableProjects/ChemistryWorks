@@ -996,3 +996,11 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - Shell files are cache-first and match with the `?v=` query ignored. Other same-site GETs (tests, catalog, changelog, config) are network-first with a cache fallback in `cw-data`. Fonts and KaTeX are cached in `cw-external`. Apps Script and Google requests are never handled.
 - A new worker waits. `sw-register.js` shows the toast "Update available" with a Reload button; only that button posts `SKIP_WAITING` and reloads.
 - E2E: `newSession` blocks service workers by default (`serviceWorkers: 'block'`) because a worker bypasses the mocks; the PWA tests pass `serviceWorkers: 'allow'`.
+
+### S12a Tags client
+- `api.js` `publishTest(test, { gasUrl, adminKey, tagDefs, fetchImpl })` sends `tagDefs` when it is an array. Success resolves `{ ok: true, tags }` (the reply's `tags`, `[]` when absent); `unknown_tag` resolves `{ ok: false, error: 'unknown_tag', ids }`.
+- `js/lib/tags.js`: local store (`listLocal`, `createTag`, `updateLocalTag`, `deleteLocalTag`, `markOnSheet`, `mergeLocal`), `sheetTagsResource(gasUrl)` (store resource `tags`, from `listTags`), `resolve`, `tagDefsFor`, `knownTagIds`, `pickerGroups`. The local store belongs to `confirmedAdminEmail() || getUser().email || 'local'`. A local record cached from the Sheet (`onSheet: true`) shows the Sheet's name once the Sheet has the tag.
+- `validateTest(test, { knownTagIds })` adds `warnings` (unknown tag ids) only when `knownTagIds` is passed; `MAX_TAGS_PER_QUESTION` is exported from `schema.js`.
+- `importers.js`: `mapTagNames(test, { local, sheet })` -> `{ test, unmatched }` and `applyTagNames(test, { name: id })`. The builder import (file and JSON mode) maps names and opens `import-tags-modal` for the rest.
+- Chip colours are tokens `--tag-<color>-bg` / `--tag-<color>-ink` in `css/base.css` (light and dark), checked for 4.5:1 in `test/unit/tags.test.mjs`. Backup bundles carry `tags` (the local store); restore merges them and publishes with `tagDefs`.
+- The tag picker, filter bar and "Apply tag" dialog live in `js/views/admin/builder/tag-picker.js`; Admin → Tags is `js/views/admin/tags.js` (nav id `tags`, testid `tab-tags`).

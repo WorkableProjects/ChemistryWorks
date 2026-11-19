@@ -5,6 +5,7 @@ import { adminCall, listPublishedTests, publishTest, fetchPublishedTest } from '
 import { getDrafts, saveDraft } from '../../lib/tests.js';
 import { makeBundle, readBundle } from '../../lib/backup.js';
 import { adminKey } from '../../lib/admin-session.js';
+import { listLocal, mergeLocal, markOnSheet, tagDefsFor } from '../../lib/tags.js';
 import { switchEl, downloadFile } from './common.js';
 
 export function platformPanel(ctx, { go } = {}) {
@@ -45,7 +46,7 @@ export function platformPanel(ctx, { go } = {}) {
     for (const t of pub.tests || []) { const full = await fetchPublishedTest(t.code, { gasUrl }); if (full) tests.push(full); }
     tests.push(...Object.values(getDrafts()));
     const bank = gasUrl ? await adminCall('listBank', {}, { gasUrl }) : { ok: false };
-    const bundle = makeBundle({ tests, bank: bank.ok ? bank.data.items : [], site: location.origin });
+    const bundle = makeBundle({ tests, bank: bank.ok ? bank.data.items : [], tags: listLocal(), site: location.origin });
     downloadFile(`ChemistryWorks backup ${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(bundle, null, 2));
     toast(`Backup downloaded: ${bundle.tests.length} tests, ${bundle.bank.length} bank questions`, { type: 'success' });
   };
@@ -55,12 +56,13 @@ export function platformPanel(ctx, { go } = {}) {
     if (!b.ok) { toast(b.errors[0], { type: 'error' }); return; }
     const checks = b.tests.map((t) => h('input', { type: 'checkbox', checked: true, value: t.code }));
     openModal({ title: 'Restore from backup', testid: 'restore-modal', wide: true, body: h('div', { class: 'stack' },
-      h('p', {}, `${b.tests.length} tests and ${b.bank.length} bank questions in this file.${b.errors.length ? ` ${b.errors.length} test(s) skipped: ${b.errors.join('; ')}` : ''}`),
+      h('p', {}, `${b.tests.length} tests and ${b.bank.length} bank questions${b.tags.length ? ` and ${b.tags.length} tags` : ''} in this file.${b.errors.length ? ` ${b.errors.length} test(s) skipped: ${b.errors.join('; ')}` : ''}`),
       h('div', { class: 'stack' }, b.tests.map((t, i) => h('label', { class: 'row' }, checks[i], h('span', {}, `${t.code} — ${t.title}`)))),
       h('p', { class: 'faint' }, 'Selected tests are saved as drafts on this device and published (if the backend is connected). Existing tests with the same code are replaced.')),
     actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Restore', variant: 'primary', testid: 'restore-go', onClick: async (close) => {
       let n = 0;
-      for (const t of b.tests.filter((_, i) => checks[i].checked)) { saveDraft(t); if (gasUrl) { const r = await publishTest(t, { gasUrl, adminKey: adminKey() }); if (r.ok) n++; } }
+      mergeLocal(b.tags);
+      for (const t of b.tests.filter((_, i) => checks[i].checked)) { saveDraft(t); if (gasUrl) { const r = await publishTest(t, { gasUrl, adminKey: adminKey(), tagDefs: tagDefsFor(t) }); if (r.ok) { n++; markOnSheet(r.tags); } } }
       let m = 0;
       if (gasUrl) for (const item of b.bank) { const r = await adminCall('saveBankItem', { item: { question: item.question, tags: item.tags || {} } }, { gasUrl }); if (r.ok) m++; }
       close(); toast(`Restored ${n} published test(s)${m ? ` and ${m} bank question(s)` : ''}; drafts saved on this device`, { type: 'success' });
