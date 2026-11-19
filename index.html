@@ -6,27 +6,17 @@
   <title>ChemistryWorks</title>
   <meta name="description" content="ChemistryWorks — a fluid, auto-graded chemistry testing platform." />
   <meta name="theme-color" content="#00224F" />
-  <script>
-    // Apply the saved theme before first paint (js/lib/theme.js takes over once the app loads).
-    (function () {
-      try {
-        var d = document.documentElement, ls = window.localStorage;
-        var t = JSON.parse(ls.getItem('cw:theme') || '"system"');
-        var admin = /[?&]admin=true/.test(location.search);
-        var a = JSON.parse(ls.getItem(admin ? 'cw:accent:admin' : 'cw:accent:student') || 'null') || 'navy';
-        d.dataset.theme = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-        d.dataset.accent = a;
-        d.dataset.role = admin ? 'admin' : 'student';
-      } catch (e) { /* storage blocked: defaults apply */ }
-    })();
-  </script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://accounts.google.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://oauth2.googleapis.com https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://accounts.google.com; font-src https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; frame-src https://accounts.google.com" />
+  <!-- Apply the saved theme before first paint (js/lib/theme.js takes over once the app loads). -->
+  <script src="js/theme-boot.js"></script>
   <link rel="icon" type="image/png" sizes="64x64" href="assets/brand/favicon-64.png" />
   <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Google Fonts CSS varies by browser, so it cannot carry an integrity hash. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;800&display=swap" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous" />
 
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/runner.css" />

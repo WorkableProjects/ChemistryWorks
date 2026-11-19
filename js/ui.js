@@ -158,10 +158,17 @@ export function richText(text, tag = 'span', className = '') {
 const KATEX_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/';
 const NEEDS_MATH = /\$|\\\(|\\\[/;
 let katexPromise = null;
-function addScript(src) {
+const KATEX_SRI = {
+  'katex.min.js': 'sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg',
+  'contrib/mhchem.min.js': 'sha384-ifpG+NlgMq0kvOSGqGQxW1mJKpjjMDmZdpKGq3tbvD3WPhyshCEEYClriK/wRVU0',
+  'contrib/auto-render.min.js': 'sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk',
+};
+function addScript(file) {
   return new Promise((resolve) => {
     const s = document.createElement('script');
-    s.src = src;
+    s.src = KATEX_BASE + file;
+    s.integrity = KATEX_SRI[file];
+    s.crossOrigin = 'anonymous';
     s.onload = () => resolve(true);
     s.onerror = () => resolve(false);
     document.head.appendChild(s);
@@ -173,8 +180,8 @@ export function loadKatex() {
   if (window.katex && typeof window.renderMathInElement === 'function') return Promise.resolve(true);
   if (!katexPromise) {
     katexPromise = (async () => {
-      if (!window.katex && !(await addScript(`${KATEX_BASE}katex.min.js`))) return false;
-      await Promise.all([addScript(`${KATEX_BASE}contrib/mhchem.min.js`), addScript(`${KATEX_BASE}contrib/auto-render.min.js`)]);
+      if (!window.katex && !(await addScript('katex.min.js'))) return false;
+      await Promise.all([addScript('contrib/mhchem.min.js'), addScript('contrib/auto-render.min.js')]);
       flushMath();
       return true;
     })().catch(() => false);
@@ -254,7 +261,7 @@ export function renderMath(root) {
       continue;
     }
     try {
-      window.renderMathInElement(t, { delimiters: MATH_DELIMITERS, throwOnError: false, strict: 'ignore', preProcess: fixTextModeUnicode });
+      window.renderMathInElement(t, { delimiters: MATH_DELIMITERS, trust: false, throwOnError: false, strict: 'ignore', preProcess: fixTextModeUnicode });
     } catch {
       /* leave raw text */
     }
