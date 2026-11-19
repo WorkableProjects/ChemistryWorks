@@ -1,6 +1,7 @@
 // Assign dialog: library test, one or more classes, opens / due, late, instructions, modes, required, publish later.
 import { h, openModal, toast } from '../../../ui.js';
-import { field } from '../common.js';
+import { field, switchEl } from '../common.js';
+import { classroomErrorText } from '../classroom-sync.js';
 import { loadTest } from '../../../lib/tests.js';
 import { modesForTest } from '../../../lib/modes/index.js';
 import { saveAssignment } from '../../../lib/api.js';
@@ -29,9 +30,20 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
   const picked = new Set(editing ? [src.classId] : (fresh && classId ? [classId] : []));
   const classBoxes = (classes || []).map((c) => {
     const box = h('input', { type: 'checkbox', checked: picked.has(c.id), disabled: editing, dataset: { testid: `assign-class-${c.id}` },
-      on: { change: () => { if (box.checked) picked.add(c.id); else picked.delete(c.id); } } });
+      on: { change: () => { if (box.checked) picked.add(c.id); else picked.delete(c.id); showClassroom(); } } });
     return h('label', { class: 'row' }, box, h('span', {}, c.name, c.period ? ` · Period ${c.period}` : ''));
   });
+
+  // "Post to Google Classroom" only appears when a chosen class is linked.
+  const linkedIds = new Set((classes || []).filter((c) => c.classroomCourseId).map((c) => c.id));
+  let postOn = !!src.classroomCourseWorkId;
+  const classroomHost = h('div', { dataset: { testid: 'assign-classroom-host' } });
+  const classroomSwitch = switchEl({ label: 'Post to Google Classroom', hint: 'Creates the assignment in Classroom so grades can sync back.', checked: postOn, testid: 'assign-classroom', onChange: (v) => { postOn = v; } });
+  function showClassroom() {
+    const any = [...picked].some((id) => linkedIds.has(id));
+    classroomHost.replaceChildren(...(any ? [classroomSwitch] : []));
+  }
+  showClassroom();
 
   const opens = h('input', { class: 'input', type: 'datetime-local', value: toLocalInput(src.opensAt), dataset: { testid: 'assign-opens' } });
   const due = h('input', { class: 'input', type: 'datetime-local', value: toLocalInput(src.dueAt), dataset: { testid: 'assign-due' } });
@@ -72,6 +84,7 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
       h('label', { class: 'row' }, required, h('span', {}, 'Required (otherwise optional practice)')),
       field('Instructions', instructions),
       h('div', { class: 'field' }, h('span', { class: 'field__label' }, 'Allowed modes'), modeHost),
+      classroomHost,
       field('Publish later', publish, 'Students see it from this time. Leave empty to publish now'),
       err),
     actions: [{ label: 'Cancel', variant: 'ghost' }, { label: editing ? 'Save' : 'Assign', variant: 'primary', testid: 'assign-save', onClick: async (close) => {
@@ -83,8 +96,10 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
       const base = { testCode: test.value, instructions: instructions.value.trim(), opensAt: fromLocalInput(opens.value), dueAt: fromLocalInput(due.value),
         lateAllowed: late.checked, required: required.checked, modes, publishAt: fromLocalInput(publish.value) };
       const targets = editing ? [src.classId] : [...picked];
+      const issues = [];
       const out = await assignmentsRes().optimistic((d) => d, async () => {
-        const rs = await Promise.all(targets.map((cid) => saveAssignment({ ...creds(), assignment: { ...base, classId: cid, ...(editing ? { id: src.id } : {}) } })));
+        const rs = await Promise.all(targets.map((cid) => saveAssignment({ ...creds(), assignment: { ...base, classId: cid, ...(editing ? { id: src.id } : {}) }, postToClassroom: postOn && linkedIds.has(cid) })));
+        rs.forEach((r) => { if (r.ok && r.data.classroomError) issues.push(classroomErrorText(r.data.classroomError, r.data.classroomDetail)); });
         const bad = rs.find((r) => !r.ok);
         if (bad) throw new Error(bad.error || 'Request failed');
         return { ok: true, rows: rs.map((r) => r.data.assignment).filter(Boolean) };
@@ -93,6 +108,7 @@ export function openAssignDialog(ctx, { classes, classId = '', assignment = null
       if (!out.ok) { err.textContent = out.error && out.error.message ? out.error.message : 'Could not save'; return; }
       close();
       toast(editing ? 'Assignment saved' : `Assigned to ${targets.length} class${targets.length === 1 ? '' : 'es'}`, { type: 'success' });
+      if (issues.length) toast(`Saved, but not posted to Classroom. ${issues[0]}`, { type: 'warning', timeout: 10000 });
       onSaved?.(out.result.rows);
     } }],
   });

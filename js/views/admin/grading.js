@@ -14,7 +14,7 @@ import { commentBody, commentBankPicker } from '../comment-view.js';
 import { withQuestionImage } from '../question-image.js';
 import { renderGradeByQuestion, answerDiagram } from './grade-by-question.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
-import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
+import { normalizeRow, filterRows, sortRows, toGradebookCsv, toClassroomCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
 import { regradeRow } from '../../lib/regrade.js';
 import { adminCall } from '../../lib/api.js';
 import { openAccommodationEditor } from './accommodations.js';
@@ -202,6 +202,13 @@ export function renderGrading(root, ctx, { goSettings }) {
       toast(pending ? `Exported ${list.length} rows (${pending} still need grading)` : `Exported ${list.length} rows`, { type: pending ? 'warning' : 'success' });
     } } }, icon('download', { size: 16 }), 'Export grades');
 
+    const classroomCsvBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'export-classroom-csv' }, on: { click: () => {
+      const list = visibleRows();
+      if (!list.length) return toast('Nothing to export', { type: 'warning' });
+      downloadFile(`classroom-grades${G.testCode !== 'all' ? `-${G.testCode}` : ''}.csv`, toClassroomCsv(list), 'text/csv');
+      toast(`Exported ${list.length} rows for Google Classroom`, { type: 'success' });
+    } } }, icon('download', { size: 16 }), 'Classroom CSV');
+
     // Bulk tools: checkboxes + a bar that loops the single-row actions with progress. Selection only ever counts visible rows.
     const bulkHost = h('div', { class: 'adm-bulk-host', dataset: { testid: 'bulk-host' } });
     const selectedRows = () => visibleRows().filter((r) => G.selected.has(r.submission_id));
@@ -320,10 +327,10 @@ export function renderGrading(root, ctx, { goSettings }) {
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
         : h('section', { class: 'card adm-card-results', 'aria-label': 'Submissions to grade' },
           h('div', { class: 'adm-toolbar adm-toolbar--wrap' }, h('h3', { class: 'adm-h3' }, 'Submissions'), h('span', { class: 'spacer' }), search,
-            h('label', { class: 'adm-inline adm-inline--sm', title: 'Add one points column per question to the CSV' }, perQuestionBox, h('span', {}, 'Per-question columns')), exportBtn),
+            h('label', { class: 'adm-inline adm-inline--sm', title: 'Add one points column per question to the CSV' }, perQuestionBox, h('span', {}, 'Per-question columns')), exportBtn, classroomCsvBtn),
           bulkHost,
           tableHost,
-          h('p', { class: 'field__hint' }, 'Export grades downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom.')));
+          h('p', { class: 'field__hint' }, 'Export grades downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom. Classroom CSV is laid out for Classroom\'s Import grades.')));
     drawTable();
   }
 
