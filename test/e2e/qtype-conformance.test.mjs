@@ -13,6 +13,7 @@ after(async () => { await env.close(); });
 // Types on the TypeDef contract so far.
 const TYPES = ['mcq', 'multi', 'truefalse', 'numeric', 'formula', 'matching', 'ordering', 'fillblank', 'categorize', 'balance', 'econfig', 'ptable', 'sigfigs', 'hotspot', 'lewis', 'structure', 'orbital', 'graph', 'short', 'open'];
 const MODES = ['classic', 'lightning', 'survival', 'flashcards', 'mistakes', 'tower', 'boss', 'matchup', 'quizshow', 'race', 'bingo', 'study'];
+const MANUAL = ['short', 'open', 'orbital'];
 const NOT = { result: 'success', submitted: false, blocking: false, attempts: 0, latest: null, others: [] };
 
 // Modes need several auto-graded questions to play, so the question under test comes last after five multiple-choice ones.
@@ -61,7 +62,7 @@ for (const type of TYPES) {
       await submit(page);
       const item = page.locator(tid(`review-item-${fx.question.id}`));
       await item.waitFor();
-      if (fx.question.type !== 'short' && fx.question.type !== 'open') {
+      if (!MANUAL.includes(fx.question.type)) { // teacher-graded types are never marked correct by the browser
         assert.equal(await page.locator(`${tid(`review-item-${fx.question.id}`)}[data-correct="true"]`).count(), 1, 'the correct answer is marked correct');
       }
 

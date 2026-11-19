@@ -84,6 +84,8 @@ export function buildPayload({ test, grade, user, startedAt, submittedAt, flags 
       tab_switches: Number(f.tab_switches ?? f.tabSwitches) || 0,
       auto_submitted: Boolean(f.auto_submitted ?? f.autoSubmitted),
       mode: f.mode === 'scroll' ? 'scroll' : 'focus',
+      // The game or study mode the attempt was last in (omitted for plain tests).
+      ...(typeof (f.game_mode ?? f.gameMode) === 'string' && (f.game_mode ?? f.gameMode) ? { game_mode: String(f.game_mode ?? f.gameMode).slice(0, 40) } : {}),
       // { questionId: optionalNote } for questions the student flagged for the teacher (omitted when none).
       ...(cleanFlagNotes(f.questions) ? { questions: cleanFlagNotes(f.questions) } : {}),
     },

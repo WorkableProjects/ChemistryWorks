@@ -101,7 +101,7 @@ test('deleteAssignment: removes the assignment, its stream post and its reminder
   g.A({ action: 'postStream', classId: c.id, body: 'a plain post' });
   assert.equal(g.A({ action: 'remindMissing', id: a.id }).reminded, 1);
   assert.equal(g.rows('Stream').length, 4);
-  assert.deepEqual(plain(g.A({ action: 'deleteAssignment', id: a.id })), { result: 'success', id: a.id, deleted: true });
+  assert.deepEqual(plain(g.A({ action: 'deleteAssignment', id: a.id })), { result: 'success', id: a.id, deleted: true, classroomDeleted: false });
   const left = g.A({ action: 'listStream', classId: c.id }).posts;
   assert.equal(left.length, 2);
   assert.ok(left.some((p) => p.body === 'a plain post'));

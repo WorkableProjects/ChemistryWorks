@@ -102,3 +102,10 @@ test('filterRows by status and gradebook CSV', () => {
   assert.ok(csv[1].startsWith('Ada,ada@x.org,T,,0,6,0,Needs grading,'));
   assert.ok(csv[2].startsWith('Bo,bo@x.org,T,,6,6,100,Graded,'));
 });
+
+test('normalizeRow keeps assignmentId, late and dueAt for the grading table', () => {
+  const r = normalizeRow({ assignmentId: 'asg-1', late: true, dueAt: '2026-01-02T00:00:00.000Z' });
+  assert.deepEqual([r.assignmentId, r.late, r.dueAt], ['asg-1', true, '2026-01-02T00:00:00.000Z']);
+  const blank = normalizeRow({});
+  assert.deepEqual([blank.assignmentId, blank.late, blank.dueAt], ['', false, '']);
+});

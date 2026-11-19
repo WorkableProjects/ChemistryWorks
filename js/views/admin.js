@@ -50,14 +50,14 @@ export function render(root, ctx, params = {}) {
   let tabCleanup = null;
 
   const sheetLink = CONFIG.SHEET_URL
-    ? h('a', { class: 'btn btn--ghost btn--sm', href: CONFIG.SHEET_URL, target: '_blank', rel: 'noopener', dataset: { testid: 'sheet-link' } }, icon('sheet', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Open Google Sheet'))
-    : h('a', { class: 'btn btn--ghost btn--sm is-disabled', role: 'link', 'aria-disabled': 'true', tabindex: '-1', title: 'Set SHEET_URL in js/config.js to link your Google Sheet', dataset: { testid: 'sheet-link' } }, icon('sheet', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Open Google Sheet'));
+    ? h('a', { class: 'btn btn--ghost btn--sm', href: CONFIG.SHEET_URL, target: '_blank', rel: 'noopener', 'aria-label': 'Open Google Sheet', dataset: { testid: 'sheet-link' } }, icon('sheet', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Open Google Sheet'))
+    : h('a', { class: 'btn btn--ghost btn--sm is-disabled', role: 'link', 'aria-disabled': 'true', tabindex: '-1', title: 'Set SHEET_URL in js/config.js to link your Google Sheet', 'aria-label': 'Open Google Sheet (not set up)', dataset: { testid: 'sheet-link' } }, icon('sheet', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Open Google Sheet'));
   const lock = () => {
     remove('adminKey', 'session');
     clearAdminConfirmed();
     ctx.navigate('landing');
   };
-  const lockBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', dataset: { testid: 'lock-admin' }, on: { click: lock } }, icon('logout', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Lock'));
+  const lockBtn = h('button', { class: 'btn btn--subtle btn--sm', type: 'button', 'aria-label': 'Lock', dataset: { testid: 'lock-admin' }, on: { click: lock } }, icon('logout', { size: 16 }), h('span', { class: 'adm-hide-sm' }, 'Lock'));
   const newBtn = h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'new-test' }, on: { click: () => startNew() } }, icon('plus', { size: 16 }), h('span', { class: 'ash-newlabel' }, 'New test'));
 
   const remember = (code) => {

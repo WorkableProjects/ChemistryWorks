@@ -17,7 +17,7 @@ function buildHeader(rt) {
     }, modeIcon, modeLabel)
     : null;
   const navToggle = h('button', {
-    type: 'button', class: 'btn btn--ghost btn--sm runner-hbtn', 'aria-expanded': 'false', 'aria-controls': 'runner-navigator',
+    type: 'button', class: 'btn btn--ghost btn--sm runner-hbtn', 'aria-expanded': 'false', 'aria-controls': 'runner-navigator', 'aria-label': 'Questions',
     dataset: { testid: 'navigator-toggle' },
     on: { click: () => (rt.drawerIsOpen() ? rt.closeDrawer({ remember: true }) : rt.openDrawer({ remember: true })) },
   }, icon('grid', { size: 16 }), h('span', { class: 'runner-hbtn__label' }, 'Questions'));
@@ -74,7 +74,7 @@ function buildBottom(rt) {
     h('div', { class: 'runner-footer__inner' },
       progressText,
       savedEl,
-      h('button', { type: 'button', class: 'btn btn--subtle btn--sm runner-footer__hint', dataset: { testid: 'shortcuts-btn' }, on: { click: () => openShortcuts(rt) } },
+      h('button', { type: 'button', class: 'btn btn--subtle btn--sm runner-footer__hint', 'aria-label': 'Keyboard shortcuts', dataset: { testid: 'shortcuts-btn' }, on: { click: () => openShortcuts(rt) } },
         icon('keyboard', { size: 16 }), h('span', {}, 'Keyboard shortcuts (?)')),
       h('span', { class: 'spacer' }),
       submitBtn));

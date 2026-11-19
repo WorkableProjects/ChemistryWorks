@@ -257,3 +257,9 @@ test('isFinalError covers the contract list and missing_*', () => {
   for (const c of ['closed', 'not_open', 'not_on_roster', 'single_submission', 'submission_too_large', 'invalid_request', 'invalid_email', 'missing_code', 'unauthorized']) assert.equal(isFinalError(c), true, c);
   for (const c of ['server_error', 'busy', 'rate_limited', 'invalid_token', 'network']) assert.equal(isFinalError(c), false, c);
 });
+
+test('buildPayload keeps flags.game_mode and omits it when absent', () => {
+  const mk = (flags) => buildPayload({ test: { code: 'T' }, grade: {}, user: {}, startedAt: 0, submittedAt: 1000, flags });
+  assert.equal(mk({ game_mode: 'blitz' }).flags.game_mode, 'blitz');
+  assert.equal('game_mode' in mk({}).flags, false);
+});

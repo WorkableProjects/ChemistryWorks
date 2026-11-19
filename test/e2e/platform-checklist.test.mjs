@@ -14,8 +14,8 @@ test('settings: Check setup shows ticks and hints from diag', () => withSession(
   s.onGas = (body) => {
     if (body.action === 'diag') {
       return { result: 'success', version: '5.0.0', sheets: [], timings: {}, lastPrune: null, checklist: [
-        { id: 'clientId', label: 'GOOGLE_CLIENT_ID script property is set', ok: true, hint: '' },
-        { id: 'owner', label: 'Admins sheet has an owner', ok: false, hint: 'Add a row to the Admins sheet.' },
+        { id: 'googleClientId', label: 'GOOGLE_CLIENT_ID script property is set', ok: true, hint: '' },
+        { id: 'adminOwner', label: 'Admins sheet has an owner', ok: false, hint: 'Add a row to the Admins sheet.' },
       ] };
     }
     if (body.action === 'getSettings') return { result: 'success', settings: { errorReports: false, releaseEmails: false } };
@@ -26,8 +26,8 @@ test('settings: Check setup shows ticks and hints from diag', () => withSession(
   await unlockAdmin(page, url, { path: PATH, dashboard: true });
   await page.locator(tid('tab-settings')).click();
   await page.locator(tid('checklist-show')).click();
-  const ok = page.locator(tid('check-clientId'));
-  const todo = page.locator(tid('check-owner'));
+  const ok = page.locator(tid('check-googleClientId'));
+  const todo = page.locator(tid('check-adminOwner'));
   await ok.waitFor();
   assert.equal(await ok.getAttribute('data-ok'), 'true');
   assert.equal(await todo.getAttribute('data-ok'), 'false');

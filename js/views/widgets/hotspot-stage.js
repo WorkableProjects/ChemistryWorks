@@ -3,6 +3,7 @@
 // (.q-hot__stage > .q-hot__frame > img + pins, all positioned in % of the frame, which is exactly the rendered
 // picture), so a pin sits on the same spot of the picture everywhere.
 import { h } from '../../ui.js';
+import { ensureCss } from '../../lib/css-loader.js';
 import { safeImageUrl } from '../../lib/sections.js';
 import { hotspotRadius, labelHit } from '../../lib/qtypes/hotspot.js';
 
@@ -20,6 +21,7 @@ const clamp01 = (n) => Math.min(1, Math.max(0, Number(n)));
  */
 export function hotspotDiagram(q, points, opts = {}) {
   const { size = 'md', showTargets = false, marks = false, label = 'Label the diagram' } = opts;
+  ensureCss('qt-hotspot'); // results, grading and export show this without the student widget having loaded its sheet
   const url = q && q.image && safeImageUrl(q.image.url);
   if (!url) return h('p', { class: 'muted' }, 'No image set for this question.');
   const labels = Array.isArray(q.labels) ? q.labels : [];

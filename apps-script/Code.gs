@@ -200,7 +200,7 @@ function doPost(e) {
 // One-time setup (run from the Apps Script editor)
 // ---------------------------------------------------------------------------
 
-// What a fresh deployment still needs. Each item: { id, label, ok, hint }. Classroom is listed only when the
+// What a fresh deployment still needs. Each item: { id, label, ok, hint } with ids adminKey, googleClientId, adminOwner, triggers, classroomScopes. Classroom is listed only when the
 // Classroom advanced service is enabled in the manifest.
 function setupChecklist_() {
   var props = PropertiesService.getScriptProperties();
@@ -208,11 +208,11 @@ function setupChecklist_() {
   var add = function (id, label, ok, hint) { items.push({ id: id, label: label, ok: !!ok, hint: ok ? '' : hint }); };
   add('adminKey', 'ADMIN_KEY script property is set', props.getProperty('ADMIN_KEY'),
     'Optional. Project Settings > Script properties > ADMIN_KEY, if you still want the shared key.');
-  add('clientId', 'GOOGLE_CLIENT_ID script property is set', props.getProperty('GOOGLE_CLIENT_ID'),
+  add('googleClientId', 'GOOGLE_CLIENT_ID script property is set', props.getProperty('GOOGLE_CLIENT_ID'),
     'Project Settings > Script properties > GOOGLE_CLIENT_ID (same client ID as js/config.js).');
   var owner = false;
   try { owner = ensureAdmins_().some(function (a) { return a.role === ROLE_OWNER; }); } catch (e) { owner = false; }
-  add('owner', 'Admins sheet has an owner', owner, 'Add a row to the Admins sheet (Email, Role = owner) and run setup again.');
+  add('adminOwner', 'Admins sheet has an owner', owner, 'Add a row to the Admins sheet (Email, Role = owner) and run setup again.');
   var have = {};
   try { ScriptApp.getProjectTriggers().forEach(function (t) { have[t.getHandlerFunction()] = true; }); } catch (e) { have = {}; }
   add('triggers', 'Background triggers are installed (daily cleanup, hourly Classroom publishing)', triggerList_().every(function (t) { return have[t.handler]; }),
@@ -220,7 +220,7 @@ function setupChecklist_() {
   if (typeof Classroom !== 'undefined') {
     var granted = false;
     try { Classroom.Courses.list({ pageSize: 1 }); granted = true; } catch (e) { granted = false; }
-    add('classroom', 'Google Classroom permissions are granted', granted, 'Run setup() from the editor and accept the Classroom permissions.');
+    add('classroomScopes', 'Google Classroom permissions are granted', granted, 'Run setup() from the editor and accept the Classroom permissions.');
   }
   return items;
 }

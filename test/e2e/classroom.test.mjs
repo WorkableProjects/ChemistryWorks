@@ -38,8 +38,12 @@ test('link, import roster, post, preview, sync, and keep a teacher-changed grade
     await poll(() => be.state.classes[0].emails.length === 4, { message: 'roster imported' });
     await page.locator(tid('toast')).filter({ hasText: '3 added' }).waitFor();
     // The auto-sync switch is saved on the class.
-    await page.locator(tid('class-autosync-c1')).check({ force: true });
-    await poll(() => be.state.calls.some((c) => c.action === 'saveClass' && c.cls.autoSyncClassroom === true), { message: 'autoSyncClassroom saved' });
+    // The roster import re-renders the class card, so click until the switch has saved (it is a visually hidden input).
+    const autosync = page.locator(tid('class-autosync-c1'));
+    await poll(async () => {
+      if (!await autosync.isChecked()) await autosync.click({ force: true });
+      return be.state.calls.some((c) => c.action === 'saveClass' && c.cls.autoSyncClassroom === true);
+    }, { message: 'autoSyncClassroom saved' });
 
     // 2. Assign with Post to Classroom.
     await page.locator(tid('class-open-c1')).click();
@@ -86,13 +90,13 @@ test('link, import roster, post, preview, sync, and keep a teacher-changed grade
     await page.locator(tid('sync-grades')).click();
     await waitText(page.locator(tid(`sync-action-${BEN}`)), 'Skip: changed in Classroom');
     await page.locator(tid('sync-run')).click();
-    await waitText(page.locator(tid('sync-result')), '0 synced');
+    await waitText(page.locator(tid('sync-result')), /^0 synced/);
     assert.equal(be.state.classroom.cw[assignment.id][BEN].draft, 3, 'kept the teacher\'s grade');
     await page.locator(tid('sync-close')).click();
     await page.locator(tid('sync-grades')).click();
     await page.locator(tid('sync-overwrite')).check();
     await page.locator(tid('sync-run')).click();
-    await waitText(page.locator(tid('sync-result')), '1 synced');
+    await waitText(page.locator(tid('sync-result')), /^1 synced/);
     assert.equal(be.state.classroom.cw[assignment.id][BEN].draft, 6, 'overwritten');
     await page.locator(tid('sync-close')).click();
 
@@ -128,9 +132,9 @@ test('a failed student shows the plain error and Retry sends again', async () =>
     await page.locator(`${tid('assignment-asg1')} .hub-item__main`).click();
     await page.locator(tid('sync-grades')).click();
     await page.locator(tid('sync-run')).click();
-    await waitText(page.locator(tid('sync-result')), '0 synced, 1 failed');
+    await waitText(page.locator(tid('sync-result')), /^0 synced, 1 failed/);
     await page.locator(tid('sync-close')).click();
-    await waitText(page.locator(tid(`tracker-sync-${ADA}`)), 'This assignment was made in Classroom, not here. Post it from ChemistryWorks to sync grades.');
+    await waitText(page.locator(tid(`tracker-sync-${ADA}`)), /^This assignment was made in Classroom, not here\. Post it from ChemistryWorks to sync grades\./);
     be.state.classroom.failEmails = [];
     await page.locator(tid(`tracker-retry-${ADA}`)).click();
     await page.locator(`${tid(`tracker-sync-${ADA}`)}[data-sync="synced"]`).waitFor();

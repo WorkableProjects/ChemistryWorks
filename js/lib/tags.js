@@ -141,9 +141,12 @@ export function mergeLocal(tags, { email = currentEmail() } = {}) {
 
 /* ---------------------------------------------------------------- Sheet tags */
 
-/** The store resource that holds listTags. `gasUrl` is only needed to (re)fetch. */
+/**
+ * The store resource that holds listTags. `gasUrl` is only needed to (re)fetch. The TTL is 0: cached names show at once
+ * and every get() revalidates in the background, so a rename made elsewhere shows after a reload.
+ */
 export function sheetTagsResource(gasUrl) {
-  return resource('tags', gasUrl ? { fetch: async () => {
+  return resource('tags', gasUrl ? { ttl: 0, fetch: async () => {
     const r = await listTags({ gasUrl });
     if (!r.ok) throw new Error(r.error || 'Could not load tags');
     return Array.isArray(r.data.tags) ? r.data.tags : [];

@@ -55,7 +55,7 @@ test('categorize: choose a group from the keyboard', () => withSession(env, {}, 
   const { page } = s;
   await open(s, 'KCAT', { id: 'c1', type: 'categorize', text: 'Sort.', points: 2,
     categories: [{ id: 'acid', label: 'Acids' }, { id: 'base', label: 'Bases' }],
-    items: [{ id: 'i1', text: 'HCl' }, { id: 'i2', text: 'NaOH' }], correctAnswer: { i1: 'acid', i2: 'base' } });
+    items: [{ id: 'i1', text: 'HCl', category: 'acid' }, { id: 'i2', text: 'NaOH', category: 'base' }] });
   await page.locator(tid('cat-select-i1')).focus();
   await press(page, 'ArrowDown');
   await page.locator(`${tid('cat-bin-acid')} ${tid('cat-item-i1')}`).waitFor();
@@ -74,7 +74,7 @@ test('ordering: move an item with Enter on its arrow button', () => withSession(
   await press(page, 'Enter');
   await poll(async () => (await ids())[1] === first, { message: 'item moved down' });
   assert.match(await page.locator('.q-order .sr-only[aria-live]').textContent(), /moved to position 2 of 3/);
-  assert.equal(await page.evaluate(() => document.activeElement?.className.includes('q-order__btn')), true, 'focus stays on a move button');
+  await poll(() => page.evaluate(() => document.activeElement?.className.includes('q-order__btn')), { message: 'focus stays on a move button' });
   await press(page, 'Enter');
   await poll(async () => (await ids())[2] === first, { message: 'item moved down again' });
 }));
@@ -86,8 +86,7 @@ test('matching: pick an option with the arrow keys', () => withSession(env, {}, 
   await press(page, 'Space');
   assert.equal(await page.locator(tid('match-a-a')).isChecked(), true);
   await page.locator(tid('match-b-a')).focus();
-  await press(page, 'ArrowDown'); // radios in a row share a name: arrows move within the row
-  await press(page, 'ArrowRight');
+  await press(page, 'ArrowRight'); // radios in a row share a name: arrows move within the row
   assert.equal(await page.locator(tid('match-b-b')).isChecked(), true);
 }));
 
@@ -162,7 +161,7 @@ test('structure: add bond lines and lone pairs from the keyboard', () => withSes
   await page.locator(tid('structure-atom-o1')).focus();
   await press(page, 'Enter', 2);
   await poll(async () => (await count.textContent()).trim() !== before0, { message: 'electron count changed by keyboard' });
-  assert.match(await page.locator(tid('structure-bond-0')).getAttribute('aria-label'), /^Bond between O and C/);
+  assert.match(await page.locator(tid('structure-bond-0')).getAttribute('aria-label'), /^Bond O 1 to C/);
 }));
 
 /* ---------------------------------------------------------------- axe-core */
@@ -173,7 +172,7 @@ const MODE_IDS = ['classic', 'lightning', 'survival', 'flashcards', 'mistakes', 
 const MODES_CODE = 'A11YMODES';
 const modesTest = () => ({
   code: MODES_CODE, title: 'Every mode', description: '', timeLimitMinutes: null, gameMode: true, showResults: true, showCorrectAnswers: true,
-  questions: ['m1', 'm2', 'm3', 'm4', 'm5'].map((id, i) => ({ id, type: 'mcq', text: `Question ${i + 1}`, points: 1, options: opts(`Yes ${i}`, `No ${i}`), correctAnswer: 'a', explanation: 'Because.' })),
+  questions: ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9'].map((id, i) => ({ id, type: 'mcq', text: `Question ${i + 1}`, points: 1, options: opts(`Yes ${i}`, `No ${i}`), correctAnswer: 'a', explanation: 'Because.' })),
 });
 
 /** Run axe on the page as it is; returns the serious and critical violations as readable lines. */
@@ -182,7 +181,10 @@ async function scan(page, label) {
   const res = await page.evaluate(async () => {
     const r = await window.axe.run(document, { resultTypes: ['violations'] });
     return r.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
-      .map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+      .map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.slice(0, 3).map((n) => {
+        const d = (n.any || []).map((c) => c.data).find((x) => x && x.contrastRatio);
+        return n.target.join(' ') + (d ? ` [${d.fgColor} on ${d.bgColor} = ${d.contrastRatio}, needs ${d.expectedContrastRatio}]` : '');
+      }) }));
   });
   return res.map((v) => `${label}: ${v.id} (${v.impact}) ${v.nodes.join(' | ')}`);
 }
@@ -203,6 +205,7 @@ async function scenes(theme, width) {
   };
   const session = async (extra = {}) => {
     const s = await newSession(env, { viewport: { width, height: 900 }, ...extra });
+    await s.page.emulateMedia({ reducedMotion: 'reduce' }); // entrance fades would otherwise be scanned half-transparent
     await s.context.addInitScript((t) => { try { localStorage.setItem('cw:theme', JSON.stringify(t)); } catch { /* ignore */ } }, theme);
     return s;
   };
@@ -288,13 +291,14 @@ async function scenes(theme, width) {
     try {
       s.serveTest(MODES_CODE, modesTest());
       await startTest(s, MODES_CODE);
+      const pickMode = (id) => (width < 768 ? s.page.locator(tid('mode-switcher-select')).selectOption(id) : s.page.locator(tid(`mode-option-${id}`)).click());
       for (const id of MODE_IDS) {
         await run(`mode ${id}`, async () => {
-          await s.page.locator(tid(`mode-option-${id}`)).click();
+          await pickMode(id);
           await s.page.locator(`${tid('mode-shell')}[data-mode="${id}"]`).waitFor();
           await s.page.waitForTimeout(400);
           await check(s.page, `mode ${id}`);
-          await s.page.locator(tid('mode-option-study')).click();
+          await pickMode('study');
           await s.page.locator(tid('runner')).waitFor();
         });
       }

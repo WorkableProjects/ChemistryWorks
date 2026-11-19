@@ -18,10 +18,18 @@ function orderingWidget(q, api) {
     if (to < 0 || to >= order.length) return;
     const [id] = order.splice(from, 1);
     order.splice(to, 0, id);
-    api.set(q.id, order);
     status.textContent = `${textOf.get(id)} moved to position ${to + 1} of ${order.length}`;
-    requestAnimationFrame(() => list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__btn--${to < from ? 'up' : 'down'}`)?.focus()
-      || list.querySelector(`[data-item="${CSS.escape(id)}"] .q-order__handle`)?.focus());
+    pendingFocus = { id, dir: to < from ? 'up' : 'down' };
+    api.set(q.id, order);
+  };
+  /** After a move the list is rebuilt, so focus goes back to the button the student just used. */
+  let pendingFocus = null;
+  const restoreFocus = () => {
+    if (!pendingFocus) return;
+    const { id, dir } = pendingFocus;
+    const row = list.querySelector(`[data-item="${CSS.escape(id)}"]`);
+    const btn = row?.querySelector(`.q-order__btn--${dir}:not(:disabled)`) || row?.querySelector('.q-order__btn:not(:disabled)');
+    if (btn) { pendingFocus = null; btn.focus(); }
   };
   let dragFrom = -1;
   let firstPaint = true; // only the first render animates; later re-renders (after a move) must not flash
@@ -80,6 +88,7 @@ function orderingWidget(q, api) {
     }));
     renderMath(list);
     firstPaint = false;
+    restoreFocus();
     keepBtn.hidden = Array.isArray(answer) && answer.length > 0;
   }
   refresh(api.get(q.id));
