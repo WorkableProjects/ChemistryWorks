@@ -10,7 +10,11 @@ export function categorizeWidget(q, api) {
   const selects = new Map();
   const current = () => (api.get(q.id) && typeof api.get(q.id) === 'object' && !Array.isArray(api.get(q.id)) ? api.get(q.id) : {});
 
+  const status = h('p', { class: 'sr-only', 'aria-live': 'polite', dataset: { testid: 'cat-status' } });
   function assign(itemId, catId) {
+    const item = items.find((i) => i.id === itemId);
+    const cat = cats.find((c) => c.id === catId);
+    status.textContent = `${item ? item.text : 'Item'} ${cat ? `placed in ${cat.label}` : 'returned to Not sorted yet'}`;
     const next = { ...current() };
     if (catId) next[itemId] = catId; else delete next[itemId];
     api.set(q.id, Object.keys(next).length ? next : undefined);
@@ -60,7 +64,7 @@ export function categorizeWidget(q, api) {
     el: h('div', { class: 'q-categorize' },
       h('p', { class: 'q-hint' }, 'Choose a group for each item from its menu. You can also drag an item onto a group.'),
       pool.el,
-      h('div', { class: 'q-cat__bins' }, [...bins.values()].map((b) => b.el))),
+      h('div', { class: 'q-cat__bins' }, [...bins.values()].map((b) => b.el)), status),
     refresh(answer) {
       const a = answer && typeof answer === 'object' && !Array.isArray(answer) ? answer : {};
       const active = document.activeElement;

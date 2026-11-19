@@ -199,6 +199,7 @@ export function structureWidget(q, api) {
     keydown: keyHandler(kind, idx),
   });
 
+  const atomName = (id) => { const a = (q.atoms || []).find((x) => x.id === id); return a ? atomLabel(q, a) : String(id); };
   const bondEls = (q.bonds || []).map((b, i) => {
     const e = bondEnds(b);
     if (!e || !geo.px[e[0]] || !geo.px[e[1]]) return null;
@@ -212,6 +213,7 @@ export function structureWidget(q, api) {
     const hit = s('polygon', { points: pts.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' '), class: 'st-bond__hit' });
     const g = s('g', {
       class: 'st-bond st-bond--edit', tabindex: '0', role: 'button', 'data-testid': `structure-bond-${i}`,
+      'aria-label': `Bond between ${atomName(e[0])} and ${atomName(e[1])}. Enter adds a bond line, Backspace removes one.`,
       on: clickHandler('bond', i),
     }, hit, lines);
     return { g, lines, a, c, e };
@@ -222,6 +224,7 @@ export function structureWidget(q, api) {
     const pairs = s('g', { class: 'st-pairs' });
     const g = s('g', {
       class: 'st-atom st-atom--edit', tabindex: '0', role: 'button', 'data-testid': `structure-atom-${atom.id}`,
+      'aria-label': `${atomLabel(q, atom)} atom. Enter adds a lone pair, Backspace removes one.`,
       on: clickHandler('atom', atom.id),
     },
     s('circle', { cx: p.x, cy: p.y, r: 21, class: 'st-atom__ring' }),

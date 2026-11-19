@@ -33,7 +33,7 @@
   <a class="skip-link" href="#app">Skip to content</a>
 
 
-  <div id="app" class="app" aria-live="polite">
+  <div id="app" class="app">
     <!-- Boot loader: same markup as flaskSvg(96) in js/ui.js (a unit test checks the two match). -->
     <div class="boot cw-loader" role="status">
       <span class="cw-loader__art"><svg class="cw-flask" width="96" height="96" viewBox="-6 -22 112 130" aria-hidden="true" focusable="false">
@@ -47,6 +47,7 @@
     </div>
   </div>
 
+  <div id="view-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="view-announcer"></div>
   <div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
   <div id="modal-root"></div>
 

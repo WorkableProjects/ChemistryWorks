@@ -29,7 +29,7 @@ function buildHeader(rt) {
   // Calm bar under the navy header: test title, timer, and the progress bar along its bottom edge.
   const runnerBar = h('div', { class: 'runner-bar' },
     h('div', { class: 'runner-bar__inner' },
-      h('span', { class: 'runner-bar__title', title: test.title }, test.title),
+      h('span', { class: 'runner-bar__title', title: test.title, dataset: { viewTitle: '' } }, test.title),
       !preview && !killed('gameModes') ? modeSwitcher({
         test, attempt, current: 'study',
         onPick: (id) => { attempt.setMode(id); ctx.navigate('game', { test, source: params.source, gameId: id, cleared: true }); },
