@@ -10,6 +10,7 @@ export const def = {
   shortLabel: 'Matching',
   group: 'Match & sort',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     q.left = normOptions(q.left);

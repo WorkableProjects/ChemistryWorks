@@ -1,7 +1,7 @@
 /* ChemWorks — results + feedback (moved out of runner.css in v4 S01). Tokens come from base.css. */
 
 /* ---------- Results ---------- */
-.results { width: min(820px, 100%); margin: 0 auto; padding: 32px 20px 72px; display: flex; flex-direction: column; gap: 20px; }
+.results { width: var(--student-w); max-width: var(--student-max); margin: 0 auto; padding: 32px var(--student-gutter) 72px; display: flex; flex-direction: column; gap: 20px; }
 .results > * { animation: rise var(--dur-slow) var(--ease-out) both; }
 .results > *:nth-child(2) { animation-delay: var(--stagger-step); }
 .results > *:nth-child(3) { animation-delay: calc(var(--stagger-step) * 2); }
@@ -107,3 +107,5 @@
 
 /* ---- per-question extras (V4-03) ---- */
 .results-extras { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+@media (max-width: 759px) { .results { padding-left: 20px; padding-right: 20px; } }

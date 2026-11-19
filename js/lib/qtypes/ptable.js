@@ -19,6 +19,7 @@ export const def = {
   shortLabel: 'Periodic table pick',
   group: 'Chemistry',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     const bySymbol = new Map(ELEMENTS.map((e) => [e.symbol.toLowerCase(), e.symbol]));

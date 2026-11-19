@@ -642,6 +642,7 @@ Definitions stay small and synchronous, so `schema.js`, `grading.js`, export and
   type: 'mcq', label: 'Multiple choice', shortLabel: 'MCQ',
   group: 'Basics' | 'Match & sort' | 'Chemistry' | 'Diagrams & graphs',
   manual: false,                                  // true = teacher graded (short, open, orbital, ...)
+  layout: 'split',                                // optional: 'split' (default) | 'wide'; see "S14 full-width student view"
   normalize(q, H),                                // mutate q in place: defaults, coercion, tags kept. q.type/id/points/text are already done
   validate(q, where, errors, H),                  // push strings `${where}: ...`; never throw
   blank(base) -> question,                        // builder "Add question" template; base = { id, type, text, points }
@@ -981,3 +982,11 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `js/lib/dates.js`: `toMillis`, `formatDate(value, { fallback, time })`, `formatDue`, `formatRelative`. `ui.js` exports `formulaSpan(text, className)`.
 - The boot loader markup in `index.html` is a copy of `flaskSvg(96)`; a unit test fails if they differ.
 - `data/tests/catalog.json` is the only list of bundled tests, built by `npm run build:catalog` from the test files (sorted by code). `index.json` and the fallback to it are removed; `validate-tests` reads `catalog.json` and fails when it is missing a test or out of date.
+
+### S14 full-width student view
+
+- `layout: 'split' | 'wide'` is an optional field on every TypeDef; `registerType` fills in `'split'`. `wide` is declared by matching, categorize, ordering, graph, structure, lewis, molbuild, hotspot and ptable. `typeLayout(type)` in `js/lib/qtypes/registry.js` reads it.
+- `js/views/q-split.js` `qSplit(q, promptEl, ...answerEls)` builds `.q-split[data-layout]` (testid `q-split`) with `.q-split__prompt` and `.q-split__answer`. The runner card and the game-mode widget both use it. From 1200px a `split` type is a two-column grid (`minmax(0, 1fr) minmax(0, 1.2fr)`); a `wide` type, and everything below 1200px, stays one column.
+- `base.css` tokens `--student-w` (100%), `--student-max` (`none`, `2000px` from 2200px) and `--student-gutter` (`clamp(16px, 3vw, 48px)`) size the runner main / bar / footer, `.mode-main` / `.mode-bar__inner`, `.results` and `.feedback`. Below 760px each keeps its old padding.
+- `.q-text`, explanations and passages keep `max-width: 75ch`. `choiceWidget` adds `q-choices__list--cols` when every option is 40 characters or fewer with no image; CSS makes 2 columns from 900px and 3 from 1400px.
+- With the rail docked (>= 1024px) `.runner-main` is `width: auto` and fills the space right of the rail.

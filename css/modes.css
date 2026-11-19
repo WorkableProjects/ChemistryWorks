@@ -1,9 +1,9 @@
 /* V5-01 game mode shell (js/views/mode-shell.js) and the Classic / Lightning / Survival rounds. Tokens only. */
 .mode-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
 .mode-bar { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
-.mode-bar__inner { display: flex; align-items: center; gap: var(--space-3); max-width: 960px; margin: 0 auto; padding: var(--space-2) var(--space-4); }
+.mode-bar__inner { display: flex; align-items: center; gap: var(--space-3); width: var(--student-w); max-width: var(--student-max); margin: 0 auto; padding: var(--space-2) var(--student-gutter); }
 .mode-bar__title { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.mode-main { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-7); display: flex; flex-direction: column; gap: var(--space-4); }
+.mode-main { flex: 1; width: var(--student-w); max-width: var(--student-max); margin: 0 auto; padding: var(--space-5) var(--student-gutter) var(--space-7); display: flex; flex-direction: column; gap: var(--space-4); }
 
 .mode-hud { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); font-size: 14px; color: var(--text-muted); }
 .mode-hud__item:empty { display: none; }
@@ -104,3 +104,6 @@
 .bingo__cell.is-free { color: var(--text-muted); cursor: default; }
 
 @media (max-width: 600px) { .matchup { gap: var(--space-2); } }
+
+/* Below 760px the gutter stays as it was. */
+@media (max-width: 759px) { .mode-bar__inner, .mode-main { padding-left: var(--space-4); padding-right: var(--space-4); } }

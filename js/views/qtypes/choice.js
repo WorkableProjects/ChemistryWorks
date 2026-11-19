@@ -12,6 +12,8 @@ function choiceBody(o) {
 
 export function choiceWidget(q, api, multi) {
   const n = q.options.length;
+  // Short, text-only options flow into columns on wide screens.
+  const shortOptions = q.options.every((o) => !o.image && String(o.text ?? '').length <= 40);
   const btns = q.options.map((o, idx) => {
     const b = h('button', {
       type: 'button',
@@ -48,7 +50,7 @@ export function choiceWidget(q, api, multi) {
   return {
     el: h('div', { class: 'q-choices' },
       multi ? h('p', { class: 'q-hint', id: `hint-${q.id}` }, 'Select all that apply') : null,
-      h('div', { class: 'q-choices__list', role: multi ? 'group' : 'radiogroup', 'aria-labelledby': `qt-${q.id}` }, btns),
+      h('div', { class: ['q-choices__list', shortOptions && 'q-choices__list--cols'], role: multi ? 'group' : 'radiogroup', 'aria-labelledby': `qt-${q.id}` }, btns),
     ),
     refresh(answer) {
       const sel = multi ? new Set(Array.isArray(answer) ? answer : []) : new Set(answer == null ? [] : [answer]);

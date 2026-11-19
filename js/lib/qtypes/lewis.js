@@ -9,6 +9,7 @@ export const def = {
   shortLabel: 'Lewis dots',
   group: 'Diagrams & graphs',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     const sym = normalizeSymbol(q.element);

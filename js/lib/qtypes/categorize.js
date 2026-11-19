@@ -47,6 +47,7 @@ export const def = {
   shortLabel: 'Sort into groups',
   group: 'Match & sort',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     q.categories = (Array.isArray(q.categories) ? q.categories : []).map((c) => {
