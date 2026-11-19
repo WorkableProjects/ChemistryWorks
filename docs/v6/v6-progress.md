@@ -47,12 +47,12 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S08a | haiku | done (partial) | 08d452d | not run | Left for S08c: Code.gs Netlify webhook path + its test (backend-core:163), admin.js LEGACY_TABS shim, sections.js constants→resources; docs FEATURES/Netlify mentions (S13b) |
 | S08b | sonnet | done | 2d38131 | not run | S13b must run `npm run stamp:version` after bump. Found: landing.js dead signed-in code; .dash in tools.css + admin-shell.css |
 | S08c | haiku | todo | | | |
-| S10 | sonnet | todo | | | |
 | S09 | sonnet | todo | | | |
 | S12a | sonnet | todo | | | |
 | S12c | sonnet | todo | | | |
 | S12b | sonnet | todo | | | |
 | S14 | sonnet | done (partial) | bd4af2f | not run | student-layout e2e unverified; screenshots via CW_SHOTS_DIR not captured; wide widgets not individually resized |
+| S10 | sonnet | done | 86e40fa | not run | pwa e2e selectors unverified; CSP worker-src/manifest-src added |
 | S13a | sonnet | todo | | | |
 | S13b | haiku | todo | | | |
 
