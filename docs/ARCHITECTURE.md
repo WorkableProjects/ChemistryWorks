@@ -953,7 +953,6 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - `optLabel(option)` (plain-text name of a choice) is exported from `js/views/qtypes/shared.js`.
 - CSS: `css/qt-<type>.css` for matching, ordering, fillblank, categorize, balance, econfig, ptable and hotspot, split out of `runner.css` and `qtypes.css` and linked from `index.html` until `ensureCss` exists. `sigfigs` has no rules of its own.
 
-<<<<<<< HEAD
 ### S06b Type registry III
 
 - Moved to the TypeDef contract: lewis, structure, orbital, graph, short, open. All 42 types are now registered. Definitions are `js/lib/qtypes/<type>.js` (`graph.js` also keeps its chart helpers; `open.js` owns `rubricText`, which `grading.js` re-exports). Editors are `js/views/admin/editors/<type>.js` (default export `{ type, edit }`); UI modules are `js/views/qtypes/<type>.js`.
@@ -961,7 +960,6 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - The widget and the static diagram of lewis, structure and orbital share drawing code, and results, grading and export draw those diagrams directly, so `js/views/lewis-view.js`, `structure-view.js` and `orbital-view.js` stay where they are (like `hotspot-stage.js`). The UI modules import the widget from them. None of the six has a `review` function, so results, export and grade-by-question need no preload for them. The graph widget moved to `js/views/qtypes/graph.js`; the short and open widgets moved out of `runner/widgets.js`.
 - The switches are gone: `isAnswered`, `score`, `formatAnswer`, `formatCorrect`, `gradeTest` in `grading.js`, normalize, validate and `blankQuestion` in `schema.js`, `buildWidget` and `typeEditor` all call the registry only. `test/unit/qtype-switches.test.mjs` asserts that no registered type name appears in a `case` and that none of the four files switches on the question type. An unknown type is a validation error (`unknown type`) and `blankQuestion` throws a `RangeError`.
 - CSS: `css/qtypes-s08.css`, `qtypes-s09.css` and `qtypes-s10.css` are deleted. Their rules are split into `css/qt-<type>.css` for naming, dropdown, multipart, dimensional, nuclear, reaction, vsepr, datatable, molarmass, imagechoice, particles, titration and estimate (linked from `index.html` until `ensureCss` exists). The builder's Extras and variables-panel rules moved to `css/admin.css`. Widget rules for lewis, structure, orbital, graph, short and open stay in `runner.css`, `diagrams.css` and `qtypes.css`, shared with results and export.
-=======
 ### B4 Google Classroom backend (Code.gs)
 
 - Contract deviations: the publish trigger is `publishDueClassroomWork` (no trailing underscore, because Apps Script cannot trigger private functions) and runs hourly; `triggerList_()` schedules may now be `{ everyHours }`. `Classes` columns are named `classroomCourseId` and `autoSyncClassroom`; `saveClass` accepts `cls.autoSyncClassroom` (a save that omits it leaves the setting alone) and never clears the link. `listClasses` rows carry both fields (admin only; students never see them).
@@ -972,4 +970,3 @@ No client-side Google scope changes; students never see a Classroom prompt. Re-r
 - Without `postToClassroom`, `saveAssignment` never calls Classroom and keeps `classroomCourseWorkId`. If the stored coursework was deleted in Classroom, the next post creates a new one. Replies add `classroomDetail` (short text) with `classroomError: 'classroom_error'`.
 - `deleteAssignment` replies add `classroomError` when `deleteInClassroom` failed; the assignment is deleted either way.
 - `test/unit/helpers/fake-classroom.mjs` is the shared fake Classroom service for backend tests.
->>>>>>> 4173baa
