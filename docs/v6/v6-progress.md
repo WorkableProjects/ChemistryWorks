@@ -47,7 +47,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S08a | haiku | done (partial) | 08d452d | not run | Left for S08c: Code.gs Netlify webhook path + its test (backend-core:163), admin.js LEGACY_TABS shim, sections.js constants→resources; docs FEATURES/Netlify mentions (S13b) |
 | S08b | sonnet | done | 2d38131 | not run | S13b must run `npm run stamp:version` after bump. Found: landing.js dead signed-in code; .dash in tools.css + admin-shell.css |
 | S08c | haiku | done | 45083fb | not run | mode renderers return cleanup fn; ?section=insights/mastery now land on dashboard |
-| S09 | sonnet | todo | | | |
+| S09 | sonnet | done (partial) | 5f6764e | not run | axe-core 4.10.2 added (npm install). a11y e2e testids partly guessed. Manual checks (200% zoom, reduced motion, prefers-contrast) not done. Admin views have no h1 |
 | S12a | sonnet | todo | | | |
 | S12c | sonnet | todo | | | |
 | S12b | sonnet | todo | | | |
