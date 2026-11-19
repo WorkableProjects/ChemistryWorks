@@ -1,7 +1,7 @@
 // Admin "Grading" tab: review every submission from the Google Sheet, grade open-ended answers,
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
 import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
-import { CONFIG, feature } from '../../config.js';
+import { CONFIG } from '../../config.js';
 import { load, save as saveLocal } from '../../lib/storage.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { saveGrade, releaseAll, allowRetake, batchCall } from '../../lib/api.js';
@@ -290,7 +290,7 @@ export function renderGrading(root, ctx, { goSettings }) {
         return h('tr', { class: 'adm-row', tabindex: '0', 'aria-label': `Grade ${r.student_name || r.student_email}`, dataset: { testid: 'grading-row' },
           on: { click: open, keydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } } },
         h('td', { class: 'adm-td-check', on: { click: stop, keydown: stop } }, pick),
-        h('td', {}, r.student_email && feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
+        h('td', {}, r.student_email ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
         h('td', { class: 'adm-td-email' }, r.student_email || '—', unverifiedMark(r)),
         h('td', {}, h('span', { class: 'adm-item__code adm-item__code--sm' }, r.test_code)),
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
@@ -489,7 +489,6 @@ export function renderGrading(root, ctx, { goSettings }) {
     let baseline = '';
     const isDirty = () => snapshot() !== baseline;
 
-    const split = feature('adminShell');
     const list = visibleRows();
     const pos = list.findIndex((r) => r.submission_id === row.submission_id);
     const neighbor = (d) => (pos >= 0 ? list[pos + d] : null);
@@ -554,7 +553,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
       settle(res);
       toast(`Saved grade for ${label}`, { type: 'success' });
-      if (split) G.justSaved = row.submission_id;
+      G.justSaved = row.submission_id;
       draw();
     }
 
@@ -633,25 +632,22 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Graded by'), gradedBy),
         note),
       h('div', { class: 'adm-grade__bar card' },
-        h('span', {}, 'Final score: ', totalEl), warnEl, split ? savedEl : null, h('span', { class: 'spacer' }),
+        h('span', {}, 'Final score: ', totalEl), warnEl, savedEl, h('span', { class: 'spacer' }),
         h('label', { class: 'adm-inline adm-release', for: 'release-grade' }, releaseBox, 'Release grade & comments to student'),
         releaseStatus, saveNextBtn, saveBtn)];
-    if (!split) mount(content, ...detail);
-    else {
-      // V4-01 split view: student list on the left, the open submission on the right (list hidden on phones).
-      const shown = pos >= 0 ? list : [row, ...list];
-      const listPane = h('aside', { class: 'grd2__list', 'aria-label': 'Students', dataset: { testid: 'grading-split-list' } },
-        h('p', { class: 'grd2__listhead' }, G.testCode === 'all' ? 'Students' : `Students · ${G.testCode}`, h('span', { class: 'faint' }, ` (${shown.length})`)),
-        h('ul', { class: 'grd2__rows' }, shown.map((r) => h('li', {}, h('button', {
-          class: 'grd2__row', type: 'button', 'aria-current': r.submission_id === row.submission_id ? 'true' : null, dataset: { testid: 'grading-split-row', id: r.submission_id },
-          on: { click: () => { if (r.submission_id !== row.submission_id) go(r); } },
-        }, h('span', { class: 'grd2__name' }, r.student_name || r.student_email || 'Student'),
-        h('span', { class: ['pill', r.status === STATUS.NEEDS_GRADING ? 'pill--warning' : r.status === STATUS.GRADED ? 'pill--success' : ''] }, r.status === STATUS.NEEDS_GRADING ? 'To grade' : formatPercent(r.percentage)))))));
-      mount(content, h('div', { class: 'grd2', dataset: { testid: 'grading-split' } }, listPane, h('div', { class: ['grd2__detail', 'stack'], dataset: { testid: 'grading-detail' } }, ...detail)));
-      listPane.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
-      if (G.justSaved === row.submission_id) { G.justSaved = null; savedEl.hidden = false; setTimeout(() => { savedEl.hidden = true; }, 2200); }
-      keysOff = bindGradingKeys();
-    }
+    // V4-01 split view: student list on the left, the open submission on the right (list hidden on phones).
+    const shown = pos >= 0 ? list : [row, ...list];
+    const listPane = h('aside', { class: 'grd2__list', 'aria-label': 'Students', dataset: { testid: 'grading-split-list' } },
+      h('p', { class: 'grd2__listhead' }, G.testCode === 'all' ? 'Students' : `Students · ${G.testCode}`, h('span', { class: 'faint' }, ` (${shown.length})`)),
+      h('ul', { class: 'grd2__rows' }, shown.map((r) => h('li', {}, h('button', {
+        class: 'grd2__row', type: 'button', 'aria-current': r.submission_id === row.submission_id ? 'true' : null, dataset: { testid: 'grading-split-row', id: r.submission_id },
+        on: { click: () => { if (r.submission_id !== row.submission_id) go(r); } },
+      }, h('span', { class: 'grd2__name' }, r.student_name || r.student_email || 'Student'),
+      h('span', { class: ['pill', r.status === STATUS.NEEDS_GRADING ? 'pill--warning' : r.status === STATUS.GRADED ? 'pill--success' : ''] }, r.status === STATUS.NEEDS_GRADING ? 'To grade' : formatPercent(r.percentage)))))));
+    mount(content, h('div', { class: 'grd2', dataset: { testid: 'grading-split' } }, listPane, h('div', { class: ['grd2__detail', 'stack'], dataset: { testid: 'grading-detail' } }, ...detail)));
+    listPane.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+    if (G.justSaved === row.submission_id) { G.justSaved = null; savedEl.hidden = false; setTimeout(() => { savedEl.hidden = true; }, 2200); }
+    keysOff = bindGradingKeys();
     updateTotal();
     baseline = snapshot();
     renderMath(content);

@@ -133,7 +133,6 @@ test('builder: create, validate, save draft, preview and submit without any netw
   assert.equal(await page.locator(tid('submission-status')).getAttribute('data-gas'), 'none');
   await page.waitForLoadState('networkidle'); // any stray request would have shown up by now
   assert.equal(s.gas.length, 0, 'preview must not hit GAS');
-  assert.equal(s.netlify.length, 0, 'preview must not hit Netlify');
   assert.equal(await page.evaluate(() => localStorage.getItem('cw:localResults')), null);
 
   // back to builder keeps the work

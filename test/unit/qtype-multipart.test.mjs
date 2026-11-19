@@ -1,5 +1,4 @@
 // V4-03 multipart: part normalization/validation, scoring across part types, text.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { isAutoPartType, partsPoints } = await import('../../js/lib/qtypes/multipart.js');

@@ -18,7 +18,7 @@ import { load, save } from '../lib/storage.js';
 import { openAttempt } from '../lib/attempt.js';
 import { modeSwitcher } from './runner/mode-switcher.js';
 import { referencePane } from './reference-pane.js';
-import { feature } from '../config.js';
+import { killed } from '../config.js';
 import { toolsFor } from './tools/tools-config.js';
 import { calculatorPanel } from './tools/calculator.js';
 import { constantsPanel } from './tools/constants-tab.js';
@@ -51,11 +51,9 @@ export function render(root, ctx, params = {}) {
   const user = ctx.user || (preview ? { name: 'Preview', email: 'preview@local', picture: null, provider: 'demo' } : null);
   if (!user) { ctx.navigate('landing', { code: test?.code }); return undefined; }
 
-  // V4-05: tools are off unless the flag is on AND the test (or the student's accommodation) asks for them.
-  const toolsOn = feature('studentTools');
   // V5-01: the attempt owns the question order, the answers, flags and autosave. Game modes open the same attempt,
   // so work done there shows up here and the other way round.
-  const attempt = openAttempt(test, { user, email: user.email, preview, tools: toolsOn });
+  const attempt = openAttempt(test, { user, email: user.email, preview, tools: true });
   const groups = groupQuestions(test);
   const ordered = attempt.questions;
   const total = ordered.length;
@@ -73,8 +71,9 @@ export function render(root, ctx, params = {}) {
   const state = attempt.state; // shared with the attempt: answers, confidence, hints, flagged, index, startedAt, …
   const saved = attempt.resumed;
   if (!(test.allowModeToggle !== false && modeOk(state.mode))) state.mode = defaultMode;
-  const tools = toolsFor(test, { enabled: toolsOn, accommodations: user.accommodations });
-  if (toolsOn) { ensureToolsCss(); state.scratch = normalizeScratchMap(state.scratch, [...byId.keys()]); }
+  const tools = toolsFor(test, { accommodations: user.accommodations });
+  ensureToolsCss();
+  state.scratch = normalizeScratchMap(state.scratch, [...byId.keys()]);
   if (attempt.lastMode !== 'study') attempt.setMode('study');
 
   const answeredCount = () => ordered.reduce((n, q) => n + (isAnswered(q, state.answers[q.id]) ? 1 : 0), 0);
@@ -125,7 +124,7 @@ export function render(root, ctx, params = {}) {
   const runnerBar = h('div', { class: 'runner-bar' },
     h('div', { class: 'runner-bar__inner' },
       h('span', { class: 'runner-bar__title', title: test.title }, test.title),
-      !preview && feature('v5Attempt') ? modeSwitcher({
+      !preview && !killed('gameModes') ? modeSwitcher({
         test, attempt, current: 'study',
         onPick: (id) => { attempt.setMode(id); ctx.navigate('game', { test, source: params.source, gameId: id, cleared: true }); },
       }) : null,
@@ -137,7 +136,7 @@ export function render(root, ctx, params = {}) {
     'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': '0', dataset: { testid: 'progress-bar' },
   }, progressFill);
 
-  const netBanner = toolsOn && !preview ? networkBanner({ config: ctx.config }) : null;
+  const netBanner = !preview ? networkBanner({ config: ctx.config }) : null;
   const previewBanner = preview
     ? h('div', { class: 'runner-preview', dataset: { testid: 'preview-banner' } },
       icon('eye', { size: 16 }),
@@ -224,15 +223,15 @@ export function render(root, ctx, params = {}) {
     const clearSlot = h('div', { class: 'q-clear-slot' });
     const extras = buildExtras(q);
     // V4-05: optional note to the teacher that goes with the flag.
-    const noteInput = toolsOn ? h('input', {
+    const noteInput = h('input', {
       class: 'input q-flagnote__input', type: 'text', maxlength: '200', 'aria-label': 'Note for your teacher (optional)',
       placeholder: 'Note for your teacher (optional)', dataset: { testid: 'flag-note' },
       on: {
         input: () => { state.flagNotes[q.id] = noteInput.value; persist(true); },
         keydown: (e) => e.stopPropagation(), // typing here must not trigger runner shortcuts or Enter -> next question
       },
-    }) : null;
-    const noteRow = noteInput ? h('div', { class: 'q-flagnote', hidden: true, dataset: { testid: 'flag-note-row' } }, noteInput) : null;
+    });
+    const noteRow = h('div', { class: 'q-flagnote', hidden: true, dataset: { testid: 'flag-note-row' } }, noteInput);
     const readAloud = tools.readAloud ? readAloudButton({ getText: () => questionSpeech(q) }) : null;
     const el = h('section', {
       class: 'q-card', tabindex: '-1', 'aria-label': `Question ${i + 1} of ${total}`,
@@ -446,7 +445,7 @@ export function render(root, ctx, params = {}) {
   function toggleFlag(qid, { focusNote = false } = {}) {
     if (state.flagged.has(qid)) { state.flagged.delete(qid); delete state.flagNotes[qid]; } else state.flagged.add(qid);
     refreshQuestion(qid);
-    if (toolsOn && focusNote && state.flagged.has(qid)) cardById.get(qid)?.el.querySelector('[data-testid="flag-note"]')?.focus({ preventScroll: true });
+    if (focusNote && state.flagged.has(qid)) cardById.get(qid)?.el.querySelector('[data-testid="flag-note"]')?.focus({ preventScroll: true });
   }
 
   /* ---- navigation / modes */

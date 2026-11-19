@@ -7,7 +7,7 @@ let env;
 before(async () => { env = await startEnv(); });
 after(async () => { await env.close(); });
 
-const CONFIG = { FEATURES: { v4Types: true } };
+const CONFIG = {};
 const img = (id, file, alt) => ({ id, text: id.toUpperCase(), image: { url: `data/tests/${file}`, alt } });
 
 const TEST = {

@@ -4,7 +4,6 @@ import { FORMAT_HELP_MODES } from './hints.js';
 import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
 import { cleanGameOptions, validateGameOptions } from './games/options.js';
-import { feature } from '../config.js';
 import './qtypes/index.js'; // registers every question type definition
 
 export const QUESTION_TYPES = ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph'];
@@ -43,8 +42,7 @@ export const TYPE_LABELS = {
   graph: 'Read or plot a graph',
 };
 // V4-03: registered v4 types join the type list and labels (js/lib/qtypes/registry.js).
-// Hidden until FEATURES.v4Types is on (S08/S09 widgets and editors unfinished).
-for (const t of feature('v4Types') ? registeredTypes() : []) {
+for (const t of registeredTypes()) {
   if (!QUESTION_TYPES.includes(t)) QUESTION_TYPES.push(t);
   TYPE_LABELS[t] = typeDef(t).label || t;
   if (typeDef(t).manual === true && !MANUAL_TYPES.includes(t)) MANUAL_TYPES.push(t);

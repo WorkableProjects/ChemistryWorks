@@ -1,5 +1,4 @@
 // V4-03 S10 question types: molarmass, imagechoice, particles, titration, estimate.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { normalizeTest, validateTest, blankQuestion, QUESTION_TYPES } = await import('../../js/lib/schema.js');

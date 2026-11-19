@@ -1,5 +1,4 @@
 // S09 question types (dimensional, nuclear, reaction, vsepr, datatable): runs the DEMOV4B sample test end to end.
-// The types sit behind FEATURES.v4Types, so every session turns it on.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -12,7 +11,7 @@ after(async () => { await env.close(); });
 const NOT = { result: 'success', submitted: false, blocking: false, attempts: 0, latest: null, others: [] };
 const DEMO = JSON.parse(fs.readFileSync('data/tests/DEMOV4B.json', 'utf8'));
 const session = async (opts = {}) => {
-  const s = await newSession(env, { config: { FEATURES: { v4Types: true } }, ...opts });
+  const s = await newSession(env, { ...opts });
   s.onGas = (b) => (b.action === 'getStudentStatus' ? NOT : null);
   s.serveTest('DEMOV4B', DEMO);
   return s;

@@ -1,6 +1,5 @@
 // Conformance test for every question type: each fixture in test/fixtures/types/ is normalized, validated and graded
 // with its correct, wrong and (where the type gives partial credit) partial answer.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';

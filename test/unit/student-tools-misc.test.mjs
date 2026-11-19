@@ -77,16 +77,16 @@ test('buildDashboard merges progress and results', () => {
   assert.deepEqual(buildDashboard(), []);
 });
 
-test('toolsFor: flag, per-test controls and accommodation', () => {
+test('toolsFor: per-test controls and accommodation', () => {
   const t = { tools: { calculator: true, scratchpad: true, constants: 'yes' } };
-  assert.deepEqual(Object.values(toolsFor(t, { enabled: false })), [false, false, false, false, false]);
-  const on = toolsFor(t, { enabled: true });
+  assert.deepEqual(Object.values(toolsFor(null)), [false, false, false, false, false]);
+  const on = toolsFor(t);
   assert.equal(on.calculator, true);
   assert.equal(on.scratchpad, true);
   assert.equal(on.constants, false);
   assert.equal(on.readAloud, false);
-  assert.equal(toolsFor({}, { enabled: true, accommodations: { readAloud: true } }).readAloud, true);
-  assert.equal(toolsFor(null, { enabled: true }).calculator, false);
+  assert.equal(toolsFor({}, { accommodations: { readAloud: true } }).readAloud, true);
+  assert.equal(toolsFor(null).calculator, false);
 });
 
 test('payload carries flag notes only when present', () => {

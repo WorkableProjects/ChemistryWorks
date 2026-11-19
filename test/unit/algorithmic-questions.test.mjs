@@ -1,5 +1,4 @@
 // V4-09 algorithmic questions (S10): the safe formula parser, variables, instantiate step, validation.
-globalThis.window = { CHEMISTRYWORKS_CONFIG: { FEATURES: { v4Types: true } } };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const A = await import('../../js/lib/algorithmic.js');
