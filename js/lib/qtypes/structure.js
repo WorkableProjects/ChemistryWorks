@@ -13,6 +13,7 @@ export const def = {
   shortLabel: 'Lewis structure',
   group: 'Diagrams & graphs',
   manual: false,
+  layout: 'wide',
   // Graded by the teacher only when the student draws brackets and charges.
   isManual: (q) => q.studentCharges === true,
 

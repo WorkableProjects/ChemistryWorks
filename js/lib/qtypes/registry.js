@@ -7,6 +7,7 @@
 //   {
 //     type: 'mcq', label, shortLabel, group: 'Basics'|'Match & sort'|'Chemistry'|'Diagrams & graphs',
 //     manual: false,                                   // teacher graded
+//     layout: 'split' | 'wide',                        // optional, default 'split'; 'wide' = answer area takes the full width
 //     normalize(q, H),                                 // mutate q in place; q.type/id/points/text already done
 //     validate(q, where, errors, H),                   // push `${where}: ...`; never throw
 //     blank(base) -> question,                         // builder "Add question" template
@@ -28,7 +29,13 @@ const DEFS = new Map();
 
 export function registerType(def) {
   if (!def || typeof def.type !== 'string' || !def.type) return;
+  if (def.layout !== 'wide') def.layout = 'split';
   DEFS.set(def.type, def);
+}
+
+/** 'split' or 'wide': how the student question view lays the type out (default 'split'). */
+export function typeLayout(type) {
+  return DEFS.get(type)?.layout === 'wide' ? 'wide' : 'split';
 }
 
 /** The definition for a registered type, or null for an unknown type. */

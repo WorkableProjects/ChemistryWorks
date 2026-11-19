@@ -7,13 +7,14 @@
 .runner-top { position: sticky; top: 0; z-index: 60; }
 .runner-top .app-header { position: relative; }
 .runner-bar { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
-.runner-bar__inner { width: min(1200px, 100%); margin: 0 auto; min-height: var(--bar-h); padding: 6px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.runner-bar__inner { width: var(--student-w); max-width: var(--student-max); margin: 0 auto; min-height: var(--bar-h); padding: 6px var(--student-gutter); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .runner-bar__title { min-width: 0; flex: 1; font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .runner-progress { height: 4px; width: 100%; background: var(--border); overflow: hidden; }
 .runner-progress__fill { height: 100%; width: 100%; background: var(--brand-teal); transform: scaleX(0); transform-origin: left center; transition: transform var(--dur-slow) var(--ease-out); }
 .runner-preview { display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap; padding: 8px 16px; background: var(--warning-soft); color: var(--warning-ink); font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--warning-line); }
 
-.runner-main { flex: 1; width: min(760px, 100%); margin: 0 auto; padding: 32px 20px 44px; }
+.runner-main { flex: 1; width: var(--student-w); max-width: var(--student-max); margin: 0 auto; padding: 32px var(--student-gutter) 44px; }
+@media (max-width: 759px) { .runner-bar__inner, .runner-main { padding-left: 20px; padding-right: 20px; } }
 .runner-stage { position: relative; margin: -12px; padding: 12px; overflow-x: clip; }
 .runner--scroll .runner-stage { display: flex; flex-direction: column; gap: 24px; padding-bottom: 45vh; }
 
@@ -52,7 +53,7 @@
 .q-card:focus:not(:focus-visible) { outline: none; }
 .q-card__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
 .q-card__num { margin: 0 6px 0 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; text-transform: none; color: var(--text); }
-.q-text { font-size: 20px; line-height: 1.6; font-weight: 400; margin-bottom: 26px; }
+.q-text { font-size: 20px; line-height: 1.6; font-weight: 400; margin-bottom: 26px; max-width: 75ch; }
 .q-hint { font-size: 13px; color: var(--text-faint); margin-bottom: 10px; }
 
 /* Gentle shake when a widget flags an invalid entry (numeric preview). */
@@ -107,8 +108,9 @@
 .runner-actions[hidden] { display: none; }
 .runner-actions .btn { min-width: 0; }
 .runner-next-icon { display: inline-flex; }
-.runner-footer { position: sticky; bottom: 0; z-index: 40; background: var(--bg-elev); border-top: 1px solid var(--border); padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); }
-.runner-footer__inner { width: min(760px, 100%); margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 42px; }
+.runner-footer { position: sticky; bottom: 0; z-index: 40; background: var(--bg-elev); border-top: 1px solid var(--border); padding: 12px var(--student-gutter) calc(12px + env(safe-area-inset-bottom)); }
+.runner-footer__inner { width: var(--student-w); max-width: var(--student-max); margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 42px; }
+@media (max-width: 759px) { .runner-footer { padding-left: 20px; padding-right: 20px; } }
 .runner-footer__progress { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) {
   .runner-footer { padding-left: 14px; padding-right: 14px; }
@@ -163,6 +165,7 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
   .nav-drawer.is-open { transform: none; visibility: visible; transition: transform var(--dur-slow) var(--ease-out), visibility 0s; }
   /* Content makes room for the docked rail. */
   .runner.is-drawer-open > .runner-main, .runner.is-drawer-open > .runner-split { margin-left: calc(var(--rail-w) + 32px); }
+  .runner.is-drawer-open > .runner-main { width: auto; max-width: none; margin-right: 0; padding-left: 0; }
   .runner.is-drawer-open .runner-footer { padding-left: calc(var(--rail-w) + 52px); }
 }
 
@@ -313,6 +316,20 @@ body[data-view="runner"] #app.view-enter { animation-fill-mode: backwards; }
   .q-media, .q-media--left { flex-direction: column; }
   .q-image { max-width: 100%; flex-basis: auto; }
 }
+
+/* ---------- Split layout: prompt and resources left, answer right (>= 1200px, types with layout "split") ---------- */
+.q-split__prompt, .q-split__answer { min-width: 0; }
+.q-explain, .q-passage, .results-explanation, .mode-feedback__why { max-width: 75ch; }
+@media (min-width: 1200px) {
+  .q-split[data-layout="split"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 0 var(--space-6); align-items: start; }
+  .q-split[data-layout="split"] .q-media { flex-direction: column; }
+  .q-split[data-layout="split"] .q-image { flex: 0 0 auto; max-width: 100%; }
+  .q-split[data-layout="split"] .q-image img { max-height: none; width: 100%; }
+}
+
+/* ---------- Short options in columns (every option <= 40 characters, no image) ---------- */
+@media (min-width: 900px) { .q-choices__list--cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1400px) { .q-choices__list--cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 /* ---------- Option images (mcq / multi / matching / ordering) ---------- */
 .opt-img { display: block; max-width: 100%; max-height: 140px; width: auto; height: auto; object-fit: contain; border-radius: 8px; background: var(--bg-elev); }

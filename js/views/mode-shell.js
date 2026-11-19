@@ -4,6 +4,7 @@
 // Contract: docs/ARCHITECTURE.md -> V5 contracts -> Game mode definition (ctx = { widgetFor, feedback, onEnd, sound, reducedMotion, hudSlot, announce }).
 
 import { h, mount, icon, richText, renderMath, appHeader, userBadge, prefersReducedMotion } from '../ui.js';
+import { qSplit } from './q-split.js';
 import { openAttempt } from '../lib/attempt.js';
 import { correctAnswerText } from '../lib/grading.js';
 import { modeById } from '../lib/modes/index.js';
@@ -69,8 +70,8 @@ export function renderModeShell(root, ctx, params = {}) {
     };
     widget = buildWidget(q, api);
     const el = h('div', { class: 'mode-widget', dataset: { testid: 'mode-widget', type: q.type } },
-      withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
-      widget.el);
+      qSplit(q, withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
+        widget.el));
     queueMicrotask(() => { widget.refresh(attempt.get(q.id)); renderMath(el); });
     return el;
   }

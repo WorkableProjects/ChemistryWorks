@@ -46,6 +46,7 @@ export const def = {
   shortLabel: 'Label diagram',
   group: 'Diagrams & graphs',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     q.labels = (Array.isArray(q.labels) ? q.labels : []).map((l) => {

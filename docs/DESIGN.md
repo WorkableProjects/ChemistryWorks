@@ -110,3 +110,7 @@ second and no animation blocks input.
 4. Rely on the global `:focus-visible`.
 5. Pair every status colour with an icon or text.
 6. Check light and dark at 360, 768 and 1366 px, plus `prefers-contrast: more` and reduced motion.
+
+## Student page width
+
+Every student screen (question view, game modes, results, feedback) uses `--student-w`, `--student-max` and `--student-gutter` from `base.css`, so they line up edge to edge. Prompt and explanation text keep a 75ch measure; answer areas use the full width. Each question type declares `layout: 'split'` (default: prompt left, answer right from 1200px) or `layout: 'wide'` (answer stacked below the prompt, full width: matching, categorize, ordering, graph, structure, lewis, molbuild, hotspot, ptable). Short options (40 characters or fewer, no image) flow into 2 columns from 900px and 3 from 1400px. Below 760px nothing changes.

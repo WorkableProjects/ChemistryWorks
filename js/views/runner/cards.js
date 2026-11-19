@@ -1,6 +1,7 @@
 // Question cards: header, widget, hint and confidence extras, flag with note, marks and scratchpad.
 
 import { withQuestionImage } from '../question-image.js';
+import { qSplit } from '../q-split.js';
 import { h, icon, richText } from '../../ui.js';
 import { isAnswered } from '../../lib/grading.js';
 import { TYPE_LABELS, isRequired } from '../../lib/schema.js';
@@ -114,10 +115,8 @@ function buildCard(rt, api, q, i) {
       readAloud?.el,
       flagBtn),
     // a hotspot's image is the diagram inside the widget, so it is not repeated beside the question text
-    withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
-    widget.el,
-    extras.el,
-    clearSlot,
+    qSplit(q, withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
+      widget.el, extras.el, clearSlot),
   );
   el.querySelector('.q-text').id = `qt-${q.id}`;
   const marks = tools.highlighter ? marksBar({

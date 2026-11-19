@@ -128,6 +128,7 @@ export const def = {
   shortLabel: 'Graph',
   group: 'Diagrams & graphs',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     q.mode = str(q.mode).trim() === 'plot' ? 'plot' : 'read';

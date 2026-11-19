@@ -109,6 +109,11 @@
   --space-7: 48px;
   --space-8: 64px;
 
+  /* Student pages (runner, game modes, results, feedback) share one width. A soft cap keeps very wide screens readable. */
+  --student-w: 100%;
+  --student-max: none;
+  --student-gutter: clamp(16px, 3vw, 48px);
+
   --radius-sm: 8px;
   --radius: 12px;
   --radius-lg: 16px;
@@ -601,3 +606,5 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 .empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-5) 0; color: var(--text-muted); }
 .empty-state__icon { color: var(--text-faint); }
 .empty-state__title { margin: 0; font-size: 15px; color: var(--text); }
+
+@media (min-width: 2200px) { :root { --student-max: 2000px; } }

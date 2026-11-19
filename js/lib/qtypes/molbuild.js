@@ -122,6 +122,7 @@ export const def = {
   shortLabel: 'Molecule builder',
   group: 'Chemistry',
   manual: false,
+  layout: 'wide',
   v5: true,
 
   normalize(q) {

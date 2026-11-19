@@ -8,6 +8,7 @@ export const def = {
   shortLabel: 'Ordering',
   group: 'Match & sort',
   manual: false,
+  layout: 'wide',
 
   normalize(q) {
     q.items = normOptions(q.items);

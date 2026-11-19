@@ -21,6 +21,11 @@
 .q-hot__stage--sm { max-width: min(100%, 280px); }
 .q-hot__stage--md { max-width: min(100%, 420px); }
 .q-hot__stage--lg { max-width: min(100%, 640px); }
+@media (min-width: 1200px) {
+  .q-hot__stage--sm { max-width: min(100%, 420px); }
+  .q-hot__stage--md { max-width: min(100%, 720px); }
+  .q-hot__stage--lg { max-width: 100%; }
+}
 .q-hot__diagram { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; max-width: 100%; color: var(--text); font-weight: 400; }
 .q-hot__legend { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.4; color: var(--text); }
 .q-hot__verdict--ok { color: var(--success-ink, var(--success)); font-weight: 600; }
