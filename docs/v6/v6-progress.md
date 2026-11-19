@@ -43,7 +43,7 @@ Status: `todo`, `running`, `partial`, `blocked`, `done` (merged and green).
 | S11 | sonnet | done | aaf00b4 | unit 1320, smoke 4 | rate-limited mid-run, resumed. config.js loads config.local.js (gitignored); gas-deploy needs CLASPRC_JSON, GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID secrets |
 | B3 | sonnet | done | 158c1ce | unit 1304 | Tests sheet gains Owner column. S12a must extend api.js publishTest to send tagDefs and keep reply tags/ids |
 | B4 | sonnet | done | 4173baa | not run | hourly publishDueClassroomWork trigger. Found: setupChecklist_ ids differ from contract (S13a) |
-| S07 | sonnet | todo | | | |
+| S07 | sonnet | done | 3f232a4 | not run | CSP meta, SRI, theme-boot.js; csp.test.mjs e2e unverified |
 | S08a | haiku | todo | | | |
 | S08b | sonnet | todo | | | |
 | S08c | haiku | todo | | | |
