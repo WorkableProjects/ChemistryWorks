@@ -195,6 +195,31 @@ function doPost(e) {
 // One-time setup (run from the Apps Script editor)
 // ---------------------------------------------------------------------------
 
+// What a fresh deployment still needs. Each item: { id, label, ok, hint }. Classroom is listed only when the
+// Classroom advanced service is enabled in the manifest.
+function setupChecklist_() {
+  var props = PropertiesService.getScriptProperties();
+  var items = [];
+  var add = function (id, label, ok, hint) { items.push({ id: id, label: label, ok: !!ok, hint: ok ? '' : hint }); };
+  add('adminKey', 'ADMIN_KEY script property is set', props.getProperty('ADMIN_KEY'),
+    'Optional. Project Settings > Script properties > ADMIN_KEY, if you still want the shared key.');
+  add('clientId', 'GOOGLE_CLIENT_ID script property is set', props.getProperty('GOOGLE_CLIENT_ID'),
+    'Project Settings > Script properties > GOOGLE_CLIENT_ID (same client ID as js/config.js).');
+  var owner = false;
+  try { owner = ensureAdmins_().some(function (a) { return a.role === ROLE_OWNER; }); } catch (e) { owner = false; }
+  add('owner', 'Admins sheet has an owner', owner, 'Add a row to the Admins sheet (Email, Role = owner) and run setup again.');
+  var have = {};
+  try { ScriptApp.getProjectTriggers().forEach(function (t) { have[t.getHandlerFunction()] = true; }); } catch (e) { have = {}; }
+  add('triggers', 'Daily cleanup trigger is installed', triggerList_().every(function (t) { return have[t.handler]; }),
+    'Run setup() or setupTriggers() from the editor.');
+  if (typeof Classroom !== 'undefined') {
+    var granted = false;
+    try { Classroom.Courses.list({ pageSize: 1 }); granted = true; } catch (e) { granted = false; }
+    add('classroom', 'Google Classroom permissions are granted', granted, 'Run setup() from the editor and accept the Classroom permissions.');
+  }
+  return items;
+}
+
 function setup() {
   getSheet_(SUBMISSIONS_SHEET, SUBMISSION_HEADERS);
   getSheet_(TESTS_SHEET, TEST_HEADERS);
@@ -220,6 +245,9 @@ function setup() {
       'To also allow the old shared key: Project Settings > Script properties > ADMIN_KEY.');
   }
   Logger.log('Then: Deploy > New deployment > Web app > Execute as "Me", Who has access "Anyone".');
+  var checklist = setupChecklist_();
+  checklist.forEach(function (c) { Logger.log((c.ok ? '[x] ' : '[ ] ') + c.label + (c.ok ? '' : ': ' + c.hint)); });
+  return checklist;
 }
 
 // ---------------------------------------------------------------------------
@@ -3143,7 +3171,7 @@ function diag_() {
   }
   var last = null;
   try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('LAST_PRUNE') || 'null'); } catch (e) { last = null; }
-  return { result: 'success', version: VERSION, generatedAt: new Date().toISOString(), sheets: sheets, timings: timings, lastPrune: last };
+  return { result: 'success', version: VERSION, generatedAt: new Date().toISOString(), sheets: sheets, timings: timings, lastPrune: last, checklist: setupChecklist_() };
 }
 function removeDiagRows_(email) {
   withLock_(function () {

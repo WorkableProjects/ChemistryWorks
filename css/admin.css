@@ -381,6 +381,10 @@
 .adm-trend { width: 100%; max-width: 320px; height: 70px; }
 .adm-trend polyline { stroke: var(--brand-teal); }
 .adm-errors { margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.adm-checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.adm-checklist__item { display: flex; align-items: flex-start; gap: 8px; color: var(--text); }
+.adm-checklist__item svg { flex: none; margin-top: 2px; color: var(--danger); }
+.adm-checklist__item.is-ok svg { color: var(--success); }
 .runner-announcement { margin-bottom: 12px; align-items: center; }
 .runner-announcement__text { flex: 1; }
 /* v4: more library actions (duplicate with new code, version B, print) — let them wrap instead of overflowing. */
