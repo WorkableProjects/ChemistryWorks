@@ -152,3 +152,55 @@ export function parseRoster(text) {
   }
   return { emails, warnings: emails.length ? [] : ['No email addresses were found.'] };
 }
+
+/* ---------------------------------------------------------------- tags: names to ids */
+
+const TAG_ID = /^tg_[0-9a-z]{6}$/;
+const tagKey = (s) => String(s ?? '').trim().toLowerCase();
+
+/**
+ * Imported JSON may name tags (`"tags": ["Ions"]`). Names become ids: local tags first, then Sheet tags (not merged away).
+ * Entries that already look like an id are kept. -> { test, unmatched } where `unmatched` lists the names nothing matched
+ * (case-insensitive, first spelling, in order); those names stay in `tags` until applyTagNames() settles them.
+ * The input is not changed.
+ */
+export function mapTagNames(test, { local = [], sheet = [] } = {}) {
+  const out = JSON.parse(JSON.stringify(test || {}));
+  const byName = new Map();
+  for (const t of sheet) if (t && !t.mergedInto && t.name && !byName.has(tagKey(t.name))) byName.set(tagKey(t.name), t.id);
+  for (const t of local) if (t && t.name) byName.set(tagKey(t.name), t.id); // local wins
+  const unmatched = [];
+  for (const q of Array.isArray(out.questions) ? out.questions : []) {
+    if (!Array.isArray(q.tags)) continue;
+    const ids = [];
+    for (const raw of q.tags) {
+      const v = String(raw ?? '').trim();
+      if (!v) continue;
+      const id = TAG_ID.test(v) ? v : byName.get(tagKey(v));
+      if (id) { if (!ids.includes(id)) ids.push(id); continue; }
+      if (!unmatched.some((n) => tagKey(n) === tagKey(v))) unmatched.push(v);
+      ids.push(v);
+    }
+    if (ids.length) q.tags = ids; else delete q.tags;
+  }
+  return { test: out, unmatched };
+}
+
+/**
+ * Settle the names mapTagNames() left: `ids` maps a name (any case) to a tag id; a name that maps to nothing is dropped.
+ * Returns a new test; tags are de-duplicated.
+ */
+export function applyTagNames(test, ids = {}) {
+  const out = JSON.parse(JSON.stringify(test || {}));
+  const map = new Map(Object.entries(ids).map(([k, v]) => [tagKey(k), v]));
+  for (const q of Array.isArray(out.questions) ? out.questions : []) {
+    if (!Array.isArray(q.tags)) continue;
+    const next = [];
+    for (const v of q.tags) {
+      const id = TAG_ID.test(v) ? v : map.get(tagKey(v));
+      if (id && !next.includes(id)) next.push(id);
+    }
+    if (next.length) q.tags = next; else delete q.tags;
+  }
+  return out;
+}

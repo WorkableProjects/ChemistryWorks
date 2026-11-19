@@ -1,9 +1,46 @@
 // Builder import and export helpers: the authoring guide, the JSON editing mode and the "Import JSON" file input.
 
-import { h, icon, toast } from '../../../ui.js';
+import { h, icon, toast, openModal } from '../../../ui.js';
 import { normalizeTest, blankTest } from '../../../lib/schema.js';
+import { mapTagNames, applyTagNames } from '../../../lib/importers.js';
+import { listLocal, sheetTags, sheetTagsResource, createTag } from '../../../lib/tags.js';
+import { hasAdminAuth } from '../../../lib/admin-session.js';
 import { copyText } from '../common.js';
 import { S, openDefaults, persistNow, setBuilderTest } from './state.js';
+
+/** Asks what to do with imported tag names nothing matched. Resolves { name: id } (new local tags) or {} (leave them out). */
+function unmatchedTagsDialog(names) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    openModal({
+      title: 'Some tags are new', testid: 'import-tags-modal',
+      body: h('div', { class: 'stack' },
+        h('p', {}, `${names.length === 1 ? 'This tag is' : 'These tags are'} in the file but not in your tags or on the Sheet:`),
+        h('ul', { dataset: { testid: 'import-tags-list' } }, names.map((n) => h('li', {}, n))),
+        h('p', { class: 'faint' }, 'Create them as local tags on this device, or leave them out.')),
+      onClose: () => done({}),
+      actions: [
+        { label: 'Leave them out', variant: 'ghost', testid: 'import-tags-skip', onClick: (close) => { close(); } },
+        { label: `Create ${names.length === 1 ? 'tag' : 'tags'}`, variant: 'primary', testid: 'import-tags-create', onClick: (close) => {
+          const ids = {};
+          for (const n of names) { try { ids[n] = createTag({ name: n }).id; } catch { /* empty name: left out */ } }
+          done(ids);
+          close();
+        } },
+      ],
+    });
+  });
+}
+
+/** Maps tag names in an imported test to ids (local tags, then Sheet tags) and asks about the rest. Resolves the new test. */
+export async function settleImportedTags(parsed, bc) {
+  const res = bc?.gasUrl && hasAdminAuth() ? sheetTagsResource(bc.gasUrl) : null;
+  if (res) await res.get().catch(() => {});
+  const { test, unmatched } = mapTagNames(parsed, { local: listLocal(), sheet: sheetTags() });
+  if (!unmatched.length) return test;
+  return applyTagNames(test, await unmatchedTagsDialog(unmatched));
+}
 
 const GUIDE_SOURCES = [
   'https://raw.githubusercontent.com/WorkableProjects/ChemistryWorks/main/docs/guide.md', // latest on main
@@ -72,7 +109,7 @@ export function importFileInput(bc) {
       try {
         const parsed = JSON.parse(await f.text());
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('The file must contain a test object.');
-        setBuilderTest(normalizeTest(parsed));
+        setBuilderTest(normalizeTest(await settleImportedTags(parsed, bc)));
         toast(`Imported ${S.test.code || 'test'}`, { type: 'success' });
         bc.renderMain();
         bc.refreshValidation();
@@ -102,7 +139,8 @@ export function applyJson(bc, { silent = false } = {}) {
   try {
     const parsed = JSON.parse(text);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Top level must be a test object { … }.');
-    S.test = { ...blankTest(), ...normalizeTest(parsed) };
+    const { test: mapped, unmatched } = mapTagNames(parsed, { local: listLocal(), sheet: sheetTags() });
+    S.test = { ...blankTest(), ...normalizeTest(mapped) };
     openDefaults();
     persistNow();
     jsonText.value = JSON.stringify(S.test, null, 2);
@@ -111,6 +149,16 @@ export function applyJson(bc, { silent = false } = {}) {
     jsonText.classList.remove('is-invalid');
     bc.refreshValidation();
     if (!silent) toast('JSON applied', { type: 'success' });
+    if (unmatched.length) {
+      // Names stay in the JSON until the teacher decides; then the builder is updated in place.
+      unmatchedTagsDialog(unmatched).then((ids) => {
+        S.test = { ...blankTest(), ...normalizeTest(applyTagNames(S.test, ids)) };
+        persistNow();
+        if (jsonText.isConnected) { jsonText.value = JSON.stringify(S.test, null, 2); jsonText.dataset.base = jsonText.value; }
+        bc.refreshValidation();
+        bc.onTagsChanged?.();
+      });
+    }
     return true;
   } catch (e) {
     jsonErrEl.textContent = e instanceof SyntaxError ? jsonErrorMessage(e, text) : e.message;

@@ -9,6 +9,16 @@ import { copyText, downloadFile } from '../common.js';
 import { S, persistNow, safeValidate, normalizedOrNull, totalPoints } from './state.js';
 import { focusQuestion } from './questions.js';
 import { importFileInput } from './import.js';
+import { validateTest } from '../../../lib/schema.js';
+import { tagDefsFor, markOnSheet, knownTagIds, sheetTagsResource } from '../../../lib/tags.js';
+
+/** Warnings (never errors) about tag ids this device and the Sheet do not know. */
+function tagWarnings() {
+  try {
+    const t = normalizedOrNull();
+    return t ? validateTest(t, { knownTagIds: knownTagIds() }).warnings || [] : [];
+  } catch { return []; }
+}
 
 /** Shows the student link under the buttons after a successful publish. */
 function showLink(linkBox, code) {
@@ -35,6 +45,13 @@ function validationList(bc, errors) {
   }));
 }
 
+function warningList(warnings) {
+  if (!warnings.length) return null;
+  return h('div', { class: 'adm-validation__warn', dataset: { testid: 'validation-warnings' } },
+    h('strong', {}, `${warnings.length} warning${warnings.length === 1 ? '' : 's'}`),
+    h('ul', { class: 'adm-validation__list' }, warnings.map((w) => h('li', {}, w))));
+}
+
 /** Re-runs validation and updates the box, the summary line and which buttons are enabled. */
 function makeRefreshValidation(bc, parts) {
   const { validationBox, summaryEl, publishNote, buttons } = parts;
@@ -47,7 +64,8 @@ function makeRefreshValidation(bc, parts) {
       h('div', { class: 'adm-validation__head' },
         icon(valid ? 'check' : 'alert', { size: 18 }),
         h('strong', {}, valid ? 'Ready to publish ✓' : `${errors.length} issue${errors.length === 1 ? '' : 's'} to fix`)),
-      validationList(bc, errors));
+      validationList(bc, errors),
+      warningList(tagWarnings()));
     const n = S.test.questions.length;
     summaryEl.textContent = `${n} question${n === 1 ? '' : 's'} · ${totalPoints(S.test)} point${totalPoints(S.test) === 1 ? '' : 's'}`;
     const reason = valid ? '' : 'Fix the validation issues first';
@@ -64,16 +82,37 @@ function makeRefreshValidation(bc, parts) {
   };
 }
 
+/** `unknown_tag`: nothing was published. Lists the questions that use the missing tags, each a link to the question. */
+function showUnknownTags(bc, parts, test, ids) {
+  const bad = new Set(ids);
+  const rows = test.questions.map((q, i) => ({ q, i })).filter(({ q }) => (q.tags || []).some((id) => bad.has(id)));
+  mount(parts.tagError,
+    h('strong', {}, 'Not published: some tags are not on this device or the Sheet.'),
+    h('ul', { class: 'adm-validation__list' }, rows.map(({ i }) => h('li', {},
+      S.mode === 'visual'
+        ? h('button', { class: 'adm-validation__link', type: 'button', dataset: { testid: `unknown-tag-q${i + 1}` }, on: { click: () => focusQuestion(bc, i) } }, `Question ${i + 1}`)
+        : `Question ${i + 1}`))),
+    h('span', { class: 'field__hint' }, 'Remove the tag from those questions, or create it again, then publish.'));
+  parts.tagError.hidden = false;
+  toast('Publish failed: some tags are missing', { type: 'error', timeout: 6000 });
+}
+
 async function publish(bc, parts) {
   const { buttons, linkBox } = parts;
   const t = normalizedOrNull();
   if (!t || !bc.lastValidation.valid) return;
   buttons.publish.classList.add('is-loading');
   buttons.publish.disabled = true;
+  parts.tagError.hidden = true;
   try {
-    const res = await publishTest(t, { gasUrl: bc.gasUrl });
-    toast(res.ok ? `Published ${t.code}` : `Publish failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error', timeout: res.ok ? 3200 : 6000 });
-    if (res.ok) showLink(linkBox, t.code);
+    const res = await publishTest(t, { gasUrl: bc.gasUrl, tagDefs: tagDefsFor(t) });
+    if (res.ok) markOnSheet(res.tags);
+    if (!res.ok && res.error === 'unknown_tag') showUnknownTags(bc, parts, t, res.ids || []);
+    else toast(res.ok ? `Published ${t.code}` : `Publish failed: ${res.error || 'unknown error'}`, { type: res.ok ? 'success' : 'error', timeout: res.ok ? 3200 : 6000 });
+    if (res.ok) {
+      showLink(linkBox, t.code);
+      if (t.questions.some((q) => q.tags?.length)) sheetTagsResource(bc.gasUrl).refresh().then(() => bc.onTagsChanged?.());
+    }
   } catch (e) {
     toast(`Publish failed: ${e.message}`, { type: 'error', timeout: 6000 });
   } finally {
@@ -124,6 +163,7 @@ export function createPublishPanel(bc) {
     summaryEl: h('p', { class: 'adm-summary muted' }),
     publishNote: h('p', { class: 'field__hint adm-publish-note' }),
     linkBox: h('div', { class: 'adm-linkbox', hidden: true, dataset: { testid: 'published-link' } }),
+    tagError: h('div', { class: 'field-error adm-tag-error', role: 'alert', hidden: true, dataset: { testid: 'publish-tag-error' } }),
     buttons: {},
   };
   bc.lastValidation = safeValidate(S.test);
@@ -132,7 +172,7 @@ export function createPublishPanel(bc) {
   bc.side = h('aside', { class: 'adm-builder__side' },
     h('div', { class: 'card adm-side-card' },
       h('h3', { class: 'adm-h3' }, 'Checks'),
-      parts.validationBox, parts.summaryEl, actions, parts.publishNote, parts.linkBox,
+      parts.validationBox, parts.summaryEl, actions, parts.publishNote, parts.tagError, parts.linkBox,
       h('p', { class: 'field__hint adm-bundle-note' },
         icon('info', { size: 14 }),
         ' To bundle a test permanently: Download JSON, commit the file to data/tests/, then run npm run build:catalog.'),

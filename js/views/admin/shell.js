@@ -28,6 +28,7 @@ export const NAV_ITEMS = [
   { id: 'classes', label: 'Classes', icon: 'user', group: 'tools' },
   { id: 'accommodations', label: 'Accommodations', icon: 'user', group: 'tools' },
   { id: 'live', label: 'Live monitor', icon: 'clock', group: 'tools' },
+  { id: 'tags', label: 'Tags', icon: 'flag', group: 'tools' },
   { id: 'import', label: 'Import & templates', icon: 'upload', group: 'tools' },
   { id: 'settings', label: 'Settings', icon: 'key', group: 'bottom', builtin: true },
 ];

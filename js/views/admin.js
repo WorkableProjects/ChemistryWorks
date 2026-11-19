@@ -14,6 +14,7 @@ import { renderBank } from './admin/bank.js';
 import { renderAccommodations } from './admin/accommodations.js';
 import { renderLive } from './admin/live.js';
 import { renderImport } from './admin/import.js';
+import { renderTags } from './admin/tags.js';
 import { renderStudent } from './admin/student.js';
 
 import { renderSettings } from './admin/settings.js';
@@ -31,6 +32,7 @@ registerNavItem({ id: 'bank', render: (host, ctx, o) => renderBank(host, ctx, o)
 registerNavItem({ id: 'classes', render: (host, ctx, o) => renderClasses(host, ctx, o) });
 registerNavItem({ id: 'accommodations', render: (host, ctx, o) => renderAccommodations(host, ctx, o) });
 registerNavItem({ id: 'live', render: (host, ctx, o) => renderLive(host, ctx, o) });
+registerNavItem({ id: 'tags', render: (host, ctx, o) => renderTags(host, ctx, o) });
 registerNavItem({ id: 'import', render: (host, ctx, o) => renderImport(host, ctx, o) });
 // Teacher student view: opened by link (?section=student&email=), not listed in the sidebar.
 registerNavItem({ id: 'student', label: 'Student', icon: 'user', hidden: true, render: (host, ctx, o) => renderStudent(host, ctx, o) });
