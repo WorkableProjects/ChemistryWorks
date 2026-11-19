@@ -32,8 +32,9 @@ export async function startEnv() {
  *   gas             every captured Apps Script POST (parsed), including ones answered with a failure
  *   modes           { gas: 'ok'|'fail' } mutable at any time
  */
-export async function newSession(env, { config = {}, viewport, acceptDownloads = true, gasDelayMs = 0 } = {}) {
-  const context = await env.browser.newContext({ viewport: viewport || { width: 1280, height: 900 }, acceptDownloads });
+export async function newSession(env, { config = {}, viewport, acceptDownloads = true, gasDelayMs = 0, serviceWorkers = 'block' } = {}) {
+  // The service worker answers page requests itself, which would bypass the mocks below, so only the PWA tests allow it.
+  const context = await env.browser.newContext({ viewport: viewport || { width: 1280, height: 900 }, acceptDownloads, serviceWorkers });
   const gas = [];
   const statusCalls = [];
   const errors = [];

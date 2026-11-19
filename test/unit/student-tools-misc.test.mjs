@@ -53,6 +53,7 @@ test('scratch model', () => {
 test('bannerState', () => {
   assert.equal(bannerState({ online: true, outbox: 0 }), null);
   assert.equal(bannerState({ online: false, outbox: 0 }).kind, 'offline');
+  assert.equal(bannerState({ online: false, outbox: 0 }).text, 'Offline — your answers are saved on this device');
   assert.match(bannerState({ online: false, outbox: 2 }).text, /2 submissions/);
   assert.equal(bannerState({ online: true, outbox: 1 }).kind, 'queued');
   assert.match(bannerState({ online: true, outbox: 1 }).text, /A submission is waiting/);
