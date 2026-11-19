@@ -1,0 +1,63 @@
+name: Deploy Apps Script
+
+# Pushes apps-script/ to the Apps Script project and updates the existing web app deployment, so the /exec URL never changes.
+# Secrets: CLASPRC_JSON (contents of ~/.clasprc.json after `clasp login`), GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID.
+# Repository variable or secret: GAS_WEB_APP_URL (ends in /exec).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gas-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL || vars.GAS_WEB_APP_URL }}
+    steps:
+      - name: Check secrets
+        run: |
+          missing=""
+          for name in CLASPRC_JSON GAS_SCRIPT_ID GAS_DEPLOYMENT_ID GAS_WEB_APP_URL; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Apps Script deploy stopped before changing anything. Missing:$missing. Add them under Settings > Secrets and variables > Actions (see DEPLOYMENT.md)."
+            exit 1
+          fi
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Write clasp credentials and project file
+        run: |
+          umask 077
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          printf '{"scriptId":"%s","rootDir":"apps-script"}\n' "$GAS_SCRIPT_ID" > .clasp.json
+      - name: Push
+        run: npm run gas:push
+      - name: Deploy to the existing deployment
+        run: npm run gas:deploy
+      - name: Verify the live version
+        run: |
+          expected=$(sed -n "s/^var VERSION = '\([^']*\)'.*/\1/p" apps-script/Code.gs | head -n 1)
+          if [ -z "$expected" ]; then echo "::error::Could not read VERSION from Code.gs"; exit 1; fi
+          for attempt in 1 2 3 4 5 6; do
+            live=$(curl -fsSL "$GAS_WEB_APP_URL?action=ping" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version||"")}catch(e){console.log("")}})')
+            echo "Attempt $attempt: live version '$live', expected '$expected'"
+            if [ "$live" = "$expected" ]; then echo "Deployed version $live."; exit 0; fi
+            sleep 10
+          done
+          echo "::error::Live version '$live' does not match Code.gs VERSION '$expected'."
+          exit 1

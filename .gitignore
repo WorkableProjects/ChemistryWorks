@@ -2,3 +2,6 @@ node_modules/
 test-results/
 .DS_Store
 .claude/worktrees/
+js/config.local.js
+.clasp.json
+.clasprc.json

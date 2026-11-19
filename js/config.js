@@ -50,11 +50,33 @@ const DEFAULTS = {
 
 const OVERRIDES = typeof window !== 'undefined' && window.CHEMISTRYWORKS_CONFIG ? window.CHEMISTRYWORKS_CONFIG : {};
 
-export const CONFIG = Object.freeze({
-  ...DEFAULTS,
-  ...OVERRIDES,
-  FEATURES: Object.freeze({ ...DEFAULTS.FEATURES, ...(OVERRIDES.FEATURES || {}) }),
-});
+/** Loads js/config.local.js (written by the Pages workflow from repository variables). A missing file or bad export gives {}. */
+export async function loadLocalConfig(importer = () => import('./config.local.js')) {
+  try {
+    const mod = await importer();
+    const local = mod && (mod.default || mod.LOCAL_CONFIG);
+    return local && typeof local === 'object' ? local : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Layers config objects left to right (later wins); FEATURES are merged key by key. */
+export function mergeConfig(defaults, ...layers) {
+  const out = { ...defaults };
+  let features = { ...(defaults.FEATURES || {}) };
+  for (const layer of layers) {
+    if (!layer) continue;
+    Object.assign(out, layer);
+    features = { ...features, ...(layer.FEATURES || {}) };
+  }
+  out.FEATURES = Object.freeze(features);
+  return Object.freeze(out);
+}
+
+const LOCAL = await loadLocalConfig();
+
+export const CONFIG = mergeConfig(DEFAULTS, LOCAL, OVERRIDES);
 
 /** Flags switched on through the URL (?features=a,b or ?features=all) for this page load only. */
 // Read once at load: the router rewrites the URL (e.g. ?admin=true), which would otherwise drop ?features=.

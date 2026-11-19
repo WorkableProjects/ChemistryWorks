@@ -11,12 +11,15 @@
     "test:smoke": "node --test test/e2e/smoke.test.mjs",
     "test:all": "npm test && npm run test:e2e",
     "build:catalog": "node scripts/build-catalog.mjs",
+    "gas:push": "clasp push --force",
+    "gas:deploy": "clasp deploy -i \"$GAS_DEPLOYMENT_ID\" --description \"$npm_package_version\"",
     "validate:tests": "node scripts/validate-tests.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@google/clasp": "2.4.2",
     "playwright": "1.63.0"
   }
 }

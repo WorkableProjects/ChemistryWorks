@@ -27,6 +27,18 @@ export function platformPanel(ctx, { go } = {}) {
       ? h('ul', { class: 'adm-errors', dataset: { testid: 'errors-list' } }, r.data.errors.map((e) => h('li', {}, h('strong', {}, new Date(e.time).toLocaleString()), ` ${e.page} — ${e.message}`)))
       : h('p', { class: 'faint', dataset: { testid: 'errors-empty' } }, r.ok ? 'No errors reported.' : r.error));
   };
+  const checklistBox = h('div', { class: 'stack', dataset: { testid: 'setup-checklist' }, 'aria-live': 'polite' });
+  const showChecklist = async () => {
+    checklistBox.replaceChildren(h('p', { class: 'faint' }, 'Checking…'));
+    const r = await adminCall('diag', {}, { gasUrl });
+    if (!r.ok) { checklistBox.replaceChildren(h('p', { class: 'faint' }, r.error.startsWith('unknown_action') ? 'Update Code.gs to see the setup checklist.' : r.error)); return; }
+    const items = r.data.checklist || [];
+    if (!items.length) { checklistBox.replaceChildren(h('p', { class: 'faint' }, 'Update Code.gs to see the setup checklist.')); return; }
+    checklistBox.replaceChildren(h('ul', { class: 'adm-checklist' }, items.map((c) =>
+      h('li', { class: `adm-checklist__item${c.ok ? ' is-ok' : ''}`, dataset: { testid: `check-${c.id}`, ok: String(!!c.ok) } },
+        icon(c.ok ? 'check' : 'x', { size: 16 }),
+        h('span', {}, h('span', { class: 'sr-only' }, c.ok ? 'Done: ' : 'To do: '), c.label, c.ok ? null : h('span', { class: 'faint adm-checklist__hint' }, ` ${c.hint}`))))));
+  };
   const backup = async () => {
     const pub = gasUrl ? await listPublishedTests({ gasUrl, adminKey: adminKey() }) : { tests: [] };
     const tests = [];
@@ -61,7 +73,9 @@ export function platformPanel(ctx, { go } = {}) {
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'backup-download' }, on: { click: backup } }, icon('download', { size: 14 }), 'Download backup'),
       h('label', { class: 'btn btn--ghost btn--sm', for: 'restore-file' }, icon('upload', { size: 14 }), 'Restore from backup'), restoreInput,
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'errors-show' }, on: { click: showErrors } }, icon('alert', { size: 14 }), 'Recent errors'),
+      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'checklist-show' }, on: { click: showChecklist } }, icon('check', { size: 14 }), 'Check setup'),
       go ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: () => go('import') } }, icon('upload', { size: 14 }), 'Import & templates') : null),
+    checklistBox,
     errorsBox);
   if (gasUrl) loadSettings(); else toggles.replaceChildren(h('p', { class: 'faint' }, 'Set GAS_WEB_APP_URL to use platform settings.'));
   return box;
