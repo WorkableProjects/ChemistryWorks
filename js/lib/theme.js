@@ -10,7 +10,7 @@ import { ensureCss } from './css-loader.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 /** Browser UI colour (<meta name="theme-color">): the header bar colour per theme. */
-export const THEME_COLOR = { light: '#00224F', dark: '#08101D' };
+const THEME_COLOR = { light: '#00224F', dark: '#08101D' };
 export const ACCENTS = {
   navy: '#00224F',
   blue: '#2348A4',
@@ -25,7 +25,7 @@ export const DARK_ACCENTS = {
   navy: '#2CC5C9', blue: '#7B9AF5', violet: '#A78BFA', teal: '#2DD4BF', green: '#4ADE80', orange: '#FB923C', rose: '#FB7185',
 };
 // Navy/teal for everyone (dark mode turns navy into teal). Older saved choices still apply.
-export const DEFAULT_ACCENT = { student: 'navy', admin: 'navy' };
+const DEFAULT_ACCENT = { student: 'navy', admin: 'navy' };
 
 const root = () => (typeof document !== 'undefined' ? document.documentElement : null);
 const media = () => (typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null);
@@ -64,7 +64,7 @@ export function setReduceMotion(on) {
   listeners.forEach((fn) => fn());
 }
 
-export function applyMotion() {
+function applyMotion() {
   const el = root();
   if (!el) return;
   if (getReduceMotionPref()) { el.dataset.motion = 'reduce'; ensureCss('appearance'); } // its reduce-motion rules live in appearance.css
@@ -72,7 +72,7 @@ export function applyMotion() {
 }
 
 // Appearance: custom accent (adjusted for contrast per theme), text size, density, dyslexia-friendly font.
-export const TEXT_SIZES = ['s', 'm', 'l'];
+const TEXT_SIZES = ['s', 'm', 'l'];
 export const DENSITIES = ['comfortable', 'compact'];
 const CUSTOM_VARS = ['--primary', '--primary-hover', '--primary-soft', '--primary-line', '--primary-ink', '--on-primary'];
 
@@ -103,7 +103,7 @@ export function setAppearance(part) {
   applyAppearance();
 }
 
-export function applyAppearance() {
+function applyAppearance() {
   const el = root();
   if (!el) return;
   CUSTOM_VARS.forEach((v) => el.style.removeProperty(v));
@@ -145,7 +145,7 @@ export function applyPrefs(p = {}) {
   applyTheme();
 }
 
-export function applyTheme() {
+function applyTheme() {
   const el = root();
   if (!el) return;
   applyMotion();

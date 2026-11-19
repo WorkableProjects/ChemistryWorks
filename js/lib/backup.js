@@ -4,7 +4,7 @@
 //   readBundle(text) -> { ok, tests, bank, tags, errors }   (each test validated with the schema)
 import { normalizeTest, validateTest } from './schema.js';
 
-export const BUNDLE_KIND = 'chemworks-backup';
+const BUNDLE_KIND = 'chemworks-backup';
 
 const TAG_ID_RE = /^tg_[0-9a-z]{6}$/;
 const cleanTags = (list) => (Array.isArray(list) ? list : []).filter((t) => t && TAG_ID_RE.test(String(t.id)) && String(t.name || '').trim());

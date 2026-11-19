@@ -5,8 +5,8 @@ export const LIGHT_PAGE = ['#F5F8FB', '#FFFFFF'];
 export const DARK_PAGE = ['#0B1424', '#14213A'];
 export const ON_LIGHT_ACCENT = '#FFFFFF';
 export const ON_DARK_ACCENT = '#04121F';
-export const MIN_TEXT = 4.5;
-export const MIN_UI = 3;
+const MIN_TEXT = 4.5;
+const MIN_UI = 3;
 
 export function parseHex(hex) {
   const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
@@ -18,7 +18,7 @@ export function parseHex(hex) {
 
 export const toHex = (rgb) => `#${rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
 
-export function luminance(rgb) {
+function luminance(rgb) {
   const [r, g, b] = rgb.map((v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
@@ -29,7 +29,7 @@ export function contrastRatio(a, b) {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-export function rgbToHsl([r, g, b]) {
+function rgbToHsl([r, g, b]) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b); const min = Math.min(r, g, b); const l = (max + min) / 2;
   if (max === min) return [0, 0, l * 100];
@@ -42,7 +42,7 @@ export function rgbToHsl([r, g, b]) {
   return [hue * 60, s * 100, l * 100];
 }
 
-export function hslToRgb([hue, s, l]) {
+function hslToRgb([hue, s, l]) {
   s /= 100; l /= 100;
   const k = (n) => (n + hue / 30) % 12;
   const a = s * Math.min(l, 1 - l);

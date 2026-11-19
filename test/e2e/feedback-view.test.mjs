@@ -24,6 +24,7 @@ async function asGoogleUser(page) {
 }
 
 async function releaseOnHome(page, sub) {
+  await page.waitForLoadState('networkidle'); // a sync still in flight would overwrite the snapshot we seed next
   await page.evaluate((x) => {
     const key = `cw:profile:${x.email}`;
     const rec = JSON.parse(localStorage.getItem(key) || '{}');

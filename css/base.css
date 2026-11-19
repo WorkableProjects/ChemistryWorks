@@ -352,7 +352,7 @@ img { max-width: 100%; }
 /* ---------- Cards / notices ---------- */
 .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); }
 /* Cards are solid paper: texture never shows behind text. */
-.card--glass { background: var(--bg-elev); }
+
 .card__title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
 .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius); font-size: 14px; }
 .notice--info { background: var(--primary-soft); color: var(--primary-ink); }
@@ -466,8 +466,7 @@ img { max-width: 100%; }
 :root[data-motion="reduce"]::view-transition-group(*), :root[data-motion="reduce"]::view-transition-old(*), :root[data-motion="reduce"]::view-transition-new(*) { animation: none !important; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.link-quiet { color: var(--text-faint); text-decoration: none; }
-.link-quiet:hover { color: var(--primary); text-decoration: underline; }
+
 /* Staggered list entrance (js/ui.js stagger() sets animation-delay per child). */
 .stagger-item { animation: rise var(--dur-slow) var(--ease-out) both; }
 .reduce-motion-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
@@ -546,9 +545,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .q-structure__count.is-match::after { content: " \2713"; }
 
 /* V3 polish: notices with an inline action */
-.code-notice { align-items: center; flex-wrap: wrap; }
-.code-notice[hidden] { display: none; }
-.code-notice .field-error { flex: 1; min-width: 160px; margin: 0; color: inherit; }
+
 .app-header .icon-btn, .app-header .theme-ctl__btn { min-width: 44px; min-height: 44px; }
 
 /* ---------- Brand (assets/brand) ---------- */

@@ -11,7 +11,7 @@
 //   sampleAnswer  same shape, optional reference for the teacher (never auto-graded)
 
 export const ORBITAL_TYPES = ['s', 'p', 'd', 'f'];
-export const BOXES_PER_TYPE = { s: 1, p: 3, d: 5, f: 7 };
+const BOXES_PER_TYPE = { s: 1, p: 3, d: 5, f: 7 };
 // Aufbau / Madelung filling order.
 export const AUFBAU = ['1s', '2s', '2p', '3s', '3p', '4s', '3d', '4p', '5s', '4d', '5p', '6s', '4f', '5d', '6p', '7s', '5f', '6d', '7p'];
 export const BOX_STATES = ['', 'u', 'ud', 'd']; // cycle order used by the student widget
@@ -20,7 +20,7 @@ export const DEFAULT_ORBITAL_TYPES = ['s', 'p'];
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-export const sublevelType = (sub) => String(sub).slice(-1);
+const sublevelType = (sub) => String(sub).slice(-1);
 export const boxCount = (sub) => BOXES_PER_TYPE[sublevelType(sub)] || 0;
 
 /** Sublevels shown for a question, lowest energy first. */
@@ -47,7 +47,7 @@ export function normalizeOrbitalAnswer(q, ans) {
   return out;
 }
 
-export const boxElectrons = (b) => (b === 'ud' ? 2 : b === 'u' || b === 'd' ? 1 : 0);
+const boxElectrons = (b) => (b === 'ud' ? 2 : b === 'u' || b === 'd' ? 1 : 0);
 
 export function orbitalElectronCount(q, ans) {
   const n = normalizeOrbitalAnswer(q, ans);

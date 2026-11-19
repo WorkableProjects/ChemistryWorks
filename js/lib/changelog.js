@@ -8,7 +8,7 @@ import { SITE_VERSION } from '../version.js';
 const SEEN_KEY = 'changelogSeen';
 
 /** Path of a version's notes, relative to the site root. */
-export const changelogPath = (version) => `changelog/${version}.md`;
+const changelogPath = (version) => `changelog/${version}.md`;
 
 /** "# 4.0.0 — 2026-11-05" -> { version: '4.0.0', date: '2026-11-05' }; missing parts are ''. */
 export function parseTitle(line) {

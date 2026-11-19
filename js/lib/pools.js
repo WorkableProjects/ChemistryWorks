@@ -6,7 +6,7 @@
 import { addInstantiateStep } from './instantiate-steps.js';
 
 /** Questions of a section eligible for its pool (all of them, or those tagged with any of pool.tags). */
-export function poolCandidates(test, section) {
+function poolCandidates(test, section) {
   const qs = (test.questions || []).filter((q) => q && q.section === section.id);
   const tags = Array.isArray(section.pool?.tags) ? section.pool.tags.map((t) => String(t).toLowerCase()) : [];
   if (!tags.length) return qs;

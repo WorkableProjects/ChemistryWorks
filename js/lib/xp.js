@@ -6,7 +6,7 @@ import { load, save } from './storage.js';
 import { queueXp } from './sync.js';
 
 export const HISTORY_LIMIT = 10;
-export const ROUND_XP_CAP = 150;
+const ROUND_XP_CAP = 150;
 
 export const xpKey = (email) => `xp:${String(email || '').toLowerCase()}`;
 
@@ -25,7 +25,7 @@ export function levelInfo(totalXp) {
 }
 
 // ---------- badges ----------
-export const NOBLE_GASES = ['He', 'Ne', 'Ar', 'Kr', 'Xe'];
+const NOBLE_GASES = ['He', 'Ne', 'Ar', 'Kr', 'Xe'];
 
 /** Each badge: { id, title, text, test(state, round) }. `state` is already updated with the round. */
 export const BADGES = [
@@ -49,7 +49,7 @@ export const BADGE_IDS = BADGES.map((b) => b.id);
 export const badgeInfo = (id) => BADGES.find((b) => b.id === id) || null;
 
 // ---------- cosmetics (the art is CSS / SVG in css/game.css; these are only the ids and unlock rules) ----------
-export const FLASKS = [
+const FLASKS = [
   { id: 'navy', label: 'Navy flask', level: 1 },
   { id: 'teal', label: 'Teal flask', level: 2 },
   { id: 'green', label: 'Green flask', level: 3 },
@@ -57,7 +57,7 @@ export const FLASKS = [
   { id: 'red', label: 'Red flask', level: 6 },
   { id: 'violet', label: 'Violet flask', level: 8 },
 ];
-export const FRAMES = [
+const FRAMES = [
   { id: 'plain', label: 'Plain frame', level: 1 },
   { id: 'double', label: 'Double frame', level: 2 },
   { id: 'dashed', label: 'Dashed frame', level: 3 },

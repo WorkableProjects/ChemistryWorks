@@ -4,7 +4,7 @@
 import { load, save } from './storage.js';
 import { getIdToken, getFreshIdToken } from './auth.js';
 
-export const SUBMIT_TIMEOUT_MS = 15000;
+const SUBMIT_TIMEOUT_MS = 15000;
 
 /** Backend errors that will never succeed on a resend: show them, do not queue. */
 const FINAL_ERRORS = new Set(['closed', 'not_open', 'not_on_roster', 'single_submission', 'submission_too_large', 'invalid_request', 'invalid_email', 'unauthorized']);
