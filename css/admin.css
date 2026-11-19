@@ -394,3 +394,18 @@
 /* V5-11: library row leaving (delete) */
 .adm-item.is-leaving, .lib2-table tr.is-leaving { opacity: 0; transform: translateY(-4px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) { .adm-item.is-leaving, .lib2-table tr.is-leaving { transition: none; } }
+
+/* Builder: Extras disclosure and variables panel. */
+.adm-extras { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; }
+.adm-extras summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.adm-extras__body { padding-bottom: 8px; }
+.adm-vars { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; background: var(--bg-elev); }
+.adm-vars > summary { cursor: pointer; font-weight: 600; min-height: var(--touch, 44px); display: flex; align-items: center; }
+.adm-vars > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-sm); }
+.adm-vars__row { display: grid; gap: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; }
+.adm-vars__row legend { font-family: var(--font-mono); font-weight: 600; padding: 0 6px; }
+.adm-vars__preview { display: grid; gap: 8px; justify-items: start; padding: 10px 12px; border-radius: var(--radius); background: var(--bg-sunken); }
+.adm-vars__sample { display: grid; gap: 4px; }
+.adm-vars__line { margin: 0; font-size: 14px; }
+.adm-vars__errors { margin: 0; padding-left: 18px; color: var(--danger-ink); font-size: 14px; }
+

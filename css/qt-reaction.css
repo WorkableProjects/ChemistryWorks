@@ -1,0 +1,11 @@
+/* `reaction` question type. */
+.q-reaction { display: grid; gap: 10px; }
+.q-reaction .q-hint { margin: 0; }
+.q-rxn__eq { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 20px; font-weight: 600; }
+.q-rxn__arrow { color: var(--text-muted); font-size: 24px; }
+.q-rxn__q { color: var(--text-faint); }
+.q-rxn__state { font-size: 0.8em; color: var(--text-muted); margin-left: 2px; }
+.q-rxn__coef { font-family: var(--font-mono); }
+.q-rxn__plus { color: var(--text-muted); }
+.q-rxn__preview { min-height: 48px; display: flex; flex-wrap: wrap; align-items: center; padding: 8px 14px; border-radius: var(--radius); background: var(--bg-sunken); font-size: 20px; font-weight: 600; }
+.q-rxn__preview.is-empty { font-size: 14px; font-weight: 500; color: var(--text-faint); }

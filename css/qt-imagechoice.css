@@ -1,0 +1,21 @@
+/* `imagechoice` question type. */
+.q-imgc { display: grid; gap: 10px; }
+.q-imgc .q-hint { margin: 0; }
+.q-imgc__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.q-imgc__opt { flex-direction: column; align-items: stretch; text-align: center; min-height: var(--touch, 44px); padding: 12px; gap: 8px; position: relative; }
+.q-imgc__opt .opt__badge { position: absolute; top: 8px; left: 8px; z-index: 1; }
+.q-imgc__opt .opt__check { position: absolute; top: 8px; right: 8px; margin: 0; }
+.q-imgc__img { max-height: 160px; margin: 0 auto; }
+.q-imgc__cap { font-weight: 600; }
+.q-imgc__missing { padding: 24px 8px; color: var(--text-faint); font-size: 13px; }
+.q-imgc-review { display: inline-flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.q-imgc-review__item { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; max-width: 140px; }
+.q-imgc-review__name { font-size: 12px; color: var(--text-muted); text-align: center; }
+.q-imgc-ed__opt { display: grid; gap: 8px; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin: 0; }
+.q-imgc-ed__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.q-imgc-ed__correct { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; min-height: var(--touch, 44px); }
+.q-imgc-ed__img { max-height: 120px; max-width: 100%; border-radius: var(--radius-sm); background: var(--img-mat); }
+
+@media (max-width: 720px) {
+  .q-imgc__grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}

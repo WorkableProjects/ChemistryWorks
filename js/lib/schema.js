@@ -1,9 +1,6 @@
 // Test schema: normalization, validation, templates. Pure functions, no DOM.
 
-import { normalizeSymbol, valenceOf } from './lewis.js';
-import { bondEnds, validateStructure } from './structure.js';
 import { FORMAT_HELP_MODES } from './hints.js';
-import { AUFBAU, ORBITAL_TYPES, DEFAULT_MAX_SUBLEVEL, DEFAULT_ORBITAL_TYPES, validateOrbital } from './orbital.js';
 import { orderQuestions, REFERENCE_TYPES, safeImageUrl } from './sections.js';
 import { typeDef, registeredTypes } from './qtypes/registry.js';
 import { cleanGameOptions, validateGameOptions } from './games/options.js';
@@ -19,8 +16,9 @@ export const MANUAL_TYPES = ['short', 'open', 'orbital'];
  * also draws brackets and charges (`studentCharges: true`, V2-06). Use this instead of MANUAL_TYPES.includes().
  */
 export function isManualQuestion(q) {
-  if (q && typeDef(q.type)) return typeDef(q.type).manual === true;
-  return !!q && (MANUAL_TYPES.includes(q.type) || (q.type === 'structure' && q.studentCharges === true));
+  const def = q && typeDef(q.type);
+  if (!def) return false;
+  return typeof def.isManual === 'function' ? def.isManual(q) === true : def.manual === true;
 }
 export const TYPE_LABELS = {
   mcq: 'Multiple choice',
@@ -103,73 +101,7 @@ function normalizeQuestion(raw) {
       q.hint = { text: str(src.text), cost: src.cost === undefined || src.cost === null || src.cost === '' ? 0 : Number(src.cost) };
     } else delete q.hint;
   }
-  switch (q.type) {
-    case 'structure':
-      q.atoms = Array.isArray(q.atoms) ? q.atoms.map((a) => {
-        const src = isObj(a) ? a : {};
-        const sym = normalizeSymbol(src.symbol);
-        return { ...src, id: str(src.id).trim(), symbol: sym || str(src.symbol).trim() };
-      }) : [];
-      q.bonds = Array.isArray(q.bonds) ? q.bonds.map((b) => bondEnds(b) || b) : [];
-      q.charge = q.charge === undefined || q.charge === null || q.charge === '' ? 0 : Number(q.charge);
-      q.partialCredit = bool(q.partialCredit, false);
-      q.showElectronCount = bool(q.showElectronCount, false);
-      q.studentCharges = bool(q.studentCharges, false);
-      break;
-    case 'orbital':
-      q.maxSublevel = q.maxSublevel === undefined || q.maxSublevel === null || q.maxSublevel === '' ? DEFAULT_MAX_SUBLEVEL : str(q.maxSublevel).trim().toLowerCase();
-      q.orbitalTypes = Array.isArray(q.orbitalTypes)
-        ? ORBITAL_TYPES.filter((t) => q.orbitalTypes.map((x) => str(x).trim().toLowerCase()).includes(t))
-        : DEFAULT_ORBITAL_TYPES.slice();
-      if (q.sampleAnswer === undefined || q.sampleAnswer === '') q.sampleAnswer = null;
-      break;
-    case 'open':
-      q.sampleAnswer = str(q.sampleAnswer);
-      q.rubric = Array.isArray(q.rubric) ? q.rubric.map((r) => (isObj(r) ? { ...r, text: str(r.text), points: Number(r.points) } : { text: str(r), points: NaN })) : [];
-      q.minWords = nullableNum(q.minWords);
-      q.maxWords = nullableNum(q.maxWords);
-      q.showRubric = bool(q.showRubric, true);
-      break;
-    case 'lewis': {
-      const sym = normalizeSymbol(q.element);
-      q.element = sym || str(q.element).trim();
-      q.checkPlacement = bool(q.checkPlacement, true);
-      if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer === '') {
-        const v = valenceOf(sym);
-        if (v !== null) q.correctAnswer = v;
-      } else if (typeof q.correctAnswer === 'string' && Number.isFinite(Number(q.correctAnswer))) {
-        q.correctAnswer = Number(q.correctAnswer);
-      }
-      break;
-    }
-    case 'short':
-      q.sampleAnswer = str(q.sampleAnswer);
-      break;
-    case 'graph': {
-      q.mode = str(q.mode).trim() === 'plot' ? 'plot' : 'read';
-      const src = isObj(q.chart) ? q.chart : {};
-      const num = (v) => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v);
-      const pair = (p) => (Array.isArray(p) ? p.map(num) : p);
-      q.chart = {
-        ...src, xLabel: str(src.xLabel), yLabel: str(src.yLabel), xMin: num(src.xMin), xMax: num(src.xMax), yMin: num(src.yMin), yMax: num(src.yMax),
-        series: (Array.isArray(src.series) ? src.series : []).map((s) => ({ ...(isObj(s) ? s : {}), points: (isObj(s) && Array.isArray(s.points) ? s.points : []).map(pair) })),
-      };
-      if (q.mode === 'read') {
-        q.answer = num(q.answer);
-        q.tolerance = q.tolerance === undefined || q.tolerance === null || q.tolerance === '' ? 0 : Number(q.tolerance);
-        q.unit = str(q.unit);
-      } else {
-        q.targets = (Array.isArray(q.targets) ? q.targets : []).map(pair);
-        q.toleranceX = q.toleranceX === undefined || q.toleranceX === null || q.toleranceX === '' ? 0 : Number(q.toleranceX);
-        q.toleranceY = q.toleranceY === undefined || q.toleranceY === null || q.toleranceY === '' ? 0 : Number(q.toleranceY);
-        q.partialCredit = bool(q.partialCredit, true);
-      }
-      break;
-    }
-    default:
-      if (typeDef(q.type)?.normalize) typeDef(q.type).normalize(q, SCHEMA_HELPERS);
-      break;
-  }
+  if (typeDef(q.type)?.normalize) typeDef(q.type).normalize(q, SCHEMA_HELPERS);
   if (['formula', 'numeric', 'fillblank'].includes(q.type)) {
     q.formatHelp = q.formatHelp === undefined || q.formatHelp === null || q.formatHelp === '' ? 'auto'
       : q.formatHelp === true ? 'always' : q.formatHelp === false ? 'never' : q.formatHelp;
@@ -267,63 +199,7 @@ function validateQuestion(q, index, seenIds, errors, sectionIdSet = new Set()) {
     errors.push(`${where}: unknown type "${q.type}".`);
     return;
   }
-  const a = q.correctAnswer;
-  switch (q.type) {
-    case 'lewis':
-      if (!nonEmptyStr(q.element) || !normalizeSymbol(q.element)) errors.push(`${where}: element must be an element symbol such as "O" or "Cl".`);
-      if (!Number.isInteger(a) || a < 1 || a > 8) errors.push(`${where}: correctAnswer must be the number of valence electrons (a whole number from 1 to 8).`);
-      break;
-    case 'short':
-      if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
-      break;
-    case 'structure':
-      validateStructure(q, where, errors);
-      break;
-    case 'orbital':
-      validateOrbital(q, where, errors);
-      break;
-    case 'graph': {
-      if (q.mode !== 'read' && q.mode !== 'plot') errors.push(`${where}: mode must be "read" or "plot".`);
-      const c = q.chart;
-      if (!isObj(c)) { errors.push(`${where}: chart is required.`); break; }
-      for (const k of ['xMin', 'xMax', 'yMin', 'yMax']) if (!isNum(c[k])) errors.push(`${where}: chart.${k} must be a number.`);
-      if (isNum(c.xMin) && isNum(c.xMax) && c.xMax <= c.xMin) errors.push(`${where}: chart.xMax must be larger than chart.xMin.`);
-      if (isNum(c.yMin) && isNum(c.yMax) && c.yMax <= c.yMin) errors.push(`${where}: chart.yMax must be larger than chart.yMin.`);
-      const isPair = (p) => Array.isArray(p) && p.length === 2 && isNum(p[0]) && isNum(p[1]);
-      if (!Array.isArray(c.series) || c.series.some((s) => !isObj(s) || !Array.isArray(s.points) || s.points.some((p) => !isPair(p)))) errors.push(`${where}: chart.series must be a list of { "points": [[x, y], …] }.`);
-      else if (q.mode === 'read' && !c.series.some((s) => s.points.length)) errors.push(`${where}: a read-the-graph question needs at least one series with points.`);
-      if (q.mode === 'read') {
-        if (!isNum(q.answer)) errors.push(`${where}: answer must be a number.`);
-        if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
-      } else if (q.mode === 'plot') {
-        if (!Array.isArray(q.targets) || q.targets.length < 1 || q.targets.some((p) => !isPair(p))) errors.push(`${where}: targets must be a list of [x, y] pairs, e.g. [[0, 0], [5, 10]].`);
-        for (const k of ['toleranceX', 'toleranceY']) if (q[k] !== undefined && (!isNum(q[k]) || q[k] < 0)) errors.push(`${where}: ${k} must be a number that is 0 or greater.`);
-      }
-      break;
-    }
-    case 'open': {
-      const rubric = q.rubric === undefined ? [] : q.rubric;
-      if (!Array.isArray(rubric)) { errors.push(`${where}: rubric must be a list of { text, points }.`); break; }
-      rubric.forEach((r, i) => {
-        if (!isObj(r) || !nonEmptyStr(r.text)) errors.push(`${where}: rubric item ${i + 1} needs text.`);
-        else if (!isNum(r.points) || r.points <= 0) errors.push(`${where}: rubric item ${i + 1} points must be a number greater than 0.`);
-      });
-      if (rubric.length && rubric.every((r) => isObj(r) && isNum(r.points)) && isNum(q.points)) {
-        const sum = Math.round(rubric.reduce((s, r) => s + r.points, 0) * 100) / 100;
-        if (sum !== q.points) errors.push(`${where}: rubric points add up to ${sum} but the question is worth ${q.points}.`);
-      }
-      for (const k of ['minWords', 'maxWords']) {
-        const v = q[k];
-        if (v !== undefined && v !== null && (!Number.isInteger(v) || v < 0)) errors.push(`${where}: ${k} must be a whole number or empty.`);
-      }
-      if (Number.isInteger(q.minWords) && Number.isInteger(q.maxWords) && q.maxWords > 0 && q.maxWords < q.minWords) errors.push(`${where}: maxWords must be at least minWords.`);
-      if (q.sampleAnswer !== undefined && typeof q.sampleAnswer !== 'string') errors.push(`${where}: sampleAnswer must be text.`);
-      break;
-    }
-    default:
-      if (typeDef(q.type)?.validate) typeDef(q.type).validate(q, where, errors, SCHEMA_HELPERS);
-      break;
-  }
+  if (typeDef(q.type)?.validate) typeDef(q.type).validate(q, where, errors, SCHEMA_HELPERS);
   if (q.formatHelp !== undefined && ['formula', 'numeric', 'fillblank'].includes(q.type) && !FORMAT_HELP_MODES.includes(q.formatHelp)) {
     errors.push(`${where}: formatHelp must be "auto", "always" or "never".`);
   }
@@ -412,38 +288,9 @@ export function validateTest(test) {
 
 export function blankQuestion(type, id = 'q1') {
   const base = { id, type, text: 'New question', points: 1, explanation: '' };
-  switch (type) {
-    case 'lewis': return { ...base, text: 'Draw the Lewis dot diagram for oxygen.', element: 'O', correctAnswer: 6, checkPlacement: true };
-    case 'short': return { ...base, points: 2, sampleAnswer: '' };
-    case 'structure':
-      return {
-        ...base, points: 3, text: 'Draw the Lewis structure of carbon dioxide, $\\ce{CO2}$.', partialCredit: false,
-        atoms: [{ id: 'o1', symbol: 'O', x: 0, y: 0 }, { id: 'c', symbol: 'C', x: 1, y: 0 }, { id: 'o2', symbol: 'O', x: 2, y: 0 }],
-        bonds: [['o1', 'c'], ['c', 'o2']], charge: 0, showElectronCount: false,
-        correctAnswer: { bonds: [2, 2], lonePairs: { o1: 2, c: 0, o2: 2 } },
-        studentCharges: false,
-      };
-    case 'orbital':
-      return {
-        ...base, points: 2, text: 'Draw the orbital diagram for a ground-state nitrogen atom.',
-        element: 'N', maxSublevel: '2p', orbitalTypes: ['s', 'p'],
-        sampleAnswer: { '1s': ['ud'], '2s': ['ud'], '2p': ['u', 'u', 'u'] },
-      };
-    case 'open':
-      return {
-        ...base, points: 4, text: 'Explain why ionic compounds have high melting points.', sampleAnswer: '', minWords: null, maxWords: null, showRubric: true,
-        rubric: [{ text: 'Identifies strong electrostatic attraction between oppositely charged ions', points: 2 }, { text: 'Links it to the energy needed to break the lattice', points: 2 }],
-      };
-    case 'graph':
-      return {
-        ...base, text: 'Read the value from the graph.', mode: 'read', answer: 0, tolerance: 0, unit: '',
-        chart: { xLabel: 'x', yLabel: 'y', xMin: 0, xMax: 10, yMin: 0, yMax: 10, series: [{ points: [[0, 0], [10, 10]] }] },
-      };
-    default:
-      // v4 templates come out already normalized, so normalizing them again is a no-op (like the built-ins).
-      if (typeDef(type)?.blank) return normalizeQuestion(typeDef(type).blank(base));
-      throw new RangeError(`Unknown question type: ${type}`);
-  }
+  // Templates come out already normalized, so normalizing them again is a no-op.
+  if (typeDef(type)?.blank) return normalizeQuestion(typeDef(type).blank(base));
+  throw new RangeError(`Unknown question type: ${type}`);
 }
 
 export function nextQuestionId(questions) {

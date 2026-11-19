@@ -1,0 +1,24 @@
+/* `molarmass` question type. */
+.q-mm { display: grid; gap: 12px; }
+.q-mm .q-hint { margin: 0; }
+.q-mm__prompt { margin: 0; font-size: 20px; }
+.q-mm__formula { font-weight: 600; }
+.q-mm__rows { display: grid; gap: 8px; }
+.q-mm__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.q-mm__in { width: 6em; min-height: var(--touch, 44px); text-align: center; font-family: var(--font-mono); }
+.q-mm__row .q-mm__in:first-child { width: 4.5em; }
+.q-mm__x { color: var(--text-muted); }
+.q-mm__remove { min-height: var(--touch, 44px); }
+.q-mm__work { display: grid; gap: 8px; justify-items: start; padding: 12px; border-radius: var(--radius); background: var(--bg-sunken); }
+.q-mm__sum { color: var(--text-muted); }
+.q-mm__final { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.q-mm__eq { font-size: 22px; font-weight: 600; color: var(--text-muted); }
+.q-mm__value { width: 9em; min-height: var(--touch, 44px); }
+.q-mm__unit { font-weight: 600; color: var(--text-muted); }
+.q-mm-review { display: inline-flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.q-mm-review__work { font-size: 13px; color: var(--text-muted); font-family: var(--font-mono); }
+.q-mm-ed__checker.is-bad { color: var(--danger-ink); }
+
+@media (max-width: 720px) {
+  .q-mm__in, .q-mm__row .q-mm__in:first-child { width: 4.8em; }
+}

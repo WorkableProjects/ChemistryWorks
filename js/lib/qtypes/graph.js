@@ -1,5 +1,7 @@
 // Pure helpers for the `graph` question type (V3-05): grading plot answers and drawing the chart as an SVG string.
 // mode 'read': student types a number (graded like `numeric`). mode 'plot': student places points; answer = [[x, y], …].
+import { registerType, typeDef } from './registry.js';
+import { str, bool, isObj, DASH } from './shared.js';
 
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 const isPair = (p) => Array.isArray(p) && p.length === 2 && isNum(Number(p[0])) && isNum(Number(p[1])) && p[0] !== '' && p[1] !== '';
@@ -112,3 +114,80 @@ export function chartSvg(chart, { series = true, points = [], cursor = null, lab
   parts.push('</svg>');
   return parts.join('');
 }
+
+/* ------------------------------------------------------------------ the type */
+
+const num = (v) => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v);
+const pair = (p) => (Array.isArray(p) ? p.map(num) : p);
+const nonEmptyNum = (v, d = 0) => (v === undefined || v === null || v === '' ? d : Number(v));
+const readAnswered = (answer) => (typeof answer === 'string' && answer.trim() !== '') || (typeof answer === 'number' && Number.isFinite(answer));
+
+export const def = {
+  type: 'graph',
+  label: 'Read or plot a graph',
+  shortLabel: 'Graph',
+  group: 'Diagrams & graphs',
+  manual: false,
+
+  normalize(q) {
+    q.mode = str(q.mode).trim() === 'plot' ? 'plot' : 'read';
+    const src = isObj(q.chart) ? q.chart : {};
+    q.chart = {
+      ...src, xLabel: str(src.xLabel), yLabel: str(src.yLabel), xMin: num(src.xMin), xMax: num(src.xMax), yMin: num(src.yMin), yMax: num(src.yMax),
+      series: (Array.isArray(src.series) ? src.series : []).map((s) => ({ ...(isObj(s) ? s : {}), points: (isObj(s) && Array.isArray(s.points) ? s.points : []).map(pair) })),
+    };
+    if (q.mode === 'read') {
+      q.answer = num(q.answer);
+      q.tolerance = nonEmptyNum(q.tolerance);
+      q.unit = str(q.unit);
+    } else {
+      q.targets = (Array.isArray(q.targets) ? q.targets : []).map(pair);
+      q.toleranceX = nonEmptyNum(q.toleranceX);
+      q.toleranceY = nonEmptyNum(q.toleranceY);
+      q.partialCredit = bool(q.partialCredit, true);
+    }
+  },
+
+  validate(q, where, errors) {
+    if (q.mode !== 'read' && q.mode !== 'plot') errors.push(`${where}: mode must be "read" or "plot".`);
+    const c = q.chart;
+    if (!isObj(c)) { errors.push(`${where}: chart is required.`); return; }
+    for (const k of ['xMin', 'xMax', 'yMin', 'yMax']) if (!isNum(c[k])) errors.push(`${where}: chart.${k} must be a number.`);
+    if (isNum(c.xMin) && isNum(c.xMax) && c.xMax <= c.xMin) errors.push(`${where}: chart.xMax must be larger than chart.xMin.`);
+    if (isNum(c.yMin) && isNum(c.yMax) && c.yMax <= c.yMin) errors.push(`${where}: chart.yMax must be larger than chart.yMin.`);
+    const isNumPair = (p) => Array.isArray(p) && p.length === 2 && isNum(p[0]) && isNum(p[1]);
+    if (!Array.isArray(c.series) || c.series.some((s) => !isObj(s) || !Array.isArray(s.points) || s.points.some((p) => !isNumPair(p)))) errors.push(`${where}: chart.series must be a list of { "points": [[x, y], …] }.`);
+    else if (q.mode === 'read' && !c.series.some((s) => s.points.length)) errors.push(`${where}: a read-the-graph question needs at least one series with points.`);
+    if (q.mode === 'read') {
+      if (!isNum(q.answer)) errors.push(`${where}: answer must be a number.`);
+      if (q.tolerance !== undefined && (!isNum(q.tolerance) || q.tolerance < 0)) errors.push(`${where}: tolerance must be a number that is 0 or greater.`);
+    } else if (q.mode === 'plot') {
+      if (!Array.isArray(q.targets) || q.targets.length < 1 || q.targets.some((p) => !isNumPair(p))) errors.push(`${where}: targets must be a list of [x, y] pairs, e.g. [[0, 0], [5, 10]].`);
+      for (const k of ['toleranceX', 'toleranceY']) if (q[k] !== undefined && (!isNum(q[k]) || q[k] < 0)) errors.push(`${where}: ${k} must be a number that is 0 or greater.`);
+    }
+  },
+
+  blank: (base) => ({
+    ...base, text: 'Read the value from the graph.', mode: 'read', answer: 0, tolerance: 0, unit: '',
+    chart: { xLabel: 'x', yLabel: 'y', xMin: 0, xMax: 10, yMin: 0, yMax: 10, series: [{ points: [[0, 0], [10, 10]] }] },
+  }),
+
+  isAnswered: (q, answer) => (q.mode === 'plot' ? isPlotAnswered(answer) : readAnswered(answer)),
+
+  // Read mode is graded like a numeric answer.
+  grade(q, answer, H) {
+    if (q.mode === 'plot') return scorePlot(q, answer);
+    return typeDef('numeric').grade({ type: 'numeric', correctAnswer: q.answer, tolerance: q.tolerance, toleranceType: 'absolute', unit: q.unit }, answer, H);
+  },
+
+  format: (q, answer) => (q.mode === 'plot' ? pointsText(answer) : String(answer).trim()),
+
+  keyText(q) {
+    if (q.mode === 'plot') return pointsText(q.targets) || DASH;
+    return q.answer === null || q.answer === undefined || q.answer === '' ? DASH : `${q.answer}${q.unit ? ` ${q.unit}` : ''}`;
+  },
+
+  correctAnswer: (q) => (q.mode === 'plot' ? q.targets : q.answer),
+};
+
+registerType(def);
