@@ -65,7 +65,7 @@ export const fmtDate = (iso) => formatDate(iso, { fallback: '—' });
 export const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 export function skeleton(rows = 3) {
-  return h('div', { class: 'adm-skeleton', 'aria-busy': 'true', 'aria-label': 'Loading' },
+  return h('div', { class: 'adm-skeleton', role: 'status', 'aria-busy': 'true', 'aria-label': 'Loading' },
     Array.from({ length: rows }, () => h('div', { class: 'adm-skeleton__row' })));
 }
 
