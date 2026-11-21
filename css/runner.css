@@ -111,11 +111,15 @@
 .runner-footer { position: sticky; bottom: 0; z-index: 40; background: var(--bg-elev); border-top: 1px solid var(--border); padding: 12px var(--student-gutter) calc(12px + env(safe-area-inset-bottom)); }
 .runner-footer__inner { width: var(--student-w); max-width: var(--student-max); margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 42px; }
 @media (max-width: 759px) { .runner-footer { padding-left: 20px; padding-right: 20px; } }
-.runner-footer__progress { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.runner-footer__progress { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) {
   .runner-footer { padding-left: 14px; padding-right: 14px; }
-  .runner-footer__hint span { display: none; }
-  .runner-actions .btn { padding: 0 14px; }
+  .runner-footer__hint { display: none; }
+  .runner-actions { gap: 6px; }
+  .runner-actions .btn { padding: 0 10px; min-width: 0; }
+}
+@media (max-width: 420px) {
+  .runner-actions .btn > .icon, .runner-actions .runner-next-icon { display: none; }
 }
 .runner.is-submitting .runner-main { opacity: 0.6; pointer-events: none; transition: opacity var(--dur-base) var(--ease); }
 

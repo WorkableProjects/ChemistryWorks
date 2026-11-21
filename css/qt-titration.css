@@ -11,7 +11,8 @@
 .q-tit__mark { fill: var(--accent-2); stroke: var(--bg-elev); stroke-width: 2; }
 .q-tit__mark.is-key { fill: var(--success); }
 .q-tit__mark.is-student { fill: var(--warning); }
-.q-tit__controls { display: grid; gap: 10px; }
+.q-tit__controls { display: grid; gap: 10px; min-width: 0; }
+.q-tit__controls > *, .q-tit__field, .q-tit__inwrap { min-width: 0; max-width: 100%; }
 .q-tit__read { margin: 0; font-size: 18px; font-weight: 600; font-family: var(--font-mono); }
 .q-tit__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .q-tit__buttons .btn { min-height: var(--touch, 44px); }
@@ -20,7 +21,7 @@
 .q-tit__field { display: grid; gap: 4px; }
 .q-tit__label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .q-tit__inwrap { display: inline-flex; align-items: center; gap: 8px; }
-.q-tit__in { width: 8em; min-height: var(--touch, 44px); }
+.q-tit__in { width: 8em; max-width: 100%; min-height: var(--touch, 44px); }
 .q-tit__unit { font-weight: 600; color: var(--text-muted); }
 
 @media (max-width: 720px) {

@@ -625,3 +625,5 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 .empty-state__title { margin: 0; font-size: 15px; color: var(--text); }
 
 @media (min-width: 2200px) { :root { --student-max: 2000px; } }
+
+input[type="range"] { max-width: 100%; margin-left: 0; margin-right: 0; }
