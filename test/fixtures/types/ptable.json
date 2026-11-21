@@ -1,0 +1,26 @@
+{
+  "question": {
+    "id": "ptable-1",
+    "type": "ptable",
+    "text": "Click the two alkali metals that are in periods 3 and 4.",
+    "points": 2,
+    "answers": [
+      "Na",
+      "K"
+    ],
+    "multiple": true,
+    "partialCredit": true,
+    "explanation": "Alkali metals are in group 1: sodium is in period 3 and potassium is in period 4."
+  },
+  "correct": [
+    "Na",
+    "K"
+  ],
+  "wrong": [
+    "Li",
+    "Cs"
+  ],
+  "partial": [
+    "Na"
+  ]
+}

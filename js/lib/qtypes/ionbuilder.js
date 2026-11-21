@@ -1,4 +1,4 @@
-// `ionbuilder` question type (V5-07, S11b): atom and ion builder. Pure definition, no DOM.
+// `ionbuilder` question type: atom and ion builder. Pure definition, no DOM.
 //   mode 'particles': given symbol, mass number and charge; student sets protons, neutrons, electrons (steppers).
 //   mode 'symbol':    given protons, neutrons, electrons; student writes the symbol, mass number and charge.
 //   { type: 'ionbuilder', mode: 'particles'|'symbol',
@@ -79,6 +79,7 @@ export const def = {
   label: 'Atom or ion builder',
   shortLabel: 'Atom / ion builder',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -129,7 +130,7 @@ export const def = {
     return ['p', 'n', 'e'].some((k) => a[k] !== undefined && a[k] !== '');
   },
 
-  score(q, a) {
+  grade(q, a) {
     if (!keyOf(q)) return { fraction: 0, full: false };
     const { ok, total } = fieldMatches(q, a);
     const right = Object.values(ok).filter(Boolean).length;
@@ -137,7 +138,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / total, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     const x = isObj(a) ? a : {};
     if (q.mode === 'symbol') {
       const sym = normSymbol(x.symbol) || DASH;

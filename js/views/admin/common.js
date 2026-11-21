@@ -1,5 +1,6 @@
 // Small DOM helpers shared by the admin sub-views.
 import { h, icon } from '../../ui.js';
+import { formatDate } from '../../lib/dates.js';
 
 export function field(label, control, hint, { className = '' } = {}) {
   return h('label', { class: `field ${className}`.trim() },
@@ -59,15 +60,12 @@ export function debounce(fn, ms) {
   return d;
 }
 
-export function fmtDate(iso) {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+export const fmtDate = (iso) => formatDate(iso, { fallback: '—' });
 
 export const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 export function skeleton(rows = 3) {
-  return h('div', { class: 'adm-skeleton', 'aria-busy': 'true', 'aria-label': 'Loading' },
+  return h('div', { class: 'adm-skeleton', role: 'status', 'aria-busy': 'true', 'aria-label': 'Loading' },
     Array.from({ length: rows }, () => h('div', { class: 'adm-skeleton__row' })));
 }
 

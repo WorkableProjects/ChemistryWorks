@@ -1,10 +1,11 @@
-// Settings › Platform (V4-08, S17 + S12 settings): error reports and release emails toggles, recent client errors,
+// Settings › Platform: error reports and release emails toggles, recent client errors,
 // backup / restore of every test and the bank, and a link to import & templates.
 import { h, icon, toast, openModal } from '../../ui.js';
 import { adminCall, listPublishedTests, publishTest, fetchPublishedTest } from '../../lib/api.js';
 import { getDrafts, saveDraft } from '../../lib/tests.js';
 import { makeBundle, readBundle } from '../../lib/backup.js';
 import { adminKey } from '../../lib/admin-session.js';
+import { listLocal, mergeLocal, markOnSheet, tagDefsFor } from '../../lib/tags.js';
 import { switchEl, downloadFile } from './common.js';
 
 export function platformPanel(ctx, { go } = {}) {
@@ -27,13 +28,25 @@ export function platformPanel(ctx, { go } = {}) {
       ? h('ul', { class: 'adm-errors', dataset: { testid: 'errors-list' } }, r.data.errors.map((e) => h('li', {}, h('strong', {}, new Date(e.time).toLocaleString()), ` ${e.page} — ${e.message}`)))
       : h('p', { class: 'faint', dataset: { testid: 'errors-empty' } }, r.ok ? 'No errors reported.' : r.error));
   };
+  const checklistBox = h('div', { class: 'stack', dataset: { testid: 'setup-checklist' }, 'aria-live': 'polite' });
+  const showChecklist = async () => {
+    checklistBox.replaceChildren(h('p', { class: 'faint' }, 'Checking…'));
+    const r = await adminCall('diag', {}, { gasUrl });
+    if (!r.ok) { checklistBox.replaceChildren(h('p', { class: 'faint' }, r.error.startsWith('unknown_action') ? 'Update Code.gs to see the setup checklist.' : r.error)); return; }
+    const items = r.data.checklist || [];
+    if (!items.length) { checklistBox.replaceChildren(h('p', { class: 'faint' }, 'Update Code.gs to see the setup checklist.')); return; }
+    checklistBox.replaceChildren(h('ul', { class: 'adm-checklist' }, items.map((c) =>
+      h('li', { class: `adm-checklist__item${c.ok ? ' is-ok' : ''}`, dataset: { testid: `check-${c.id}`, ok: String(!!c.ok) } },
+        icon(c.ok ? 'check' : 'x', { size: 16 }),
+        h('span', {}, h('span', { class: 'sr-only' }, c.ok ? 'Done: ' : 'To do: '), c.label, c.ok ? null : h('span', { class: 'faint adm-checklist__hint' }, ` ${c.hint}`))))));
+  };
   const backup = async () => {
     const pub = gasUrl ? await listPublishedTests({ gasUrl, adminKey: adminKey() }) : { tests: [] };
     const tests = [];
     for (const t of pub.tests || []) { const full = await fetchPublishedTest(t.code, { gasUrl }); if (full) tests.push(full); }
     tests.push(...Object.values(getDrafts()));
     const bank = gasUrl ? await adminCall('listBank', {}, { gasUrl }) : { ok: false };
-    const bundle = makeBundle({ tests, bank: bank.ok ? bank.data.items : [], site: location.origin });
+    const bundle = makeBundle({ tests, bank: bank.ok ? bank.data.items : [], tags: listLocal(), site: location.origin });
     downloadFile(`ChemistryWorks backup ${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(bundle, null, 2));
     toast(`Backup downloaded: ${bundle.tests.length} tests, ${bundle.bank.length} bank questions`, { type: 'success' });
   };
@@ -43,12 +56,13 @@ export function platformPanel(ctx, { go } = {}) {
     if (!b.ok) { toast(b.errors[0], { type: 'error' }); return; }
     const checks = b.tests.map((t) => h('input', { type: 'checkbox', checked: true, value: t.code }));
     openModal({ title: 'Restore from backup', testid: 'restore-modal', wide: true, body: h('div', { class: 'stack' },
-      h('p', {}, `${b.tests.length} tests and ${b.bank.length} bank questions in this file.${b.errors.length ? ` ${b.errors.length} test(s) skipped: ${b.errors.join('; ')}` : ''}`),
+      h('p', {}, `${b.tests.length} tests and ${b.bank.length} bank questions${b.tags.length ? ` and ${b.tags.length} tags` : ''} in this file.${b.errors.length ? ` ${b.errors.length} test(s) skipped: ${b.errors.join('; ')}` : ''}`),
       h('div', { class: 'stack' }, b.tests.map((t, i) => h('label', { class: 'row' }, checks[i], h('span', {}, `${t.code} — ${t.title}`)))),
       h('p', { class: 'faint' }, 'Selected tests are saved as drafts on this device and published (if the backend is connected). Existing tests with the same code are replaced.')),
     actions: [{ label: 'Cancel', variant: 'ghost' }, { label: 'Restore', variant: 'primary', testid: 'restore-go', onClick: async (close) => {
       let n = 0;
-      for (const t of b.tests.filter((_, i) => checks[i].checked)) { saveDraft(t); if (gasUrl) { const r = await publishTest(t, { gasUrl, adminKey: adminKey() }); if (r.ok) n++; } }
+      mergeLocal(b.tags);
+      for (const t of b.tests.filter((_, i) => checks[i].checked)) { saveDraft(t); if (gasUrl) { const r = await publishTest(t, { gasUrl, adminKey: adminKey(), tagDefs: tagDefsFor(t) }); if (r.ok) { n++; markOnSheet(r.tags); } } }
       let m = 0;
       if (gasUrl) for (const item of b.bank) { const r = await adminCall('saveBankItem', { item: { question: item.question, tags: item.tags || {} } }, { gasUrl }); if (r.ok) m++; }
       close(); toast(`Restored ${n} published test(s)${m ? ` and ${m} bank question(s)` : ''}; drafts saved on this device`, { type: 'success' });
@@ -61,7 +75,9 @@ export function platformPanel(ctx, { go } = {}) {
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'backup-download' }, on: { click: backup } }, icon('download', { size: 14 }), 'Download backup'),
       h('label', { class: 'btn btn--ghost btn--sm', for: 'restore-file' }, icon('upload', { size: 14 }), 'Restore from backup'), restoreInput,
       h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'errors-show' }, on: { click: showErrors } }, icon('alert', { size: 14 }), 'Recent errors'),
+      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'checklist-show' }, on: { click: showChecklist } }, icon('check', { size: 14 }), 'Check setup'),
       go ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', on: { click: () => go('import') } }, icon('upload', { size: 14 }), 'Import & templates') : null),
+    checklistBox,
     errorsBox);
   if (gasUrl) loadSettings(); else toggles.replaceChildren(h('p', { class: 'faint' }, 'Set GAS_WEB_APP_URL to use platform settings.'));
   return box;

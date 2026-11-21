@@ -1,0 +1,50 @@
+{
+  "question": {
+    "id": "multi-1",
+    "type": "multi",
+    "text": "Select ALL of the following that are noble gases.",
+    "points": 2,
+    "partialCredit": true,
+    "options": [
+      {
+        "id": "a",
+        "text": "Helium (He)"
+      },
+      {
+        "id": "b",
+        "text": "Nitrogen (N)"
+      },
+      {
+        "id": "c",
+        "text": "Argon (Ar)"
+      },
+      {
+        "id": "d",
+        "text": "Chlorine (Cl)"
+      },
+      {
+        "id": "e",
+        "text": "Xenon (Xe)"
+      }
+    ],
+    "correctAnswer": [
+      "a",
+      "c",
+      "e"
+    ],
+    "explanation": "He, Ar and Xe are in Group 18."
+  },
+  "correct": [
+    "a",
+    "c",
+    "e"
+  ],
+  "wrong": [
+    "b",
+    "d"
+  ],
+  "partial": [
+    "a",
+    "c"
+  ]
+}

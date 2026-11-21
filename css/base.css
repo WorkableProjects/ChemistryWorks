@@ -1,4 +1,4 @@
-/* ChemWorks — "ChemWorks Lab" design tokens (V4-00), base elements, shared components.
+/* ChemWorks — "ChemWorks Lab" design tokens, base elements, shared components.
    Built from the logo: navy #00224F + teal #01A9AE on cool off-white (light) / deep navy (dark).
    Full documentation: docs/DESIGN.md. View CSS references tokens only (no hex literals outside this file and
    print.css; asserted by test/unit/v4-brand.test.mjs). */
@@ -24,7 +24,7 @@
   --paper: var(--bg);
   --ink: var(--text);
 
-  /* v2 graph paper is gone (V4-00). The variables stay so older rules (`background: var(--texture), var(--bg)`) work. */
+  /* v2 graph paper is gone. The variables stay so older rules (`background: var(--texture), var(--bg)`) work. */
   --texture-strength: 0;
   --texture: none;
   --grid-size: 24px;
@@ -109,6 +109,11 @@
   --space-7: 48px;
   --space-8: 64px;
 
+  /* Student pages (runner, game modes, results, feedback) share one width. A soft cap keeps very wide screens readable. */
+  --student-w: 100%;
+  --student-max: none;
+  --student-gutter: clamp(16px, 3vw, 48px);
+
   --radius-sm: 8px;
   --radius: 12px;
   --radius-lg: 16px;
@@ -119,7 +124,7 @@
   --shadow: 0 1px 2px rgba(0, 34, 79, 0.06);
   --shadow-lg: 0 8px 24px rgba(0, 34, 79, 0.10);
 
-  /* Motion (V4-01): calm and quick, transform/opacity only, nothing longer than ~400 ms. */
+  /* Motion: calm and quick, transform/opacity only, nothing longer than ~400 ms. */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-enter: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -137,7 +142,7 @@
   color-scheme: light;
 }
 
-/* ---------- Roles: same look for students and admins (V4-00); admin gets a darker header only. ---------- */
+/* Roles: same look for students and admins; admin gets a darker header only. ---------- */
 :root[data-role="admin"] { --header-bg: #001634; }
 
 /* ---------- Accent palettes (light). Navy is the default for students and admins. ---------- */
@@ -148,6 +153,17 @@
 :root[data-accent="rose"]   { --primary: #BE123C; --primary-hover: #9F1239; --primary-soft: #FBE3E8; --primary-line: #F2B8C4; --primary-ink: #881337; --accent-2: #C2410C; }
 :root[data-accent="orange"] { --primary: #B03A0A; --primary-hover: #8F2F08; --primary-soft: #FCE8D8; --primary-line: #F2C6A4; --primary-ink: #6E2506; --accent-2: #A16207; }
 :root[data-accent="green"]  { --primary: #166534; --primary-hover: #14532D; --primary-soft: #DDF1E3; --primary-line: #B4DEC1; --primary-ink: #14532D; --accent-2: #0D6B64; }
+
+/* Tag chip colours (question tags): a tint and an ink per accent name. Text contrast is tested. */
+:root {
+  --tag-blue-bg: #E1E8F8; --tag-blue-ink: #1B2F6B;
+  --tag-violet-bg: #ECE6FA; --tag-violet-ink: #4C1D95;
+  --tag-teal-bg: #D9F1F1; --tag-teal-ink: #004F52;
+  --tag-green-bg: #DDF1E3; --tag-green-ink: #14532D;
+  --tag-orange-bg: #FCE8D8; --tag-orange-ink: #6E2506;
+  --tag-rose-bg: #FBE3E8; --tag-rose-ink: #881337;
+  --tag-gray-bg: #E6EBF1; --tag-gray-ink: #3F4B5C;
+}
 
 /* ---------- Dark mode: deep navy. data-theme="dark" is set by js/lib/theme.js. ---------- */
 :root[data-theme="dark"] {
@@ -209,6 +225,15 @@
 :root[data-theme="dark"][data-role="admin"] { --header-bg: #050B16; }
 /* Dark accents are lighter; --on-primary is dark ink so text on them keeps AA contrast. Navy becomes teal. */
 :root[data-theme="dark"] { --primary: #2CC5C9; --primary-hover: #5ED6D9; --accent-2: #9DB4F8; }
+:root[data-theme="dark"] {
+  --tag-blue-bg: #1E2B54; --tag-blue-ink: #BFD0FB;
+  --tag-violet-bg: #2E2150; --tag-violet-ink: #DDD0FE;
+  --tag-teal-bg: #0F3A3C; --tag-teal-ink: #8FE9E2;
+  --tag-green-bg: #12361F; --tag-green-ink: #9AF0B8;
+  --tag-orange-bg: #43240F; --tag-orange-ink: #FDC99B;
+  --tag-rose-bg: #4A1A27; --tag-rose-ink: #FDB4C2;
+  --tag-gray-bg: #243046; --tag-gray-ink: #C9D4E3;
+}
 :root[data-theme="dark"][data-accent="navy"]   { --primary: #2CC5C9; --primary-hover: #5ED6D9; --accent-2: #9DB4F8; }
 :root[data-theme="dark"][data-accent="blue"]   { --primary: #7B9AF5; --primary-hover: #9DB4F8; --accent-2: #A5B4FC; }
 :root[data-theme="dark"][data-accent="violet"] { --primary: #A78BFA; --primary-hover: #C4B5FD; --accent-2: #F0ABFC; }
@@ -327,7 +352,7 @@ img { max-width: 100%; }
 /* ---------- Cards / notices ---------- */
 .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); }
 /* Cards are solid paper: texture never shows behind text. */
-.card--glass { background: var(--bg-elev); }
+
 .card__title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
 .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius); font-size: 14px; }
 .notice--info { background: var(--primary-soft); color: var(--primary-ink); }
@@ -340,7 +365,7 @@ img { max-width: 100%; }
 .pill--danger { background: var(--danger-soft); color: var(--danger-ink); }
 .pill--warning { background: var(--warning-soft); color: var(--warning-ink); }
 
-/* ---------- Header (V4-01 app shell): slim navy bar ---------- */
+/* Header (app shell): slim navy bar ---------- */
 .app-header {
   position: sticky; top: 0; z-index: 50; height: var(--header-h);
   display: flex; align-items: center; gap: 14px; padding: 0 16px 0 18px;
@@ -353,7 +378,7 @@ img { max-width: 100%; }
   --text: var(--header-fg); --text-muted: var(--header-fg-muted); --text-faint: var(--header-fg-muted);
   --bg-elev: rgb(255 255 255 / 0.06); --bg-sunken: rgb(255 255 255 / 0.12); --border: var(--header-line); --border-strong: rgb(255 255 255 / 0.32);
   --primary: var(--brand-teal-on-header); --primary-soft: rgb(255 255 255 / 0.12); --primary-hover: var(--header-fg); --primary-line: rgb(255 255 255 / 0.3);
-  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
+  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-teal-ink: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
   color: var(--text);
 }
 .app-header :focus-visible { outline-color: var(--brand-teal-on-header); }
@@ -441,8 +466,7 @@ img { max-width: 100%; }
 :root[data-motion="reduce"]::view-transition-group(*), :root[data-motion="reduce"]::view-transition-old(*), :root[data-motion="reduce"]::view-transition-new(*) { animation: none !important; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.link-quiet { color: var(--text-faint); text-decoration: none; }
-.link-quiet:hover { color: var(--primary); text-decoration: underline; }
+
 /* Staggered list entrance (js/ui.js stagger() sets animation-delay per child). */
 .stagger-item { animation: rise var(--dur-slow) var(--ease-out) both; }
 .reduce-motion-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
@@ -521,9 +545,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .q-structure__count.is-match::after { content: " \2713"; }
 
 /* V3 polish: notices with an inline action */
-.code-notice { align-items: center; flex-wrap: wrap; }
-.code-notice[hidden] { display: none; }
-.code-notice .field-error { flex: 1; min-width: 160px; margin: 0; color: inherit; }
+
 .app-header .icon-btn, .app-header .theme-ctl__btn { min-width: 44px; min-height: 44px; }
 
 /* ---------- Brand (assets/brand) ---------- */
@@ -543,7 +565,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 .brand-logo--wordmark { font-size: var(--brand-size, 52px); height: 1em; }
 .brand-logo--mark { height: var(--brand-size, 100%); max-height: 100%; }
 .brand-logo__chem { color: var(--brand-navy); }
-.brand-logo__works { color: var(--brand-teal); }
+.brand-logo__works { color: var(--brand-teal-ink); }
 /* Mono: one colour for print and high contrast. */
 .brand-logo--mono { --brand-navy: currentColor; --brand-teal: currentColor; }
 @media (prefers-contrast: more) { .brand-logo { --brand-teal: var(--brand-navy); } }
@@ -574,7 +596,7 @@ input[type="number"], .input[inputmode="decimal"] { font-family: var(--font-mono
 }
 @keyframes cw-rock { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(16deg); } }
 
-/* ---------- Motion pass (v5, S09b) ---------- */
+/* Motion pass (v5) ---------- */
 @property --primary { syntax: '<color>'; inherits: true; initial-value: #00224F; }
 @property --primary-hover { syntax: '<color>'; inherits: true; initial-value: #0A3A7A; }
 html.v5-motion { transition: --primary var(--dur-base) var(--ease-out), --primary-hover var(--dur-base) var(--ease-out); }
@@ -596,3 +618,12 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 @keyframes skeleton-pulse { from { opacity: 0.6; } to { opacity: 1; } }
 
 .stagger-item { animation: rise var(--dur-slow) var(--ease-out) both; }
+
+/* Empty state (ui.js emptyState) */
+.empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-5) 0; color: var(--text-muted); }
+.empty-state__icon { color: var(--text-faint); }
+.empty-state__title { margin: 0; font-size: 15px; color: var(--text); }
+
+@media (min-width: 2200px) { :root { --student-max: 2000px; } }
+
+input[type="range"] { max-width: 100%; margin-left: 0; margin-right: 0; }

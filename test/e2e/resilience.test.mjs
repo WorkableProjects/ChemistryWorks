@@ -9,7 +9,6 @@ after(async () => { await env.close(); });
 test('failed submission is queued; Retry resends the same submission_id', () => withSession(env, {}, async (s) => {
   const { page } = s;
   s.modes.gas = 'fail';
-  s.modes.netlify = 500;
   await startTest(s);
   await answerCHEM101(page);
   await submit(page);
@@ -17,8 +16,8 @@ test('failed submission is queued; Retry resends the same submission_id', () => 
   const status = page.locator(tid('submission-status'));
   await waitAttr(status, 'data-queued', 'true');
   await waitAttr(status, 'data-gas', 'failed');
-  await waitAttr(status, 'data-netlify', 'failed');
   await page.locator(tid('retry-submit')).waitFor();
+  await waitText(page.locator(tid('submission-queued')), /Not sent yet — we’ll retry/);
   await waitText(page.locator(tid('score-percentage')), '100.00%'); // score still shown
   assert.equal(s.gas.length, 1);
   const firstId = s.gas[0].submission_id;
@@ -27,39 +26,57 @@ test('failed submission is queued; Retry resends the same submission_id', () => 
   // Retry while still offline: stays queued
   await page.locator(tid('retry-submit')).click();
   await poll(() => s.gas.length >= 2, { message: 'second attempt while offline' });
-  await waitText(page.locator(tid('toast')).last(), /Still couldn't reach the server/);
+  await waitText(page.locator(tid('toast')).last(), /Not sent yet/);
   await waitAttr(status, 'data-queued', 'true');
 
   // Backend recovers
   s.modes.gas = 'ok';
-  s.modes.netlify = 200;
   const before = s.gas.length;
   await page.locator(tid('retry-submit')).click();
   await poll(() => s.gas.length > before, { message: 'successful retry' });
   await poll(async () => (await page.locator(tid('toast')).allTextContents()).some((t) => /Sent 1 queued submission/.test(t)), { message: 'success toast' });
   assert.equal(s.gas.at(-1).submission_id, firstId, 'same submission re-sent');
-  assert.equal(s.netlify.at(-1).submission_id, firstId);
   await waitAttr(status, 'data-queued', 'false');
   assert.equal(await page.locator(tid('retry-submit')).count(), 0);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 0);
 }));
 
-test('one channel failing is not queued (Netlify down, GAS up)', () => withSession(env, {}, async (s) => {
+test('a server_error reply stays in the outbox; Retry sends the same submission_id and clears it', () => withSession(env, {}, async (s) => {
   const { page } = s;
-  s.modes.netlify = 500;
-  await startTest(s, 'CHEM101');
-  await A.mcq(page, 'b');
-  await page.locator(tid('submit-btn')).click();
-  await page.locator(tid('confirm-submit')).click();
-  await page.locator(tid('results')).waitFor();
+  s.onGas = (b) => (b.submission_id ? { result: 'error', error: 'server_error' } : null);
+  await startTest(s);
+  await answerCHEM101(page);
+  await submit(page);
   const status = page.locator(tid('submission-status'));
-  await waitAttr(status, 'data-gas', 'sent');
-  await waitAttr(status, 'data-netlify', 'failed');
+  await waitAttr(status, 'data-queued', 'true');
+  await waitText(page.locator(tid('submission-queued')), /Not sent yet — we’ll retry/);
+  const firstId = s.gas.find((b) => b.submission_id).submission_id;
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 1);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox'))[0].idToken), undefined, 'no token in the outbox');
+
+  s.onGas = null; // backend recovers
+  const before = s.gas.length;
+  await page.locator(tid('retry-submit')).click();
+  await poll(() => s.gas.length > before, { message: 'retry sent' });
+  assert.equal(s.gas.at(-1).submission_id, firstId, 'same submission_id');
   await waitAttr(status, 'data-queued', 'false');
-  assert.equal(await page.locator(tid('retry-submit')).count(), 0);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cw:outbox')).length), 0);
 }));
 
-test('no backends configured: submission is skipped, not queued', () => withSession(env, { config: { GAS_WEB_APP_URL: '', NETLIFY_FORMS: false } }, async (s) => {
+test('a final error (closed) is shown and not queued', () => withSession(env, {}, async (s) => {
+  const { page } = s;
+  s.onGas = (b) => (b.submission_id ? { result: 'error', error: 'closed' } : null);
+  await startTest(s);
+  await answerCHEM101(page);
+  await submit(page);
+  await waitText(page.locator(tid('submission-refused')), /This test is closed/);
+  await waitAttr(page.locator(tid('submission-status')), 'data-queued', 'false');
+  assert.equal(await page.locator(tid('retry-submit')).count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem('cw:outbox')), null);
+  assert.equal(s.gas.filter((b) => b.submission_id).length, 1, 'sent once, not retried');
+}));
+
+test('no backends configured: submission is skipped, not queued', () => withSession(env, { config: { GAS_WEB_APP_URL: '' } }, async (s) => {
   const { page } = s;
   await startTest(s);
   await A.mcq(page, 'b');
@@ -68,23 +85,8 @@ test('no backends configured: submission is skipped, not queued', () => withSess
   await page.locator(tid('results')).waitFor();
   const status = page.locator(tid('submission-status'));
   await waitAttr(status, 'data-gas', 'skipped');
-  await waitAttr(status, 'data-netlify', 'skipped');
   await waitAttr(status, 'data-queued', 'false');
-  assert.equal(s.gas.length + s.netlify.length, 0);
-}));
-
-test('Netlify payload mirrors the GAS payload', () => withSession(env, {}, async (s) => {
-  const { page } = s;
-  await startTest(s);
-  await A.mcq(page, 'a');
-  await page.locator(tid('submit-btn')).click();
-  await page.locator(tid('confirm-submit')).click();
-  await page.locator(tid('results')).waitFor();
-  const g = s.gas[0], n = s.netlify[0];
-  assert.equal(n.percentage, g.percentage);
-  assert.equal(n.student_email, g.student_email);
-  assert.equal(n.score_achieved, String(g.score_achieved));
-  assert.deepEqual(JSON.parse(n.flags_json), g.flags);
+  assert.equal(s.gas.length, 0);
 }));
 
 test('mobile 375x740: runner and results have no horizontal page scroll', () => withSession(env, { viewport: { width: 375, height: 740 } }, async (s) => {

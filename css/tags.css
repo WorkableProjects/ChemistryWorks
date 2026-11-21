@@ -1,0 +1,73 @@
+/* Question tags: the chip, the builder picker and filter bar, and Admin > Tags. Colours are the --tag-* tokens in base.css. */
+
+/* ---------- Chip (element-tile style: small bordered tile, mono label) ---------- */
+.tag-chip { --tag-bg: var(--bg-sunken); --tag-ink: var(--text-muted); display: inline-flex; align-items: center; gap: var(--space-1); max-width: 100%; min-height: 26px; padding: 2px 8px; border: 1px solid color-mix(in srgb, var(--tag-ink) 35%, var(--tag-bg)); border-radius: var(--radius-sm); background: var(--tag-bg); color: var(--tag-ink); font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.2; }
+.tag-chip[data-color="blue"]   { --tag-bg: var(--tag-blue-bg);   --tag-ink: var(--tag-blue-ink); }
+.tag-chip[data-color="violet"] { --tag-bg: var(--tag-violet-bg); --tag-ink: var(--tag-violet-ink); }
+.tag-chip[data-color="teal"]   { --tag-bg: var(--tag-teal-bg);   --tag-ink: var(--tag-teal-ink); }
+.tag-chip[data-color="green"]  { --tag-bg: var(--tag-green-bg);  --tag-ink: var(--tag-green-ink); }
+.tag-chip[data-color="orange"] { --tag-bg: var(--tag-orange-bg); --tag-ink: var(--tag-orange-ink); }
+.tag-chip[data-color="rose"]   { --tag-bg: var(--tag-rose-bg);   --tag-ink: var(--tag-rose-ink); }
+.tag-chip[data-color="gray"]   { --tag-bg: var(--tag-gray-bg);   --tag-ink: var(--tag-gray-ink); }
+.tag-chip.is-unknown { border-style: dashed; }
+.tag-chip__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-chip__x { display: inline-grid; place-items: center; width: 24px; height: 24px; margin: -4px -6px -4px 0; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; cursor: pointer; }
+.tag-chip__x:hover { background: color-mix(in srgb, var(--tag-ink) 14%, transparent); }
+.tag-chip__x:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* ---------- Picker ---------- */
+.tagpick { display: flex; flex-direction: column; gap: var(--space-2); }
+.tagpick__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tagpick__chips:empty { display: none; }
+.tagpick__field { position: relative; }
+.tagpick__list { position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px); max-height: 260px; overflow: auto; padding: var(--space-2); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg-elev); box-shadow: var(--shadow); }
+.tagpick__list[hidden] { display: none; }
+.tagpick__head { padding: 4px 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.tagpick__group + .tagpick__group { margin-top: var(--space-2); }
+.tagpick__opt { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 36px; padding: 4px 6px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.tagpick__opt:hover, .tagpick__opt.is-active { background: var(--hover-tint); }
+.tagpick__opt.is-active { outline: 2px solid var(--primary); outline-offset: -2px; }
+.tagpick__sub { margin-left: auto; font-size: 12px; color: var(--text-muted); }
+.tagpick__empty { margin: 0; padding: 6px; }
+
+/* ---------- Question list: filter bar and selection ---------- */
+.tagbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.tagbar-host:empty { display: none; }
+.tagbar__all { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.tagbar__count { font-size: 14px; }
+.adm-q__select { flex: none; width: 18px; height: 18px; margin: 0 4px 0 6px; accent-color: var(--primary); cursor: pointer; }
+.adm-q[hidden] { display: none; }
+.adm-tag-error { margin: var(--space-2) 0 0; }
+
+/* ---------- Admin > Tags ---------- */
+.tag-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.tag-row:last-child { border-bottom: 0; }
+.tag-row__sub { font-size: 14px; }
+.tag-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.tag-empty p { margin: 0; }
+.tag-swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tag-swatch { width: 32px; height: 32px; border: 2px solid var(--border-control); border-radius: var(--radius-sm); cursor: pointer; background: var(--tag-gray-bg); }
+.tag-swatch[data-color="blue"]   { background: var(--tag-blue-bg); }
+.tag-swatch[data-color="violet"] { background: var(--tag-violet-bg); }
+.tag-swatch[data-color="teal"]   { background: var(--tag-teal-bg); }
+.tag-swatch[data-color="green"]  { background: var(--tag-green-bg); }
+.tag-swatch[data-color="orange"] { background: var(--tag-orange-bg); }
+.tag-swatch[data-color="rose"]   { background: var(--tag-rose-bg); }
+.tag-swatch[aria-checked="true"] { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.tag-swatch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ---------- By topic summary (results, feedback, profile, grading, tracker) ---------- */
+.tag-sum { display: flex; flex-direction: column; gap: var(--space-2); }
+.tag-sum__title { margin: 0; font-size: 16px; }
+.tag-sum__hint { margin: 0; font-size: 13px; }
+.tag-sum__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.tag-sum__row { display: grid; grid-template-columns: minmax(0, 200px) minmax(60px, 1fr) 48px minmax(0, 110px); align-items: center; gap: var(--space-3); font-size: 14px; }
+.tag-sum__bar { display: block; height: 6px; border-radius: 999px; background: var(--bg-sunken); overflow: hidden; }
+.tag-sum__fill { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+.tag-sum__pct { text-align: right; }
+.tag-sum__pts { font-size: 12px; text-align: right; }
+@media (max-width: 560px) {
+  .tag-sum__row { grid-template-columns: minmax(0, 1fr) 48px; }
+  .tag-sum__bar { grid-column: 1 / -1; grid-row: 2; }
+  .tag-sum__pts { grid-column: 1 / -1; text-align: left; }
+}

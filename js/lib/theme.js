@@ -5,12 +5,12 @@
 //   <html data-theme="light|dark" data-accent="navy|blue|violet|teal|rose|orange|green" data-role="student|admin">
 
 import { load, save } from './storage.js';
-import { feature } from './../config.js';
 import { fixAccent, parseHex, toHex } from './contrast.js';
+import { ensureCss } from './css-loader.js';
 
 export const THEMES = ['system', 'light', 'dark'];
 /** Browser UI colour (<meta name="theme-color">): the header bar colour per theme. */
-export const THEME_COLOR = { light: '#00224F', dark: '#08101D' };
+const THEME_COLOR = { light: '#00224F', dark: '#08101D' };
 export const ACCENTS = {
   navy: '#00224F',
   blue: '#2348A4',
@@ -24,8 +24,8 @@ export const ACCENTS = {
 export const DARK_ACCENTS = {
   navy: '#2CC5C9', blue: '#7B9AF5', violet: '#A78BFA', teal: '#2DD4BF', green: '#4ADE80', orange: '#FB923C', rose: '#FB7185',
 };
-// V4-00: navy/teal for everyone (dark mode turns navy into teal). Older saved choices still apply.
-export const DEFAULT_ACCENT = { student: 'navy', admin: 'navy' };
+// Navy/teal for everyone (dark mode turns navy into teal). Older saved choices still apply.
+const DEFAULT_ACCENT = { student: 'navy', admin: 'navy' };
 
 const root = () => (typeof document !== 'undefined' ? document.documentElement : null);
 const media = () => (typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null);
@@ -64,15 +64,15 @@ export function setReduceMotion(on) {
   listeners.forEach((fn) => fn());
 }
 
-export function applyMotion() {
+function applyMotion() {
   const el = root();
   if (!el) return;
-  if (getReduceMotionPref()) el.dataset.motion = 'reduce';
+  if (getReduceMotionPref()) { el.dataset.motion = 'reduce'; ensureCss('appearance'); } // its reduce-motion rules live in appearance.css
   else delete el.dataset.motion;
 }
 
-// V5-06 appearance: custom accent (adjusted for contrast per theme), text size, density, dyslexia-friendly font.
-export const TEXT_SIZES = ['s', 'm', 'l'];
+// Appearance: custom accent (adjusted for contrast per theme), text size, density, dyslexia-friendly font.
+const TEXT_SIZES = ['s', 'm', 'l'];
 export const DENSITIES = ['comfortable', 'compact'];
 const CUSTOM_VARS = ['--primary', '--primary-hover', '--primary-soft', '--primary-line', '--primary-ink', '--on-primary'];
 
@@ -103,18 +103,16 @@ export function setAppearance(part) {
   applyAppearance();
 }
 
-export function applyAppearance() {
+function applyAppearance() {
   const el = root();
   if (!el) return;
   CUSTOM_VARS.forEach((v) => el.style.removeProperty(v));
-  if (!feature('appearance')) {
-    for (const k of ['textSize', 'density', 'dyslexia']) delete el.dataset[k];
-    return;
-  }
   const a = getAppearance();
   el.dataset.textSize = a.textSize;
   el.dataset.density = a.density;
   if (a.dyslexia) el.dataset.dyslexia = '1'; else delete el.dataset.dyslexia;
+  // Text size, density and the dyslexia font are styled in appearance.css; the default look needs none of it.
+  if (a.textSize !== 'm' || a.density !== 'comfortable' || a.dyslexia) ensureCss('appearance');
   const custom = getCustomAccent(role);
   const fixed = custom && fixAccent(custom);
   if (!fixed) return;
@@ -147,11 +145,11 @@ export function applyPrefs(p = {}) {
   applyTheme();
 }
 
-export function applyTheme() {
+function applyTheme() {
   const el = root();
   if (!el) return;
   applyMotion();
-  if (feature('v5Motion')) el.classList.add('v5-motion');
+  el.classList.add('v5-motion');
   el.dataset.theme = resolvedTheme();
   el.dataset.accent = getAccent(role);
   el.dataset.role = role;
@@ -171,7 +169,7 @@ if (typeof document !== 'undefined') {
 /** Run a theme/accent change with a circular reveal (View Transitions) or a short token cross-fade. */
 function withThemeTransition(fn) {
   const el = root();
-  if (!el || !feature('v5Motion') || prefersReducedMotion()) { fn(); return; }
+  if (!el || prefersReducedMotion()) { fn(); return; }
   const recent = Date.now() - lastPress.t < 1500;
   const x = recent ? lastPress.x : window.innerWidth - 48;
   const y = recent ? lastPress.y : 32;

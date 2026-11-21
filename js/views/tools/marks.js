@@ -1,4 +1,4 @@
-// Highlighter and strike-out for a question card (V4-05). Keyboard reachable: toolbar buttons are normal buttons,
+// Highlighter and strike-out for a question card. Keyboard reachable: toolbar buttons are normal buttons,
 // strike mode turns option clicks (Enter / Space on a focused option too) into "rule out", and X toggles a focused option.
 // marksBar({ card, qid, getStruck, setStruck }) -> { el, refresh() }
 

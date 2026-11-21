@@ -1,4 +1,4 @@
-// "My dashboard" data (V4-05), built only from what this device knows: saved progress and local submission results.
+// "My dashboard" data, built only from what this device knows: saved progress and local submission results.
 // Pure: buildDashboard({ progress, results, now }) -> rows sorted by relevance.
 //
 // progress: [{ code, title, answers, updatedAt, opens_at?, closes_at? }]   (landing's inProgress())

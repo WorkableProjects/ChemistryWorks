@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  pingBackend, fetchPublishedTest, publishTest, listPublishedTests, deletePublishedTest, fetchResults,
+  pingBackend, fetchPublishedTest, publishTest, listPublishedTests, deletePublishedTest, fetchResults, getResultsSince,
 } from '../../js/lib/api.js';
 
 const GAS = 'https://script.google.com/macros/s/ABC/exec';
@@ -58,12 +58,28 @@ test('GET preserves an existing query string on gasUrl', async () => {
 test('publishTest: POST text/plain JSON body', async () => {
   const f = fakeFetch(okJson({ result: 'success' }));
   const test_ = { code: 'C1', title: 'T', questions: [{ id: 'q1' }] };
-  assert.deepEqual(await publishTest(test_, { gasUrl: GAS, adminKey: 'k', fetchImpl: f }), { ok: true });
+  assert.deepEqual(await publishTest(test_, { gasUrl: GAS, adminKey: 'k', fetchImpl: f }), { ok: true, tags: [] });
   const { url, init } = f.calls[0];
   assert.equal(url, GAS);
   assert.equal(init.method, 'POST');
   assert.equal(init.headers['Content-Type'], 'text/plain;charset=utf-8');
   assert.deepEqual(JSON.parse(init.body), { action: 'publishTest', adminKey: 'k', test: test_ });
+});
+
+test('publishTest: sends tagDefs and returns the reply tags', async () => {
+  const tags = [{ id: 'tg_abc123', ownerEmail: 'a@x.org', name: 'Ions', color: 'blue', description: '', applied: 'created' }];
+  const f = fakeFetch(okJson({ result: 'success', tags }));
+  const defs = [{ id: 'tg_abc123', name: 'Ions', color: 'blue', description: '' }];
+  assert.deepEqual(await publishTest({ code: 'C1' }, { gasUrl: GAS, adminKey: 'k', tagDefs: defs, fetchImpl: f }), { ok: true, tags });
+  assert.deepEqual(JSON.parse(f.calls[0].init.body).tagDefs, defs);
+});
+
+test('publishTest: no tagDefs key when none are given; unknown_tag keeps its ids', async () => {
+  const f = fakeFetch(okJson({ result: 'success' }));
+  await publishTest({ code: 'C1' }, { gasUrl: GAS, adminKey: 'k', fetchImpl: f });
+  assert.equal('tagDefs' in JSON.parse(f.calls[0].init.body), false);
+  const bad = fakeFetch(okJson({ result: 'error', error: 'unknown_tag', ids: ['tg_zzzzzz'] }));
+  assert.deepEqual(await publishTest({}, { gasUrl: GAS, adminKey: 'k', tagDefs: [], fetchImpl: bad }), { ok: false, error: 'unknown_tag', ids: ['tg_zzzzzz'] });
 });
 
 test('publishTest: server error and network failure', async () => {
@@ -91,13 +107,19 @@ test('deletePublishedTest', async () => {
   assert.equal((await deletePublishedTest('C1', { gasUrl: GAS, adminKey: 'k', fetchImpl: fakeFetch(okJson({ result: 'error', error: 'not_found' })) })).error, 'not_found');
 });
 
+test('getResultsSince asks for the answers, so grading and the data view get them', async () => {
+  const f = fakeFetch(okJson({ result: 'success', rows: [], now: 5 }));
+  await getResultsSince({ gasUrl: GAS, adminKey: 'k', since: 3, fetchImpl: f });
+  assert.equal(JSON.parse(f.calls[0].init.body).includeAnswers, true);
+});
+
 test('fetchResults: with and without testCode', async () => {
   const rows = [{ submission_id: 's1', percentage: 50 }];
   const f = fakeFetch(okJson({ result: 'success', rows }));
   assert.deepEqual(await fetchResults({ gasUrl: GAS, adminKey: 'k', testCode: 'C1', fetchImpl: f }), { ok: true, rows });
-  assert.deepEqual(JSON.parse(f.calls[0].init.body), { action: 'getResults', adminKey: 'k', testCode: 'C1' });
+  assert.deepEqual(JSON.parse(f.calls[0].init.body), { action: 'getResults', adminKey: 'k', testCode: 'C1', includeAnswers: true });
   await fetchResults({ gasUrl: GAS, adminKey: 'k', fetchImpl: f });
-  assert.deepEqual(JSON.parse(f.calls[1].init.body), { action: 'getResults', adminKey: 'k' });
+  assert.deepEqual(JSON.parse(f.calls[1].init.body), { action: 'getResults', adminKey: 'k', includeAnswers: true });
   const fail = await fetchResults({ gasUrl: GAS, adminKey: 'k', fetchImpl: fakeFetch(failing) });
   assert.equal(fail.ok, false);
   assert.deepEqual(fail.rows, []);

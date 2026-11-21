@@ -1,10 +1,7 @@
-// `naming` question type (V4-03) — student widget and builder editor. Contract: js/views/qtypes/registry.js.
-import { h } from '../../ui.js';
-import { formulaToHTML } from '../../lib/formula.js';
+// `naming` question type — student widget and builder editor. Contract: js/views/qtypes/registry.js.
+import { h, formulaSpan } from '../../ui.js';
 import { registerTypeUI } from './registry.js';
 import { field } from '../admin/common.js';
-
-const formulaHtml = (text) => h('span', { class: 'formula', html: formulaToHTML(String(text ?? '')) });
 
 function widget(q, api) {
   const toFormula = q.direction === 'toFormula';
@@ -14,7 +11,7 @@ function widget(q, api) {
     const v = input.value.trim();
     preview.classList.toggle('is-empty', !v);
     if (!v) preview.textContent = 'Formatted preview appears here';
-    else preview.replaceChildren(formulaHtml(input.value));
+    else preview.replaceChildren(formulaSpan(input.value));
   };
   const input = h('input', {
     class: ['input', 'q-input', toFormula && 'q-input--formula'], type: 'text', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off',
@@ -25,7 +22,7 @@ function widget(q, api) {
   update();
   const given = h('p', { class: 'naming-prompt', dataset: { testid: 'naming-prompt' } },
     h('span', { class: 'naming-prompt__label' }, toFormula ? 'Name' : 'Formula'),
-    toFormula ? h('strong', { class: 'naming-prompt__value' }, q.prompt) : h('strong', { class: 'naming-prompt__value' }, formulaHtml(q.prompt)));
+    toFormula ? h('strong', { class: 'naming-prompt__value' }, q.prompt) : h('strong', { class: 'naming-prompt__value' }, formulaSpan(q.prompt)));
   return {
     el: h('div', { class: 'q-naming' },
       given,

@@ -1,4 +1,4 @@
-// Dashboard greetings (V4-01). One easy-to-edit list: add or change lines in SLOTS / DAYS / SPECIAL below.
+// Dashboard greetings. One easy-to-edit list: add or change lines in SLOTS / DAYS / SPECIAL below.
 // "{FirstName}" is replaced with the admin's first name; with no name the placeholder and its punctuation are dropped.
 // Pure and DOM-free: pickGreeting(date, firstName, rand) is unit-tested.
 
@@ -50,7 +50,7 @@ export const DAYS = {
 };
 
 /** Month/day specials (1-based month). Used instead of the normal pool on that day. */
-export const SPECIAL = [
+const SPECIAL = [
   { month: 10, day: 23, lines: ['Happy Mole Day, {FirstName}!', 'Happy Mole Day, {FirstName}! 6.02 × 10²³ greetings'] },
 ];
 

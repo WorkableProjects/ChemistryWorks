@@ -1,6 +1,6 @@
 {
   "name": "chemistryworks",
-  "version": "5.0.1",
+  "version": "6.0.0",
   "private": true,
   "description": "ChemistryWorks — serverless chemistry testing platform (static HTML on GitHub Pages + Google Apps Script).",
   "type": "module",
@@ -8,9 +8,21 @@
     "start": "node scripts/serve.mjs",
     "test": "node --test test/unit/*.test.mjs",
     "test:e2e": "node --test --test-concurrency=1 test/e2e/*.test.mjs",
+    "test:smoke": "node --test test/e2e/smoke.test.mjs",
     "test:all": "npm test && npm run test:e2e",
     "build:catalog": "node scripts/build-catalog.mjs",
+    "stamp:version": "node scripts/stamp-version.mjs && node scripts/build-sw-list.mjs",
+    "build:sw-list": "node scripts/build-sw-list.mjs",
+    "gas:push": "clasp push --force",
+    "gas:deploy": "clasp deploy -i \"$GAS_DEPLOYMENT_ID\" --description \"$npm_package_version\"",
     "validate:tests": "node scripts/validate-tests.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@google/clasp": "2.4.2",
+    "axe-core": "4.10.2",
+    "playwright": "1.63.0"
+  }
 }

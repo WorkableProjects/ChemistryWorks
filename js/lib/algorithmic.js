@@ -1,4 +1,4 @@
-// V4-09 algorithmic (randomized) questions — S10. Pure, no DOM, no eval / Function.
+// Algorithmic (randomized) questions. Pure, no DOM, no eval / Function.
 //
 // A question (numeric, sigfigs, dimensional or multipart) may carry
 //   variables: {
@@ -19,7 +19,7 @@ import { addInstantiateStep } from './instantiate-steps.js';
 import { CHEM_FUNCS, CHEM_CONSTANTS } from './chemfuncs.js';
 
 export const ALGORITHMIC_TYPES = ['numeric', 'sigfigs', 'dimensional', 'multipart'];
-export const MAX_FORMULA_CHARS = 400;
+const MAX_FORMULA_CHARS = 400;
 const MAX_DEPTH = 40;
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const own = (o, k) => o !== null && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
@@ -27,7 +27,7 @@ const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
 /** Names a variable may not use (functions and constants of the formula language). */
-export const RESERVED_NAMES = Object.freeze([...Object.keys(CHEM_FUNCS), ...Object.keys(CHEM_CONSTANTS)]);
+const RESERVED_NAMES = Object.freeze([...Object.keys(CHEM_FUNCS), ...Object.keys(CHEM_CONSTANTS)]);
 
 // ---------------------------------------------------------------------------------------------------------
 // Tokenizer + recursive-descent parser -> AST. Evaluation walks the AST; nothing is ever executed as code.
@@ -136,7 +136,7 @@ function needNumber(v, what) {
 }
 
 /** Evaluate an AST against `scope` ({ name: number | text }). Returns a number or text; throws Error on a bad value. */
-export function evaluateAst(ast, scope = {}) {
+function evaluateAst(ast, scope = {}) {
   switch (ast.t) {
     case 'num': case 'str': return ast.v;
     case 'var':
@@ -349,7 +349,7 @@ function validateVariableDefs(variables, where, errors) {
 }
 
 /** True when the question or one of its multipart parts uses algorithmic fields. */
-export const isAlgorithmic = (q) => isObj(q) && (isObj(q.variables) || (typeof q.answerFormula === 'string' && q.answerFormula.trim() !== '')
+const isAlgorithmic = (q) => isObj(q) && (isObj(q.variables) || (typeof q.answerFormula === 'string' && q.answerFormula.trim() !== '')
   || (Array.isArray(q.parts) && q.parts.some((p) => isObj(p) && (isObj(p.variables) || typeof p.answerFormula === 'string'))));
 
 /**

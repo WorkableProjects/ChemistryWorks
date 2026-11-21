@@ -1,13 +1,12 @@
-// XP, levels, badges, cosmetics, personal history and assigned-practice progress (V4-04). Local only: one localStorage
+// XP, levels, badges, cosmetics, personal history and assigned-practice progress. Local only: one localStorage
 // entry per student (`cw:xp:<email>`). The functions that change state are pure (state in, state out); loadXp / saveXp /
 // awardRound are the only ones that touch storage.
 
 import { load, save } from './storage.js';
-import { feature } from '../config.js';
 import { queueXp } from './sync.js';
 
 export const HISTORY_LIMIT = 10;
-export const ROUND_XP_CAP = 150;
+const ROUND_XP_CAP = 150;
 
 export const xpKey = (email) => `xp:${String(email || '').toLowerCase()}`;
 
@@ -26,7 +25,7 @@ export function levelInfo(totalXp) {
 }
 
 // ---------- badges ----------
-export const NOBLE_GASES = ['He', 'Ne', 'Ar', 'Kr', 'Xe'];
+const NOBLE_GASES = ['He', 'Ne', 'Ar', 'Kr', 'Xe'];
 
 /** Each badge: { id, title, text, test(state, round) }. `state` is already updated with the round. */
 export const BADGES = [
@@ -44,10 +43,13 @@ export const BADGES = [
   { id: 'level_5', title: 'Level 5', text: 'Reach level 5.', test: (s) => levelInfo(s.xp).level >= 5 },
 ];
 
+/** Badge ids the backend accepts (BADGE_IDS in apps-script/Code.gs must list the same ids). */
+export const BADGE_IDS = BADGES.map((b) => b.id);
+
 export const badgeInfo = (id) => BADGES.find((b) => b.id === id) || null;
 
 // ---------- cosmetics (the art is CSS / SVG in css/game.css; these are only the ids and unlock rules) ----------
-export const FLASKS = [
+const FLASKS = [
   { id: 'navy', label: 'Navy flask', level: 1 },
   { id: 'teal', label: 'Teal flask', level: 2 },
   { id: 'green', label: 'Green flask', level: 3 },
@@ -55,7 +57,7 @@ export const FLASKS = [
   { id: 'red', label: 'Red flask', level: 6 },
   { id: 'violet', label: 'Violet flask', level: 8 },
 ];
-export const FRAMES = [
+const FRAMES = [
   { id: 'plain', label: 'Plain frame', level: 1 },
   { id: 'double', label: 'Double frame', level: 2 },
   { id: 'dashed', label: 'Dashed frame', level: 3 },
@@ -200,7 +202,7 @@ export const saveXp = (email, state) => save(xpKey(email), normalizeXp(state));
 export function awardRound(email, round, now = Date.now()) {
   const res = recordRoundXp(loadXp(email), round, now);
   saveXp(email, res.state);
-  if (feature('studentHome') && (res.gained > 0 || res.newBadges.length)) {
+  if (res.gained > 0 || res.newBadges.length) {
     try { queueXp(email, { delta: res.gained, badges: res.newBadges, streakDays: res.state.dailyStreak }); } catch (e) { console.error(e); }
   }
   return res;

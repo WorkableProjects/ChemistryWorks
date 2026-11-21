@@ -1,4 +1,4 @@
-// Scientific calculator expression parser (V4-05). Hand-written recursive descent: no eval, no Function.
+// Scientific calculator expression parser. Hand-written recursive descent: no eval, no Function.
 //
 //   evaluate('2*(3+4)^2', { angle: 'rad', ans: 0 }) -> { ok: true, value: 98 } | { ok: false, error: 'message' }
 //   formatResult(1234.5678) -> '1234.5678';  formatResult(6.022e23) -> '6.022e+23'

@@ -1,4 +1,4 @@
-// Scientific calculator panel (V4-05) for the reference pane. Parsing lives in calc-parser.js (no eval).
+// Scientific calculator panel for the reference pane. Parsing lives in calc-parser.js (no eval).
 // calculatorPanel() -> HTMLElement
 
 import { h } from '../../ui.js';

@@ -1,4 +1,4 @@
-// `naming` question type (V4-03): name a compound from its formula, or write the formula from its name.
+// `naming` question type: name a compound from its formula, or write the formula from its name.
 // Pure module, no DOM. Answer shape: a string.
 //   { type: 'naming', direction: 'toName' | 'toFormula', prompt: 'CuSO4·5H2O' | 'copper(II) sulfate', answers: [accepted, ...] }
 import { registerType } from './registry.js';
@@ -47,6 +47,7 @@ export const def = {
   label: 'Name ↔ formula',
   shortLabel: 'Naming',
   group: 'Chemistry',
+  manual: false,
 
   normalize(q) {
     q.direction = DIRECTIONS.includes(q.direction) ? q.direction : 'toName';
@@ -70,12 +71,12 @@ export const def = {
 
   isAnswered: (q, answer) => typeof answer === 'string' && answer.trim() !== '',
 
-  score(q, answer) {
+  grade(q, answer) {
     const ok = namingMatches(q, answer);
     return { fraction: ok ? 1 : 0, full: ok };
   },
 
-  answerText: (q, answer) => (typeof answer === 'string' ? answer.trim() : ''),
+  format: (q, answer) => (typeof answer === 'string' ? answer.trim() : ''),
 
   keyText: (q) => (Array.isArray(q.answers) && q.answers.length ? q.answers.join(' / ') : '—'),
 

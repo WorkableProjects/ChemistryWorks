@@ -1,9 +1,10 @@
-// Appearance panel (V5-06, feature 'appearance'): theme, accent, custom colour, text size, density, reduce motion and a
+// Appearance panel (feature 'appearance'): theme, accent, custom colour, text size, density, reduce motion and a
 // dyslexia-friendly font. One component for student Settings, the profile page and admin Settings. Choices are saved on
 // this device at once and, for a signed-in student, through savePrefs() so they follow the student.
 
 import { h, icon } from '../ui.js';
 import { getUser } from '../lib/auth.js';
+import { ensureCss } from '../lib/css-loader.js';
 import { savePrefs, subscribeProfile } from '../lib/profile.js';
 import { fixAccent, contrastRatio, ON_LIGHT_ACCENT, ON_DARK_ACCENT, LIGHT_PAGE, DARK_PAGE } from '../lib/contrast.js';
 import {
@@ -39,6 +40,7 @@ function previewCard(theme, accent, on) {
 }
 
 export function appearancePanel({ user = getUser(), role = 'student' } = {}) {
+  ensureCss('appearance');
   const save = () => {
     if (!user) return;
     const custom = getCustomAccent();

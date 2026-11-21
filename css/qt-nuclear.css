@@ -1,0 +1,16 @@
+/* `nuclear` question type. */
+.q-nuclear { display: grid; gap: 12px; }
+.q-nuclear .q-hint { margin: 0; }
+.q-nuc__row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; border-radius: var(--radius); background: var(--bg-sunken); overflow-x: auto; }
+.q-nuc { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-weight: 600; }
+.q-nuc__nums { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.q-nuc:not(.q-nuc--blank) .q-nuc__nums { gap: 0; line-height: 1.1; font-size: 15px; color: var(--text-muted); }
+.q-nuc__sym { font-size: 26px; }
+.q-nuc__in { width: 3.6em; min-height: var(--touch, 44px); padding: 0 6px; text-align: center; font-family: var(--font-mono); font-weight: 600; }
+.q-nuc__in-sym { width: 4em; font-size: 22px; }
+.q-nuc__plus, .q-nuc__arrow { font-size: 24px; font-weight: 600; color: var(--text-muted); }
+.q-nuc__status.is-ok { color: var(--success-ink); }
+.q-nuc--sm .q-nuc__sym { font-size: 20px; }
+.q-nuc--sm.is-filled .q-nuc__sym { color: var(--primary-ink); text-decoration: underline; }
+.q-nuc-review { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.q-dim-ed__factor, .q-nuc-ed__particle { display: grid; gap: 10px; }

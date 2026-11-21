@@ -1,4 +1,4 @@
-// V4-02 question pools (S11). A section with `pool: { draw: N, tags?: [..] }` gives each student N of its questions,
+// Question pools. A section with `pool: { draw: N, tags?: [..] }` gives each student N of its questions,
 // drawn with the per-student seeded PRNG, so the same student gets the same questions on every device and in grading.
 // The drawn ids are recorded in test.instance.drawn (sent with the submission; the Submissions sheet keeps them).
 // Pure; registered as an instantiate step (js/lib/instantiate.js).
@@ -6,7 +6,7 @@
 import { addInstantiateStep } from './instantiate-steps.js';
 
 /** Questions of a section eligible for its pool (all of them, or those tagged with any of pool.tags). */
-export function poolCandidates(test, section) {
+function poolCandidates(test, section) {
   const qs = (test.questions || []).filter((q) => q && q.section === section.id);
   const tags = Array.isArray(section.pool?.tags) ? section.pool.tags.map((t) => String(t).toLowerCase()) : [];
   if (!tags.length) return qs;

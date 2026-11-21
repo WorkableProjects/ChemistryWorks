@@ -1,4 +1,4 @@
-// Student home (V5-02, behind feature('studentHome')). Paints from local data at once, then updates when the server answers.
+// Student home. Paints from local data at once, then updates when the server answers.
 // Order: header band (avatar, greeting, level ring, code field) -> Up next -> In progress -> Results -> Practice (side column on wide screens).
 // Contract testids: home, home-header, home-code-input, home-code-submit, up-next, continue-btn, in-progress, in-progress-<CODE>,
 // remove-attempt-<CODE>, results-list, practice-shelf, sync-chip.
@@ -14,7 +14,8 @@ import { modeById as getGame } from '../../lib/modes/index.js';
 import { paintHubUpNext, reminderBanner } from './upnext.js';
 import { calendarStrip } from './calendar.js';
 import { bell } from '../notifications.js';
-import { feature } from '../../config.js';
+import { killed } from '../../config.js';
+import { networkBanner } from '../tools/banner.js';
 import { elementTile, symbolOf, levelRing, trendLine, badgeShelf, syncChip, resultRow, modeLabel } from './parts.js';
 
 const section = (title, testid, ...body) => h('section', { class: 'home-section', 'aria-label': title, dataset: { testid } },
@@ -42,6 +43,9 @@ function attemptRow(ctx, user, a, i, repaint) {
 function mistakeRows(user, attempts) {
   return attempts.map((a) => ({ a, n: (load(progressKey(user.email, a.code), {}).wrong || []).length })).filter((x) => x.n > 0);
 }
+
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['home', 'hub', 'tools', 'game'];
 
 export function render(root, ctx, params = {}) {
   const user = getUser();
@@ -76,7 +80,7 @@ export function render(root, ctx, params = {}) {
       h('div', { class: 'home-header__code' }, form, err)),
     ringSlot);
 
-  const hubOn = feature('classHub');
+  const hubOn = !killed('classHub');
   const bellEl = hubOn ? bell(ctx, () => (profile && profile.hub) || null) : null;
   const upnext = h('div', { id: 'home-upnext', class: 'home-upnext-slot' });
   const inprog = h('div', { class: 'home-slot' });
@@ -89,7 +93,10 @@ export function render(root, ctx, params = {}) {
     h('a', { href: '?admin=true', class: 'btn btn--subtle btn--sm', dataset: { testid: 'admin-link' } }, icon('home', { size: 16 }), 'Teacher'),
     hubOn ? bellEl : null, themeControl());
 
-  const main = h('main', { class: 'home', dataset: { testid: 'home' } }, topbar, header,
+  // Offline / "a submission is waiting to be sent" banner, with Send now.
+  const banner = networkBanner({ config: ctx.config });
+
+  const main = h('main', { class: 'home', dataset: { testid: 'home' } }, topbar, banner ? banner.el : null, header,
     h('div', { class: 'home-grid' },
       h('div', { class: 'home-main' }, upnext, inprog, results),
       h('aside', { class: 'home-side' }, practice)));
@@ -181,5 +188,5 @@ export function render(root, ctx, params = {}) {
     const idle = !document.activeElement || document.activeElement === document.body;
     if (idle && !document.querySelector('#modal-root .modal-overlay')) input.focus();
   }, 60);
-  return () => { offSync(); offProfile(); };
+  return () => { offSync(); offProfile(); banner?.destroy(); };
 }

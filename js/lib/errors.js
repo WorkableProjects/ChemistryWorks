@@ -1,12 +1,14 @@
-// Client error reporting (V4-08, S17). Off unless the backend's Settings say errorReports = on (the backend refuses
+// Client error reporting. Off unless the backend's Settings say errorReports = on (the backend refuses
 // otherwise). Never sends answers or test content: only the message, a short stack, the page (no query string) and the
 // browser. Rate-limited: at most 5 reports per page load and one per 10 seconds.
 import { publicCall } from './api.js';
+import { load, save } from './storage.js';
+import { getIdToken } from './auth.js';
 
 export const LIMITS = { perPage: 5, gapMs: 10000 };
 
 /** Remove anything that could hold student input (quoted strings, JSON, emails) and cap the length. */
-export function scrub(text, max = 500) {
+function scrub(text, max = 500) {
   return String(text || '')
     .replace(/"[^"]{0,200}"|'[^']{0,200}'/g, '"…"')
     .replace(/\{[\s\S]{0,400}\}/g, '{…}')
@@ -14,7 +16,23 @@ export function scrub(text, max = 500) {
     .slice(0, max);
 }
 
-export function makeLimiter({ perPage = LIMITS.perPage, gapMs = LIMITS.gapMs } = {}) {
+/** A random id for this browser, kept in local storage, so the backend can rate-limit reports per sender. */
+export function clientId() {
+  let id = load('clientId', '');
+  if (typeof id === 'string' && /^[0-9a-z-]{8,64}$/i.test(id)) return id;
+  try { id = globalThis.crypto.randomUUID(); } catch { id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`; }
+  save('clientId', id);
+  return id;
+}
+
+/** The identity fields a reportError body carries: always a clientId, plus the ID token when signed in with Google. */
+export function reportIdentity() {
+  let idToken = null;
+  try { idToken = getIdToken(); } catch { idToken = null; }
+  return { clientId: clientId(), ...(idToken ? { idToken } : {}) };
+}
+
+function makeLimiter({ perPage = LIMITS.perPage, gapMs = LIMITS.gapMs } = {}) {
   let count = 0; let last = -Infinity;
   return (now = Date.now()) => {
     if (count >= perPage || now - last < gapMs) return false;
@@ -28,7 +46,7 @@ export function installErrorReporting(config) {
   let disabled = false;
   const send = (message, detail) => {
     if (disabled || !allow()) return;
-    publicCall('reportError', { message: scrub(message), detail: scrub(detail, 1500), page: location.pathname, browser: navigator.userAgent.slice(0, 160) }, { gasUrl: config.GAS_WEB_APP_URL })
+    publicCall('reportError', { message: scrub(message), detail: scrub(detail, 1500), page: location.pathname, browser: navigator.userAgent.slice(0, 160), ...reportIdentity() }, { gasUrl: config.GAS_WEB_APP_URL })
       .then((r) => { if (!r.ok && (r.unavailable || r.error === 'error_reports_off')) disabled = true; });
   };
   const onError = (e) => send(e.message || 'Error', e.error && e.error.stack);

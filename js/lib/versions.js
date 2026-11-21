@@ -1,4 +1,4 @@
-// Duplicate and "Version B" helpers for the library (V4-02). Pure: no DOM, no storage.
+// Duplicate and "Version B" helpers for the library. Pure: no DOM, no storage.
 //   suggestCopyCode(code, existing)   CODE -> CODE-2 (next free), checked against every code in the library
 //   duplicateTest(test, code)         deep copy under a new code
 //   versionTest(test, opts)           same test, questions and answer options shuffled by a fixed seed, code CODE-B
@@ -7,7 +7,7 @@
 import { seededShuffle } from '../ui.js';
 import { groupQuestions } from './sections.js';
 
-export const MAX_CODE_LENGTH = 32;
+const MAX_CODE_LENGTH = 32;
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const upper = (s) => String(s ?? '').trim().toUpperCase();
 

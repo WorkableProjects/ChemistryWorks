@@ -1,4 +1,4 @@
-// `estimate` question type (V4-03, S10): the student sets a slider (and may type the number) to estimate a quantity.
+// `estimate` question type: the student sets a slider (and may type the number) to estimate a quantity.
 // Pure definition, no DOM.
 //   { type: 'estimate', min: 0, max: 14, step: 0.1, answer: 7, tolerance: 0.5, toleranceType: 'absolute'|'percent', unit: 'pH' }
 //   Answer: a number (text from the readout box is accepted and parsed).
@@ -22,6 +22,7 @@ export const def = {
   label: 'Estimate on a slider',
   shortLabel: 'Estimate',
   group: 'Chemistry',
+  manual: false,
 
   normalize(q) {
     for (const k of ['min', 'max', 'step', 'answer', 'tolerance']) q[k] = num(q[k]);
@@ -49,12 +50,12 @@ export const def = {
 
   isAnswered: (q, answer) => Number.isFinite(parseNum(answer)),
 
-  score(q, answer) {
+  grade(q, answer) {
     const ok = withinTolerance(parseNum(answer), Number(q.answer), q.tolerance, q.toleranceType);
     return { fraction: ok ? 1 : 0, full: ok };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     const x = parseNum(answer);
     return Number.isFinite(x) ? `${formatEstimate(q, x)}${q.unit ? ` ${q.unit}` : ''}` : DASH;
   },

@@ -13,7 +13,7 @@ const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const round2 = (x) => Math.round(x * 100) / 100;
 
 /** Section ids of the test (a Set), ignoring malformed entries. */
-export function sectionIds(test) {
+function sectionIds(test) {
   return new Set((Array.isArray(test?.sections) ? test.sections : []).filter(isObj).map((s) => String(s.id)));
 }
 
@@ -102,7 +102,7 @@ export function referenceTitle(ref) {
  * Turn common share links into direct image links: http -> https, Google Drive file links -> the Drive thumbnail
  * endpoint (works for files shared "Anyone with the link"), Dropbox ?dl=0 -> ?raw=1. Anything else is returned trimmed.
  */
-export function normalizeImageUrl(url) {
+function normalizeImageUrl(url) {
   let s = String(url ?? '').trim();
   if (!s) return '';
   if (/^http:\/\//i.test(s)) s = `https://${s.slice(7)}`;

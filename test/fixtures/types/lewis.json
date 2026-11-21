@@ -1,0 +1,23 @@
+{
+  "question": {
+    "type": "lewis",
+    "text": "Draw the Lewis dot diagram for oxygen.",
+    "points": 1,
+    "element": "O",
+    "correctAnswer": 6,
+    "checkPlacement": true,
+    "id": "lewis-1"
+  },
+  "correct": [
+    2,
+    2,
+    1,
+    1
+  ],
+  "wrong": [
+    1,
+    0,
+    0,
+    0
+  ]
+}

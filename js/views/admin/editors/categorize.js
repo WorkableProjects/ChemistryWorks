@@ -1,4 +1,4 @@
-// Builder editor for `categorize` (V3-05): the groups, then the items with the group each one belongs to.
+// Builder editor for `categorize`: the groups, then the items with the group each one belongs to.
 import { h, icon } from '../../../ui.js';
 import { field, switchEl, iconButton } from '../common.js';
 
@@ -54,3 +54,5 @@ export function categorizeEditor(q, redraw, changed) {
       } } }, icon('plus', { size: 16 }), 'Add item'),
       switchEl({ label: 'Partial credit', hint: 'Points for each item put in the right group', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } })));
 }
+
+export default { type: 'categorize', edit: ({ q, redraw, changed }) => categorizeEditor(q, redraw, changed) };

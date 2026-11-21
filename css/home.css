@@ -1,4 +1,4 @@
-/* Student home + profile (V5-02). Quiet neutral page; the level ring is the one moment. Tokens only. */
+/* Student home + profile. Quiet neutral page; the level ring is the one moment. Tokens only. */
 
 .home { max-width: 1120px; margin: 0 auto; padding: var(--space-5) var(--space-5) var(--space-7); display: flex; flex-direction: column; gap: var(--space-5); }
 @media (min-width: 960px) { .home { padding: var(--space-6) var(--space-6) var(--space-7); } }
@@ -94,7 +94,8 @@
 /* Badges shelf */
 .badge-shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: var(--space-3); }
 .badge { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); text-align: center; }
-.badge.is-locked { opacity: 0.4; }
+.badge.is-locked .el-tile { border-style: dashed; background: var(--bg-sunken); color: var(--text-muted); }
+.badge.is-locked .el-tile__n { color: var(--text-muted); }
 .badge__name { font-size: 12px; color: var(--text-muted); line-height: 1.3; }
 
 /* Profile */

@@ -1,4 +1,4 @@
-// Per-student test instance (V4-09 algorithmic variables, V4-02 question pools). Pure, no DOM.
+// Per-student test instance (algorithmic variables, question pools). Pure, no DOM.
 // The runner never sees the raw test: js/app.js openTest() calls instantiateTest() with the signed-in student's email,
 // so every device (and the admin "Preview as student" with a fake email) gets the same numbers and the same drawn questions.
 //
@@ -7,17 +7,17 @@
 //                                              test.instance = { seed, drawn?: [questionIds] , ... } for the payload.
 // Steps register with addInstantiateStep(name, fn) from './instantiate-steps.js': fn(testCopy, { seed, email, rand })
 // mutates the copy; rand = seeded PRNG (0..1) made per step from seed + name, so steps stay independent.
-// './algorithmic.js' (S10) and './pools.js' (S11) register themselves when imported below.
+// './algorithmic.js' and './pools.js' register themselves when imported below.
 
 import { instantiateSteps } from './instantiate-steps.js';
 
 export { addInstantiateStep } from './instantiate-steps.js';
 
-export function studentSeed(email, code) {
+function studentSeed(email, code) {
   return `${String(email || '').trim().toLowerCase()}|${String(code || '').trim().toUpperCase()}`;
 }
 
-export function seededRandom(seedString) {
+function seededRandom(seedString) {
   let seed = 2166136261;
   for (const ch of String(seedString)) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
   return () => {

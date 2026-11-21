@@ -15,7 +15,7 @@ const errsOf = (t) => validateTest(t).errors;
 const has = (errors, re) => assert.ok(errors.some((e) => re.test(e)), `expected /${re}/ in ${JSON.stringify(errors)}`);
 
 test('constants', () => {
-  // Built-in types first, then the v4 types from the registry (js/lib/qtypes/registry.js, shown when FEATURES.v4Types is on).
+  // Built-in types first, then the v4 types from the registry (js/lib/qtypes/registry.js).
   assert.deepEqual(QUESTION_TYPES.slice(0, 20), ['mcq', 'multi', 'numeric', 'formula', 'truefalse', 'matching', 'ordering', 'fillblank', 'lewis', 'structure', 'orbital', 'short', 'open', 'balance', 'econfig', 'ptable', 'sigfigs', 'categorize', 'hotspot', 'graph']);
   for (const t of QUESTION_TYPES.slice(20)) assert.ok(registeredTypes().includes(t), `${t} is registered`);
   for (const t of QUESTION_TYPES) assert.equal(typeof TYPE_LABELS[t], 'string');

@@ -1,4 +1,4 @@
-// `imagechoice` question type (V4-03, S10): pick the picture(s) that answer the question. Pure definition, no DOM.
+// `imagechoice` question type: pick the picture(s) that answer the question. Pure definition, no DOM.
 //   { type: 'imagechoice', multiple: false, options: [{ id: 'a', text?: 'caption', image: { url, alt } }, ...],
 //     correctAnswer: 'a' (single) | ['a', 'c'] (multiple), partialCredit: false (multiple only) }
 //   Answer: an option id (single) or an array of option ids (multiple). Every option needs a picture with alt text.
@@ -21,6 +21,7 @@ export const def = {
   label: 'Picture choice',
   shortLabel: 'Picture choice',
   group: 'Diagrams & graphs',
+  manual: false,
 
   normalize(q) {
     q.multiple = Boolean(q.multiple);
@@ -70,7 +71,7 @@ export const def = {
 
   isAnswered: (q, answer) => (q.multiple ? Array.isArray(answer) && answer.length > 0 : typeof answer === 'string' && answer !== ''),
 
-  score(q, answer) {
+  grade(q, answer) {
     const key = new Set(idsOf(q.correctAnswer));
     if (!key.size) return { fraction: 0, full: false };
     if (!q.multiple) return typeof answer === 'string' && key.has(answer) ? { fraction: 1, full: true } : { fraction: 0, full: false };
@@ -84,7 +85,7 @@ export const def = {
     return { fraction: 0, full: false };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     const by = new Map(optionsOf(q).map((o) => [String(o.id), o]));
     const names = idsOf(answer).map((id) => (by.has(id) ? optionName(by.get(id)) : id));
     return names.length ? names.join('; ') : DASH;

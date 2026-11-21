@@ -7,17 +7,17 @@
 //   game     params: { test, source }     (single-player practice; never submits)
 //   runner   params: { test, source, preview?: boolean }
 //   results  params: { test, grade, payload, submission, preview?: boolean }
-//   feedback params: { payload } (a past submission from getLocalResults()) | { test, source, status, canRetake, practiceOnly } (V3-01)
-//   submitted params: { test, source, status, canRetake }  (V3-01/02: submitted, not released yet)
+// feedback params: { payload } (a past submission from getLocalResults()) | { test, source, status, canRetake, practiceOnly }
+// submitted params: { test, source, status, canRetake } (submitted, not released yet)
 //   admin    params: {}
 //
 // URL state: ?code=CHEM101 (or /test?code=CHEM101) opens a test; ?admin=true opens the admin panel.
 
-import { CONFIG, feature } from './config.js';
+import { CONFIG, killed } from './config.js';
 import { clearStore } from './lib/store.js';
 import { getUser, signOut, onAuthChange, googleConfigured, renderGoogleButton, getIdToken, getFreshIdToken } from './lib/auth.js';
 import { whoAmI } from './lib/api.js';
-import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed } from './lib/admin-session.js';
+import { confirmedAdminEmail, setAdminConfirmed, clearAdminConfirmed, demoAdminAllowed } from './lib/admin-session.js';
 import { checkBackendVersion, versionBanner } from './lib/version-check.js';
 import { loadTest, normalizeCode } from './lib/tests.js';
 import { instantiateTest } from './lib/instantiate.js';
@@ -26,9 +26,11 @@ import { installErrorReporting } from './lib/errors.js';
 import { load, save } from './lib/storage.js';
 import { h, mount, icon, openModal, toast, viewTransition, flaskLoader } from './ui.js';
 import { checkSubmissionState } from './lib/student-status.js';
+import { preloadQuestionTypes } from './lib/qtypes/registry.js';
+import { ensureCss, pendingCss } from './lib/css-loader.js';
 import { applyRole } from './lib/theme.js';
 import * as landing from './views/landing.js';
-import * as runner from './views/runner.js';
+import * as runner from './views/runner/index.js';
 import * as results from './views/results.js';
 import * as feedback from './views/feedback.js';
 import * as submitted from './views/submitted.js';
@@ -51,9 +53,7 @@ const resolveView = (view) => loaded.get(view) || VIEWS[view];
 
 function setUrl(params) {
   const url = new URL(location.href);
-  const features = url.searchParams.get('features'); // keep ?features= (V4-08 flags) across navigation
   url.search = '';
-  if (features) url.searchParams.set('features', features);
   for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, v);
   if (url.pathname.endsWith('/test') && !params.code) url.pathname = url.pathname.replace(/test$/, '');
   history.replaceState(null, '', url);
@@ -96,10 +96,18 @@ function navigate(view, params = {}) {
     if (seq !== navSeq) return; // a newer navigation won the race
     const res = resolveView(view).render(root, ctx, params);
     cleanup = typeof res === 'function' ? res : null;
+    announceView(view, params, seq);
   };
   const start = () => {
     if (seq !== navSeq) return;
-    transition();
+    // The view's stylesheets, and for a view that draws questions the UI module and stylesheets of each question type,
+    // load before the first render (each is null when everything is loaded already, so the render stays synchronous).
+    const mod = resolveView(view);
+    const sheets = pendingCss(typeof mod.styles === 'function' ? mod.styles(params) : mod.styles || []);
+    const types = preloadQuestionTypes(params.test?.questions);
+    const waits = [sheets, types].filter(Boolean);
+    if (waits.length) Promise.all(waits).then(() => { if (seq === navSeq) transition(); });
+    else transition();
   };
   const transition = () => {
   root.classList.remove('view-enter');
@@ -125,19 +133,53 @@ function navigate(view, params = {}) {
   }
 }
 
+// The view's title element: an <h1>, or for views whose heading is another element (runner bar, admin) the one
+// marked data-view-title, or the first <h2>.
+const titleEl = () => root.querySelector('h1, [data-view-title], h2');
+
+function viewAnnouncement(view, params, el) {
+  const test = params.test;
+  if ((view === 'runner' || view === 'game') && test?.title) {
+    const n = Array.isArray(test.questions) ? test.questions.length : 0;
+    return `${view === 'game' ? 'Game' : 'Test'}: ${test.title}${n ? `, ${n} question${n === 1 ? '' : 's'}` : ''}`;
+  }
+  return (el?.textContent || '').trim() || document.title;
+}
+
+/** Announce the new view in the polite live region and move focus to its title (unless the view already took focus). */
+function announceView(view, params, seq) {
+  const live = document.getElementById('view-announcer');
+  let tries = 0;
+  const attempt = () => {
+    if (seq !== navSeq) return;
+    const el = titleEl();
+    if (!el && tries++ < 30) { setTimeout(attempt, 50); return; }
+    if (el) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      const active = document.activeElement;
+      if (!active || active === document.body || !active.isConnected || !root.contains(active)) el.focus({ preventScroll: true });
+    }
+    if (live) {
+      live.textContent = '';
+      setTimeout(() => { if (seq === navSeq) live.textContent = viewAnnouncement(view, params, el); }, 30);
+    }
+  };
+  attempt();
+}
+
 /** Load a test by code and open it in the runner (student mode). Errors return to landing. */
 async function openTest(code, opts = {}) {
   const c = normalizeCode(code);
   try {
     const idToken = ctx.user?.provider === 'google' ? getIdToken() : null;
     const loaded = await loadTest(c, { config: CONFIG, idToken });
-    // V4-09 / V4-02: per-student instance (randomized numbers, drawn pool questions), stable across devices.
+    // Per-student instance (randomized numbers, drawn pool questions), stable across devices.
     let test = instantiateTest(loaded.test, { email: ctx.user?.email || '' });
     const { source } = loaded;
-    // V3-01 / V3-02: ask the backend whether this student already submitted (fails open when unavailable).
+    // Ask the backend whether this student already submitted (fails open when unavailable).
     mount(root, h('div', { class: 'status-check' }, flaskLoader({ size: 88, label: 'Checking your submission…', testid: 'submission-status-check' })));
     const state = await checkSubmissionState(ctx, test);
-    // V4-02 S11/S12: roster-only and the open/close window (server state wins: it knows this student's extension).
+    // Roster-only and the open/close window (server state wins: it knows this student's extension).
     if (state.roster && state.roster.required && state.roster.ok === false) return navigate('unavailable', { reason: 'not_on_roster', title: test.title, code: test.code });
     const win = state.window || windowState(test, state.accommodations);
     if (win.state === 'before') return navigate('unavailable', { reason: 'not_open', title: test.title, opensAt: win.opensAt, code: test.code });
@@ -159,12 +201,9 @@ async function openTest(code, opts = {}) {
     if (showNotice) return navigate('submitted', { test, source, status: state, canRetake });
     // Only tests that explicitly opt in (gameMode === true) offer the Study / Game choice.
     // `cleared` marks that this student passed the submission check (required for single-submission tests).
-    // V5-01: no chooser page — the runner header has the mode switcher. Resume in the mode used last.
-    if (feature('v5Attempt')) {
-      const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode (V5-10)
-      if (feature('v5Games') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
-      return navigate('runner', { test, source, cleared: true });
-    }
+    // No chooser page — the runner header has the mode switcher. Resume in the mode used last.
+    const last = opts.mode || load(`progress:${ctx.user?.email}:${test.code}`, null)?.lastMode; // opts.mode: an assignment's allowed mode
+    if (!killed('gameModes') && test.gameMode === true && last && last !== 'study') return navigate('game', { test, source, gameId: last, cleared: true });
     navigate('runner', { test, source, cleared: true });
   } catch (err) {
     if (['not_open', 'closed', 'not_on_roster'].includes(err.code)) return navigate('unavailable', { reason: err.code, title: err.title, opensAt: err.opensAt, closesAt: err.closesAt, code: c });
@@ -179,7 +218,7 @@ function openAdmin() {
 }
 
 async function runVersionCheck() {
-  if (!feature('adminAccounts') || !CONFIG.GAS_WEB_APP_URL) return; // behind the flag until the v4 backend is the norm
+  if (!CONFIG.GAS_WEB_APP_URL) return;
   const info = await checkBackendVersion({ gasUrl: CONFIG.GAS_WEB_APP_URL });
   if (!info.outdated) return;
   for (let i = 0; i < 40 && !(currentView === 'admin' && loaded.has('admin') && root.firstChild); i++) await new Promise((r) => setTimeout(r, 50));
@@ -189,12 +228,11 @@ async function runVersionCheck() {
 
 let adminGateBusy = false; // true while the Google admin sign-in modal is open (the landing sign-in toast stays quiet)
 
-// V4-07: the signed-in Google user is the admin. Falls back to the access-code flow when the flag is off,
-// Google or the backend is not configured, the user is not signed in (offered a Google button + a code link),
-// or the account is not on the Admins list.
+// Admin = a Google account on the Admins sheet (confirmed by `whoami`). With no GOOGLE_CLIENT_ID (local dev, e2e)
+// the demo admin opens the panel directly; demoAdminAllowed() is false as soon as a client ID is set.
 async function adminGate() {
-  if (load('adminUnlocked', false, 'session')) return openAdmin();
-  if (!feature('adminAccounts') || !googleConfigured(CONFIG) || !CONFIG.GAS_WEB_APP_URL) return accessCodeGate();
+  if (demoAdminAllowed(CONFIG)) return openAdmin();
+  if (!CONFIG.GAS_WEB_APP_URL) return googleGateModal({ notice: 'Admin sign-in needs the Apps Script backend. Set GAS_WEB_APP_URL in js/config.js.' });
   if (confirmedAdminEmail()) return openAdmin();
 
   const u = getUser();
@@ -207,12 +245,16 @@ async function adminGate() {
         return openAdmin();
       }
       clearAdminConfirmed();
-      return googleGateModal({ notice: res.error === 'not_admin'
-        ? `${u.email} is not on the admin list. Ask an owner to add you, or use the access code.`
-        : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.` });
+      return googleGateModal({ notice: gateNotice(res, u.email) });
     }
   }
   return googleGateModal({});
+}
+
+function gateNotice(res, email) {
+  return res.error === 'not_admin'
+    ? `${email} is not on the admin list. Ask an owner to add you.`
+    : `Could not confirm admin access (${res.error || 'no response'}). Try signing in again.`;
 }
 
 function googleGateModal({ notice = '' }) {
@@ -224,12 +266,11 @@ function googleGateModal({ notice = '' }) {
   const done = () => { adminGateBusy = false; off(); };
   const m = openModal({
     title: 'Admin access', testid: 'admin-gate', onClose: done,
-    body: h('div', { class: 'stack' }, msgEl, buttonHost,
-      h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'admin-use-code' }, on: { click: () => { m.close(); accessCodeGate(); } } }, 'Use access code instead')),
+    body: h('div', { class: 'stack' }, msgEl, buttonHost),
     actions: [{ label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } }],
   });
   const confirm = async (user) => {
-    if (!user || user.provider !== 'google') return;
+    if (!user || user.provider !== 'google' || !CONFIG.GAS_WEB_APP_URL) return;
     msgEl.className = 'muted';
     msgEl.textContent = 'Checking your admin access…';
     const token = user.idToken || await getFreshIdToken();
@@ -240,41 +281,10 @@ function googleGateModal({ notice = '' }) {
       return openAdmin();
     }
     msgEl.className = 'field-error';
-    msgEl.textContent = res.error === 'not_admin'
-      ? `${user.email} is not on the admin list. Ask an owner to add you, or use the access code.`
-      : `Could not confirm admin access (${res.error || 'no response'}). You can use the access code instead.`;
+    msgEl.textContent = gateNotice(res, user.email);
   };
   off = onAuthChange(confirm);
   renderGoogleButton(buttonHost, CONFIG, { onError: (e) => { msgEl.className = 'field-error'; msgEl.textContent = e; } });
-}
-
-function accessCodeGate() {
-  if (load('adminUnlocked', false, 'session')) return openAdmin();
-  const input = h('input', { class: 'input', type: 'password', placeholder: 'Admin access code', autocomplete: 'off', dataset: { testid: 'admin-code-input' } });
-  const err = h('p', { class: 'field-error', role: 'alert' });
-  const tryUnlock = (close) => {
-    if (input.value === CONFIG.ADMIN_ACCESS_CODE) {
-      save('adminUnlocked', true, 'session');
-      close();
-      openAdmin();
-    } else {
-      err.textContent = 'Incorrect access code.';
-      input.classList.add('shake');
-      setTimeout(() => input.classList.remove('shake'), 400);
-    }
-  };
-  navigate('landing');
-  const m = openModal({
-    title: 'Admin access',
-    testid: 'admin-gate',
-    body: h('form', { class: 'stack', on: { submit: (e) => { e.preventDefault(); tryUnlock(m.close); } } },
-      h('p', { class: 'muted' }, 'Enter the admin access code to build tests and grade submissions.'), input, err),
-    actions: [
-      { label: 'Cancel', variant: 'ghost', onClick: (close) => { close(); } },
-      { label: 'Unlock', variant: 'primary', testid: 'admin-unlock', onClick: (close) => tryUnlock(close) },
-    ],
-  });
-  setTimeout(() => input.focus(), 50);
 }
 
 function start() {
@@ -284,8 +294,8 @@ function start() {
   if (params.get('admin') === 'true') return adminGate();
 
   if (code && getUser()) return openTest(code);
-  if (params.get('view') === 'profile' && getUser() && feature('studentHome')) return navigate('profile');
-  if (params.get('view') === 'class' && params.get('id') && getUser() && feature('classHub')) return navigate('class', { id: params.get('id') });
+  if (params.get('view') === 'profile' && getUser()) return navigate('profile');
+  if (params.get('view') === 'class' && params.get('id') && getUser() && !killed('classHub')) return navigate('class', { id: params.get('id') });
   navigate('landing', { code: code ? normalizeCode(code) : undefined });
 }
 
@@ -299,6 +309,7 @@ onAuthChange((user) => {
 });
 
 window.addEventListener('error', (e) => console.error('[ChemistryWorks]', e.error || e.message));
-// V4-08: opt-in error reports (the backend refuses them unless Settings > Error reports is on).
+// Opt-in error reports (the backend refuses them unless Settings > Error reports is on).
 if (!navigator.webdriver) installErrorReporting(CONFIG);
+ensureCss('print', { media: 'print' }); // never blocks rendering; the export and print views rely on it
 start();

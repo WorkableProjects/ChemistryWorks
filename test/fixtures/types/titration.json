@@ -1,0 +1,35 @@
+{
+  "question": {
+    "id": "titration-1",
+    "type": "titration",
+    "text": "Titrate 25.0 mL of 0.100 M acetic acid with 0.100 M NaOH. Record the equivalence-point volume and the pH there.",
+    "points": 3,
+    "analyte": {
+      "type": "acid",
+      "kind": "weak",
+      "conc": 0.1,
+      "volumeMl": 25,
+      "K": 0.000018
+    },
+    "titrant": {
+      "conc": 0.1
+    },
+    "ask": "both",
+    "volumeTolerance": 0.5,
+    "phTolerance": 0.3,
+    "partialCredit": true,
+    "explanation": "Equal moles of acid and base: 25.0 mL. The acetate ion is a weak base, so the pH is above 7 (about 8.72)."
+  },
+  "correct": {
+    "volume": "25.0",
+    "ph": "8.72"
+  },
+  "wrong": {
+    "volume": "10",
+    "ph": "3"
+  },
+  "partial": {
+    "volume": "25.0",
+    "ph": "3"
+  }
+}

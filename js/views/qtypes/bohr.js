@@ -1,7 +1,8 @@
-// `bohr` question type (V5-07, S12a) — student widget, builder editor and review.
+// `bohr` question type — student widget, builder editor and review.
 // Answer: { shells: [n1, n2, n3, n4] }; see js/lib/qtypes/bohr.js.
 import { h, icon } from '../../ui.js';
 import { registerTypeUI } from './registry.js';
+import { escapeHtml } from '../../lib/html.js';
 import { field, switchEl } from '../admin/common.js';
 import { ELEMENTS } from '../../lib/elements.js';
 import { def, MODES, MODE_LABELS, MAX_ELECTRONS, SHELL_SLOTS, CAPACITY, elementOf, keyOf } from '../../lib/qtypes/bohr.js';
@@ -19,11 +20,12 @@ function toState(a) {
   });
 }
 
-/** Shell diagram as SVG markup. Only numbers and element symbols go in, so no user text is injected. */
+/** Shell diagram as SVG markup. Counts are coerced to numbers and the symbol is escaped. */
 function diagram(counts, symbol) {
   const rings = RADII.map((r) => `<circle class="bh-ring" cx="100" cy="100" r="${r}"/>`).join('');
   const dots = [];
-  counts.forEach((count, i) => {
+  counts.forEach((raw, i) => {
+    const count = Number.isFinite(Number(raw)) ? Math.max(0, Math.min(Math.floor(Number(raw)), 32)) : 0;
     for (let k = 0; k < count; k++) {
       const a = -Math.PI / 2 + (2 * Math.PI * k) / count;
       const x = (100 + RADII[i] * Math.cos(a)).toFixed(1);
@@ -31,7 +33,7 @@ function diagram(counts, symbol) {
       dots.push(`<circle class="bh-dot" cx="${x}" cy="${y}" r="4.5"/>`);
     }
   });
-  const label = symbol ? `<text class="bh-sym" x="100" y="106" text-anchor="middle">${symbol}</text>` : '';
+  const label = symbol ? `<text class="bh-sym" x="100" y="106" text-anchor="middle">${escapeHtml(symbol)}</text>` : '';
   return `<svg class="bh-svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">`
     + `<circle class="bh-nucleus" cx="100" cy="100" r="20"/>${label}${rings}${dots.join('')}</svg>`;
 }

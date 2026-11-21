@@ -1,4 +1,4 @@
-// `multipart` question type (V4-03) — student widget (each part's own widget under one stem) and builder editor.
+// `multipart` question type — student widget (each part's own widget under one stem) and builder editor.
 // buildWidget / typeEditor are imported from modules that import this one, but only called at render time (safe cycle).
 import { h, richText } from '../../ui.js';
 import { isAnswered } from '../../lib/grading.js';

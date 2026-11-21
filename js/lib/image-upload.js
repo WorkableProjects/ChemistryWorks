@@ -2,7 +2,7 @@
 // JSON (published tests are stored in one Google Sheet cell, 49,000 characters max for the whole test).
 // The picture is drawn on a canvas, scaled down and re-encoded (WebP, falling back to JPEG) until it fits the budget.
 
-export const IMAGE_BUDGET_CHARS = 30000;
+const IMAGE_BUDGET_CHARS = 30000;
 const MAX_SIDE = 1200;
 const MIN_SIDE = 240;
 

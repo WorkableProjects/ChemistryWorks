@@ -1,4 +1,4 @@
-// `datatable` question type (V4-03): complete the table. Pure definition, no DOM.
+// `datatable` question type: complete the table. Pure definition, no DOM.
 //   Question: { columns: [{ id, label, type: 'number'|'text', tolerance?, formula? }],
 //               rows: [{ id, label?, cells: { colId: { value, given } } }] }
 //   Answer:   { rowId: { colId: 'typed text' } } for the cells that are not given. One point share per blank cell.
@@ -118,8 +118,8 @@ const def = {
   isAnswered(q, answer) {
     return isObj(answer) && Object.values(answer).some((r) => isObj(r) && Object.values(r).some((v) => str(v).trim() !== ''));
   },
-  score,
-  answerText: (q, answer) => (isObj(answer) ? listText(q, (c) => typedOf(answer, c.row.id, c.col.id)) : ''),
+  grade: score,
+  format: (q, answer) => (isObj(answer) ? listText(q, (c) => typedOf(answer, c.row.id, c.col.id)) : ''),
   keyText: (q) => listText(q, (c) => c.expected),
   correctAnswer(q) {
     const out = {};

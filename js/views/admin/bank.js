@@ -1,4 +1,4 @@
-// Admin › Question bank (V4-02, S11): questions shared by all admins on this deployment, with tags (topic, unit,
+// Admin › Question bank: questions shared by all admins on this deployment, with tags (topic, unit,
 // difficulty, NGSS). Search, filter, preview, insert a copy into the builder test, import every question of a test,
 // edit tags, delete. Edits record who and when (Bank sheet).
 import { h, mount, icon, toast, openModal, richText, renderMath } from '../../ui.js';
@@ -8,7 +8,7 @@ import { resource } from '../../lib/store.js';
 import { TYPE_LABELS, nextQuestionId } from '../../lib/schema.js';
 import { loadTest } from '../../lib/tests.js';
 import { field, emptyState, skeleton, fmtDate } from './common.js';
-import { getBuilderTest, setBuilderTest } from './builder.js';
+import { getBuilderTest, setBuilderTest } from './builder/index.js';
 
 const TAGS = ['topic', 'unit', 'difficulty', 'ngss'];
 

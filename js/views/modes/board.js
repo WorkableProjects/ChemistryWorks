@@ -1,6 +1,6 @@
 // Shared loop for board modes (Quiz show, Bingo): an intro card, a board where the student picks a tile, the question
 // (the runner widget, so every answer goes through `attempt.set`), a feedback card, then back to the board.
-// boardPlay(host, attempt, ctx, { mode, ids, lead, notes, board, hud?, step }) -> { destroy() }
+// boardPlay(host, attempt, ctx, { mode, ids, lead, notes, board, hud?, step }) -> cleanup()
 //   board: (pick, resolved:Set) => Node       draws the board; call pick(questionId) from a tile
 //   hud:   () => [{ testid, text, fig? }]
 //   step:  (q, outcome) => { points, lines, over }   called once per answered tile
@@ -88,5 +88,5 @@ export function boardPlay(host, attempt, ctx, { mode, ids, lead, notes = [], boa
   }
 
   intro();
-  return { destroy() { ended = true; ctx.hudSlot.replaceChildren(); } };
+  return () => { ended = true; ctx.hudSlot.replaceChildren(); };
 }

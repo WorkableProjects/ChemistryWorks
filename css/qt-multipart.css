@@ -1,0 +1,10 @@
+/* `multipart` question type. */
+.q-multipart { display: flex; flex-direction: column; gap: 18px; }
+.mp-stem { font-size: 18px; line-height: 1.6; color: var(--text); }
+.mp-part { border-left: 3px solid var(--primary-line); padding: 4px 0 4px 16px; }
+.mp-part__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mp-part__label { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--primary-ink); }
+.mp-part .q-text { font-size: 18px; margin-bottom: 14px; }
+.mp-ed__part, .dropdown-ed__blank { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mp-ed__part legend, .dropdown-ed__blank legend { padding: 0 6px; font-weight: 600; font-size: 14px; color: var(--text); }
+.mp-ed__actions, .mp-ed__add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

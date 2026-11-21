@@ -4,10 +4,9 @@
 
 import { questionImageEl } from './question-image.js';
 import {
-  h, mount, icon, richText, renderMath, toast, formatDurationLong, appHeader, userBadge, prefersReducedMotion,
+  h, mount, icon, richText, renderMath, toast, formatDurationLong, appHeader, userBadge, prefersReducedMotion, formulaSpan,
 } from '../ui.js';
-import { formulaToHTML } from '../lib/formula.js';
-import { flushOutbox } from '../lib/submit.js';
+import { flushOutboxResult, finalMessage } from '../lib/submit.js';
 import { canonicalDots } from '../lib/lewis.js';
 import { lewisDiagram } from './lewis-view.js';
 import { structureDiagram } from './structure-view.js';
@@ -17,7 +16,9 @@ import { orbitalDiagram } from './orbital-view.js';
 import { hotspotDiagram } from './widgets/hotspot-stage.js';
 import { typeUI } from './qtypes/registry.js';
 import { confidenceLabel, ptsText } from '../lib/extras.js';
-import { choiceImagesEl } from './runner.js';
+import { choiceImagesEl } from './runner/widgets.js';
+import { tagStats, withNames, studentTag, recalledTagIndex, isReleased } from '../lib/tag-stats.js';
+import { tagSummary } from './tag-summary.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = (tag, attrs = {}, ...children) => h(tag, { xmlns: SVG_NS, ...attrs }, ...children);
@@ -26,15 +27,14 @@ const RADIUS = 68;
 const CIRC = 2 * Math.PI * RADIUS;
 
 function statusChip(label, state) {
-  const cls = { sent: 'pill--success', failed: 'pill--danger', skipped: '', none: '' }[state] ?? '';
-  return h('span', { class: ['pill', cls] }, state === 'sent' ? icon('check', { size: 13 }) : state === 'failed' ? icon('alert', { size: 13 }) : null, label);
+  const cls = { sent: 'pill--success', failed: 'pill--warning', final: 'pill--danger', skipped: '', none: '' }[state] ?? '';
+  return h('span', { class: ['pill', cls] }, state === 'sent' ? icon('check', { size: 13 }) : state === 'failed' || state === 'final' ? icon('alert', { size: 13 }) : null, label);
 }
 
 function chipsFor(submission) {
   if (!submission) return [statusChip('Not submitted (preview)', 'none')];
-  const gas = { sent: 'Saved to Google Sheet ✓', skipped: 'Google Sheet: Not configured', failed: 'Google Sheet: Failed' }[submission.gas] || 'Google Sheet: Not configured';
-  const net = { sent: 'Netlify backup ✓', skipped: 'Netlify backup: Not configured', failed: 'Netlify backup: Failed' }[submission.netlify] || 'Netlify backup: Not configured';
-  return [statusChip(gas, submission.gas), statusChip(net, submission.netlify)];
+  const gas = { sent: 'Saved to Google Sheet ✓', skipped: 'Google Sheet: Not configured', failed: 'Google Sheet: Not sent yet', final: 'Google Sheet: Not accepted' }[submission.gas] || 'Google Sheet: Not configured';
+  return [statusChip(gas, submission.gas)];
 }
 
 function scoreRing(pct, grade) {
@@ -116,7 +116,7 @@ function reviewItem(r, i, test, stagger) {
   const statusIcon = status === 'correct' ? 'check' : status === 'partial' ? 'minus' : status === 'pending' ? 'hourglass' : status === 'unanswered' ? 'alert' : 'x';
   const open = status !== 'correct';
 
-  const formulaHtml = (text) => h('span', { class: 'results-formula', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
+  const formulaHtml = (text) => h('span', { class: 'results-formula' }, formulaSpan(text));
   const given = !r.answered
     ? h('span', { class: 'muted' }, 'Not answered')
     : r.type === 'formula' || r.type === 'balance' ? formulaHtml(r.givenAnswerText)
@@ -173,7 +173,7 @@ function reviewItem(r, i, test, stagger) {
     h('span', { class: 'results-item__pts' }, r.needsGrading ? `— / ${r.pointsPossible} pts` : `${r.pointsEarned} / ${r.pointsPossible} pts`),
     h('span', { class: 'results-item__chev' }, icon('down', { size: 16 })),
   );
-  // V4-03 extras: the hint that cost points and the student's own confidence (with a nudge when certain but wrong).
+  // Extras: the hint that cost points and the student's own confidence (with a nudge when certain but wrong).
   const certainWrong = r.confidence === 3 && r.answered && !r.isCorrect && !r.needsGrading;
   const extrasNote = (r.hintUsed || r.confidence)
     ? h('div', { class: 'results-extras', dataset: { testid: 'results-extras' } },
@@ -200,6 +200,17 @@ function reviewItem(r, i, test, stagger) {
   return item;
 }
 
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['results', 'feedback', 'export', 'runner', 'qtypes', 'diagrams'];
+
+/** "By topic" for a result: only once the teacher has released it (`params.released`, or a released submission). Null otherwise. */
+export function resultTopics({ test, grade, released = false, submission = null, payload = null, tagIndex = null }) {
+  if (!(released === true || isReleased(submission) || isReleased(payload))) return null;
+  const index = { ...recalledTagIndex(test?.code), ...(tagIndex || {}) };
+  const rows = withNames(tagStats([{ responses: grade?.results, released: true }], test), (id) => studentTag(id, index));
+  return tagSummary(rows, { title: 'By topic', testid: 'results-topics', tag: 'h2' });
+}
+
 export function render(root, ctx, params = {}) {
   const { test, grade, payload = null, submission = null, preview = false } = params;
   const pct = parseFloat(grade.percentage) || 0;
@@ -208,7 +219,7 @@ export function render(root, ctx, params = {}) {
   /* ---- submission confirmation */
   const statusEl = h('div', {
     class: 'results-status', dataset: {
-      testid: 'submission-status', gas: submission?.gas ?? 'none', netlify: submission?.netlify ?? 'none', queued: String(!!submission?.queued),
+      testid: 'submission-status', gas: submission?.gas ?? 'none', queued: String(!!submission?.queued),
     },
   }, chipsFor(submission));
 
@@ -228,26 +239,36 @@ export function render(root, ctx, params = {}) {
   if (preview) {
     notices.appendChild(h('div', { class: 'notice notice--info' }, icon('eye'), h('span', {}, 'Preview — nothing was submitted')));
   }
+  if (submission?.gas === 'final') {
+    notices.appendChild(h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'submission-refused', error: submission.finalError || '' } },
+      icon('alert'), h('span', {}, finalMessage(submission.finalError))));
+  }
   if (submission?.queued) {
-    const retryBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'retry-submit' } }, icon('refresh', { size: 14 }), 'Retry now');
-    const queuedNotice = h('div', { class: 'notice notice--warning results-queued' },
+    const retryBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'retry-submit' } }, icon('refresh', { size: 14 }), 'Retry');
+    const queuedNotice = h('div', { class: 'notice notice--warning results-queued', dataset: { testid: 'submission-queued' } },
       icon('alert'),
-      h('span', { class: 'results-queued__text' }, "We couldn't reach the server. Your submission is saved on this device and will retry automatically."),
+      h('span', { class: 'results-queued__text' }, 'Not sent yet — we’ll retry. Your answers are saved on this device.'),
       retryBtn);
     retryBtn.addEventListener('click', async () => {
       retryBtn.disabled = true;
       retryBtn.classList.add('is-loading');
       try {
-        const sent = await flushOutbox({ config: ctx.config });
+        const { sent, final } = await flushOutboxResult({ config: ctx.config });
+        if (final.length) {
+          statusEl.dataset.queued = 'false';
+          queuedNotice.replaceWith(h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'submission-refused', error: final[0].error || '' } }, icon('alert'), h('span', {}, finalMessage(final[0].error))));
+          retryBtn.classList.remove('is-loading');
+          return;
+        }
         if (sent > 0) {
           toast(`Sent ${sent} queued ${sent === 1 ? 'submission' : 'submissions'}`, { type: 'success' });
           statusEl.dataset.queued = 'false';
           queuedNotice.replaceWith(h('div', { class: 'notice notice--success' }, icon('check'), h('span', {}, 'Your submission was sent.')));
         } else {
-          toast("Still couldn't reach the server. We'll keep trying.", { type: 'error' });
+          toast('Not sent yet — we’ll retry.', { type: 'error' });
         }
       } catch {
-        toast("Still couldn't reach the server. We'll keep trying.", { type: 'error' });
+        toast('Not sent yet — we’ll retry.', { type: 'error' });
       }
       retryBtn.disabled = false;
       retryBtn.classList.remove('is-loading');
@@ -283,6 +304,7 @@ export function render(root, ctx, params = {}) {
           h('div', {}, h('strong', { dataset: { testid: 'score-correct' } }, `${grade.correctCount} of ${grade.questionCount} correct`))),
         passBadge,
         summaryChips(grade),
+        resultTopics({ test, grade, released: params.released === true, submission, payload, tagIndex: params.tagIndex }),
         pending ? h('p', { class: 'notice notice--info', dataset: { testid: 'pending-note' } }, icon('info'),
           h('span', {}, `${pending} ${pending === 1 ? 'answer' : 'answers'} (${grade.pendingPoints} pts) will be graded by your teacher. This score is not final.`)) : null,
         !pending && test.passingPercent != null && typeof test.passingPercent === 'number'

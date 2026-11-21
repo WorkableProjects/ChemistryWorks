@@ -1,0 +1,17 @@
+{
+  "question": {
+    "id": "naming-1",
+    "type": "naming",
+    "text": "Name this compound.",
+    "direction": "toName",
+    "prompt": "CuSO4.5H2O",
+    "points": 2,
+    "answers": [
+      "copper(II) sulfate pentahydrate"
+    ],
+    "confidence": true,
+    "explanation": "Copper is +2 here, and five waters of hydration give the prefix penta-."
+  },
+  "correct": "copper(II) sulfate pentahydrate",
+  "wrong": "copper sulfate"
+}

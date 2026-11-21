@@ -1,4 +1,4 @@
-/* ChemistryWorks — landing (V4-01). Tokens come from base.css. */
+/* ChemistryWorks — landing. Tokens come from base.css. */
 
 .landing { position: relative; overflow: hidden; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
 
@@ -35,7 +35,7 @@
 
 .landing__inner { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--space-6); padding: var(--space-4) var(--space-4) var(--space-7); }
 .landing__panel { width: min(520px, 100%); animation: rise var(--dur-slow) var(--ease-out) 60ms both; }
-.landing__lists { width: min(920px, 100%); display: flex; flex-direction: column; gap: var(--space-6); }
+
 .landing__footer { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: 12px; padding: var(--space-4); font-size: 13px; color: var(--text-faint); }
 
 /* Code / sign-in card: the visual focus */
@@ -44,10 +44,7 @@
 /* The Google button iframe has no color-scheme of its own; in dark mode the mismatch makes the browser paint it an
    opaque white backdrop. Matching it keeps the iframe transparent around the pill. */
 .gsi-slot iframe { color-scheme: normal; }
-.code-card__top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.code-form { display: flex; gap: 10px; }
-.code-form .input--code { flex: 1; min-width: 0; }
-.code-form .btn { min-height: 56px; }
+
 .input--code { height: 56px; font-size: 24px; font-weight: 600; font-family: var(--font-mono); }
 .input--code::placeholder { font-weight: 500; color: var(--text-faint); text-transform: none; font-size: 18px; }
 .site-version { margin: 0; text-align: center; font-size: 12px; color: var(--text-faint); font-family: var(--font-mono); }
@@ -55,24 +52,13 @@
 /* Your tests / resume: card grids */
 .tests-block { display: flex; flex-direction: column; gap: var(--space-3); }
 .tests-block__title { margin: 0; font-family: var(--font-display); font-size: 13px; color: var(--text-muted); }
-.tests-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); }
-.test-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-4); text-align: left; min-width: 0;
-  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
-.test-card:hover { transform: translateY(-2px); border-color: var(--primary-line); box-shadow: var(--shadow); }
-button.test-card { cursor: pointer; font: inherit; color: inherit; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-.test-card__top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); width: 100%; }
-.test-card__code { font-family: var(--font-mono); font-weight: 600; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--primary-soft); color: var(--primary-ink); }
-.test-card__name { font-family: var(--font-display); font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
-.test-card__meta { font-size: 12px; color: var(--text-faint); min-height: 1em; }
-.test-card__go { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); }
-.test-card .btn { margin-top: auto; min-height: var(--touch); }
 
 @media (max-width: 520px) {
-  .code-form { flex-direction: column; }
+
   .signin-card, .code-card { padding: var(--space-5); }
   .landing__brand { height: 44px; }
   .landing__hero { padding-top: var(--space-7); }
-  .tests-grid { grid-template-columns: 1fr; }
+
 }
 
 /* v5: decoration removed — the page is the code field and the student's work. */

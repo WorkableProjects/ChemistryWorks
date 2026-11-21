@@ -1,0 +1,41 @@
+{
+  "question": {
+    "id": "orbital-1",
+    "type": "orbital",
+    "text": "Draw the orbital diagram for a ground-state nitrogen atom.",
+    "points": 3,
+    "maxSublevel": "2p",
+    "orbitalTypes": [
+      "s",
+      "p"
+    ],
+    "sampleAnswer": {
+      "1s": [
+        "ud"
+      ],
+      "2s": [
+        "ud"
+      ],
+      "2p": [
+        "u",
+        "u",
+        "u"
+      ]
+    },
+    "explanation": "Nitrogen has 7 electrons: 1s² 2s² 2p³. By Hund’s rule the three 2p electrons occupy separate orbitals with parallel spins."
+  },
+  "correct": {
+    "1s": [
+      "ud"
+    ],
+    "2s": [
+      "ud"
+    ],
+    "2p": [
+      "u",
+      "u",
+      "u"
+    ]
+  },
+  "wrong": {}
+}

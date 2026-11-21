@@ -1,4 +1,4 @@
-// `bohr` question type (V5-07, S12a): Bohr / shell model. Pure definition, no DOM.
+// `bohr` question type: Bohr / shell model. Pure definition, no DOM.
 //   { type: 'bohr', mode: 'element'|'count', element: 'Mg', electrons: 12, partialCredit: true }
 //   mode 'element': the element sets the number of electrons; mode 'count': the electron count is given.
 //   Covers the first 20 electrons only. Shells fill 2, 8, 8, then 2 in shell 4 (school Bohr model).
@@ -74,6 +74,7 @@ export const def = {
   label: 'Bohr model (electron shells)',
   shortLabel: 'Electron shells',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -103,7 +104,7 @@ export const def = {
     return isObj(a) && Array.isArray(a.shells) && a.shells.some((v) => v !== undefined && v !== '' && v !== 0);
   },
 
-  score(q, a) {
+  grade(q, a) {
     const key = keyOf(q);
     if (!key) return { fraction: 0, full: false };
     const { right, total } = slotScore(key, a);
@@ -111,7 +112,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / total, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     if (!isObj(a) || !Array.isArray(a.shells)) return DASH;
     const occupied = a.shells.slice(0, SHELL_SLOTS).map(toInt).filter((v) => v > 0);
     return occupied.length ? occupied.join(', ') : DASH;

@@ -1,4 +1,4 @@
-/* ChemWorks admin shell (V4-01, feature('adminShell')). Classes prefixed ash- (shell), dash- (dashboard),
+/* ChemWorks admin shell (behind feature('adminShell')). Classes prefixed ash- (shell), dash- (dashboard),
    lib2- (library grid/table), bld2- (builder two-pane). Tokens only; motion = transform/opacity <= 400 ms. */
 
 .ash { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
@@ -13,7 +13,7 @@
   --text: var(--header-fg); --text-muted: var(--header-fg-muted); --text-faint: var(--header-fg-muted);
   --bg-elev: rgb(255 255 255 / 0.06); --bg-sunken: rgb(255 255 255 / 0.12); --border: var(--header-line); --border-strong: rgb(255 255 255 / 0.32);
   --primary: var(--brand-teal-on-header); --primary-soft: rgb(255 255 255 / 0.12); --primary-hover: var(--header-fg); --primary-line: rgb(255 255 255 / 0.3);
-  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
+  --brand-navy: var(--header-fg); --brand-teal: var(--brand-teal-on-header); --brand-teal-ink: var(--brand-teal-on-header); --brand-mark-gap: var(--header-bg);
   color: var(--text);
 }
 .ash-top :focus-visible { outline-color: var(--brand-teal-on-header); }

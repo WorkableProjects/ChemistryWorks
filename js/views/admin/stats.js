@@ -81,6 +81,7 @@ export function normalizeRow(raw) {
     submission_id: r.submission_id || '',
     student_name: r.student_name || '',
     student_email: r.student_email || '',
+    identity: r.identity === 'verified' || r.identity === 'unverified' ? r.identity : '',
     test_code: r.test_code || '',
     test_title: r.test_title || '',
     score_achieved: achieved,
@@ -100,7 +101,10 @@ export function normalizeRow(raw) {
     comments: isObj(r.comments) ? r.comments : {},   // v2: { questionId: comment text }
     released_at: r.released_at || '',
     retake_allowed_at: r.retake_allowed_at || '',  // v3: ISO time the teacher allowed a retake, '' = none
-    graded_by: r.graded_by || '',                    // who graded (free text)                // v2: ISO time grades/comments were released to the student, '' = not released
+    graded_by: r.graded_by || '',                    // who graded (free text)
+    late: r.late === true || r.late === 'true',     // arrived after the due date or late window
+    assignmentId: r.assignmentId || '',
+    dueAt: r.dueAt || '',
   };
 }
 
@@ -152,7 +156,7 @@ export function csvField(value) {
 const qKey = (r, qid) => `${r.test_code}\u0000${qid}`;
 
 /**
- * Per-question columns for the gradebook CSV (V4-02): one column per question in first-seen order across `rows`.
+ * Per-question columns for the gradebook CSV: one column per question in first-seen order across `rows`.
  * [{ key, testCode, questionId, number, possible }]; `number` counts per test code (Q1, Q2, ...).
  */
 export function questionColumns(rows) {
@@ -208,6 +212,33 @@ export function toGradebookCsv(rows, { perQuestion = false } = {}) {
 }
 
 /**
+ * CSV in the shape Google Classroom's "Import grades" accepts: Last Name, First Name, Email Address, then one column
+ * per test (named after its title) with the final score. Submissions still waiting for grading are left blank, and a
+ * student's newest submission of a test is the one used.
+ */
+export function toClassroomCsv(rows) {
+  const titles = [...new Set(rows.map((r) => r.test_title || r.test_code))];
+  const students = new Map();
+  const ordered = [...rows].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  for (const r of ordered) {
+    const email = String(r.student_email || '').toLowerCase();
+    if (!email || r.status === STATUS.EXTRA) continue;
+    if (!students.has(email)) students.set(email, { name: String(r.student_name || '').trim(), scores: {} });
+    const st = students.get(email);
+    if (r.student_name) st.name = String(r.student_name).trim();
+    st.scores[r.test_title || r.test_code] = r.status === STATUS.NEEDS_GRADING ? '' : r.score_achieved;
+  }
+  const lines = [['Last Name', 'First Name', 'Email Address', ...titles].map(csvField).join(',')];
+  for (const [email, st] of students) {
+    const parts = st.name.split(/\s+/).filter(Boolean);
+    const last = parts.length > 1 ? parts[parts.length - 1] : '';
+    const first = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || '';
+    lines.push([last, first, email, ...titles.map((t) => (st.scores[t] === undefined ? '' : st.scores[t]))].map(csvField).join(','));
+  }
+  return lines.join('\r\n') + '\r\n';
+}
+
+/**
  * Validate a points entry from the grader. '' / whitespace -> { ok:true, value:null } (empty).
  * Decimal point is "." only ("1,5" is non-numeric). Values are rounded to 2 decimals.
  */
@@ -244,7 +275,7 @@ export function answersForQuestion(rows, questionId) {
   return out;
 }
 
-/* ------------------------------------------------------------------ grade by question (V4-02) */
+/* grade by question */
 
 /**
  * The full grades object to save for one submission after setting ONE question's points: the student's existing
@@ -277,7 +308,7 @@ export function stepIndex(index, delta, length) {
   return Math.min(length - 1, Math.max(0, index + delta));
 }
 
-/* ------------------------------------------------------------------ bulk tools (V4-02) */
+/* bulk tools */
 
 export const BULK = { RELEASE: 'release', UNRELEASE: 'unrelease', RETAKE: 'retake' };
 

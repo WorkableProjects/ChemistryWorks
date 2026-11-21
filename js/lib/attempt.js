@@ -1,4 +1,4 @@
-// V5-01 shared attempt: one record per student per test, used by Study mode (the runner) and every game mode.
+// Shared attempt: one record per student per test, used by Study mode (the runner) and every game mode.
 // It wraps the existing `progress:<email>:<CODE>` record (same key, same fields; only additions) so attempts
 // started in 4.x still load. No DOM here apart from the optional pagehide/visibility save hooks.
 // Contract: docs/ARCHITECTURE.md -> V5 contracts -> Attempt.
@@ -8,8 +8,7 @@ import { gradeTest, gradeQuestion, isAnswered as answered } from './grading.js';
 import { groupQuestions } from './sections.js';
 import { buildPayload } from './submit.js';
 import { validConfidence } from './extras.js';
-import { load, save, remove } from './storage.js';
-import { feature } from '../config.js';
+import { load, save, remove, keys } from './storage.js';
 import { attachAttempt } from './sync.js';
 
 export const progressKey = (email, code) => `progress:${email}:${code}`;
@@ -209,31 +208,25 @@ export function openAttempt(test, opts = {}) {
       }
     },
   };
-  // V5-02 sync hook: queues this attempt for `syncProgress` (no-op without a backend / when signed in as demo).
+  // Sync hook: queues this attempt for `syncProgress` (no-op without a backend / when signed in as demo).
   let unsync = () => {};
-  if (!preview && email && feature('studentHome')) { try { unsync = attachAttempt(attempt); } catch (err) { console.error('[attempt] sync hook failed', err); } }
+  if (!preview && email) { try { unsync = attachAttempt(attempt); } catch (err) { console.error('[attempt] sync hook failed', err); } }
   attempt.unsync = unsync;
   return attempt;
 }
 
 /** Attempts on this device for one student: [{ code, title, answered, total, updatedAt, lastMode }] newest first. */
 export function listAttempts(email, { storage } = {}) {
-  const ls = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
-  if (!ls) return [];
+  const store = storage || { keys, load };
   const prefix = `progress:${email}:`;
   const out = [];
-  for (let i = 0; i < ls.length; i++) {
-    const k = ls.key(i);
-    const at = k ? k.indexOf(prefix) : -1;
-    if (at < 0) continue;
-    try {
-      const rec = JSON.parse(ls.getItem(k));
-      if (!rec || typeof rec !== 'object') continue;
-      out.push({
-        code: k.slice(at + prefix.length), title: rec.title || '', answered: Object.keys(rec.answers || {}).length,
-        total: Number(rec.total) || 0, updatedAt: Number(rec.updatedAt) || 0, lastMode: rec.lastMode || 'study',
-      });
-    } catch { /* not a progress record */ }
+  for (const k of store.keys(prefix)) {
+    const rec = store.load(k, null);
+    if (!rec || typeof rec !== 'object') continue; // not a progress record
+    out.push({
+      code: k.slice(prefix.length), title: rec.title || '', answered: Object.keys(rec.answers || {}).length,
+      total: Number(rec.total) || 0, updatedAt: Number(rec.updatedAt) || 0, lastMode: rec.lastMode || 'study',
+    });
   }
   return out.sort((a, b) => b.updatedAt - a.updatedAt);
 }

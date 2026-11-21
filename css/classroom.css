@@ -1,0 +1,9 @@
+/* Google Classroom: class link row, sync dialog, tracker sync column. Tokens only. */
+.adm-class__classroom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding-top: var(--space-2); }
+.classroom-picker { display: flex; flex-direction: column; gap: var(--space-2); max-height: 50vh; overflow-y: auto; }
+.classroom-picker label { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); cursor: pointer; }
+.classroom-sync progress { width: 100%; }
+.classroom-sync__table td, .classroom-sync__table th { white-space: nowrap; }
+.classroom-sync__fails { margin: 0; padding-left: var(--space-4); color: var(--danger); }
+.hub-sync { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 13px; color: var(--text-muted); }
+.hub-sync.is-failed { color: var(--danger); }

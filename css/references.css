@@ -6,7 +6,7 @@
 .runner-split[data-ref-collapsed="true"] { --ref-col: 52px; }
 .runner-split:not(.is-resizing) { transition: grid-template-columns var(--dur-base) var(--ease); }
 .runner-split.is-resizing { cursor: col-resize; user-select: none; }
-.runner-split > .runner-main { width: 100%; max-width: 760px; margin: 0 auto; min-width: 0; }
+.runner-split > .runner-main { width: 100%; max-width: var(--student-max); margin: 0 auto; min-width: 0; }
 
 /* ---------- Pane ---------- */
 /* A right-hand drawer docked beside the questions (collapses to a slim rail; stacks above them on narrow screens). */

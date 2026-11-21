@@ -14,7 +14,7 @@ export function render(host, attempt, ctx) {
   const pairs = buildPairs(attempt.questions);
   if (pairs.length < 3) {
     emptyCard(host, { title: matchup.title, text: 'This practice has too few pairs to match', label: 'See results', onClick: () => ctx.onEnd({ modeId: matchup.id, score: 0, answered: attempt.answeredCount, correct: 0, total: attempt.total, durationMs: 0 }) });
-    return { destroy() {} };
+    return () => {};
   }
   const rounds = buildRounds(pairs);
   const events = [];
@@ -132,5 +132,5 @@ export function render(host, attempt, ctx) {
   }
 
   intro();
-  return { destroy() { ended = true; ctx.hudSlot.replaceChildren(); } };
+  return () => { ended = true; ctx.hudSlot.replaceChildren(); };
 }

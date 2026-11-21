@@ -135,7 +135,7 @@ function panelContent(ref) {
 /* ------------------------------------------------------------------ pane */
 
 /**
- * `extraTabs` (V4-05 student tools): [{ id, title, build() -> Node }] shown after the test's own references, e.g. the
+ * `extraTabs` (student tools): [{ id, title, build() -> Node }] shown after the test's own references, e.g. the
  * calculator. A pane with only extra tabs is still built. Ids must be unique and are used in the test ids
  * (`ref-tab-<id>`, `ref-panel-<id>`).
  */

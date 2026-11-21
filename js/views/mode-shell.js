@@ -1,9 +1,10 @@
-// V5-01 mode shell: shared chrome for every game mode. Header with the mode switcher, a HUD slot, the question host
+// Mode shell: shared chrome for every game mode. Header with the mode switcher, a HUD slot, the question host
 // (the runner's own widgets, bound to the attempt), a feedback card and the end summary.
 // renderModeShell(root, ctx, { test, source, gameId }) -> cleanup()
 // Contract: docs/ARCHITECTURE.md -> V5 contracts -> Game mode definition (ctx = { widgetFor, feedback, onEnd, sound, reducedMotion, hudSlot, announce }).
 
 import { h, mount, icon, richText, renderMath, appHeader, userBadge, prefersReducedMotion } from '../ui.js';
+import { qSplit } from './q-split.js';
 import { openAttempt } from '../lib/attempt.js';
 import { correctAnswerText } from '../lib/grading.js';
 import { modeById } from '../lib/modes/index.js';
@@ -69,8 +70,8 @@ export function renderModeShell(root, ctx, params = {}) {
     };
     widget = buildWidget(q, api);
     const el = h('div', { class: 'mode-widget', dataset: { testid: 'mode-widget', type: q.type } },
-      withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
-      widget.el);
+      qSplit(q, withQuestionImage(q.type === 'hotspot' ? { ...q, image: undefined } : q, widget.textEl || richText(q.text, 'div', 'q-text')),
+        widget.el));
     queueMicrotask(() => { widget.refresh(attempt.get(q.id)); renderMath(el); });
     return el;
   }
@@ -127,7 +128,7 @@ export function renderModeShell(root, ctx, params = {}) {
   const modeCtx = { widgetFor, feedback, onEnd, sound: { on: isSoundOn, play: playTone }, reducedMotion, hudSlot, announce, config: ctx.config };
 
   function start() {
-    running?.destroy?.();
+    running?.();
     running = render(host, attempt, modeCtx);
   }
 
@@ -139,7 +140,7 @@ export function renderModeShell(root, ctx, params = {}) {
 
   return () => {
     destroyed = true;
-    running?.destroy?.();
+    running?.();
     attempt.destroy();
   };
 }

@@ -1,6 +1,6 @@
 // Printable view of one reviewed submission (V2-08). Renders into #print-root and calls window.print();
 // css/print.css hides the rest of the app while printing. Row data goes through h()/richText()/commentBody() only.
-import { h, richText, renderMath, brandLogo } from '../../ui.js';
+import { h, richText, renderMath, brandLogo, formulaSpan } from '../../ui.js';
 import { buildExportModel } from '../../lib/export.js';
 import { commentBody } from '../comment-view.js';
 import { orbitalDiagram } from '../orbital-view.js';
@@ -9,8 +9,7 @@ import { lewisDiagram } from '../lewis-view.js';
 import { hotspotDiagram } from '../widgets/hotspot-stage.js';
 import { typeUI } from '../qtypes/registry.js';
 import { withQuestionImage } from '../question-image.js';
-import { choiceImagesEl } from '../runner.js';
-import { formulaToHTML } from '../../lib/formula.js';
+import { choiceImagesEl } from '../runner/widgets.js';
 import { canonicalDots } from '../../lib/lewis.js';
 import { acceptedStructures } from '../../lib/structure.js';
 
@@ -50,7 +49,7 @@ function correctDiagram(item) {
 
 /** Answer text: chemical formulas get sub/superscripts, everything else goes through richText (KaTeX). */
 function textEl(text, type) {
-  if (type === 'formula' || type === 'balance') return h('div', { class: 'export-answer-text', html: `<span class="formula">${formulaToHTML(String(text))}</span>` });
+  if (type === 'formula' || type === 'balance') return h('div', { class: 'export-answer-text' }, formulaSpan(text));
   return richText(text, 'div', ['export-answer-text', (type === 'short' || type === 'open') && 'export-pre'].filter(Boolean).join(' '));
 }
 

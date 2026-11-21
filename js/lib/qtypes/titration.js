@@ -1,4 +1,4 @@
-// `titration` question type (V4-03, S10): a simulated strong-acid / weak-acid / strong-base / weak-base titration with a
+// `titration` question type: a simulated strong-acid / weak-acid / strong-base / weak-base titration with a
 // strong titrant. The student adds titrant ("Add 1.00 mL", "Add 0.10 mL" or a slider), watches the pH, and records the
 // equivalence-point volume and / or the pH. Pure definition and simulation, no DOM.
 //   { type: 'titration',
@@ -81,6 +81,7 @@ export const def = {
   label: 'Titration',
   shortLabel: 'Titration',
   group: 'Chemistry',
+  manual: false,
 
   normalize(q) {
     const a = isObj(q.analyte) ? q.analyte : {};
@@ -123,7 +124,7 @@ export const def = {
 
   isAnswered: (q, answer) => isObj(answer) && ((asks(q).volume && str(answer.volume).trim() !== '') || (asks(q).ph && str(answer.ph).trim() !== '')),
 
-  score(q, answer) {
+  grade(q, answer) {
     if (!isObj(answer)) return { fraction: 0, full: false };
     const want = asks(q);
     const key = keyValues(q);
@@ -136,7 +137,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / checks.length, full: false };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     const a = isObj(answer) ? answer : {};
     const want = asks(q);
     const parts = [];

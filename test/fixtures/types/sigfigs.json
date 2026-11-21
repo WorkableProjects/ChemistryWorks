@@ -1,0 +1,16 @@
+{
+  "question": {
+    "id": "sigfigs-1",
+    "type": "sigfigs",
+    "text": "Write 0.00450 g in scientific notation using the correct number of significant figures (in grams).",
+    "points": 2,
+    "answer": 0.0045,
+    "sigFigs": 3,
+    "tolerance": 0.000001,
+    "partialCredit": true,
+    "explanation": "0.00450 has three significant figures, so it is 4.50 x 10^-3."
+  },
+  "correct": "4.50e-3",
+  "wrong": "7",
+  "partial": "0.0045"
+}

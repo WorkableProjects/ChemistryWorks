@@ -1,8 +1,8 @@
-// Admin credentials for every admin request (contract shared by S06 admin accounts and the admin views).
+// Admin credentials for every admin request (contract shared by admin accounts and the admin views).
 // Views never read storage for the admin key directly: they call these helpers.
 //
-//   adminKey()       the ADMIN_KEY typed in Settings for this tab ('' if none). Upgrade-period fallback (V4-07).
-//   hasAdminAuth()   true when this tab can make admin requests: an admin key is set, OR (V4-07) the signed-in
+// adminKey() the ADMIN_KEY typed in Settings for this tab ('' if none). Upgrade-period fallback.
+// hasAdminAuth() true when this tab can make admin requests: an admin key is set, OR the signed-in
 //                    Google user has been confirmed as an admin by the backend (`whoami`).
 //   adminRequestAuth()  extra fields merged into every admin POST body by js/lib/api.js: { idToken } (fresh) for a
 //                    confirmed Google admin, plus { adminKey } when a key is set.
@@ -15,6 +15,11 @@ import { load, save, remove } from './storage.js';
 import { getUser, getIdToken } from './auth.js';
 
 const CONFIRMED_KEY = 'adminConfirmed';
+
+/** Demo admin sign-in (local dev and e2e): allowed only while Google sign-in is not configured. */
+export function demoAdminAllowed(config) {
+  return !(config && config.GOOGLE_CLIENT_ID);
+}
 
 export function adminKey() {
   return load('adminKey', '', 'session') || '';

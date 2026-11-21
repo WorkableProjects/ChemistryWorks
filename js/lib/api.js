@@ -31,7 +31,7 @@ async function post(gasUrl, body, fetchImpl) {
   return parse(await f(gasUrl, { method: 'POST', headers: TEXT_HEADERS, body: JSON.stringify(body) }));
 }
 
-// Admin POST (V4-07). The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
+// Admin POST. The body carries the admin credentials from adminRequestAuth() ({ idToken } for a confirmed
 // Google admin, { adminKey } when a key is set); an explicit `adminKey` argument wins. When the Google token has
 // expired mid-session ('invalid_token') it is refreshed silently once and the request retried, never a password.
 async function adminPost(gasUrl, body, adminKey, fetchImpl, { idToken } = {}) {
@@ -67,22 +67,30 @@ export async function fetchPublishedTest(code, { gasUrl, fetchImpl } = {}) {
   return r.test || null;
 }
 
-// v4 S11/S12: { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
+// { test } or { error: 'not_open'|'closed'|'not_on_roster'|..., opensAt, closesAt, title }. With an idToken the
 // POST form is used, which applies the student's extension and roster check server-side.
 export async function fetchPublishedTestResult(code, { gasUrl, fetchImpl, idToken } = {}) {
   try {
     const d = idToken ? await post(gasUrl, { action: 'getTest', code, idToken }, fetchImpl) : await get(gasUrl, { action: 'getTest', code }, fetchImpl);
-    if (d && d.result === 'success' && d.test) return { test: d.test };
+    if (d && d.result === 'success' && d.test) return { test: d.test, tagIndex: d.tagIndex && typeof d.tagIndex === 'object' ? d.tagIndex : {} };
     return { error: (d && d.error) || 'not_found', opensAt: d?.opensAt, closesAt: d?.closesAt, title: d?.title || '' };
   } catch (e) {
     return { error: 'network' };
   }
 }
 
-export async function publishTest(test, { gasUrl, adminKey, fetchImpl } = {}) {
+// tagDefs: [{ id, name, color, description }] for every tag the test uses (omitted when not given).
+// -> { ok: true, tags: [{ id, ownerEmail, name, color, description, applied }] } | { ok: false, error, ids? }
+// `ids` lists the tag ids behind an `unknown_tag` error.
+export async function publishTest(test, { gasUrl, adminKey, tagDefs, fetchImpl } = {}) {
   try {
-    const d = await adminPost(gasUrl, { action: 'publishTest', test }, adminKey, fetchImpl);
-    return d && d.result === 'success' ? { ok: true } : { ok: false, error: failure(d) };
+    const body = { action: 'publishTest', test };
+    if (Array.isArray(tagDefs)) body.tagDefs = tagDefs;
+    const d = await adminPost(gasUrl, body, adminKey, fetchImpl);
+    if (d && d.result === 'success') return { ok: true, tags: Array.isArray(d.tags) ? d.tags : [] };
+    const out = { ok: false, error: failure(d) };
+    if (d && Array.isArray(d.ids)) out.ids = d.ids;
+    return out;
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -110,7 +118,7 @@ export async function deletePublishedTest(code, { gasUrl, adminKey, fetchImpl } 
 
 export async function fetchResults({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
   try {
-    const body = { action: 'getResults' };
+    const body = { action: 'getResults', includeAnswers: true };
     if (testCode) body.testCode = testCode;
     const d = await adminPost(gasUrl, body, adminKey, fetchImpl);
     return d && d.result === 'success'
@@ -155,12 +163,18 @@ export async function fetchSubmissionCounts({ gasUrl, adminKey, fetchImpl } = {}
   }
 }
 
-// Student feedback for one of their own submissions (no admin key; needs the submission id + email).
+// Student feedback for one of their own submissions. The backend identifies the student from the Google ID token
+// (`idToken`, or a fresh one when none is passed); without one it replies `unauthorized`.
 // -> { ok: true, released: false } | { ok: true, released: true, released_at, status, final_score, score_total,
 //      final_percentage, grades: { qid: points }, comments: { qid: text } } | { ok: false, error }
-export async function fetchFeedback({ gasUrl, submissionId, studentEmail, fetchImpl } = {}) {
+//    error is 'unauthorized' / 'invalid_token' (sign in again), 'not_authorized' (another student's submission) or other.
+export async function fetchFeedback({ gasUrl, submissionId, idToken, fetchImpl } = {}) {
   try {
-    const d = await post(gasUrl, { action: 'getFeedback', submissionId, studentEmail }, fetchImpl);
+    let token = idToken;
+    if (!token) {
+      try { token = await getFreshIdToken(); } catch { token = ''; }
+    }
+    const d = await post(gasUrl, { action: 'getFeedback', submissionId, ...(token ? { idToken: token } : {}) }, fetchImpl);
     if (!d || d.result !== 'success') return { ok: false, error: failure(d) };
     const { result, ...rest } = d;
     return { ok: true, ...rest, released: d.released === true };
@@ -169,7 +183,7 @@ export async function fetchFeedback({ gasUrl, submissionId, studentEmail, fetchI
   }
 }
 
-// V3-01: the signed-in student's submissions for one test (no admin key; identity verified on the server
+// The signed-in student's submissions for one test (no admin key; identity verified on the server
 // from the Google ID token). -> { ok: true, submitted, attempts, latest, feedback?, others? } |
 // { ok: false, error } (error 'identity_not_configured' / OUTDATED_BACKEND / network -> caller fails open).
 export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEmail, fetchImpl } = {}) {
@@ -186,7 +200,7 @@ export async function fetchStudentStatus({ gasUrl, testCode, idToken, studentEma
   }
 }
 
-// V3-03 (admin): release every Graded / Auto-graded submission of a test. -> { ok, released: n, error? }
+// Admin: release every Graded / Auto-graded submission of a test. -> { ok, released: n, error? }
 export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {}) {
   try {
     const d = await adminPost(gasUrl, { action: 'releaseAll', testCode }, adminKey, fetchImpl);
@@ -196,7 +210,7 @@ export async function releaseAll({ gasUrl, adminKey, testCode, fetchImpl } = {})
   }
 }
 
-// V3-03 (admin): allow (or revoke) one more submission for the student of this submission.
+// Admin: allow (or revoke) one more submission for the student of this submission.
 // -> { ok, retake_allowed_at, error? }
 export async function allowRetake({ gasUrl, adminKey, submissionId, allow = true, fetchImpl } = {}) {
   try {
@@ -207,7 +221,7 @@ export async function allowRetake({ gasUrl, adminKey, submissionId, allow = true
   }
 }
 
-// ---- V4-07 admin accounts ----
+// admin accounts ----
 
 // Who am I? Confirms the signed-in Google user is on the Admins sheet.
 // -> { ok: true, email, role, via } | { ok: false, error: 'not_admin' | 'invalid_token' | ... }
@@ -260,7 +274,7 @@ export async function getLog({ gasUrl, adminKey, limit = 100, fetchImpl } = {}) 
   }
 }
 
-// ---------- v4 S11–S17 actions (generic helpers; every function resolves, never throws) ----------
+// ---------- Actions (generic helpers; every function resolves, never throws) ----------
 // adminCall('listClasses', {}, { gasUrl }) -> { ok: true, data } | { ok: false, error }   (admin credentials merged as above)
 export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchImpl } = {}) {
   try {
@@ -271,18 +285,18 @@ export async function adminCall(action, payload = {}, { gasUrl, adminKey, fetchI
   }
 }
 // Public (student) actions: progressPing, getTest (POST, with idToken), submitGameScore, getLeaderboard, reportError.
-// `unavailable` is true when the deployed backend does not know the action yet (older Code.gs) or is unreachable.
+// `unavailable` is true when the deployed backend is unreachable.
 export async function publicCall(action, payload = {}, { gasUrl, fetchImpl } = {}) {
   try {
     const d = await post(gasUrl, { action, ...payload }, fetchImpl);
     if (d && d.result === 'success') return { ok: true, data: d };
-    return { ok: false, error: (d && d.error) || 'unknown_error', data: d, unavailable: !!d && d.error === 'unknown_action' };
+    return { ok: false, error: (d && d.error) || 'unknown_error', data: d };
   } catch (e) {
     return { ok: false, error: msg(e), unavailable: true };
   }
 }
 
-// ---------- v5 (B1): student profile + sync, batch ----------
+// ---------- Student profile, sync and batch ----------
 // Every wrapper resolves { ok: true, data } | { ok: false, error, unavailable? } and never throws.
 // No gasUrl or an old backend -> { ok: false, unavailable: true }: callers keep working from localStorage.
 async function studentCall(action, payload, { gasUrl, idToken, fetchImpl } = {}) {
@@ -301,16 +315,16 @@ export const getStudentProfileAdmin = ({ gasUrl, adminKey, email, fetchImpl } = 
 // requests: [{ action, ...fields }] (max 50). -> { ok, data: { results: [...] } }
 export const batchCall = ({ gasUrl, adminKey, requests, fetchImpl } = {}) => adminCall('batch', { requests }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v5 (B2): fast reads ----------
+// ---------- Fast reads ----------
 // -> { ok, data: { tests: [{ code, title, updatedAt, status, questionCount, points, needsGrading, submissionCount }] } }
 export const listTestsSummary = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTests', { summary: true }, { gasUrl, adminKey, fetchImpl });
 // since = ms epoch from a previous `now`. -> { ok, data: { rows, now } }
-export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since }, { gasUrl, adminKey, fetchImpl });
+export const getResultsSince = ({ gasUrl, adminKey, testCode, status, since, fetchImpl } = {}) => adminCall('getResults', { testCode, status, since, includeAnswers: true }, { gasUrl, adminKey, fetchImpl });
 
-// ---------- v5 (B3): Class Hub ----------
+// ---------- Class Hub ----------
 // Admin. assignment: { id?, classId, testCode, title?, instructions?, opensAt?, dueAt?, lateAllowed?, required?, modes?, publishAt? } -> { data: { assignment, post? } }
-export const saveAssignment = ({ gasUrl, adminKey, assignment, fetchImpl } = {}) => adminCall('saveAssignment', { assignment }, { gasUrl, adminKey, fetchImpl });
-export const deleteAssignment = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteAssignment', { id }, { gasUrl, adminKey, fetchImpl });
+export const saveAssignment = ({ gasUrl, adminKey, assignment, postToClassroom, fetchImpl } = {}) => adminCall('saveAssignment', { assignment, postToClassroom }, { gasUrl, adminKey, fetchImpl });
+export const deleteAssignment = ({ gasUrl, adminKey, id, deleteInClassroom, fetchImpl } = {}) => adminCall('deleteAssignment', { id, deleteInClassroom }, { gasUrl, adminKey, fetchImpl });
 export const listStream = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listStream', { classId }, { gasUrl, adminKey, fetchImpl });
 export const listAssignments = ({ gasUrl, adminKey, classId, fetchImpl } = {}) => adminCall('listAssignments', { classId }, { gasUrl, adminKey, fetchImpl });
 // With `id` (and pinned / body) edits an existing post instead of creating one.
@@ -321,3 +335,25 @@ export const remindMissing = ({ gasUrl, adminKey, id, fetchImpl } = {}) => admin
 // Student.
 export const getClassHub = ({ gasUrl, idToken, fetchImpl } = {}) => studentCall('getClassHub', {}, { gasUrl, idToken, fetchImpl });
 export const markNotificationsRead = ({ gasUrl, idToken, ids, all, fetchImpl } = {}) => studentCall('markNotificationsRead', { ids, all }, { gasUrl, idToken, fetchImpl });
+
+// ---------- Tags ----------
+// -> { ok, data: { tags: [{ id, ownerEmail, ownerName, name, color, description, firstTestCode, createdAt, updatedAt, mergedInto, usage: { questions, tests } }] } }
+export const listTags = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listTags', {}, { gasUrl, adminKey, fetchImpl });
+// tag: { id, name?, color?, description? }. Owner only; edits a Sheet tag, never creates one.
+export const saveTag = ({ gasUrl, adminKey, tag, fetchImpl } = {}) => adminCall('saveTag', { tag }, { gasUrl, adminKey, fetchImpl });
+export const deleteTag = ({ gasUrl, adminKey, id, fetchImpl } = {}) => adminCall('deleteTag', { id }, { gasUrl, adminKey, fetchImpl });
+// -> { ok, data: { into, rewrittenTests, rewrittenQuestions } }
+export const mergeTags = ({ gasUrl, adminKey, from, into, fetchImpl } = {}) => adminCall('mergeTags', { from, into }, { gasUrl, adminKey, fetchImpl });
+
+// ---------- Google Classroom ----------
+// All run as the deploying account; every reply carries `syncAccount`.
+// -> { ok, data: { courses: [{ id, name, section, room, courseState }], syncAccount } }
+export const listClassroomCourses = ({ gasUrl, adminKey, fetchImpl } = {}) => adminCall('listClassroomCourses', {}, { gasUrl, adminKey, fetchImpl });
+// courseId '' unlinks. -> { ok, data: { classId, classroomCourseId, courseName, syncAccount } }
+export const linkClassroomCourse = ({ gasUrl, adminKey, classId, courseId, fetchImpl } = {}) => adminCall('linkClassroomCourse', { classId, courseId }, { gasUrl, adminKey, fetchImpl });
+// mode: 'merge' (default) | 'replace'. -> { ok, data: { added, total, skippedNoEmail, syncAccount } }
+export const importClassroomRoster = ({ gasUrl, adminKey, classId, mode, fetchImpl } = {}) => adminCall('importClassroomRoster', { classId, mode }, { gasUrl, adminKey, fetchImpl });
+// -> { ok, data: { courseWorkId, courseWorkState, maxPoints, syncAccount, counts, rows: [{ email, name, points, possible, released, classroomDraft, classroomAssigned, lastSent, action, target }] } }
+export const previewGradeSync = ({ gasUrl, adminKey, assignmentId, fetchImpl } = {}) => adminCall('previewGradeSync', { assignmentId }, { gasUrl, adminKey, fetchImpl });
+// Call again with the returned `cursor` until `done`. -> { ok, data: { done, cursor, synced, failed, skipped, results: [{ email, status, error? }], syncAccount } }
+export const syncGrades = ({ gasUrl, adminKey, assignmentId, overwrite, emails, cursor, fetchImpl } = {}) => adminCall('syncGrades', { assignmentId, overwrite, emails, cursor }, { gasUrl, adminKey, fetchImpl });

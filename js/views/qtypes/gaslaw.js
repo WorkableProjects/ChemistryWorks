@@ -1,4 +1,4 @@
-// `gaslaw` question type (V5-07, S12e) — student widget, builder editor and review.
+// `gaslaw` question type — student widget, builder editor and review.
 // Answer: { law, setup: { slot: knownKey | '?' }, value }; see js/lib/qtypes/gaslaw.js.
 import { h } from '../../ui.js';
 import { registerTypeUI } from './registry.js';
@@ -132,7 +132,7 @@ function review(q, answer, { key } = {}) {
   const a = isObj(answer) ? answer : {};
   if (!def.isAnswered(q, a)) return null;
   const slots = isObj(a.setup) ? lawVars(a.law).filter((v) => a.setup[v]).map((v) => `${varSymbol(v)} = ${a.setup[v] === UNKNOWN ? '?' : knownText(q.knowns && q.knowns[a.setup[v]]) || '?'}`).join(', ') : '';
-  const lines = [def.answerText(q, a), slots].filter(Boolean);
+  const lines = [def.format(q, a), slots].filter(Boolean);
   return h('span', { class: 'qg-review', dataset: { testid: 'gaslaw-review' } }, lines.map((t) => h('span', { class: 'qg-review__text' }, t)));
 }
 

@@ -1,0 +1,14 @@
+/* `categorize` question type: item cards and group bins. */
+/* categorize */
+.q-categorize { display: grid; gap: 14px; }
+.q-cat__bins { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.q-cat__bin { padding: 10px 12px 12px; border-radius: var(--radius); background: var(--bg-sunken); border: 1px dashed var(--border-control); min-height: 96px; }
+.q-cat__bin.is-over { border-color: var(--primary); background: var(--primary-soft); }
+.q-cat__bin.is-empty { display: none; }
+.q-cat__title { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: none; }
+.q-cat__list { display: grid; gap: 8px; }
+.q-cat__card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-elev); border: 1px solid var(--border-control); cursor: grab; }
+.q-cat__card.is-sorted { border-color: var(--primary-line); }
+.q-cat__card.is-dragging { opacity: 0.5; }
+.q-cat__text { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.q-cat__select { min-width: 150px; max-width: 100%; }

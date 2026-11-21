@@ -1,9 +1,9 @@
-/* V5-01 game mode shell (js/views/mode-shell.js) and the Classic / Lightning / Survival rounds. Tokens only. */
+/* Game mode shell (js/views/mode-shell.js) and the Classic / Lightning / Survival rounds. Tokens only. */
 .mode-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
 .mode-bar { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
-.mode-bar__inner { display: flex; align-items: center; gap: var(--space-3); max-width: 960px; margin: 0 auto; padding: var(--space-2) var(--space-4); }
+.mode-bar__inner { display: flex; align-items: center; gap: var(--space-3); width: var(--student-w); max-width: var(--student-max); margin: 0 auto; padding: var(--space-2) var(--student-gutter); }
 .mode-bar__title { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.mode-main { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-7); display: flex; flex-direction: column; gap: var(--space-4); }
+.mode-main { flex: 1; width: var(--student-w); max-width: var(--student-max); margin: 0 auto; padding: var(--space-5) var(--student-gutter) var(--space-7); display: flex; flex-direction: column; gap: var(--space-4); }
 
 .mode-hud { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); font-size: 14px; color: var(--text-muted); }
 .mode-hud__item:empty { display: none; }
@@ -42,7 +42,7 @@
   .mode-card { padding: var(--space-4); }
 }
 
-/* Flashcards, Mistake review, Tower, Boss battle (V5 S03b). Tokens only. */
+/* Flashcards, Mistake review, Tower, Boss battle. Tokens only. */
 .mode-stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .flash__face { padding: var(--space-4); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius); }
 .flash__face[hidden] { display: none; }
@@ -69,7 +69,7 @@
 :root[data-reduce-motion="true"] .tower.is-wobble .tower__stack { animation: none; }
 :root[data-reduce-motion="true"] .boss__fill { transition: none; }
 
-/* Match-Up, Quiz show, Race, Bingo (V5 S04a). Tokens only. */
+/* Match-Up, Quiz show, Race, Bingo. Tokens only. */
 .matchup { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .matchup__col { display: flex; flex-direction: column; gap: var(--space-2); }
 .matchup__item { text-align: left; padding: var(--space-3); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text); font: inherit; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
@@ -104,3 +104,6 @@
 .bingo__cell.is-free { color: var(--text-muted); cursor: default; }
 
 @media (max-width: 600px) { .matchup { gap: var(--space-2); } }
+
+/* Below 760px the gutter stays as it was. */
+@media (max-width: 759px) { .mode-bar__inner, .mode-main { padding-left: var(--space-4); padding-right: var(--space-4); } }

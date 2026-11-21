@@ -1,4 +1,4 @@
-// `dimensional` question type (V4-03): dimensional analysis. Pure definition, no DOM.
+// `dimensional` question type: dimensional analysis. Pure definition, no DOM.
 //   Question: { given: {value, unit}, answer: {value, unit}, tolerance, toleranceType: 'absolute'|'percent',
 //               factors?: [{ top: {value, unit}, bottom: {value, unit} }]  (teacher's reference chain),
 //               chainCredit: 0..1 (default 0) }
@@ -206,8 +206,8 @@ const def = {
     };
   },
   isAnswered,
-  score,
-  answerText(q, answer) {
+  grade: score,
+  format(q, answer) {
     if (!isObj(answer)) return '';
     return chainText(q.given, answer.factors, answer.value, answer.unit);
   },

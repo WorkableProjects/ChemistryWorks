@@ -13,10 +13,6 @@ const PAYLOAD_FIELDS = [
   'submission_id', 'student_name', 'student_email', 'test_code', 'test_title', 'score_achieved', 'score_total',
   'percentage', 'responses', 'started_at', 'submitted_at', 'duration_seconds', 'flags',
 ];
-const NETLIFY_FIELDS = [
-  'form-name', 'submission_id', 'student_name', 'student_email', 'test_code', 'test_title', 'score_achieved',
-  'score_total', 'percentage', 'duration_seconds', 'responses_json', 'flags_json', 'submitted_at',
-];
 
 test('full correct CHEM101 run: 100.00%, 12 / 12, payloads captured', () => withSession(env, {}, async (s) => {
   const { page } = s;
@@ -30,7 +26,6 @@ test('full correct CHEM101 run: 100.00%, 12 / 12, payloads captured', () => with
   await waitText(page.locator(tid('score-correct')), '7 of 7 correct');
   await waitText(page.locator(tid('answered-count')), '7 of 7 answered');
   await waitAttr(page.locator(tid('submission-status')), 'data-gas', 'sent');
-  await waitAttr(page.locator(tid('submission-status')), 'data-netlify', 'sent');
   await waitAttr(page.locator(tid('submission-status')), 'data-queued', 'false');
   for (const id of ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7']) {
     await waitAttr(page.locator(tid(`review-item-${id}`)), 'data-correct', 'true');
@@ -53,14 +48,6 @@ test('full correct CHEM101 run: 100.00%, 12 / 12, payloads captured', () => with
   assert.equal(p.flags.auto_submitted, false);
   assert.equal(p.flags.mode, 'focus');
   assert.equal(p.flags.tab_switches, 0);
-
-  assert.equal(s.netlify.length, 1);
-  const n = s.netlify[0];
-  for (const f of NETLIFY_FIELDS) assert.ok(f in n, `Netlify body has ${f}`);
-  assert.equal(n['form-name'], 'chemistryworks-submissions');
-  assert.equal(n.submission_id, p.submission_id);
-  assert.equal(n.test_code, 'CHEM101');
-  assert.equal(JSON.parse(n.responses_json).length, 7);
 }));
 
 test('mixed answers with partial credit give 47.25%', () => withSession(env, {}, async (s) => {
@@ -284,7 +271,7 @@ test('autosave: reload restores answers, shows a toast, landing offers resume', 
 
   await page.reload();
   await page.locator(tid('runner')).waitFor();
-  await waitText(page.locator(tid('toast')), /Welcome back/);
+  await waitText(page.locator(tid('toast')), /restored/);
   await waitAttr(page.locator(tid('progress-bar')), 'aria-valuenow', '3');
   assert.equal(await activeId(page), 'q3');
   assert.equal(await activeCard(page).locator(tid('numeric-input')).inputValue(), '18.016');
@@ -294,9 +281,9 @@ test('autosave: reload restores answers, shows a toast, landing offers resume', 
   await waitAttr(activeCard(page).locator(tid('option-b')), 'aria-checked', 'false');
 
   await page.locator(tid('brand')).click();
-  await page.locator(tid('resume-CHEM101')).waitFor();
-  assert.match(await page.locator(tid('resume-CHEM101')).textContent(), /3 answered/);
-  await page.locator(tid('resume-CHEM101')).click();
+  await page.locator(tid('in-progress-CHEM101')).waitFor();
+  assert.match(await page.locator(tid('in-progress-CHEM101')).textContent(), /3 of 7 answered/);
+  await page.locator(tid('open-CHEM101')).click();
   await page.locator(tid('runner')).waitFor();
   await waitAttr(page.locator(tid('progress-bar')), 'aria-valuenow', '3');
 

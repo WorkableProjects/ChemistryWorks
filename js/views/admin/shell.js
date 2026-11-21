@@ -1,14 +1,14 @@
-// Admin shell (V4-01, behind feature('adminShell')): Classroom-style top bar, left sidebar, in-test tabs, profile menu.
+// Admin shell: Classroom-style top bar, left sidebar, in-test tabs, profile menu.
 // js/views/admin.js owns the views and the routing; this module only builds the frame and reports clicks.
 //
-// Extending the navigation (S11 Bank/Classes, S13 Live/...): call registerNavItem({ id, label, icon, group, render })
+// Extending the navigation: call registerNavItem({ id, label, icon, group, render })
 // once at import time. `render(host, ctx, helpers) -> cleanup?` mounts the view; an item without `render` (and not built in)
 // stays hidden, so entries for views that do not exist yet cost nothing.
 
 import { h, icon, brandLogo, themeControl } from '../../ui.js';
 import { load, save } from '../../lib/storage.js';
 import { getUser } from '../../lib/auth.js';
-import { feature } from '../../config.js';
+import { ensureCss } from '../../lib/css-loader.js';
 import { THEMES, getThemePref, setThemePref, onThemeChange, prefersReducedMotion } from '../../lib/theme.js';
 
 /* ------------------------------------------------------------------ nav model (pure) */
@@ -29,6 +29,7 @@ export const NAV_ITEMS = [
   { id: 'classes', label: 'Classes', icon: 'user', group: 'tools' },
   { id: 'accommodations', label: 'Accommodations', icon: 'user', group: 'tools' },
   { id: 'live', label: 'Live monitor', icon: 'clock', group: 'tools' },
+  { id: 'tags', label: 'Tags', icon: 'flag', group: 'tools' },
   { id: 'import', label: 'Import & templates', icon: 'upload', group: 'tools' },
   { id: 'settings', label: 'Settings', icon: 'key', group: 'bottom', builtin: true },
 ];
@@ -102,27 +103,6 @@ export function avatarTone(seed) {
   return n % 4;
 }
 
-/* ------------------------------------------------------------------ stylesheet */
-
-let cssPromise = null;
-/** Load css/admin-shell.css once (index.html does not need to list it). Resolves when applied, or after a short timeout. */
-export function ensureShellCss() {
-  if (cssPromise) return cssPromise;
-  cssPromise = new Promise((resolve) => {
-    if (typeof document === 'undefined') return resolve();
-    const href = new URL('../../../css/admin-shell.css', import.meta.url).href;
-    const existing = [...document.querySelectorAll('link[rel="stylesheet"]')].find((l) => l.getAttribute('href') === 'css/admin-shell.css' || l.href === href);
-    const link = existing || h('link', { rel: 'stylesheet', href });
-    if (!existing) document.head.appendChild(link);
-    else if (link.sheet) return resolve();
-    const done = () => resolve();
-    link.addEventListener('load', done, { once: true });
-    link.addEventListener('error', done, { once: true });
-    setTimeout(done, 1500);
-  });
-  return cssPromise;
-}
-
 /* ------------------------------------------------------------------ the shell */
 
 /**
@@ -135,7 +115,6 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   if (st.pref && typeof st.pref === 'object') st.pref = typeof st.pref.collapsed === 'boolean' ? st.pref.collapsed : null;
   else if (typeof st.pref !== 'boolean') st.pref = null;
   const cleanups = [];
-  const motion = feature('v5Motion');
   const reduced = () => { try { return prefersReducedMotion(); } catch { return false; } };
 
   /* ---- top bar ---- */
@@ -303,8 +282,8 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
     el.classList.toggle('is-drawer-open', lay.mode === 'drawer' && lay.open);
     const visible = lay.mode !== 'drawer' || lay.open;
     sidebar.inert = !visible;
-    scrim.hidden = motion ? lay.mode !== 'drawer' : !(lay.mode === 'drawer' && lay.open);
-    if (motion) { hideTip(); sidebar.style.transform = ''; sidebar.classList.remove('is-dragging'); syncTitles(lay.mode); }
+    scrim.hidden = lay.mode !== 'drawer';
+    hideTip(); sidebar.style.transform = ''; sidebar.classList.remove('is-dragging'); syncTitles(lay.mode);
     toggle.setAttribute('aria-expanded', String(lay.mode === 'drawer' ? lay.open : lay.mode === 'full'));
     requestAnimationFrame(() => { placePill(); placeTabIndicator(); });
   }
@@ -312,7 +291,7 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
     const lay = navLayout(window.innerWidth, st.pref, st.drawer);
     if (lay.mode === 'drawer') { st.drawer = !st.drawer; } else { st.pref = lay.mode === 'full'; save('adminNav', { collapsed: st.pref }); }
     applyLayout();
-    if (motion) trackPill();
+    trackPill();
     if (lay.mode === 'drawer' && st.drawer) navBody.querySelector('.ash-item')?.focus({ preventScroll: true });
   }
   function closeDrawer() { if (st.drawer) { st.drawer = false; applyLayout(); } }
@@ -350,48 +329,47 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
       if (mode === 'rail') b.removeAttribute('title'); else b.setAttribute('title', b.dataset.label || '');
     }
   }
-  if (motion) {
-    el.classList.add('ash--motion');
-    el.append(tip);
-    const onOver = (e) => { const b = e.target.closest?.('.ash-item'); if (b) showTip(b); };
-    const onOut = (e) => { if (e.target.closest?.('.ash-item')) hideTip(); };
-    navBody.addEventListener('pointerover', onOver);
-    navBody.addEventListener('pointerout', onOut);
-    navBody.addEventListener('focusin', (e) => { if (e.target.matches?.('.ash-item:focus-visible')) onOver(e); });
-    navBody.addEventListener('focusout', onOut);
-    navBody.addEventListener('scroll', hideTip, { passive: true });
-    sidebar.addEventListener('scroll', hideTip, { passive: true });
-    const body = el.querySelector('.ash-body');
-    body.addEventListener('transitionend', (e) => { if (e.target === body) placePill(); });
-    // swipe left on the open drawer to close it
-    let sw = null;
-    sidebar.addEventListener('pointerdown', (e) => {
-      if (!st.drawer || e.pointerType === 'mouse') return;
-      sw = { x: e.clientX, y: e.clientY, dx: 0, t: performance.now(), on: false, id: e.pointerId };
-    });
-    sidebar.addEventListener('pointermove', (e) => {
-      if (!sw || e.pointerId !== sw.id) return;
-      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
-      if (!sw.on) {
-        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
-        if (dx < -8 && Math.abs(dx) > Math.abs(dy)) { sw.on = true; sidebar.classList.add('is-dragging'); try { sidebar.setPointerCapture(e.pointerId); } catch { /* ignore */ } }
-      }
-      if (sw && sw.on) { sw.dx = Math.min(0, dx); sidebar.style.transform = `translateX(${sw.dx}px)`; }
-    });
-    const endSwipe = () => {
-      if (!sw) return;
-      const s = sw; sw = null;
-      sidebar.classList.remove('is-dragging');
-      if (!s.on) return;
-      const fast = s.dx / Math.max(1, performance.now() - s.t) < -0.4;
-      sidebar.style.transform = '';
-      if (s.dx < -(sidebar.offsetWidth * 0.3) || fast) { closeDrawer(); toggle.focus({ preventScroll: true }); }
-    };
-    sidebar.addEventListener('pointerup', endSwipe);
-    sidebar.addEventListener('pointercancel', endSwipe);
-  }
+  el.classList.add('ash--motion');
+  el.append(tip);
+  const onOver = (e) => { const b = e.target.closest?.('.ash-item'); if (b) showTip(b); };
+  const onOut = (e) => { if (e.target.closest?.('.ash-item')) hideTip(); };
+  navBody.addEventListener('pointerover', onOver);
+  navBody.addEventListener('pointerout', onOut);
+  navBody.addEventListener('focusin', (e) => { if (e.target.matches?.('.ash-item:focus-visible')) onOver(e); });
+  navBody.addEventListener('focusout', onOut);
+  navBody.addEventListener('scroll', hideTip, { passive: true });
+  sidebar.addEventListener('scroll', hideTip, { passive: true });
+  const body = el.querySelector('.ash-body');
+  body.addEventListener('transitionend', (e) => { if (e.target === body) placePill(); });
+  // swipe left on the open drawer to close it
+  let sw = null;
+  sidebar.addEventListener('pointerdown', (e) => {
+    if (!st.drawer || e.pointerType === 'mouse') return;
+    sw = { x: e.clientX, y: e.clientY, dx: 0, t: performance.now(), on: false, id: e.pointerId };
+  });
+  sidebar.addEventListener('pointermove', (e) => {
+    if (!sw || e.pointerId !== sw.id) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
+      if (dx < -8 && Math.abs(dx) > Math.abs(dy)) { sw.on = true; sidebar.classList.add('is-dragging'); try { sidebar.setPointerCapture(e.pointerId); } catch { /* ignore */ } }
+    }
+    if (sw && sw.on) { sw.dx = Math.min(0, dx); sidebar.style.transform = `translateX(${sw.dx}px)`; }
+  });
+  const endSwipe = () => {
+    if (!sw) return;
+    const s = sw; sw = null;
+    sidebar.classList.remove('is-dragging');
+    if (!s.on) return;
+    const fast = s.dx / Math.max(1, performance.now() - s.t) < -0.4;
+    sidebar.style.transform = '';
+    if (s.dx < -(sidebar.offsetWidth * 0.3) || fast) { closeDrawer(); toggle.focus({ preventScroll: true }); }
+  };
+  sidebar.addEventListener('pointerup', endSwipe);
+  sidebar.addEventListener('pointercancel', endSwipe);
+
   function ghostOut() {
-    if (!motion || reduced() || !panel.firstElementChild) return;
+    if (reduced() || !panel.firstElementChild) return;
     const host = panel.parentElement;
     const r = panel.getBoundingClientRect(), hr = host.getBoundingClientRect();
     const ghost = panel.cloneNode(true);
@@ -409,14 +387,14 @@ export function buildAdminShell({ items = NAV_ITEMS, current = 'dashboard', onNa
   }
 
   drawNav();
-  if (motion) { for (const b of Object.values(navBtns)) b.dataset.label = b.querySelector('.ash-item__label')?.textContent || ''; }
+  for (const b of Object.values(navBtns)) b.dataset.label = b.querySelector('.ash-item__label')?.textContent || '';
   drawCrumbs();
   applyLayout();
   refreshTabs();
   const onBuilderChange = () => refreshTabs();
   document.addEventListener('cw:builder-change', onBuilderChange);
   cleanups.push(() => document.removeEventListener('cw:builder-change', onBuilderChange));
-  ensureShellCss().then(() => {
+  ensureCss('admin-shell').then(() => {
     el.classList.remove('ash--wait');
     requestAnimationFrame(() => { placePill(); placeTabIndicator(); });
   });

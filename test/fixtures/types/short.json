@@ -1,0 +1,12 @@
+{
+  "question": {
+    "id": "short-1",
+    "type": "short",
+    "text": "Write the electron configuration of sodium.",
+    "points": 1,
+    "sampleAnswer": "1s2 2s2 2p6 3s1",
+    "explanation": "Sodium has 11 electrons: 1s² 2s² 2p⁶ 3s¹."
+  },
+  "correct": "1s2 2s2 2p6 3s1",
+  "wrong": ""
+}

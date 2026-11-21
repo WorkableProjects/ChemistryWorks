@@ -1,4 +1,4 @@
-// Open / close window, late work and accommodations on the client (V4-02, S12). Pure, no DOM.
+// Open / close window, late work and accommodations on the client. Pure, no DOM.
 // The backend enforces the same rules (apps-script/Code.gs windowState_ / submissionGate_); this mirrors them so the
 // student sees "Opens on …" / "This test is closed" before starting, and the runner applies accommodations.
 //

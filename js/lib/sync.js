@@ -1,4 +1,4 @@
-// V5-02 progress sync: queues attempt + XP/badge deltas and sends them with `syncProgress`.
+// Progress sync: queues attempt + XP/badge deltas and sends them with `syncProgress`.
 // Never blocks the UI and never throws. Throttle: at most one flush per 30 s, plus immediately on a mode switch and on
 // `pagehide`. Failures retry with backoff (30 s, 60 s ... 5 min). No backend / demo sign-in / old backend -> state
 // 'offline' and nothing is sent. The queue is kept in localStorage (`syncq:<email>`) so it survives a reload.
@@ -6,7 +6,7 @@
 
 import { load, save, remove } from './storage.js';
 import { syncProgress } from './api.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, killed } from '../config.js';
 import { getUser } from './auth.js';
 
 export const SYNC_INTERVAL = 30000;
@@ -28,7 +28,7 @@ const defaults = () => ({
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t),
   gasUrl: () => CONFIG.GAS_WEB_APP_URL,
-  canSync: (email) => { const u = getUser(); return !!(u && u.provider !== 'demo' && String(u.email || '').toLowerCase() === String(email || '').toLowerCase()); },
+  canSync: (email) => { const u = getUser(); return !killed('studentSync') && !!(u && u.provider !== 'demo' && String(u.email || '').toLowerCase() === String(email || '').toLowerCase()); },
 });
 let deps = defaults();
 export function configureSync(overrides = {}) {
@@ -148,7 +148,7 @@ export async function flush(email, { force = false } = {}) {
  * Preview attempts are never synced.
  */
 export function attachAttempt(attempt) {
-  if (!attempt || attempt.preview || !attempt.email) return () => {};
+  if (killed('studentSync') || !attempt || attempt.preview || !attempt.email) return () => {};
   const snap = () => ({ code: attempt.test.code, mode: attempt.lastMode, answeredCount: attempt.answeredCount, total: attempt.total });
   const off = attempt.subscribe((ev) => {
     if (ev.type === 'save' || ev.type === 'reset') queueAttempt(attempt.email, snap());

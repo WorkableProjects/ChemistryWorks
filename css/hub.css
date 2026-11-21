@@ -1,4 +1,4 @@
-/* Class Hub (V5-10). Student rules under .hub-student; teacher rules under .hub-admin. Tokens only. */
+/* Class Hub. Student rules under .hub-student; teacher rules under .hub-admin. Tokens only. */
 
 /* ---- student ---- */
 .hub-student .hub-chip--info, .hub-chip--info { background: var(--primary-soft); color: var(--primary-ink); }

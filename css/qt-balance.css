@@ -1,0 +1,8 @@
+/* `balance` question type: the coefficient boxes. */
+/* balance */
+.q-bal { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 14px 16px; border-radius: var(--radius); background: var(--bg-sunken); }
+.q-bal__term { display: inline-flex; align-items: center; gap: 6px; }
+.q-bal__box { width: 3.4em; height: 46px; padding: 0 6px; text-align: center; font-size: 19px; font-weight: 600; font-family: var(--font-mono); }
+.q-bal__formula { font-size: 22px; font-weight: 600; white-space: nowrap; }
+.q-bal__plus, .q-bal__arrow { font-size: 22px; font-weight: 600; color: var(--text-muted); }
+.q-bal__arrow { padding: 0 4px; }

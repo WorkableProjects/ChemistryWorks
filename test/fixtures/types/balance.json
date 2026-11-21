@@ -1,0 +1,38 @@
+{
+  "question": {
+    "id": "balance-1",
+    "type": "balance",
+    "text": "Balance the equation for the formation of water.",
+    "points": 2,
+    "reactants": [
+      "H2",
+      "O2"
+    ],
+    "products": [
+      "H2O"
+    ],
+    "coefficients": [
+      2,
+      1,
+      2
+    ],
+    "allowMultiples": false,
+    "partialCredit": true,
+    "explanation": "Two H2 molecules react with one O2 molecule to give two H2O molecules."
+  },
+  "correct": [
+    2,
+    1,
+    2
+  ],
+  "wrong": [
+    3,
+    3,
+    3
+  ],
+  "partial": [
+    2,
+    1,
+    3
+  ]
+}

@@ -1,7 +1,7 @@
 // Admin "Grading" tab: review every submission from the Google Sheet, grade open-ended answers,
 // override auto-graded points, and export final scores for a gradebook (Aeries, Google Classroom).
 import { h, mount, icon, richText, renderMath, toast, openModal, formatDurationLong } from '../../ui.js';
-import { CONFIG, feature } from '../../config.js';
+import { CONFIG } from '../../config.js';
 import { load, save as saveLocal } from '../../lib/storage.js';
 import { adminKey, hasAdminAuth } from '../../lib/admin-session.js';
 import { saveGrade, releaseAll, allowRetake, batchCall } from '../../lib/api.js';
@@ -14,15 +14,19 @@ import { commentBody, commentBankPicker } from '../comment-view.js';
 import { withQuestionImage } from '../question-image.js';
 import { renderGradeByQuestion, answerDiagram } from './grade-by-question.js';
 import { skeleton, emptyState, downloadFile, fmtDate, round2, debounce } from './common.js';
-import { normalizeRow, filterRows, sortRows, toGradebookCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
+import { normalizeRow, filterRows, sortRows, toGradebookCsv, toClassroomCsv, formatPercent, applyGrades, validatePoints, isOverride, planBulk, summarizeBulk, BULK, STATUS, FILTER_RELEASED } from './stats.js';
 import { regradeRow } from '../../lib/regrade.js';
 import { adminCall } from '../../lib/api.js';
 import { openAccommodationEditor } from './accommodations.js';
 import { studentHref } from './hub/data.js';
+import { unverifiedMark } from './identity-mark.js';
+import { adminTagOptions, adminTagStats, hasTag } from '../../lib/tag-stats.js';
+import { sheetTagsResource } from '../../lib/tags.js';
+import { tagSummary } from '../tag-summary.js';
 
 // Module state: remembered while switching tabs in the session.
 const BATCH = 50;
-const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false };
+const G = { testCode: 'all', status: STATUS.NEEDS_GRADING, query: '', error: '', selectedId: null, mode: 'student', selected: new Set(), perQuestion: false, openFirst: false, tag: '' };
 
 /** Dashboard "Grade next": filter to what needs grading (optionally one test) and open the oldest submission once rows load. */
 export function setGradingFocus({ code = 'all', openFirst = true } = {}) {
@@ -74,6 +78,10 @@ export function renderGrading(root, ctx, { goSettings }) {
     if (!busy && !G.selectedId && G.mode === 'student' && resultsRes.peek()) drawList();
   });
   cleanups.push(unsub);
+  // Tag names come from the tags resource; the list redraws when they arrive.
+  const tagsRes = sheetTagsResource(gasUrl);
+  cleanups.push(tagsRes.subscribe(() => { if (alive && !busy && !G.selectedId && resultsRes.peek()) { if (G.mode === 'student') drawList(); else draw(); } }));
+  tagsRes.get().catch(() => { /* local tag names still show */ });
 
   async function loadRows(force = false) {
     if (resultsRes.peek() === undefined) mount(content, skeleton(5));
@@ -96,7 +104,7 @@ export function renderGrading(root, ctx, { goSettings }) {
 
   let gbqCleanup = null;
   const stopGbq = () => { try { gbqCleanup?.(); } catch (e) { console.error(e); } gbqCleanup = null; };
-  // V4-01 split view: J/K and number keys live on the document while one submission is open.
+  // Split view: J/K and number keys live on the document while one submission is open.
   let keysOff = null;
   const stopKeys = () => { try { keysOff?.(); } catch (e) { console.error(e); } keysOff = null; };
 
@@ -129,13 +137,19 @@ export function renderGrading(root, ctx, { goSettings }) {
   /* ---------------------------------------------------------------- list */
   function visibleRows() {
     // Oldest first, so students are graded in submission order.
-    return sortRows(filterRows(rows, { testCode: G.testCode, status: G.status, query: G.query }), 'timestamp', 'asc');
+    const list = filterRows(rows, { testCode: G.testCode, status: G.status, query: G.query });
+    const tagged = G.tag ? list.filter((r) => hasTag({ responses: r.auto_responses, grades: r.grades }, testCache.get(r.test_code), G.tag)) : list;
+    return sortRows(tagged, 'timestamp', 'asc');
   }
 
   function drawList() {
     const codes = [...new Set(rows.map((r) => r.test_code).filter(Boolean))].sort();
     if (G.testCode !== 'all' && !codes.includes(G.testCode)) G.testCode = 'all';
     const byTest = filterRows(rows, { testCode: G.testCode });
+    const missingTests = codes.filter((c) => !testCache.has(c));
+    if (missingTests.length) Promise.all(missingTests.map(ensureTest)).then(() => { if (alive && !G.selectedId && G.mode === 'student') drawList(); });
+    const tagOptions = adminTagOptions(byTest.map((r) => testCache.get(r.test_code)).filter(Boolean).filter((t, i, a) => a.indexOf(t) === i));
+    if (G.tag && !tagOptions.some((o) => o.id === G.tag) && !missingTests.length) G.tag = '';
     const count = (s) => byTest.filter((r) => r.status === s).length;
 
     const testSel = h('select', { class: 'select adm-select-sm', 'aria-label': 'Filter by test', dataset: { testid: 'grading-test-filter' },
@@ -151,11 +165,16 @@ export function renderGrading(root, ctx, { goSettings }) {
     h('option', { value: STATUS.EXTRA }, `Extra attempts (${count(STATUS.EXTRA)})`),
     h('option', { value: 'all' }, `All (${byTest.filter((r) => r.status !== STATUS.EXTRA).length})`));
     statusSel.value = G.status;
+    const tagSel = tagOptions.length ? h('select', { class: 'select adm-select-sm', 'aria-label': 'Filter by tag', dataset: { testid: 'grading-tag-filter' },
+      on: { change: () => { G.tag = tagSel.value; drawList(); } } },
+    h('option', { value: '' }, 'All tags'), tagOptions.map((o) => h('option', { value: o.id }, o.name))) : null;
+    if (tagSel) tagSel.value = G.tag;
+    const tagHost = h('div', { dataset: { testid: 'grading-tag-stats-host' } });
     const search = h('input', { class: 'input adm-search', type: 'search', placeholder: 'Search name or email', 'aria-label': 'Search submissions', value: G.query, dataset: { testid: 'grading-search' } });
-    const tableHost = h('div', { class: 'adm-tablewrap', dataset: { testid: 'grading-table' } });
+    const tableHost = h('div', { class: 'adm-tablewrap', tabindex: '0', role: 'region', 'aria-label': 'Submissions', dataset: { testid: 'grading-table' } });
     const refreshBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'grading-refresh' }, on: { click: () => loadRows(true) } }, icon('refresh', { size: 16 }), 'Refresh');
-    // V3-03: release every graded / auto-graded submission of the selected test.
-    // V4-02: re-run auto-grading on every submission of this test with the current answer key (overrides kept).
+    // Release every graded / auto-graded submission of the selected test.
+    // Re-run auto-grading on every submission of this test with the current answer key (overrides kept).
     const regradeBtn = G.testCode === 'all' ? null : h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'regrade' }, on: { click: () => {
       openModal({ title: `Regrade ${G.testCode}?`, testid: 'regrade-modal',
         body: 'Every submission of this test is auto-graded again with the current answer key. Teacher-graded questions and your point overrides are kept.',
@@ -200,6 +219,13 @@ export function renderGrading(root, ctx, { goSettings }) {
       const pending = list.filter((r) => r.status === STATUS.NEEDS_GRADING).length;
       toast(pending ? `Exported ${list.length} rows (${pending} still need grading)` : `Exported ${list.length} rows`, { type: pending ? 'warning' : 'success' });
     } } }, icon('download', { size: 16 }), 'Export grades');
+
+    const classroomCsvBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'export-classroom-csv' }, on: { click: () => {
+      const list = visibleRows();
+      if (!list.length) return toast('Nothing to export', { type: 'warning' });
+      downloadFile(`classroom-grades${G.testCode !== 'all' ? `-${G.testCode}` : ''}.csv`, toClassroomCsv(list), 'text/csv');
+      toast(`Exported ${list.length} rows for Google Classroom`, { type: 'success' });
+    } } }, icon('download', { size: 16 }), 'Classroom CSV');
 
     // Bulk tools: checkboxes + a bar that loops the single-row actions with progress. Selection only ever counts visible rows.
     const bulkHost = h('div', { class: 'adm-bulk-host', dataset: { testid: 'bulk-host' } });
@@ -289,8 +315,8 @@ export function renderGrading(root, ctx, { goSettings }) {
         return h('tr', { class: 'adm-row', tabindex: '0', 'aria-label': `Grade ${r.student_name || r.student_email}`, dataset: { testid: 'grading-row' },
           on: { click: open, keydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } } },
         h('td', { class: 'adm-td-check', on: { click: stop, keydown: stop } }, pick),
-        h('td', {}, r.student_email && feature('classHub') ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
-        h('td', { class: 'adm-td-email' }, r.student_email || '—'),
+        h('td', {}, r.student_email ? h('a', { class: 'hub-link', href: studentHref(r.student_email), dataset: { testid: 'grading-student-link' }, on: { click: stop } }, r.student_name || r.student_email) : (r.student_name || '—')),
+        h('td', { class: 'adm-td-email' }, r.student_email || '—', unverifiedMark(r)),
         h('td', {}, h('span', { class: 'adm-item__code adm-item__code--sm' }, r.test_code)),
         h('td', { class: 'adm-td-nowrap' }, fmtDate(r.timestamp)),
         h('td', {}, r.status === STATUS.NEEDS_GRADING ? h('span', { class: 'faint' }, 'Pending') : `${round2(r.score_achieved)} / ${round2(r.score_total)} (${formatPercent(r.percentage)})`),
@@ -304,6 +330,8 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('tbody', {}, body.length ? body : h('tr', {}, h('td', { colspan: 8, class: 'muted adm-center' },
           G.status === STATUS.NEEDS_GRADING ? 'Nothing left to grade.' : 'No matching submissions.')))));
       drawBulk();
+      const stats = adminTagStats(list, (r) => testCache.get(r.test_code));
+      mount(tagHost, tagSummary(stats, { title: 'By tag', testid: 'grading-tag-stats', tag: 'h4', hint: 'Average points per tag across the submissions shown, graded answers only.' }));
     }
     const onSearch = debounce(() => { G.query = search.value; drawTable(); }, 120);
     cleanups.push(() => onSearch.cancel());
@@ -314,15 +342,17 @@ export function renderGrading(root, ctx, { goSettings }) {
         modeToggle(),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Test'), testSel),
         h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Status'), statusSel),
+        tagSel ? h('label', { class: 'adm-inline' }, h('span', { class: 'field__label' }, 'Tag'), tagSel) : null,
         h('span', { class: 'spacer' }), releaseAllBtn, regradeBtn, refreshBtn),
       G.error
         ? h('div', { class: 'card' }, emptyState('alert', 'Could not load submissions', G.error, 'grading-error'))
         : h('section', { class: 'card adm-card-results', 'aria-label': 'Submissions to grade' },
           h('div', { class: 'adm-toolbar adm-toolbar--wrap' }, h('h3', { class: 'adm-h3' }, 'Submissions'), h('span', { class: 'spacer' }), search,
-            h('label', { class: 'adm-inline adm-inline--sm', title: 'Add one points column per question to the CSV' }, perQuestionBox, h('span', {}, 'Per-question columns')), exportBtn),
+            h('label', { class: 'adm-inline adm-inline--sm', title: 'Add one points column per question to the CSV' }, perQuestionBox, h('span', {}, 'Per-question columns')), exportBtn, classroomCsvBtn),
           bulkHost,
+          tagHost,
           tableHost,
-          h('p', { class: 'field__hint' }, 'Export grades downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom.')));
+          h('p', { class: 'field__hint' }, 'Export grades downloads a CSV of final scores (name, email, score, percent) to copy into Aeries or Google Classroom. Classroom CSV is laid out for Classroom\'s Import grades.')));
     drawTable();
   }
 
@@ -488,7 +518,6 @@ export function renderGrading(root, ctx, { goSettings }) {
     let baseline = '';
     const isDirty = () => snapshot() !== baseline;
 
-    const split = feature('adminShell');
     const list = visibleRows();
     const pos = list.findIndex((r) => r.submission_id === row.submission_id);
     const neighbor = (d) => (pos >= 0 ? list[pos + d] : null);
@@ -553,7 +582,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       if (!res.ok) { toast(`Could not save grade: ${res.error}`, { type: 'error', timeout: 5000 }); return; }
       settle(res);
       toast(`Saved grade for ${label}`, { type: 'success' });
-      if (split) G.justSaved = row.submission_id;
+      G.justSaved = row.submission_id;
       draw();
     }
 
@@ -594,7 +623,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       } catch (e) { toast('Could not export: ' + (e && e.message ? e.message : 'unavailable'), { type: 'error' }); }
     } } }, icon('download', { size: 16 }), 'Export PDF');
 
-    // V3-03: allow this student one more submission (single-submission tests).
+    // Allow this student one more submission (single-submission tests).
     const retakeBtn = h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'allow-retake' }, 'aria-pressed': String(!!row.retake_allowed_at),
       on: { click: async () => {
         const allow = !row.retake_allowed_at;
@@ -619,7 +648,7 @@ export function renderGrading(root, ctx, { goSettings }) {
       h('section', { class: 'card stack', 'aria-label': 'Submission details' },
         h('div', { class: 'adm-toolbar adm-toolbar--wrap' },
           h('h3', { class: 'adm-h3' }, row.student_name || row.student_email || 'Student'),
-          statusPill(row.status), h('span', { class: 'spacer' }), retakeBtn,
+          statusPill(row.status), unverifiedMark(row), h('span', { class: 'spacer' }), retakeBtn,
           h('button', { class: 'btn btn--ghost btn--sm', type: 'button', dataset: { testid: 'extend-window' }, on: { click: () => openAccommodationEditor(ctx, { email: row.student_email, testCode: row.test_code }) } }, icon('clock', { size: 16 }), 'Extend / accommodations')),
         row.flags && row.flags.questions && Object.keys(row.flags.questions).length ? h('div', { class: 'notice notice--warning', dataset: { testid: 'student-flags' } }, icon('flag'),
           h('span', {}, 'Flagged by the student: ', Object.entries(row.flags.questions).map(([qid, note]) => `${qid}${note ? ` — “${note}”` : ''}`).join('; '))) : null,
@@ -632,25 +661,22 @@ export function renderGrading(root, ctx, { goSettings }) {
         h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Graded by'), gradedBy),
         note),
       h('div', { class: 'adm-grade__bar card' },
-        h('span', {}, 'Final score: ', totalEl), warnEl, split ? savedEl : null, h('span', { class: 'spacer' }),
+        h('span', {}, 'Final score: ', totalEl), warnEl, savedEl, h('span', { class: 'spacer' }),
         h('label', { class: 'adm-inline adm-release', for: 'release-grade' }, releaseBox, 'Release grade & comments to student'),
         releaseStatus, saveNextBtn, saveBtn)];
-    if (!split) mount(content, ...detail);
-    else {
-      // V4-01 split view: student list on the left, the open submission on the right (list hidden on phones).
-      const shown = pos >= 0 ? list : [row, ...list];
-      const listPane = h('aside', { class: 'grd2__list', 'aria-label': 'Students', dataset: { testid: 'grading-split-list' } },
-        h('p', { class: 'grd2__listhead' }, G.testCode === 'all' ? 'Students' : `Students · ${G.testCode}`, h('span', { class: 'faint' }, ` (${shown.length})`)),
-        h('ul', { class: 'grd2__rows' }, shown.map((r) => h('li', {}, h('button', {
-          class: 'grd2__row', type: 'button', 'aria-current': r.submission_id === row.submission_id ? 'true' : null, dataset: { testid: 'grading-split-row', id: r.submission_id },
-          on: { click: () => { if (r.submission_id !== row.submission_id) go(r); } },
-        }, h('span', { class: 'grd2__name' }, r.student_name || r.student_email || 'Student'),
-        h('span', { class: ['pill', r.status === STATUS.NEEDS_GRADING ? 'pill--warning' : r.status === STATUS.GRADED ? 'pill--success' : ''] }, r.status === STATUS.NEEDS_GRADING ? 'To grade' : formatPercent(r.percentage)))))));
-      mount(content, h('div', { class: 'grd2', dataset: { testid: 'grading-split' } }, listPane, h('div', { class: ['grd2__detail', 'stack'], dataset: { testid: 'grading-detail' } }, ...detail)));
-      listPane.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
-      if (G.justSaved === row.submission_id) { G.justSaved = null; savedEl.hidden = false; setTimeout(() => { savedEl.hidden = true; }, 2200); }
-      keysOff = bindGradingKeys();
-    }
+    // Split view: student list on the left, the open submission on the right (list hidden on phones).
+    const shown = pos >= 0 ? list : [row, ...list];
+    const listPane = h('aside', { class: 'grd2__list', 'aria-label': 'Students', dataset: { testid: 'grading-split-list' } },
+      h('p', { class: 'grd2__listhead' }, G.testCode === 'all' ? 'Students' : `Students · ${G.testCode}`, h('span', { class: 'faint' }, ` (${shown.length})`)),
+      h('ul', { class: 'grd2__rows' }, shown.map((r) => h('li', {}, h('button', {
+        class: 'grd2__row', type: 'button', 'aria-current': r.submission_id === row.submission_id ? 'true' : null, dataset: { testid: 'grading-split-row', id: r.submission_id },
+        on: { click: () => { if (r.submission_id !== row.submission_id) go(r); } },
+      }, h('span', { class: 'grd2__name' }, r.student_name || r.student_email || 'Student'),
+      h('span', { class: ['pill', r.status === STATUS.NEEDS_GRADING ? 'pill--warning' : r.status === STATUS.GRADED ? 'pill--success' : ''] }, r.status === STATUS.NEEDS_GRADING ? 'To grade' : formatPercent(r.percentage)))))));
+    mount(content, h('div', { class: 'grd2', dataset: { testid: 'grading-split' } }, listPane, h('div', { class: ['grd2__detail', 'stack'], dataset: { testid: 'grading-detail' } }, ...detail)));
+    listPane.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+    if (G.justSaved === row.submission_id) { G.justSaved = null; savedEl.hidden = false; setTimeout(() => { savedEl.hidden = true; }, 2200); }
+    keysOff = bindGradingKeys();
     updateTotal();
     baseline = snapshot();
     renderMath(content);

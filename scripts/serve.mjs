@@ -1,6 +1,6 @@
 // Zero-dependency static server for local development and E2E tests.
 //   node scripts/serve.mjs [port]      (default 3000; PORT env also honored; 0 = random)
-// Mirrors netlify.toml: /test -> index.html. POST / returns 200 to simulate Netlify Forms.
+// /test and / serve index.html.
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -10,17 +10,12 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
-  '.png': 'image/png', '.ico': 'image/x-icon', '.md': 'text/markdown; charset=utf-8',
+  '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.md': 'text/markdown; charset=utf-8',
 };
 
 export function createServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
-    if (req.method === 'POST') {
-      req.resume();
-      req.on('end', () => { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('ok'); });
-      return;
-    }
     let path = decodeURIComponent(url.pathname);
     if (path === '/' || path === '/test') path = '/index.html';
     const file = normalize(join(ROOT, path));

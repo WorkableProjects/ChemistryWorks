@@ -1,4 +1,4 @@
-// `titration` question type (V4-03, S10) — student titration simulator, builder editor with a live curve preview, review.
+// `titration` question type — student titration simulator, builder editor with a live curve preview, review.
 // Add titrant with "Add 1.00 mL" / "Add 0.10 mL" or the slider; the meter shows the volume and pH, the chart plots the points
 // visited so far. The student records the equivalence-point volume and / or the pH in two boxes.
 // Answer = { volume: '25.0', ph: '8.72' } (typed text).

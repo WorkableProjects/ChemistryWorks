@@ -1,0 +1,21 @@
+/* `matching` question type: the radio grid. */
+/* ---------- Matching matrix ---------- */
+.q-match { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); -webkit-overflow-scrolling: touch; }
+.q-match table { border-collapse: separate; border-spacing: 0; width: 100%; }
+.q-match th, .q-match td { border-bottom: 1px solid var(--border); }
+.q-match tbody tr:last-child th, .q-match tbody tr:last-child td { border-bottom: 0; }
+.q-match__col { padding: 12px 10px; min-width: 96px; font-size: 14px; font-weight: 600; text-align: center; background: var(--bg-sunken); vertical-align: bottom; }
+.q-match__corner { background: var(--bg-sunken); min-width: 120px; position: sticky; left: 0; z-index: 2; }
+.q-match__row { position: sticky; left: 0; z-index: 1; padding: 10px 14px; min-width: 120px; max-width: 220px; text-align: left; font-size: 15px; font-weight: 600; background: var(--bg-elev); box-shadow: 1px 0 0 var(--border); }
+.q-match__cell { padding: 0; text-align: center; }
+.q-match tbody tr:hover .q-match__cell, .q-match tbody tr:hover .q-match__row { background: var(--hover-tint); }
+.q-dot { position: relative; display: grid; place-items: center; height: 52px; cursor: pointer; }
+.q-dot__input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.q-dot__mark { pointer-events: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border-control); background: var(--bg-elev); display: grid; place-items: center; transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.q-dot__mark::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); transform: scale(0); transition: transform var(--dur-slow) var(--ease-out); }
+.q-dot:hover .q-dot__mark { border-color: var(--primary); transform: scale(1.08); }
+.q-dot__input:checked + .q-dot__mark { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-ring); }
+.q-dot__input:checked + .q-dot__mark::after { transform: scale(1); }
+.q-dot__input:focus-visible + .q-dot__mark { outline: 2px solid var(--primary); outline-offset: 2px; box-shadow: 0 0 0 4px var(--primary-ring); border-color: var(--primary); }
+.q-match__col .opt-img, .q-match__row .opt-img { margin: 0 auto 6px; }
+.q-match__row .opt-img { margin-left: 0; }

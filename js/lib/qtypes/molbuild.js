@@ -1,4 +1,4 @@
-// `molbuild` question type (V5-07, S12f): molecule builder. Pure definition, no DOM.
+// `molbuild` question type: molecule builder. Pure definition, no DOM.
 //   { type: 'molbuild', atoms: ['C','O','O'], bonds: [[0,1,2],[0,2,2]], extraAtoms?: ['H'] }
 //   Target: atoms (symbols) and bonds [indexA, indexB, order 1..3] by 0-based position in `atoms`.
 //   Answer: { atoms: ['O','C','O'], bonds: [[0,1,2],[1,2,2]] } built by the student, in any order and layout.
@@ -121,6 +121,8 @@ export const def = {
   label: 'Molecule builder',
   shortLabel: 'Molecule builder',
   group: 'Chemistry',
+  manual: false,
+  layout: 'wide',
   v5: true,
 
   normalize(q) {
@@ -141,7 +143,7 @@ export const def = {
 
   isAnswered(q, a) { return toBuild(a).atoms.length > 0; },
 
-  score(q, a) {
+  grade(q, a) {
     const key = keyOf(q);
     if (!key) return { fraction: 0, full: false };
     const got = toBuild(a);
@@ -151,7 +153,7 @@ export const def = {
     return { fraction, full: fraction === 1 };
   },
 
-  answerText(q, a) { const g = toBuild(a); return g.atoms.length ? describe(g) : DASH; },
+  format(q, a) { const g = toBuild(a); return g.atoms.length ? describe(g) : DASH; },
   keyText(q) { const k = keyOf(q); return k ? describe(k) : DASH; },
   correctAnswer: (q) => keyOf(q) || {},
 };

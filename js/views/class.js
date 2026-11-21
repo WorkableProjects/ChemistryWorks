@@ -1,4 +1,4 @@
-// Student class page (?view=class&id=): stream (pinned first), upcoming and past assignments (V5-10).
+// Student class page (?view=class&id=): stream (pinned first), upcoming and past assignments.
 import { h, mount, icon, themeControl } from '../ui.js';
 import { getUser } from '../lib/auth.js';
 import { loadProfile, subscribeProfile } from '../lib/profile.js';
@@ -9,6 +9,9 @@ const when = (t) => { const ms = toMs(t); return ms == null ? '' : new Date(ms).
 const postRow = (p) => h('li', { class: ['hub-post', p.pinned ? 'is-pinned' : ''], dataset: { testid: `stream-post-${p.id}` } },
   h('div', { class: 'hub-post__head' }, p.pinned ? h('span', { class: 'chip hub-chip hub-chip--info' }, 'Pinned') : null, h('span', { class: 'row__meta' }, when(p.createdAt))),
   h('p', { class: 'hub-post__body' }, p.body || ''));
+
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['home', 'hub', 'hub-admin'];
 
 export function render(root, ctx, params = {}) {
   const user = getUser();

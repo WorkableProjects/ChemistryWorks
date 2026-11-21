@@ -1,0 +1,21 @@
+{
+  "question": {
+    "type": "open",
+    "text": "Explain why ionic compounds have high melting points.",
+    "points": 4,
+    "sampleAnswer": "Strong attraction between oppositely charged ions means a lot of energy is needed to break the lattice.",
+    "rubric": [
+      {
+        "text": "Identifies strong electrostatic attraction between oppositely charged ions",
+        "points": 2
+      },
+      {
+        "text": "Links it to the energy needed to break the lattice",
+        "points": 2
+      }
+    ],
+    "id": "open-1"
+  },
+  "correct": "Ions attract each other strongly, so it takes a lot of heat to pull the lattice apart.",
+  "wrong": ""
+}

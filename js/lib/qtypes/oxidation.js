@@ -1,4 +1,4 @@
-// `oxidation` question type (V5-07, S12b): oxidation numbers. Pure definition, no DOM.
+// `oxidation` question type: oxidation numbers. Pure definition, no DOM.
 //   A formula or equation is shown. Each element symbol in it is one atom position; the student enters a signed
 //   integer above each one (+2, -1, 0).
 //   { type: 'oxidation', formula: 'H2SO4', key: [1, 6, -2] }   (key: one integer per atom position, in order)
@@ -53,6 +53,7 @@ export const def = {
   label: 'Oxidation numbers',
   shortLabel: 'Oxidation numbers',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -82,7 +83,7 @@ export const def = {
     return Array.isArray(a) && a.some((v) => parseOx(v) !== null);
   },
 
-  score(q, a) {
+  grade(q, a) {
     const key = keyOf(q);
     if (!key.length || key.some((k) => k === null)) return { fraction: 0, full: false };
     const given = Array.isArray(a) ? a : [];
@@ -91,7 +92,7 @@ export const def = {
     return { fraction: right / key.length, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     const atoms = atomsOf(q.formula);
     if (!atoms.length) return DASH;
     const given = Array.isArray(a) ? a : [];

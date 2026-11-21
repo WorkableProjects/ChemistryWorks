@@ -1,12 +1,14 @@
 // Shared Playwright helpers for the E2E suite. Not a test file (no .test.mjs suffix).
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { scheduler } from 'node:timers/promises';
 import { listen } from '../../scripts/serve.mjs';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 
-export const GAS_URL = 'https://gas.example.test/exec';
-export const ADMIN_CODE = 'chemadmin';
+export const GAS_URL = 'https://script.google.com/macros/s/TEST/exec';
+/** Default action/locator timeout: a broken suite fails fast instead of waiting 30 s per locator. */
+export const ACTION_TIMEOUT = 5000;
 export const STUDENT = { name: 'Ada Lovelace', email: 'ada@example.org' };
 
 /** Start the static server and one chromium for the whole test file. */
@@ -26,21 +28,21 @@ export async function startEnv() {
 
 /**
  * Create an isolated browser context + page with deterministic network.
- * Returns a session: { page, context, gas, netlify, errors, modes, onGas, serveTest(code, obj), close() }.
- *   gas / netlify   every captured POST (parsed), including ones answered with a failure
- *   modes           { gas: 'ok'|'fail', netlify: 200|500 } mutable at any time
+ * Returns a session: { page, context, gas, errors, modes, onGas, serveTest(code, obj), close() }.
+ *   gas             every captured Apps Script POST (parsed), including ones answered with a failure
+ *   modes           { gas: 'ok'|'fail' } mutable at any time
  */
-export async function newSession(env, { config = {}, viewport, acceptDownloads = true } = {}) {
-  const context = await env.browser.newContext({ viewport: viewport || { width: 1280, height: 900 }, acceptDownloads });
+export async function newSession(env, { config = {}, viewport, acceptDownloads = true, gasDelayMs = 0, serviceWorkers = 'block' } = {}) {
+  // The service worker answers page requests itself, which would bypass the mocks below, so only the PWA tests allow it.
+  const context = await env.browser.newContext({ viewport: viewport || { width: 1280, height: 900 }, acceptDownloads, serviceWorkers });
   const gas = [];
   const statusCalls = [];
-  const netlify = [];
   const errors = [];
-  const modes = { gas: 'ok', netlify: 200 };
+  const modes = { gas: 'ok' };
   const overrides = new Map(); // pathname -> body object
 
   // Tests always use demo sign-in, whatever Google settings js/config.js has for the live site.
-  const cfg = { GAS_WEB_APP_URL: GAS_URL, NETLIFY_FORMS: true, GOOGLE_CLIENT_ID: '', ALLOW_DEMO_SIGNIN: true, ...config };
+  const cfg = { GAS_WEB_APP_URL: GAS_URL, GOOGLE_CLIENT_ID: '', ALLOW_DEMO_SIGNIN: true, ...config };
   await context.addInitScript((c) => { window.CHEMISTRYWORKS_CONFIG = c; }, cfg);
 
   const origin = new URL(env.url).origin;
@@ -48,11 +50,6 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
     const req = route.request();
     const u = new URL(req.url());
     if (u.origin === origin) {
-      if (req.method() === 'POST' && u.pathname === '/') {
-        const body = Object.fromEntries(new URLSearchParams(req.postData() || ''));
-        netlify.push(body);
-        return route.fulfill({ status: modes.netlify, contentType: 'text/plain', body: modes.netlify === 200 ? 'ok' : 'error' });
-      }
       if (req.method() === 'GET' && overrides.has(u.pathname)) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overrides.get(u.pathname)) });
       }
@@ -74,6 +71,7 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
         try { body = JSON.parse(req.postData() || 'null'); } catch { body = { raw: req.postData() }; }
         // v3: the read-only submission-status check is recorded separately so `gas` keeps meaning "writes".
         if (body && body.action === 'getStudentStatus') statusCalls.push(body); else gas.push(body);
+        if (session.gasDelayMs > 0) await scheduler.wait(session.gasDelayMs); // slow backend: every mock reply waits
         if (modes.gas === 'fail') return route.abort('failed');
         const reply = session.onGas?.(body) || { result: 'success' };
         return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(reply) });
@@ -84,6 +82,7 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
     return route.abort('blockedbyclient');
   });
 
+  context.setDefaultTimeout(ACTION_TIMEOUT);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
@@ -94,7 +93,7 @@ export async function newSession(env, { config = {}, viewport, acceptDownloads =
   });
 
   const session = {
-    page, context, gas, netlify, errors, modes, statusCalls, url: env.url,
+    page, context, gas, errors, modes, statusCalls, url: env.url, gasDelayMs,
     onGas: null, // optional (body) => reply object for Apps Script POSTs (admin actions)
     serveTest(code, test) { overrides.set(`/data/tests/${code}.json`, test); },
     async close() {
@@ -119,7 +118,7 @@ export const tid = (id) => `[data-testid="${id}"]`;
 
 /** The landing view moves focus to its first field ~60ms after render; wait for that so typing is not hijacked. */
 export async function landingReady(page) {
-  await page.waitForFunction(() => ['demo-name', 'code-input'].includes(document.activeElement?.dataset?.testid));
+  await page.waitForFunction(() => ['demo-name', 'home-code-input'].includes(document.activeElement?.dataset?.testid));
 }
 
 export async function signIn(page, name = STUDENT.name, email = STUDENT.email) {
@@ -134,8 +133,8 @@ export async function startTest(s, code = 'CHEM101', user = STUDENT) {
   const { page } = s;
   await page.goto(s.url + '/');
   await signIn(page, user.name, user.email);
-  await page.locator(tid('code-input')).fill(code);
-  await page.locator(tid('code-submit')).click();
+  await page.locator(tid('home-code-input')).fill(code);
+  await page.locator(tid('home-code-submit')).click();
   await page.locator(tid('runner')).waitFor();
   await activeId(page); // wait for first card
 }
@@ -154,10 +153,21 @@ export async function poll(fn, { timeout = 10000, interval = 50, message = 'cond
   let last;
   while (Date.now() < end) {
     try { last = await fn(); if (last) return last; } catch (e) { last = e; }
-    await new Promise((r) => setTimeout(r, interval));
+    await scheduler.wait(interval);
   }
   throw new Error(`Timed out waiting for ${message} (last: ${last instanceof Error ? last.message : JSON.stringify(last)})`);
 }
+
+/** Wait until every CSS transition and animation on the element has finished. */
+export async function settled(page, selector) {
+  await page.waitForFunction((sel) => {
+    const el = document.querySelector(sel);
+    return !!el && el.getAnimations().every((a) => a.playState === 'finished' || a.playState === 'idle');
+  }, selector);
+}
+
+/** Wait two animation frames, so layout and resize observers have run. */
+export const nextFrames = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 
 /** Wait until the locator's trimmed text equals (string) or matches (RegExp) `expected`. */
 export async function waitText(locator, expected, { timeout = 10000 } = {}) {
@@ -195,7 +205,12 @@ export const A = {
   formula: (page, text) => activeCard(page).locator(tid('formula-input')).fill(text),
   tf: (page, v) => activeCard(page).locator(tid(v ? 'tf-true' : 'tf-false')).click(),
   match: async (page, pairs) => {
-    for (const [l, r] of Object.entries(pairs)) await activeCard(page).locator(tid(`match-${l}-${r}`)).check({ force: true });
+    for (const [l, r] of Object.entries(pairs)) {
+      // The radio is visually hidden and a toast can sit over it on a phone, so click the element itself.
+      const input = activeCard(page).locator(tid(`match-${l}-${r}`));
+      await input.evaluate((el) => el.click());
+      await poll(() => input.isChecked(), { message: `match ${l}-${r} checked` });
+    }
   },
 };
 
@@ -223,21 +238,16 @@ export async function noHorizontalScroll(page) {
 }
 
 export async function unlockAdmin(page, baseUrl, { path = '/?admin=true', dashboard = false } = {}) {
+  // No Google client ID in tests, so the demo admin opens the panel directly.
   await page.goto(baseUrl + path);
-  await page.locator(tid('admin-gate')).waitFor();
-  // The landing view (rendered under the gate) moves focus 60ms after render; let that settle before typing.
-  await page.waitForFunction(() => ['demo-name', 'code-input', 'admin-code-input'].includes(document.activeElement?.dataset?.testid));
-  await page.waitForTimeout(150);
-  await page.locator(tid('admin-code-input')).fill(ADMIN_CODE);
-  await page.locator(tid('admin-unlock')).click();
   await page.locator(tid('admin')).waitFor();
-  // V4-01: the admin shell opens on the Dashboard; tests written for the classic panel start on the Library.
-  if (!/features=/.test(path) && !dashboard && await page.locator(tid('dashboard')).count()) {
+  // The admin shell opens on the Dashboard; tests that want the Library start there with dashboard: false.
+  if (!dashboard && await page.locator(tid('dashboard')).count()) {
     const phone = (await page.locator(tid('admin')).getAttribute('data-nav')) === 'drawer';
     if (phone) { // phone: open the drawer, wait for it to finish sliding in
       await page.locator(tid('admin-nav-toggle')).click();
       await page.waitForFunction(() => document.querySelector('[data-testid="admin-sidebar"]')?.inert === false);
-      await page.waitForTimeout(400);
+      await settled(page, tid('admin-sidebar'));
     }
     await page.locator(tid('tab-library')).click({ force: phone });
     await page.locator(tid('library-sections')).first().waitFor();
@@ -264,4 +274,222 @@ export async function addQuestion(page, type) {
   await page.locator(tid('add-question')).click();
   await page.locator(tid(`add-question-${type}`)).click();
   await page.waitForFunction(() => document.activeElement?.dataset?.testid === 'q-text');
+}
+
+/** Sign the session in as a Google student the mock backend can identify (its ID token is `mock.<email>`). */
+export function signInStudentAs(s, user = STUDENT) {
+  return s.context.addInitScript((u) => {
+    try {
+      if (!sessionStorage.getItem('cw:user')) {
+        sessionStorage.setItem('cw:user', JSON.stringify({ name: u.name, email: u.email, picture: null, provider: 'google', idToken: `mock.${u.email}`, idTokenExp: 4102444800 }));
+      }
+    } catch { /* storage blocked */ }
+  }, user);
+}
+
+export const withAdminKey = (s) => s.context.addInitScript(() => sessionStorage.setItem('cw:adminKey', JSON.stringify('secret')));
+
+/**
+ * A small stateful Apps Script stand-in for the Class Hub. Assignments, stream posts, submissions and read marks
+ * live in `state`, so a teacher session and a student session can share one backend:
+ *   const be = createMockBackend({ classes: [{ id, name, emails }], tests: [{ code, title }], students: { email: name } });
+ *   be.attach(teacherSession); be.attach(studentSession);
+ * Mirrors Code.gs: a new assignment adds a stream post and a "New assignment" notification, a submission after the due
+ * time is Late, a roster student with nothing turned in after the due time is Missing.
+ */
+export function createMockBackend({ classes = [], tests = [], students = {}, profile = {} } = {}) {
+  const state = {
+    classes, tests, students, assignments: [], stream: [], submissions: [], attempts: {}, readIds: new Set(), seq: 1, calls: [],
+    now: () => Date.now(), // tests may replace it to move the backend clock
+    classroom: { syncAccount: 'sync@school.example', courses: [], roster: {}, cw: {}, grades: {}, pageSize: 2 },
+  };
+  const nextId = (p) => `${p}${state.seq++}`;
+  const emailOf = (b) => String(b.idToken || '').replace(/^mock\./, '').toLowerCase();
+  const rosterOf = (classId) => ((state.classes.find((c) => c.id === classId) || {}).emails || []).map((e) => e.toLowerCase());
+  const classesOf = (email) => state.classes.filter((c) => (c.emails || []).some((e) => e.toLowerCase() === email));
+  const ms = (v) => (v ? Date.parse(v) : null);
+  const iso = (t) => new Date(t).toISOString();
+
+  function statusOf(a, email) {
+    const sub = [...state.submissions].reverse().find((x) => x.email === email && x.testCode === a.testCode);
+    const due = ms(a.dueAt);
+    const out = { status: 'not_started', canSubmit: !(due !== null && state.now() > due && a.lateAllowed === false) };
+    if (sub) {
+      const late = due !== null && ms(sub.submittedAt) > due;
+      return { ...out, canSubmit: false, status: sub.released ? 'released' : sub.graded ? 'graded' : late ? 'late' : 'turned_in', submittedAt: sub.submittedAt, late };
+    }
+    const att = state.attempts[`${email}|${a.testCode}`];
+    if (att && att.answeredCount > 0) return { ...out, status: 'in_progress', percentDone: att.total ? Math.round((att.answeredCount / att.total) * 100) : 0, lastMode: att.mode };
+    return { ...out, status: due !== null && state.now() > due ? 'missing' : 'not_started' };
+  }
+
+  function hubFor(email) {
+    const mine = classesOf(email);
+    const ids = new Set(mine.map((c) => c.id));
+    const assignments = state.assignments.filter((a) => ids.has(a.classId)).map((a) => {
+      const st = statusOf(a, email);
+      return { ...a, status: st.status, canSubmit: st.canSubmit, effectiveDueAt: a.dueAt || undefined, ...(st.percentDone !== undefined ? { percentDone: st.percentDone, lastMode: st.lastMode } : {}), ...(st.submittedAt ? { submittedAt: st.submittedAt, late: st.late } : {}) };
+    });
+    const stream = state.stream.filter((p) => ids.has(p.classId)).sort((x, y) => (y.pinned ? 1 : 0) - (x.pinned ? 1 : 0) || ms(y.createdAt) - ms(x.createdAt));
+    const notifications = assignments.map((a) => ({ id: `new:${a.id}`, type: 'assignment', refId: a.id, title: a.title, createdAt: a.createdAt, read: state.readIds.has(`new:${a.id}`) }));
+    return { classes: mine.map((c) => ({ id: c.id, name: c.name, period: c.period })), assignments, stream, notifications, reminders: [] };
+  }
+
+  function profileFor(email) {
+    const mine = classesOf(email);
+    const results = state.submissions.filter((x) => x.email === email).map((x) => ({
+      testCode: x.testCode, title: x.title, submittedAt: x.submittedAt, status: x.released ? 'released' : 'submitted', released: !!x.released,
+      percentage: x.released ? x.percentage : null, scoreAchieved: x.released ? x.scoreAchieved : null, scoreTotal: x.released ? x.scoreTotal : null,
+    }));
+    const attempts = Object.entries(state.attempts).filter(([k]) => k.startsWith(`${email}|`)).map(([, a]) => a);
+    return {
+      result: 'success',
+      profile: { name: state.students[email] || '', xp: 0, level: 1, streakDays: 0, classIds: mine.map((c) => c.id), badges: [], prefs: {}, stats: {}, ...(profile.profile || {}) },
+      results: [...results, ...(profile.results || [])], attempts: [...attempts, ...(profile.attempts || [])], assigned: profile.assigned || [], hub: hubFor(email),
+    };
+  }
+
+  function handle(b) {
+    state.calls.push(b);
+    if (b.submission_id && !b.action) { // a test submission
+      state.submissions.push({ id: b.submission_id, email: String(b.student_email || '').toLowerCase(), name: b.student_name, testCode: b.test_code, title: b.test_title, submittedAt: b.submitted_at });
+      return { result: 'success' };
+    }
+    switch (b.action) {
+      case 'getStudentProfile': return profileFor(emailOf(b));
+      case 'getClassHub': return { result: 'success', ...hubFor(emailOf(b)) };
+      case 'markNotificationsRead':
+        (b.ids || []).forEach((i) => state.readIds.add(i));
+        if (b.all) hubFor(emailOf(b)).notifications.forEach((n) => state.readIds.add(n.id));
+        return { result: 'success', readAt: state.now() };
+      case 'syncProgress':
+        if (b.attempt) state.attempts[`${emailOf(b)}|${b.attempt.code}`] = { ...b.attempt, updatedAt: iso(state.now()) };
+        return { result: 'success' };
+      case 'saveClass': {
+        const cls = state.classes.find((c) => c.id === b.cls.id);
+        if (!cls) return { result: 'error', error: 'not_found' };
+        Object.assign(cls, b.cls);
+        return { result: 'success', class: cls };
+      }
+      case 'listClasses': return { result: 'success', classes: state.classes.map((c) => ({ period: '', updated_by: '', updated_at: '', ...c })) };
+      case 'listTests': return { result: 'success', tests: state.tests.map((t) => ({ updatedAt: '2026-01-01T00:00:00Z', submissionCount: 0, ...t })) };
+      case 'listAssignments': return { result: 'success', assignments: state.assignments.filter((a) => !b.classId || a.classId === b.classId) };
+      case 'saveAssignment': {
+        const a = b.assignment || {};
+        const test = state.tests.find((t) => t.code === a.testCode);
+        const row = { id: nextId('asg'), classId: a.classId, testCode: a.testCode, title: a.title || (test && test.title) || a.testCode, instructions: a.instructions || '', opensAt: a.opensAt || '',
+          dueAt: a.dueAt || '', lateAllowed: a.lateAllowed !== false, required: a.required === true, modes: a.modes || [], publishAt: a.publishAt || '', createdBy: 'teacher', createdAt: iso(state.now()),
+          ...(b.postToClassroom ? { classroomCourseWorkId: `cw-${a.classId}-${a.testCode}` } : {}) };
+        const at = a.id ? state.assignments.findIndex((x) => x.id === a.id) : -1;
+        if (at >= 0) { state.assignments[at] = { ...state.assignments[at], ...row, id: a.id, createdAt: state.assignments[at].createdAt }; return { result: 'success', assignment: state.assignments[at] }; }
+        state.assignments.push(row);
+        const post = { id: nextId('post'), classId: row.classId, type: 'assignment', body: row.title, pinned: false, createdAt: row.createdAt, createdBy: 'teacher' };
+        state.stream.push(post);
+        return { result: 'success', assignment: row, post };
+      }
+      case 'deleteAssignment': state.assignments = state.assignments.filter((a) => a.id !== b.id); return { result: 'success', id: b.id, deleted: true, classroomDeleted: b.deleteInClassroom === true };
+      case 'getAssignmentStatus': {
+        const a = state.assignments.find((x) => x.id === b.id);
+        if (!a) return { result: 'error', error: 'not_found' };
+        const rows = rosterOf(a.classId).map((email) => {
+          const st = statusOf(a, email);
+          return { email, name: state.students[email] || '', status: st.status, ...(st.percentDone !== undefined ? { percentDone: st.percentDone, lastMode: st.lastMode } : {}), ...(st.submittedAt ? { submittedAt: st.submittedAt, late: st.late } : {}) };
+        });
+        return { result: 'success', assignment: a, rows };
+      }
+      case 'postStream': {
+        if (b.id) {
+          const p = state.stream.find((x) => x.id === b.id);
+          if (!p) return { result: 'error', error: 'not_found' };
+          if (b.pinned !== undefined) p.pinned = !!b.pinned;
+          return { result: 'success', post: p };
+        }
+        const post = { id: nextId('post'), classId: b.classId, type: 'post', body: b.body, pinned: false, createdAt: iso(state.now()), createdBy: 'teacher' };
+        state.stream.push(post);
+        return { result: 'success', post };
+      }
+      case 'listStream': return { result: 'success', posts: state.stream.filter((p) => p.classId === b.classId).sort((x, y) => ms(y.createdAt) - ms(x.createdAt)) };
+      default: return classroomReply(state, b) || null; // anything else: the session's default success reply
+    }
+  }
+  /** Classroom test helpers: a graded submission is { points, possible, released } for (email, testCode). */
+  const classroom = {
+    addCourse: (course, roster = []) => { state.classroom.courses.push(course); state.classroom.roster[course.id] = roster; },
+    grade: (email, testCode, points, possible, released = false) => { state.classroom.grades[`${email}|${testCode}`] = { points, possible, released }; },
+    /** Set what Classroom holds for a student, as if the teacher typed it there. */
+    setClassroomGrade: (assignmentId, email, fields) => { const cw = state.classroom.cw; cw[assignmentId] = cw[assignmentId] || {}; cw[assignmentId][email] = { ...(cw[assignmentId][email] || {}), ...fields }; },
+  };
+  return { state, handle, hubFor, classroom, attach(session) { session.onGas = handle; return session; } };
+}
+
+// Google Classroom actions of the mock backend (courses, link, roster import, preview and sync of grades).
+function classroomReply(state, b) {
+  const C = state.classroom;
+  const ok = (o) => ({ result: 'success', syncAccount: C.syncAccount, ...o });
+  const planRows = (a) => {
+    const cwMap = C.cw[a.id] || {};
+    const roster = ((state.classes.find((c) => c.id === a.classId) || {}).emails || []).map((e) => e.toLowerCase());
+    const inCourse = new Set(C.roster[(state.classes.find((c) => c.id === a.classId) || {}).classroomCourseId] || []);
+    return roster.map((email) => {
+      const g = C.grades[`${email}|${a.testCode}`];
+      const cw = cwMap[email] || {};
+      const row = { email, name: state.students[email] || '', points: g ? g.points : null, possible: g ? g.possible : null, released: !!(g && g.released),
+        classroomDraft: cw.draft ?? null, classroomAssigned: cw.assigned ?? null, lastSent: cw.sent ?? null, action: '', target: g && g.released ? 'assigned' : 'draft' };
+      if (!inCourse.has(email)) row.action = 'skipped_not_on_roster';
+      else if (!g) row.action = 'skipped_not_graded';
+      else {
+        const current = row.target === 'assigned' ? cw.assigned : cw.draft;
+        if (current === undefined || current === null) row.action = 'new';
+        else if (current !== cw.sent) row.action = 'skipped_teacher_changed';
+        else if (cw.state === row.target || (cw.state === 'assigned' && row.target === 'draft')) row.action = 'same';
+        else row.action = 'update';
+      }
+      return row;
+    });
+  };
+  switch (b.action) {
+    case 'listClassroomCourses': return ok({ courses: C.courses.map((c) => ({ section: '', room: '', courseState: 'ACTIVE', ...c })) });
+    case 'linkClassroomCourse': {
+      const cls = state.classes.find((c) => c.id === b.classId);
+      const course = C.courses.find((c) => c.id === b.courseId);
+      if (b.courseId && !course) return { result: 'error', error: 'classroom_course_not_found' };
+      cls.classroomCourseId = b.courseId;
+      return ok({ classId: b.classId, classroomCourseId: b.courseId, courseName: course ? course.name : '' });
+    }
+    case 'importClassroomRoster': {
+      const cls = state.classes.find((c) => c.id === b.classId);
+      const found = C.roster[cls.classroomCourseId] || [];
+      const before = new Set(cls.emails || []);
+      const next = b.mode === 'replace' ? found : [...new Set([...(cls.emails || []), ...found])];
+      cls.emails = next;
+      return ok({ added: next.filter((e) => !before.has(e)).length, total: next.length, skippedNoEmail: 0 });
+    }
+    case 'previewGradeSync': {
+      const a = state.assignments.find((x) => x.id === b.assignmentId);
+      if (!a || !a.classroomCourseWorkId) return { result: 'error', error: 'classroom_not_linked' };
+      const rows = planRows(a);
+      const counts = {}; rows.forEach((r) => { counts[r.action] = (counts[r.action] || 0) + 1; });
+      return ok({ courseWorkId: a.classroomCourseWorkId, courseWorkState: 'PUBLISHED', maxPoints: 10, counts, rows });
+    }
+    case 'syncGrades': {
+      const a = state.assignments.find((x) => x.id === b.assignmentId);
+      if (!a || !a.classroomCourseWorkId) return { result: 'error', error: 'classroom_not_linked' };
+      const rows = planRows(a).filter((r) => !b.emails || b.emails.includes(r.email));
+      const start = Number(b.cursor || 0);
+      const page = rows.slice(start, start + C.pageSize);
+      const out = { synced: 0, failed: 0, skipped: 0, results: [] };
+      for (const r of page) {
+        const send = r.action === 'new' || r.action === 'update' || (b.overwrite && r.action === 'skipped_teacher_changed');
+        if (!send) { out.skipped += 1; out.results.push({ email: r.email, status: 'skipped' }); continue; }
+        if (C.failEmails && C.failEmails.includes(r.email)) { out.failed += 1; out.results.push({ email: r.email, status: 'failed', error: 'classroom_not_our_coursework' }); continue; }
+        C.cw[a.id] = C.cw[a.id] || {};
+        const cur = C.cw[a.id][r.email] || {};
+        C.cw[a.id][r.email] = { ...cur, draft: r.points, ...(r.target === 'assigned' ? { assigned: r.points } : {}), sent: r.points, state: r.target };
+        out.synced += 1; out.results.push({ email: r.email, status: r.target });
+      }
+      const next = start + C.pageSize;
+      return ok({ ...out, done: next >= rows.length, cursor: next >= rows.length ? '' : String(next) });
+    }
+    default: return null;
+  }
 }

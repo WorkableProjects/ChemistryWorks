@@ -1,21 +1,16 @@
-// Student bell (V5-10): unread count, panel of derived notifications; opening marks them read.
+// Student bell: unread count, panel of derived notifications; opening marks them read.
 import { h, icon } from '../ui.js';
 import { CONFIG } from '../config.js';
 import { markNotificationsRead } from '../lib/api.js';
 import { toMs } from './home/upnext.js';
+import { formatRelative } from '../lib/dates.js';
+import { ensureCss } from '../lib/css-loader.js';
 
-const ago = (t, now = Date.now()) => {
-  const ms = toMs(t); if (ms == null) return '';
-  const m = Math.max(0, Math.round((now - ms) / 60000));
-  if (m < 1) return 'Just now';
-  if (m < 60) return `${m} min ago`;
-  if (m < 1440) return `${Math.round(m / 60)} h ago`;
-  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-};
 const LABEL = { assignment: 'New assignment', due_soon: 'Due soon', feedback: 'Feedback released', reminder: 'Reminder' };
 
 /** Bell button + dropdown panel. `getHub()` returns the current hub; call `bell.update()` after a profile refresh. */
 export function bell(ctx, getHub) {
+  ensureCss('hub');
   const readIds = new Set();
   let open = false;
   const count = h('span', { class: 'bell__count mono', dataset: { testid: 'bell-count' } });
@@ -36,7 +31,7 @@ export function bell(ctx, getHub) {
     panel.replaceChildren(list.length
       ? h('ul', { class: 'bell__list' }, list.map((n) => h('li', { class: ['bell__item', n.read || readIds.has(n.id) ? '' : 'is-unread'], dataset: { testid: `notification-${n.id}` } },
         h('span', { class: 'bell__title' }, n.title || LABEL[n.type] || 'Notification'),
-        h('span', { class: 'bell__meta' }, [LABEL[n.type], ago(n.createdAt)].filter(Boolean).join(' · ')))))
+        h('span', { class: 'bell__meta' }, [LABEL[n.type], formatRelative(n.createdAt)].filter(Boolean).join(' · ')))))
       : h('p', { class: 'empty' }, 'Nothing new'));
   }
 

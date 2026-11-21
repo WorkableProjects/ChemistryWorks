@@ -1,4 +1,4 @@
-// `molarmass` question type (V4-03, S10): "What is the molar mass of <formula>?". Pure definition, no DOM.
+// `molarmass` question type: "What is the molar mass of <formula>?". Pure definition, no DOM.
 //   { type: 'molarmass', formula: 'Ca(OH)2', answer?: 74.1 (default: computed from the formula), tolerance: 0.05 (g/mol),
 //     toleranceType: 'absolute'|'percent', showWork: true (offer the element-by-element work table), workCredit?: no }
 //   Answer: { value: '74.10', work: [{ symbol: 'Ca', count: '1', mass: '40.08' }, ...] }  (typed text). Only `value` is graded;
@@ -37,6 +37,7 @@ export const def = {
   label: 'Molar mass',
   shortLabel: 'Molar mass',
   group: 'Chemistry',
+  manual: false,
 
   normalize(q) {
     q.formula = str(q.formula).trim();
@@ -61,14 +62,14 @@ export const def = {
 
   isAnswered: (q, answer) => isObj(answer) && (str(answer.value).trim() !== '' || workText(answer) !== ''),
 
-  score(q, answer) {
+  grade(q, answer) {
     if (!isObj(answer)) return { fraction: 0, full: false };
     const x = parseMolarMass(answer.value);
     const ok = withinTolerance(x, molarMassKey(q), q.tolerance, q.toleranceType);
     return { fraction: ok ? 1 : 0, full: ok };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     const a = isObj(answer) ? answer : {};
     const value = str(a.value).trim();
     const work = workText(a);

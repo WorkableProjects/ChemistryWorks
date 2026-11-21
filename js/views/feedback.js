@@ -1,9 +1,9 @@
-// Student feedback review (V2-07, rebuilt for V3-01 on the PDF export model so it matches the teacher's export).
+// Student feedback review (V2-07, rebuilt on the PDF export model so it matches the teacher's export).
 // Grades, comments and answers are shown ONLY from a released server reply.
 //
 // render(root, ctx, params) -> cleanup()
 //   params.payload  — a past submission from getLocalResults() (landing "Your submitted tests")
-//   params.status   — a checkSubmissionState() result (opened from the test link, V3-01)
+// params.status — a checkSubmissionState() result (opened from the test link)
 //   params.test     — the loaded test (optional; loaded by code when missing)
 //   params.source   — the test source (passed through to the runner for Take again)
 //   params.practiceOnly — offer Game mode practice (single-submission test already submitted)
@@ -11,13 +11,14 @@
 
 import { h, mount, icon, renderMath, appHeader, userBadge, toast } from '../ui.js';
 import { fetchFeedback } from '../lib/api.js';
+import { getFreshIdToken, onAuthChange, renderGoogleButton, googleConfigured } from '../lib/auth.js';
 import { loadTest } from '../lib/tests.js';
 import { checkSubmissionState } from '../lib/student-status.js';
 import { applyGrades } from './admin/stats.js';
 import { buildExportModel } from '../lib/export.js';
 import { exportDocument, printSubmission } from './admin/export-view.js';
-import { feature } from '../config.js';
-import { ensureToolsCss } from './tools/settings.js';
+import { tagStats, withNames, studentTag, rememberTagIndex, recalledTagIndex } from '../lib/tag-stats.js';
+import { tagSummary } from './tag-summary.js';
 
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -91,15 +92,25 @@ function summaryCard(row, fb) {
       row.graded_by ? h('span', { class: 'feedback-summary__by faint' }, `Graded by ${row.graded_by}`) : null));
 }
 
+/** "By topic" for one released review: points per tag, named from the reply's tagIndex. Null when no question has a tag. */
+export function topicSummary(fb, test, code = '') {
+  if (fb?.tagIndex) rememberTagIndex(code || test?.code || fb.test_code, fb.tagIndex);
+  const index = { ...recalledTagIndex(code || test?.code || fb?.test_code), ...(fb?.tagIndex || {}) };
+  const rows = withNames(tagStats([{ responses: fb?.responses, grades: fb?.grades, released: true }], test), (id) => studentTag(id, index));
+  return tagSummary(rows, { title: 'By topic', testid: 'feedback-topics', tag: 'h2' });
+}
+
 function reviewView(fb, test, { onDownload } = {}) {
   const { row, test: t } = feedbackRow(fb, test);
   const model = buildExportModel({ row, test: t, includeComments: true });
+  const topics = topicSummary(fb, test);
   return h('div', { class: 'stack', dataset: { testid: 'feedback-released' } },
     h('div', { class: 'feedback-toolbar' },
       fb.released_at ? h('span', { class: 'muted' }, `Released ${fmtWhen(fb.released_at)}`) : null,
       h('button', { class: 'btn btn--primary btn--sm', type: 'button', dataset: { testid: 'feedback-download-pdf' },
         on: { click: () => onDownload?.(row, t) } }, icon('download', { size: 16 }), 'Download PDF')),
     summaryCard(row, fb),
+    topics ? h('section', { class: 'card' }, topics) : null,
     h('section', { class: 'card feedback-doc', 'aria-label': 'Your reviewed test' }, exportDocument(model)));
 }
 
@@ -109,6 +120,9 @@ function otherAttempts(others) {
     h('summary', {}, `Other attempts (${others.length})`),
     h('ul', {}, others.map((o) => h('li', {}, `${fmtWhen(o.submitted_at) || 'Unknown date'} · ${o.released ? 'released' : 'not released yet'}`))));
 }
+
+/** Stylesheets this view needs; app.js loads them before the first render (js/lib/css-loader.js). */
+export const styles = ['results', 'feedback', 'export', 'runner', 'qtypes', 'diagrams'];
 
 export function render(root, ctx, params = {}) {
   const payload = params.payload || null;
@@ -144,10 +158,9 @@ export function render(root, ctx, params = {}) {
       on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'classic', studyBlocked: true }) } }, icon('flag', { size: 16 }), 'Practice in Game mode'));
   }
 
-  // V4-05: released feedback -> Mistake Review game (only for tests with game mode on).
+  // Released feedback -> Mistake Review game (only for tests with game mode on).
   function mistakeReviewButton() {
-    if (!feature('studentTools') || test?.gameMode !== true) return null;
-    ensureToolsCss();
+    if (test?.gameMode !== true) return null;
     return h('button', { class: 'btn btn--primary', type: 'button', dataset: { testid: 'review-mistakes' },
       on: { click: () => ctx.navigate('game', { test, source: params.source, gameId: 'mistakes', studyBlocked: true }) } },
     icon('refresh', { size: 16 }), 'Review my mistakes');
@@ -175,6 +188,16 @@ export function render(root, ctx, params = {}) {
     mount(content, h('div', { class: 'notice notice--info', dataset: { testid: 'feedback-pending' } }, icon('info'), h('span', {}, text)));
   }
 
+  // Feedback is only shown to a verified Google account: ask for sign-in, then try again when a token arrives.
+  let offAuth = () => {};
+  function signInPrompt(text) {
+    const host = h('div', { dataset: { testid: 'feedback-google-button' } });
+    mount(content, h('div', { class: 'notice notice--info stack', dataset: { testid: 'feedback-signin' } },
+      h('span', {}, text), host));
+    offAuth();
+    offAuth = onAuthChange((u) => { if (u && u.provider === 'google' && u.idToken) { offAuth(); load(); } });
+    if (googleConfigured(ctx.config)) renderGoogleButton(host, ctx.config);
+  }
   async function load() {
     if (!ctx.config.GAS_WEB_APP_URL) {
       mount(content, h('div', { class: 'notice notice--info', dataset: { testid: 'feedback-unavailable' } }, icon('info'), h('span', {}, 'Feedback isn’t available on this site.')));
@@ -184,7 +207,7 @@ export function render(root, ctx, params = {}) {
     await ensureTest();
     if (!alive) return;
 
-    // 1) Server copy (V3-01): any device, verified identity.
+    // 1) Server copy: any device, verified identity.
     let status = params.status || null;
     if (!status && code) status = await checkSubmissionState(ctx, test || { code });
     if (!alive) return;
@@ -196,8 +219,17 @@ export function render(root, ctx, params = {}) {
 
     // 2) Fallback (v2.5): local payload + getFeedback (needs the submission id from this device).
     if (!payload) { pending('Your teacher hasn’t released grades and comments for this test yet.'); return; }
-    const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, studentEmail: user?.email });
+    const token = await getFreshIdToken().catch(() => null);
     if (!alive) return;
+    if (!token) { signInPrompt('Sign in with Google to see your feedback. Your teacher’s comments are only shown to the account that submitted.'); return; }
+    const res = await fetchFeedback({ gasUrl: ctx.config.GAS_WEB_APP_URL, submissionId: payload.submission_id, idToken: token });
+    if (!alive) return;
+    if (!res.ok && (res.error === 'unauthorized' || res.error === 'invalid_token')) { signInPrompt('Your sign-in has expired. Sign in with Google again to see your feedback.'); return; }
+    if (!res.ok && res.error === 'not_authorized') {
+      mount(content, h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'feedback-not-authorized' } }, icon('alert'),
+        h('span', {}, 'This submission belongs to a different account. Sign in with the Google account you used to take the test.')));
+      return;
+    }
     if (!res.ok) {
       mount(content, h('div', { class: 'notice notice--error', role: 'alert', dataset: { testid: 'feedback-error' } }, icon('alert'),
         h('span', {}, `Could not load feedback: ${res.error || 'unknown error'}`),
@@ -209,5 +241,5 @@ export function render(root, ctx, params = {}) {
   }
   load();
   const t = setTimeout(() => title.focus({ preventScroll: true }), 50);
-  return () => { alive = false; clearTimeout(t); };
+  return () => { alive = false; offAuth(); clearTimeout(t); };
 }

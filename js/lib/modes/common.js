@@ -1,4 +1,4 @@
-// V5-01 shared rules for game modes (pure, no DOM). A mode only orders `attempt.questions`; it never adds, drops or swaps one.
+// Shared rules for game modes (pure, no DOM). A mode only orders `attempt.questions`; it never adds, drops or swaps one.
 // Contract: docs/ARCHITECTURE.md -> V5 contracts -> Game mode definition.
 
 import { isManualQuestion } from '../schema.js';

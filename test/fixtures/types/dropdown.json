@@ -1,0 +1,51 @@
+{
+  "question": {
+    "id": "dropdown-1",
+    "type": "dropdown",
+    "text": "Sodium is a [[b1]] and chlorine is a [[b2]], so NaCl is [[b3]].",
+    "points": 3,
+    "partialCredit": true,
+    "blanks": [
+      {
+        "id": "b1",
+        "options": [
+          "metal",
+          "nonmetal"
+        ],
+        "answer": "metal"
+      },
+      {
+        "id": "b2",
+        "options": [
+          "metal",
+          "nonmetal"
+        ],
+        "answer": "nonmetal"
+      },
+      {
+        "id": "b3",
+        "options": [
+          "ionic",
+          "covalent"
+        ],
+        "answer": "ionic"
+      }
+    ],
+    "explanation": "A metal and a nonmetal transfer electrons, which makes an ionic compound."
+  },
+  "correct": {
+    "b1": "metal",
+    "b2": "nonmetal",
+    "b3": "ionic"
+  },
+  "wrong": {
+    "b1": "nonmetal",
+    "b2": "metal",
+    "b3": "covalent"
+  },
+  "partial": {
+    "b1": "metal",
+    "b2": "nonmetal",
+    "b3": "covalent"
+  }
+}

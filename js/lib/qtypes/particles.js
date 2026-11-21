@@ -1,4 +1,4 @@
-// `particles` question type (V4-03, S10): a particle-diagram box. The student places particles of the species in the
+// `particles` question type: a particle-diagram box. The student places particles of the species in the
 // palette into one or more zones (for example "Gas" and "Liquid", or just "Box"); the counts per zone and species are graded.
 // Pure definition, no DOM.
 //   { type: 'particles', species: [{ id: 'h2', label: 'H₂', shape: 'circle'|'square'|'triangle'|'diamond', tone: 1..6 }],
@@ -96,6 +96,7 @@ export const def = {
   label: 'Particle diagram',
   shortLabel: 'Particles',
   group: 'Diagrams & graphs',
+  manual: false,
 
   normalize(q) {
     q.species = (Array.isArray(q.species) ? q.species : []).map((s, i) => {
@@ -169,7 +170,7 @@ export const def = {
 
   isAnswered: (q, answer) => Array.isArray(answer) && answer.some(validParticle),
 
-  score(q, answer) {
+  grade(q, answer) {
     const counts = countParticles(answer);
     let cells = 0;
     let right = 0;
@@ -187,7 +188,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / cells, full: false };
   },
 
-  answerText(q, answer) {
+  format(q, answer) {
     return Array.isArray(answer) && answer.some(validParticle) ? countsText(q, countParticles(answer)) : DASH;
   },
 

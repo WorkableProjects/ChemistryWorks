@@ -1,7 +1,9 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -15,29 +17,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-      - run: npm test
-
   deploy:
-    needs: test
+    # Only deploy a commit that passed CI (manual runs are always allowed).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Assemble site (runtime files only; no build step)
         run: |
           mkdir _site
-          cp -r index.html 404.html .nojekyll css js data assets changelog _site/
+          cp -r index.html 404.html .nojekyll manifest.webmanifest sw.js sw-list.js css js data assets changelog _site/
           # Old /test?code= links: static fallback page (404.html also covers this).
           mkdir -p _site/test && cp 404.html _site/test/index.html
+          # The builder's help fallback reads docs/guide.md.
+          mkdir -p _site/docs && cp docs/guide.md _site/docs/guide.md
+      - name: Write config overrides from repository variables
+        env:
+          GAS_WEB_APP_URL: ${{ vars.GAS_WEB_APP_URL }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          SHEET_URL: ${{ vars.SHEET_URL }}
+        run: |
+          node -e '
+            const cfg = {};
+            for (const k of ["GAS_WEB_APP_URL", "GOOGLE_CLIENT_ID", "SHEET_URL"]) if (process.env[k]) cfg[k] = process.env[k];
+            if (Object.keys(cfg).length) {
+              require("fs").writeFileSync("_site/js/config.local.js", "export default " + JSON.stringify(cfg, null, 2) + ";\n");
+              console.log("config.local.js written with: " + Object.keys(cfg).join(", "));
+            } else console.log("No repository variables set; using js/config.js as is.");
+          '
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

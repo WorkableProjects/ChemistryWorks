@@ -1,8 +1,8 @@
-// Student display settings (V4-05): font size in 3 steps and dyslexia-friendly spacing, saved on this device.
+// Student display settings: font size in 3 steps and dyslexia-friendly spacing, saved on this device.
 // Pure helpers + a tiny DOM applier. Everything is a no-op without a document / storage.
 
 import { load, save } from '../../lib/storage.js';
-import { feature } from '../../config.js';
+import { ensureCss } from '../../lib/css-loader.js';
 
 export const FONT_STEPS = ['normal', 'large', 'xlarge'];
 export const FONT_LABELS = { normal: 'Normal', large: 'Large', xlarge: 'Extra large' };
@@ -27,27 +27,18 @@ export function settingsAttrs(s) {
   return { 'data-cw-font': n.font === 'normal' ? null : n.font, 'data-cw-spacing': n.spacing ? 'wide' : null };
 }
 
-/** tools.css is not in index.html (it is loaded when something needs it). Safe to call repeatedly. */
-export function ensureToolsCss() {
-  if (typeof document === 'undefined' || document.querySelector('link[data-cw-tools-css]')) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'css/tools.css';
-  link.dataset.cwToolsCss = '';
-  document.head.appendChild(link);
-}
-
 export function applySettings(s, root = typeof document !== 'undefined' ? document.documentElement : null) {
   if (!root) return;
-  ensureToolsCss();
-  for (const [k, v] of Object.entries(settingsAttrs(s))) {
+  const attrs = Object.entries(settingsAttrs(s));
+  if (attrs.some(([, v]) => v != null)) ensureCss('tools'); // the font and spacing rules live in tools.css
+  for (const [k, v] of attrs) {
     if (v == null) root.removeAttribute(k); else root.setAttribute(k, v);
   }
 }
 
-/** Called once at startup: re-applies the stored settings when the student tools flag is on. */
+/** Called once at startup: re-applies the stored student tool settings. */
 export function applyStoredSettings() {
   try {
-    if (feature('studentTools')) applySettings(loadSettings());
+    applySettings(loadSettings());
   } catch { /* never block the page */ }
 }

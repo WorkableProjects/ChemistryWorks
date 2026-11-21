@@ -1,0 +1,42 @@
+[
+  {
+    "code": "CHEM101",
+    "title": "Foundations of Chemistry",
+    "description": "Atoms, formulas, the mole, and reactions — a quick diagnostic covering every question type.",
+    "questionCount": 7,
+    "points": 12,
+    "timeLimitMinutes": 20
+  },
+  {
+    "code": "CHEM102",
+    "title": "Stoichiometry & the Mole",
+    "description": "Molar mass, mole conversions, balancing, limiting reagents and percent yield.",
+    "questionCount": 10,
+    "points": 21,
+    "timeLimitMinutes": 30
+  },
+  {
+    "code": "CHEM110",
+    "title": "Periodic Table & Bonding",
+    "description": "Periodic trends, ions, ionic and covalent bonding, and molecular shapes.",
+    "questionCount": 10,
+    "points": 18,
+    "timeLimitMinutes": 0
+  },
+  {
+    "code": "CHEM201",
+    "title": "Acids, Bases & Equilibrium",
+    "description": "pH calculations, Brønsted–Lowry theory, buffers, Ka, Kc and Le Chatelier’s principle (all at 25 °C).",
+    "questionCount": 10,
+    "points": 20,
+    "timeLimitMinutes": 0
+  },
+  {
+    "code": "CHEMV2",
+    "title": "Electrons & Bonding (v2 sample)",
+    "description": "Sections, references, orbital diagrams and Lewis structures with charges.",
+    "questionCount": 6,
+    "points": 15,
+    "timeLimitMinutes": 0
+  }
+]

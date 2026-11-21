@@ -1,0 +1,12 @@
+{
+  "question": {
+    "id": "formula-1",
+    "type": "formula",
+    "text": "Write the chemical formula for sulfuric acid.",
+    "points": 1,
+    "correctAnswer": "H2SO4",
+    "explanation": "Sulfuric acid is $\\ce{H2SO4}$."
+  },
+  "correct": "H2SO4",
+  "wrong": "H2SO3"
+}

@@ -1,4 +1,4 @@
-// `isotopemass` question type (V5-07, S11c): average atomic mass from isotope data. Pure definition, no DOM.
+// `isotopemass` question type: average atomic mass from isotope data. Pure definition, no DOM.
 //   { type: 'isotopemass', element: 'Chlorine', ask: 'average'|'abundance'|'table',
 //     isotopes: [{ label: 'Cl-35', mass: 34.969, abundance: 75.78 }, ...],   (abundance in %, sums to 100)
 //     average?: 35.45 (shown to the student when ask = 'abundance'; default: computed),
@@ -70,6 +70,7 @@ export const def = {
   label: 'Average atomic mass',
   shortLabel: 'Isotope average',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -125,7 +126,7 @@ export const def = {
     return str(a.result).trim() !== '' || (q.ask === 'table' && rowsOf(a).some(rowTyped));
   },
 
-  score(q, a) {
+  grade(q, a) {
     if (!isObj(a)) return { fraction: 0, full: false };
     if (q.ask === 'abundance') {
       const ok = withinTolerance(parseIso(a.missing), missingKey(q), q.abundanceTolerance, 'absolute');
@@ -142,7 +143,7 @@ export const def = {
     return { fraction: q.partialCredit === false ? 0 : right / total, full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     const x = isObj(a) ? a : {};
     if (q.ask === 'abundance') return str(x.missing).trim() ? `${str(x.missing).trim()} %` : DASH;
     const result = str(x.result).trim() ? `${str(x.result).trim()} amu` : DASH;

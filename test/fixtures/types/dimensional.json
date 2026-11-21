@@ -1,0 +1,68 @@
+{
+  "question": {
+    "id": "dimensional-1",
+    "type": "dimensional",
+    "points": 2,
+    "text": "How many moles of sodium chloride are in 117 g of NaCl? (Molar mass 58.5 g/mol.)",
+    "given": {
+      "value": 117,
+      "unit": "g"
+    },
+    "answer": {
+      "value": 2,
+      "unit": "mol"
+    },
+    "tolerance": 1,
+    "toleranceType": "percent",
+    "chainCredit": 0.5,
+    "factors": [
+      {
+        "top": {
+          "value": 1,
+          "unit": "mol"
+        },
+        "bottom": {
+          "value": 58.5,
+          "unit": "g"
+        }
+      }
+    ],
+    "explanation": "Multiply by 1 mol / 58.5 g so the grams cancel: 117 g x (1 mol / 58.5 g) = 2 mol."
+  },
+  "correct": {
+    "factors": [
+      {
+        "top": {
+          "value": 1,
+          "unit": "mol"
+        },
+        "bottom": {
+          "value": 58.5,
+          "unit": "g"
+        }
+      }
+    ],
+    "value": "2",
+    "unit": "mol"
+  },
+  "wrong": {
+    "value": "5",
+    "unit": "mol"
+  },
+  "partial": {
+    "factors": [
+      {
+        "top": {
+          "value": 1,
+          "unit": "mol"
+        },
+        "bottom": {
+          "value": 58.5,
+          "unit": "g"
+        }
+      }
+    ],
+    "value": "5",
+    "unit": "mol"
+  }
+}

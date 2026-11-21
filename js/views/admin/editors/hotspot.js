@@ -297,3 +297,5 @@ export function hotspotEditor(q, redraw, changed) {
     switchEl({ label: 'Partial credit', hint: 'Points for each label placed inside its circle', checked: q.partialCredit !== false, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }));
   return root;
 }
+
+export default { type: 'hotspot', edit: ({ q, redraw, changed }) => hotspotEditor(q, redraw, changed) };

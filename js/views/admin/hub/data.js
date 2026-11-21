@@ -1,4 +1,4 @@
-// Class Hub (teacher) data on the store (V5-10): assignments, stream posts and per-assignment status are cached
+// Class Hub (teacher) data on the store: assignments, stream posts and per-assignment status are cached
 // resources under the `hub` name. Writes are optimistic and roll back with a Retry toast.
 import { resource } from '../../../lib/store.js';
 import { CONFIG } from '../../../config.js';
@@ -15,8 +15,7 @@ export const assignmentsRes = () => resource('hub', { key: 'assignments', fetch:
 } });
 
 /**
- * Stream posts of one class. The backend has no teacher-side stream listing yet: `listStream` is tried first, and
- * when it is unknown the posts this browser made (kept in the warm cache) are shown instead.
+ * Stream posts of one class. When `listStream` cannot be read, the posts this browser made (kept in the warm cache) are shown instead.
  */
 export const streamRes = (classId) => {
   const res = resource('hub', { key: `stream:${classId}`, fetch: async () => {
@@ -53,10 +52,5 @@ export function toLocalInput(iso) {
 }
 export const fromLocalInput = (v) => (v ? new Date(v).toISOString() : '');
 
-export function fmtWhen(iso) {
-  const d = new Date(iso);
-  return !iso || Number.isNaN(d.getTime()) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-/** Where a teacher opens a student's page (S13a). */
+/** Where a teacher opens a student's page. */
 export const studentHref = (email) => `?admin=true&section=student&email=${encodeURIComponent(email)}`;

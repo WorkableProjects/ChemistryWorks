@@ -1,4 +1,4 @@
-// `gaslaw` question type (V5-07, S12e): gas-law setup. Pure definition, no DOM.
+// `gaslaw` question type: gas-law setup. Pure definition, no DOM.
 //   The student picks the law, puts each given value into its slot of the formula, then solves for the unknown.
 //   { type: 'gaslaw', law: 'combined', unknown: 'V2', unit: 'L',
 //     knowns: { P1: { value: '1.20', unit: 'atm' }, V1: {...}, T1: {...}, P2: {...}, T2: {...} },   (every variable but `unknown`)
@@ -123,6 +123,7 @@ export const def = {
   label: 'Gas-law setup',
   shortLabel: 'Gas law',
   group: 'Chemistry',
+  manual: false,
   v5: true,
 
   normalize(q) {
@@ -172,7 +173,7 @@ export const def = {
     return str(a.law) !== '' || str(a.value).trim() !== '' || (isObj(a.setup) && Object.values(a.setup).some((v) => str(v) !== ''));
   },
 
-  score(q, a) {
+  grade(q, a) {
     if (!LAWS[q.law] || solve(q) === null) return { fraction: 0, full: false };
     const x = isObj(a) ? a : {};
     const lawOk = x.law === q.law;
@@ -184,7 +185,7 @@ export const def = {
     return { fraction: Math.min(f, 0.99), full: false };
   },
 
-  answerText(q, a) {
+  format(q, a) {
     const x = isObj(a) ? a : {};
     const value = str(x.value).trim();
     return `${lawLabel(x.law)}; ${value ? `${value} ${q.unit}`.trim() : DASH}`;

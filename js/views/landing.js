@@ -1,15 +1,8 @@
-// Landing: hero + code entry as the main action, then "Continue where you left off" and "Your tests" cards.
-// Signed out: "Sign in with Google to Begin". Signed in: test-code entry and resumable attempts.
+// Landing for signed-out visitors: hero and the sign-in card (Google, or demo sign-in). Signed-in students get the home screen.
 
-import { h, mount, icon, userBadge, toast, renderMath, formatDurationLong, themeControl, stagger, brandLogo } from '../ui.js';
+import { h, mount, icon, toast, renderMath, themeControl, brandLogo } from '../ui.js';
 import { getUser, renderGoogleButton, googleConfigured, demoAllowed, demoSignIn } from '../lib/auth.js';
-import { keys, load, remove } from '../lib/storage.js';
-import { getLocalResults } from '../lib/submit.js';
 import { SITE_VERSION } from '../version.js';
-import { feature } from '../config.js';
-import { dashboardSection } from './tools/dashboard.js';
-import { networkBanner } from './tools/banner.js';
-import { ensureToolsCss } from './tools/settings.js';
 import * as home from './home/index.js';
 
 function signInCard(ctx, params) {
@@ -48,71 +41,6 @@ function signInCard(ctx, params) {
   );
 }
 
-function inProgress(user) {
-  const prefix = `progress:${user.email}:`;
-  return keys(prefix)
-    .map((k) => ({ code: k.slice(prefix.length), ...load(k, {}) }))
-    .filter((p) => p.code)
-    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-}
-
-function pastResults(user) {
-  const email = String(user.email || '').toLowerCase();
-  return getLocalResults()
-    .filter((r) => r && r.submission_id && String(r.student_email || '').toLowerCase() === email)
-    .sort((a, b) => String(b.submitted_at || '').localeCompare(String(a.submitted_at || '')))
-    .slice(0, 20);
-}
-
-// Local result payloads carry no "released" flag (release state lives on the server and is fetched on the feedback
-// view), so a local result is shown as Submitted. If a payload ever gains `released`/`feedback_released`, show Released.
-function resultStatus(p) {
-  return (p.released || p.feedback_released || p.feedback?.released)
-    ? h('span', { class: 'pill pill--success' }, 'Released')
-    : h('span', { class: 'pill pill--warning' }, 'Submitted');
-}
-
-function codeCard(ctx, params) {
-  const user = getUser();
-  const input = h('input', {
-    class: 'input input--code', name: 'code', placeholder: 'e.g. CHEM101', value: params.code || '',
-    autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', 'aria-label': 'Test code',
-    dataset: { testid: 'code-input' },
-  });
-  const err = h('p', { class: 'field-error', role: 'alert', dataset: { testid: 'code-error' } }, params.error || '');
-  // Errors use the shared .notice style; a Retry shows only when the last attempt failed to load a test.
-  const retryBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm', dataset: { testid: 'code-retry' }, hidden: !(params.error && params.code),
-    on: { click: () => { retryBtn.disabled = true; ctx.openTest(params.code); } } }, icon('refresh', { size: 14 }), 'Retry');
-  const errBox = h('div', { class: 'notice notice--error code-notice', hidden: !params.error }, icon('alert'), err, retryBtn);
-  const showError = (msg) => { err.textContent = msg; errBox.hidden = !msg; retryBtn.hidden = true; };
-  const btn = h('button', { class: 'btn btn--primary btn--lg', type: 'submit', dataset: { testid: 'code-submit' } }, 'Start test', icon('right'));
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    if (!input.value.trim()) {
-      showError('Enter the test code from your teacher.');
-      input.classList.remove('shake');
-      void input.offsetWidth;
-      input.classList.add('shake');
-      setTimeout(() => input.classList.remove('shake'), 400);
-      return;
-    }
-    btn.disabled = true;
-    btn.classList.add('is-loading');
-    await ctx.openTest(input.value);
-  };
-
-  return h('section', { class: 'card code-card', dataset: { testid: 'code-card' } },
-    h('div', { class: 'code-card__top' },
-      h('h2', { class: 'card__title' }, `Welcome, ${user.name.split(' ')[0]}`),
-      userBadge(user, { onSignOut: () => ctx.signOut() }),
-    ),
-    h('p', { class: 'muted' }, 'Enter the test code from your teacher.'),
-    h('form', { class: 'code-form', on: { submit: onSubmit } }, input, btn),
-    errBox,
-    h('p', { class: 'site-version', dataset: { testid: 'site-version' } }, `v${SITE_VERSION}`),
-  );
-}
-
 /** Decorative bubbles drifting up behind the panel (pure CSS; hidden from assistive tech, still under reduced motion). */
 function bubbles() {
   const spec = [[6, 18, 0, 14], [14, 34, 3, 18], [23, 12, 7, 12], [31, 26, 1.5, 16], [44, 10, 9, 11], [58, 22, 4.5, 17],
@@ -141,13 +69,14 @@ function heroPattern() {
   return svg;
 }
 
+/** Signed-in students get the home screen, so they need its stylesheets; the sign-in screen needs only landing.css. */
+export function styles() {
+  return getUser() ? home.styles : [];
+}
+
 export function render(root, ctx, params = {}) {
   const user = getUser();
-  if (user && feature('studentHome')) return home.render(root, ctx, params); // V5-02: the student home replaces this screen
-  // V4-05: "My dashboard" and the waiting-submission banner (student tools flag).
-  const tools = !!user && feature('studentTools');
-  ensureToolsCss(); // the merged tests list uses the dashboard styles
-  const banner = tools ? networkBanner({ config: ctx.config }) : null;
+  if (user) return home.render(root, ctx, params); // The student home replaces this screen
   mount(root,
     h('main', { class: 'landing' },
       h('div', { class: 'landing__topbar' },
@@ -161,11 +90,7 @@ export function render(root, ctx, params = {}) {
         h('p', { class: 'landing__intro' }, 'ChemistryWorks — chemistry tests, study and games'),
       ),
       h('div', { class: 'landing__inner' },
-        h('div', { class: 'landing__panel' }, user ? codeCard(ctx, params) : signInCard(ctx, params)),
-        banner ? banner.el : null,
-        user ? h('div', { class: 'landing__lists' },
-          dashboardSection(ctx, { progress: inProgress(user), results: pastResults(user), practice: tools,
-            onRemove: (code) => remove(`progress:${user.email}:${code}`) })) : null,
+        h('div', { class: 'landing__panel' }, signInCard(ctx, params)),
       ),
       h('footer', { class: 'landing__footer' },
         h('span', {}, '© ChemistryWorks'),
@@ -174,11 +99,11 @@ export function render(root, ctx, params = {}) {
   );
   renderMath(root);
   if (params.error) toast(params.error, { type: 'error' });
-  const focusEl = root.querySelector('[data-testid="code-input"], [data-testid="demo-name"]');
+  const focusEl = root.querySelector('[data-testid="demo-name"]');
   // Autofocus only if the user hasn't already focused something (or a modal, e.g. the admin gate, is open).
   setTimeout(() => {
-    const idle = !document.activeElement || document.activeElement === document.body;
+    const active = document.activeElement;
+    const idle = !active || active === document.body || active.matches('h1, h2');
     if (idle && !document.querySelector('#modal-root .modal-overlay')) focusEl?.focus();
   }, 60);
-  return () => banner?.destroy();
 }

@@ -1,0 +1,38 @@
+{
+  "question": {
+    "type": "fillblank",
+    "text": "Water has the formula {{b1}} and contains {{b2}} hydrogen atoms per molecule.",
+    "points": 2,
+    "partialCredit": true,
+    "blanks": [
+      {
+        "id": "b1",
+        "answers": [
+          "H2O"
+        ],
+        "kind": "formula"
+      },
+      {
+        "id": "b2",
+        "answers": [
+          "2",
+          "two"
+        ],
+        "kind": "text"
+      }
+    ],
+    "id": "fillblank-1"
+  },
+  "correct": {
+    "b1": "H2O",
+    "b2": "2"
+  },
+  "wrong": {
+    "b1": "H2O2",
+    "b2": "4"
+  },
+  "partial": {
+    "b1": "H2O",
+    "b2": "4"
+  }
+}

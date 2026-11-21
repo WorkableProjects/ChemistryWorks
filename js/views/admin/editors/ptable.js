@@ -1,6 +1,6 @@
-// Builder editor for `ptable` (V3-05): click the correct element(s) on the same table students use.
+// Builder editor for `ptable`: click the correct element(s) on the same table students use.
 import { h } from '../../../ui.js';
-import { ptableWidget } from '../../widgets/ptable.js';
+import { ptableWidget } from '../../qtypes/ptable.js';
 import { switchEl } from '../common.js';
 
 export function ptableEditor(q, changed, redraw = () => {}) {
@@ -28,3 +28,5 @@ export function ptableEditor(q, changed, redraw = () => {}) {
     } }),
     switchEl({ label: 'Partial credit', hint: 'Same rule as multiple select', checked: !!q.partialCredit, testid: 'partial-credit', onChange: (v) => { q.partialCredit = v; changed(); } }));
 }
+
+export default { type: 'ptable', edit: ({ q, redraw, changed }) => ptableEditor(q, changed, redraw) };

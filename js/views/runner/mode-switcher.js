@@ -1,4 +1,4 @@
-// V5-01 mode switcher: Study · Classic · Survival · … shown in the runner bar and in every game mode's header.
+// Mode switcher: Study · Classic · Survival · … shown in the runner bar and in every game mode's header.
 // The list comes from js/lib/modes/index.js (modesForTest); until that module exists only Study is known, and
 // the switcher stays hidden when there is nothing to switch to.
 // modeSwitcher({ test, attempt, current, onPick(id) }) -> HTMLElement (empty until the registry has loaded)
