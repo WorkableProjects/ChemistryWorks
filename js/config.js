@@ -9,7 +9,7 @@ const DEFAULTS = {
   GOOGLE_CLIENT_ID: '179519385690-u3qo36gnublg8pmfve57uqtv0lm24e9r.apps.googleusercontent.com',
 
   // Google Apps Script Web App URL ending in /exec (DEPLOYMENT.md step 2).
-  GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbyyxOV9lRPPGBTUGGcNeRLgM49wJOtnsDFAa71kKRg0VobGifN8rAE8zAHEqupmgqzu/exec',
+  GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwLio3PF206ggVZAhwZcPKi9FLsxh2Doi9hHnXUuhG8fdz8e1xtBoQF8sOuVX80UYrh/exec',
 
   // Link to the Google Sheet that receives submissions (shown in the admin panel).
   SHEET_URL: 'https://docs.google.com/spreadsheets/d/1yYGaYJAW_dDIUwu73nvUbgE78HbEQAdfVqupW6eKSWQ/edit?gid=0#gid=0',
